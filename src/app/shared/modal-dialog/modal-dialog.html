@@ -1,0 +1,21 @@
+@if (open) {
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+  (click)="closeDialog()"
+>
+  <div
+    class="bg-white rounded-3xl shadow-lg min-w-[550px] mx-20 p-8 text-gray-700 relative transform transition-all duration-300 ease-out animate-bounceIn"
+    (click)="$event.stopPropagation()"
+  >
+    <!-- <button
+      class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+      (click)="closeDialog()"
+    >
+      <i class="bx bx-x text-2xl"></i>
+    </button> -->
+
+    <!-- Konten fleksibel -->
+    <ng-content></ng-content>
+  </div>
+</div>
+}

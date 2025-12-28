@@ -1,0 +1,79 @@
+@if(device.isDesktop()) {
+<div class="max-h-[380px] overflow-y-auto">
+  <div class="flex flex-col gap-3">
+    @for (student of students; track student.name) {
+    <div class="w-full grid grid-cols-7 items-center p-2 bg-[#F3F3F3] rounded-xl">
+      <!-- Avatar -->
+      <div class="col-span-1 flex justify-start">
+        <img
+          [src]="student.image"
+          alt="{{ student.name }}"
+          class="w-18 h-18 rounded-xl object-cover"
+        />
+      </div>
+
+      <!-- Info -->
+      <div class="col-span-5 flex flex-col justify-center">
+        <div class="flex items-center gap-2">
+          <p class="text-lg font-semibold text-gray-900 mb-0">
+            {{ student.name }}
+          </p>
+        </div>
+
+        <div class="flex flex-row items-center gap-2 mt-1">
+          <p class="text-gray-500 text-sm">Submission Date: {{ student.lastActivity }}</p>
+        </div>
+      </div>
+
+      <!-- Action -->
+      <div class="col-span-1 text-right">
+        <p
+          class="text-sm font-normal underline cursor-pointer hover:text-gray-600"
+          (click)="toStudentSubmission()"
+        >
+          View
+        </p>
+      </div>
+    </div>
+    }
+  </div>
+</div>
+} @if(device.isMobile() || device.isTablet()){
+<div class="max-h-[380px] overflow-y-auto">
+  <div class="flex flex-col gap-3">
+    @for (student of students; track student.name) {
+    <div class="w-full flex flex-row justify-between items-center p-2 bg-[#F3F3F3] rounded-xl">
+      <!-- Avatar -->
+      <div class="flex flex-row gap-2 items-center">
+        <img
+          [src]="student.image"
+          alt="{{ student.name }}"
+          class="w-18 h-18 rounded-xl object-cover"
+        />
+        <div class="flex flex-col">
+          <p class="text-lg font-semibold text-gray-900 mb-0">
+            {{ student.name }}
+          </p>
+          <p class="text-gray-500 text-sm">Date: {{ student.lastActivity }}</p>
+        </div>
+      </div>
+
+      <p
+        class="text-xs font-normal underline cursor-pointer hover:text-gray-600"
+        (click)="toStudentSubmission()"
+      >
+        View
+      </p>
+    </div>
+    }
+  </div>
+</div>
+}
+
+<div class="flex justify-center items-center gap-3 mt-8">
+  @if(device.isDesktop()) {
+  <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
+  } @if(device.isMobile() || device.isTablet()) {
+  <button type="button" class="btn-danger-sm w-full" (click)="closeDialog()">Close</button>
+  }
+</div>

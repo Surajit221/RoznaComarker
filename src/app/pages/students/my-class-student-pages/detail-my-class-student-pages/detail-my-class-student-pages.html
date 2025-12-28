@@ -1,0 +1,199 @@
+<ng-container>
+  @if(device.isDesktop()) {
+
+  <div class="mb-6 flex flex-row justify-between items-center">
+    <h1 class="text-4xl text-center font-bold text-gray-800">Creative Essay Practice</h1>
+    <div class="flex flex-row gap-2">
+      <button type="button" class="btn-danger" (click)="toMyClasses()">Back To My Classes</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="col-span-2">
+      <div class="flex flex-col gap-4">
+        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
+          <img
+            src="img/default-img.png"
+            class="w-full h-52 rounded-2xl object-cover"
+            alt="class image"
+          />
+
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-row justify-between gap-4 items-center">
+              <div class="flex flex-row gap-1 items-center">
+                <p class="text-lg font-semibold">Mr. Smith</p>
+              </div>
+            </div>
+
+            <p class="text-base">
+              Lorem ipsum dolor sit amet consectetur adipisicing elit. Vel fugit id architecto
+              temporibus facilis perspiciatis, aperiam beatae, repudiandae aliquid fuga placeat
+              accusamus assumenda est corporis eius inventore facere suscipit minima?
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-span-3">
+      <div class="flex flex-col gap-4">
+        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
+          <div class="flex flex-row justify-start items-center">
+            <p class="text-2xl font-bold">22 Assignments</p>
+          </div>
+          <div class="">
+            <div class="flex flex-col gap-3">
+              @for (item of assignments; track item.title) {
+              <div
+                class="w-full grid grid-cols-7 items-center py-4 px-6 rounded-xl"
+                [ngClass]="{ 'bg-[#F3F3F3]': item.status == 'waiting', 'bg-[#B0F8D5]': item.status == 'completed', 'bg-[#F5E1A3]': item.status == 'pending',  'bg-[#D7DBFF]': item.status == 'in-progress', }"
+              >
+                <div class="col-span-5">
+                  <p class="text-xl font-bold">
+                    {{ item.title }}
+                  </p>
+                  <div class="flex flex-row items-center gap-4">
+                    <p class="text-gray-500 text-sm">{{ item.dueDate }}</p>
+                    <p class="text-gray-500 text-sm">{{ item.status }}</p>
+                  </div>
+                </div>
+                <div class="col-span-2 text-right">
+                  @if(item.status == 'waiting') {
+                  <p
+                    class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
+                    (click)="showDialog = true"
+                  >
+                    Upload Essay
+                  </p>
+                  } @else {
+                  <p
+                    class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
+                    (click)="toViewSubmission()"
+                  >
+                    View Submissions
+                  </p>
+                  }
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- dialog -->
+  <app-modal-dialog [open]="showDialog">
+    <h2 class="text-3xl font-bold text-center mb-8">Upload Essay</h2>
+    <app-upload-essay-form (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
+
+    <div class="flex justify-center items-center gap-3 mt-8">
+      <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
+      @if (selectedFiles.length > 0) {
+      <button type="submit" class="btn-primary">Upload {{ selectedFiles.length }} File Now</button>
+      }
+    </div>
+  </app-modal-dialog>
+
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isMobile() || device.isTablet()) {
+  <app-app-bar-back-button
+    title="Creative Essay Practice"
+    (back)="handleGoBack()"
+  ></app-app-bar-back-button>
+
+  <div class="w-full flex flex-col gap-4 mb-10">
+    <div class="w-full bg-white p-3 rounded-2xl flex flex-col gap-4">
+      <img
+        src="img/default-img.png"
+        class="w-full h-44 rounded-xl object-cover"
+        alt="class image"
+      />
+
+      <div class="flex flex-col gap-2 p-2">
+        <div class="flex flex-row justify-between gap-4 items-center">
+          <div class="flex flex-row gap-1 items-center">
+            <i class="bx bxs-group text-lg"></i>
+            <p class="text-sm">32 Students</p>
+          </div>
+          <div class="flex flex-row gap-1 items-center">
+            <i class="bx bxs-user text-lg"></i>
+            <p class="text-sm">Mr. Smith Hafiana</p>
+          </div>
+          <!-- <div class="flex flex-row gap-1 items-center">
+              <i class="bx bxs-edit text-base"></i>
+              <p class="text-xs">22 Submissions</p>
+            </div> -->
+        </div>
+
+        <div>
+          <p class="font-bold">Description</p>
+          <p class="text-sm text-gray-600">
+            Lorem ipsum dolor sit, amet consectetur adipisicing elit. Deserunt incidunt velit at,
+            suscipit rem natus minima quisquam perferendis quidem autem, beatae eaque dolore
+            molestiae recusandae. Et corrupti accusantium error maiores!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="w-full bg-white p-3 rounded-2xl flex flex-col gap-4">
+      <div class="flex flex-row justify-start items-center">
+        <p class="text-lg font-bold">22 Assignments</p>
+      </div>
+      <div class="flex flex-col gap-3">
+        @for (item of assignments; track item.title) {
+        <div
+          class="w-full grid grid-cols-1 items-center p-3 rounded-xl"
+          [ngClass]="{ 'bg-[#F3F3F3]': item.status == 'waiting', 'bg-[#B0F8D5]': item.status == 'completed', 'bg-[#F5E1A3]': item.status == 'pending',  'bg-[#D7DBFF]': item.status == 'in-progress', }"
+        >
+          <div class="flex flex-col w-full">
+            <div class="flex flex-row justify-between items-center gap-4">
+              <p class="text-gray-500 text-xs">{{ item.dueDate }}</p>
+              <p class="text-gray-500 text-xs">{{ item.status }}</p>
+            </div>
+            <p class="text-base font-bold leading-normal">
+              {{ item.title }}
+            </p>
+          </div>
+          <div class="text-start mt-2">
+            @if(item.status == 'waiting') {
+            <p
+              class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
+              (click)="onOpenSheet()"
+            >
+              Upload Essay
+            </p>
+            } @else {
+            <p
+              class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
+              (click)="toViewSubmission()"
+            >
+              View Submissions
+            </p>
+            }
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- bottomsheet -->
+  <app-bottomsheet-dialog [open]="openSheet" (closed)="onCLoseSheet()">
+    <h2 class="text-2xl font-bold mb-3">Upload Essay</h2>
+    <app-upload-essay-form (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
+
+    <div class="flex flex-col justify-center items-center gap-3 mt-6">
+      <button type="submit" class="btn-primary-sm w-full">
+        Upload {{ selectedFiles.length }} File Now
+      </button>
+      <button type="button" class="btn-danger-sm w-full" (click)="onCLoseSheet()">Cancel</button>
+      @if (selectedFiles.length > 0) { }
+    </div>
+  </app-bottomsheet-dialog>
+  }
+</ng-container>

@@ -1,0 +1,32 @@
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceOut {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+}
+
+.animate-bounceIn {
+  animation: bounceIn 0.2s ease-out forwards;
+}
+
+.animate-bounceOut {
+  animation: bounceOut 0.25s ease-in forwards;
+}

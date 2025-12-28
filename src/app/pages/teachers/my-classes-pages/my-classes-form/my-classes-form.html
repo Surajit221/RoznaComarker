@@ -1,0 +1,207 @@
+<ng-container>
+  @if (device.isDesktop()) {
+  <form [formGroup]="classForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+    <div class="grid grid-cols-2 gap-4 w-full">
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Class Name</label>
+        <div class="w-full">
+          <input type="text" formControlName="className" class="input-text bg-white" placeholder="Enter Class Name Here"
+            [class.input-error]="isFieldInvalid('className')" />
+          @if (isFieldInvalid('className')) {
+          <div class="text-red-500 text-sm mt-1">
+            @if (classForm.get('className')?.errors?.['required']) {
+            <span>Class name is required</span>
+            } @if (classForm.get('className')?.errors?.['minlength']) {
+            <span>Class name must be at least 3 characters</span>
+            }
+          </div>
+          }
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Subject / Level</label>
+        <div class="w-full">
+          <div class="relative w-full">
+            <select formControlName="role" class="input-text appearance-none pr-10 cursor-pointer"
+              [class.input-error]="isFieldInvalid('role')">
+              <option value="" disabled>Select Subject / Level</option>
+              <option value="teacher">Easy</option>
+              <option value="student">Medium</option>
+              <option value="student">Intermediate</option>
+              <option value="student">Hard</option>
+            </select>
+            <i
+              class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"></i>
+          </div>
+          @if (isFieldInvalid('role')) {
+          <div class="text-red-500 text-sm mt-1">Please select Subject / Level</div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 w-full">
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Start Date</label>
+        <div class="w-full">
+          <div class="relative w-full">
+            <input type="date" formControlName="startDate" class="input-text date-input pr-10 cursor-pointer"
+              [class.input-error]="isFieldInvalid('startDate')" #startDateInput />
+            <i class="bx bx-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer text-2xl"
+              (click)="startDateInput.showPicker()"></i>
+          </div>
+          @if (isFieldInvalid('startDate')) {
+          <div class="text-red-500 text-sm mt-1">Start date is required</div>
+          }
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">End Date</label>
+        <div class="w-full">
+          <div class="relative w-full">
+            <input type="date" formControlName="endDate" class="input-text date-input pr-10 cursor-pointer"
+              [class.input-error]="isFieldInvalid('endDate')" #endDateInput />
+            <i class="bx bx-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer text-2xl"
+              (click)="endDateInput.showPicker()"></i>
+          </div>
+          @if (isFieldInvalid('endDate')) {
+          <div class="text-red-500 text-sm mt-1">End date is required</div>
+          } @if (classForm.errors?.['dateRange']) {
+          <div class="text-red-500 text-sm mt-1">End date must be after start date</div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 w-full">
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Description</label>
+        <div class="w-full">
+          <textarea formControlName="message" class="input-text h-32 resize-none" placeholder="Type your message..."
+            [class.input-error]="isFieldInvalid('message')"></textarea>
+          @if (isFieldInvalid('message')) {
+          <div class="text-red-500 text-sm mt-1">
+            @if (classForm.get('message')?.errors?.['required']) {
+            <span>Message is required</span>
+            } @if (classForm.get('message')?.errors?.['minlength']) {
+            <span>Message must be at least 10 characters</span>
+            }
+          </div>
+          }
+          <div class="text-sm text-gray-500 mt-1">
+            {{ classForm.get('message')?.value?.length || 0 }}/500 characters
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-center items-center gap-3">
+      <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
+      <button type="submit" class="btn-primary" [disabled]="classForm.invalid">Submit</button>
+    </div>
+  </form>
+  }
+</ng-container>
+
+<ng-container>
+  @if (device.isTablet() || device.isMobile()) {
+  <form [formGroup]="classForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4 max-h-[450px] overflow-y-auto">
+    <div class="flex flex-col gap-1">
+      <label for="role" class="text-sm font-bold pl-2">Class Name</label>
+      <div class="w-full">
+        <input type="text" formControlName="className" class="input-text bg-white" placeholder="Enter Class Name Here"
+          [class.input-error]="isFieldInvalid('className')" />
+        @if (isFieldInvalid('className')) {
+        <div class="text-red-500 text-sm mt-1">
+          @if (classForm.get('className')?.errors?.['required']) {
+          <span>Class name is required</span>
+          } @if (classForm.get('className')?.errors?.['minlength']) {
+          <span>Class name must be at least 3 characters</span>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="role" class="text-sm font-bold pl-2">Subject / Level</label>
+      <div class="w-full">
+        <div class="relative w-full">
+          <select formControlName="role" class="input-text appearance-none pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('role')">
+            <option value="" disabled>Select Subject / Level</option>
+            <option value="teacher">Easy</option>
+            <option value="student">Medium</option>
+            <option value="student">Intermediate</option>
+            <option value="student">Hard</option>
+          </select>
+          <i
+            class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"></i>
+        </div>
+        @if (isFieldInvalid('role')) {
+        <div class="text-red-500 text-sm mt-1">Please select Subject / Level</div>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="role" class="text-sm font-bold pl-2">Start Date</label>
+      <div class="w-full">
+        <div class="relative w-full">
+          <input type="date" formControlName="startDate" class="input-text date-input pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('startDate')" #startDateInput />
+          <i class="bx bx-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer text-2xl"
+            (click)="startDateInput.showPicker()"></i>
+        </div>
+        @if (isFieldInvalid('startDate')) {
+        <div class="text-red-500 text-sm mt-1">Start date is required</div>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="role" class="text-sm font-bold pl-2">End Date</label>
+      <div class="w-full">
+        <div class="relative w-full">
+          <input type="date" formControlName="endDate" class="input-text date-input pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('endDate')" #endDateInput />
+          <i class="bx bx-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer text-2xl"
+            (click)="endDateInput.showPicker()"></i>
+        </div>
+        @if (isFieldInvalid('endDate')) {
+        <div class="text-red-500 text-sm mt-1">End date is required</div>
+        } @if (classForm.errors?.['dateRange']) {
+        <div class="text-red-500 text-sm mt-1">End date must be after start date</div>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="role" class="text-sm font-bold pl-2">Description</label>
+      <div class="w-full">
+        <textarea formControlName="message" class="input-text h-32 resize-none" placeholder="Type your message..."
+          [class.input-error]="isFieldInvalid('message')"></textarea>
+        @if (isFieldInvalid('message')) {
+        <div class="text-red-500 text-sm mt-1">
+          @if (classForm.get('message')?.errors?.['required']) {
+          <span>Message is required</span>
+          } @if (classForm.get('message')?.errors?.['minlength']) {
+          <span>Message must be at least 10 characters</span>
+          }
+        </div>
+        }
+        <div class="text-sm text-gray-500 mt-1">
+          {{ classForm.get('message')?.value?.length || 0 }}/500 characters
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 justify-center items-center gap-3 mb-3">
+      <button type="submit" class="btn-primary-sm" [disabled]="classForm.invalid">Submit</button>
+      <button type="button" class="btn-danger-sm" (click)="closeDialog()">Cancel</button>
+    </div>
+  </form>
+  }
+</ng-container>

@@ -1,0 +1,55 @@
+<ng-container>
+  @if(device.isDesktop()) {
+  <div class="mb-6 flex flex-row justify-between items-center">
+    <h1 class="text-4xl text-center font-bold text-gray-800">My Classes</h1>
+    <div class="flex flex-row gap-2">
+      <div class="relative">
+        <input type="text" class="input-text bg-white w-[370px]" placeholder="Search Your Class" required />
+      </div>
+      <button type="button" class="btn-warning">Refresh</button>
+      <button type="submit" class="btn-primary" (click)="onAddClasses()">Create New Class</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-4 gap-3">
+    @for (item of classes; track item.title) {
+    <app-my-classes-card [image]="item.image" [title]="item.title" [students]="item.students"
+      [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" />
+    }
+  </div>
+
+  <app-modal-dialog [open]="showDialog">
+    <h2 class="text-3xl font-bold text-center mb-8">Create New Class</h2>
+    <app-my-classes-form (closed)="closeDialog()"></app-my-classes-form>
+  </app-modal-dialog>
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isTablet() || device.isMobile()){
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-2">
+      <div class="w-full flex flex-row justify-between items-center">
+        <p class="text-2xl font-bold">My Classes</p>
+      </div>
+      <div class="relative">
+        <input type="text" class="input-text bg-white w-full" placeholder="Search Your Class" required />
+      </div>
+    </div>
+    <div class="w-full flex flex-col gap-2">
+      @for (item of classes; track item.title) {
+      <app-my-classes-card [image]="item.image" [title]="item.title" [students]="item.students"
+        [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" />
+      }
+    </div>
+  </div>
+  <button class="fixed bottom-20 right-6 btn-primary-sm" (click)="onOpenCreateClass()">
+    Create A New Class
+  </button>
+
+  <app-bottomsheet-dialog [open]="openSheet" (closed)="onCloseCreateClass()">
+    <h2 class="text-2xl font-bold mb-3">Create A New Class</h2>
+    <app-my-classes-form (closed)="onCloseCreateClass()"></app-my-classes-form>
+  </app-bottomsheet-dialog>
+  }
+</ng-container>

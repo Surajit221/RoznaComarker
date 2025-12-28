@@ -1,0 +1,29 @@
+<div class="flex flex-row gap-2 items-center">
+  <div class="">
+    <div class="relative mx-auto my-2" [style.width.px]="40" [style.height.px]="40">
+      <svg class="w-full h-full" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#526A96" stroke-width="18" />
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          [attr.stroke]="strokeColor"
+          stroke-width="20"
+          [attr.stroke-dasharray]="circumference"
+          [attr.stroke-dashoffset]="strokeDashoffset"
+          stroke-linecap="round"
+          transform="rotate(-90 50 50)"
+          class="transition-all duration-1000 ease-out"
+        />
+        <circle cx="50" cy="50" r="28" fill="transparent" />
+      </svg>
+    </div>
+  </div>
+  <div class="flex-col items-center justify-center">
+    <span class="text-base font-bold mt-1">
+      <span class="text-[#FFC300]">{{ used }}GB</span>/{{ total }}GB used</span
+    >
+  </div>
+  <button class="btn-info-sm">Upgrade Storage</button>
+</div>

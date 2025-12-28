@@ -1,0 +1,246 @@
+<ng-container>
+  @if(device.isDesktop()) {
+  <div class="min-h-screen bg-[#F3F3F3] flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+      <div
+        class="bg-white rounded-[30px] border-4 border-[#E2E2E2] shadow-[0px_10px_0_#E2E2E2] p-8"
+      >
+        <div class="text-center mb-8">
+          <div class="flex justify-center items-center gap-2">
+            <img src="img/logo.png" class="w-10" alt="Logo" />
+            <p class="text-3xl font-bold text-[#3F3A3A]">RoznaHub</p>
+          </div>
+          <p class="text-[#595959] mt-4">AI Essay Checker for Handwritten Work</p>
+        </div>
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3">
+          <!-- Role -->
+          <div class="flex flex-col gap-1">
+            <label for="role" class="text-sm font-bold pl-2">Select Your Role</label>
+            <div class="relative">
+              <select
+                id="role"
+                formControlName="role"
+                class="input-text appearance-none pr-10 cursor-pointer"
+                required
+              >
+                <option value="" disabled selected>Select Your Role</option>
+                <option value="teacher">Teacher</option>
+                <option value="student">Student</option>
+              </select>
+              <i
+                class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"
+              ></i>
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="flex flex-col gap-1">
+            <label for="role" class="text-sm font-bold pl-2">Email</label>
+            <div class="relative">
+              <input
+                type="email"
+                id="email"
+                formControlName="email"
+                class="input-text"
+                placeholder="Username"
+                required
+                aria-label="Email"
+              />
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="flex flex-col gap-1">
+            <label for="role" class="text-sm font-bold pl-2">Password</label>
+            <div class="relative">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                id="password"
+                formControlName="password"
+                class="input-text"
+                placeholder="Password"
+                required
+                aria-label="Password"
+              />
+              <button
+                type="button"
+                (click)="togglePassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Remember & Forgot -->
+          <div class="flex items-center justify-between">
+            <label class="flex items-center cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="remember"
+                formControlName="remember"
+                class="h-4 w-4 text-[#008081] focus:ring-[#008081] border-gray-300 rounded"
+              />
+              <span class="ml-2 block text-base text-gray-700">Remember Me</span>
+            </label>
+
+            <a href="#" class="text-base text-[#EE4E4E] underline hover:text-[#e73a3a] font-medium">
+              Forgot Password?
+            </a>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
+            <button type="button" class="btn-warning w-1/2">Sign Up</button>
+            <button type="submit" class="btn-primary w-1/2">Log In</button>
+          </div>
+
+          <!-- Divider -->
+          <div class="relative flex items-center my-6">
+            <div class="grow border-t border-gray-300"></div>
+            <span class="shrink-0 mx-4 text-gray-500 text-base">Or continue with</span>
+            <div class="grow border-t border-gray-300"></div>
+          </div>
+
+          <!-- Social buttons -->
+          <div class="flex flex-row justify-center gap-3">
+            <div
+              class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
+            >
+              <img src="icons/ic_google.svg" alt="Google" />
+            </div>
+            <div
+              class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
+            >
+              <img src="icons/ic_apple.svg" alt="Apple" />
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isMobile() || device.isTablet()) {
+  <div class="min-h-screen bg-white flex flex-col items-center justify-center">
+    <div class="text-center mb-8">
+      <div class="flex justify-center items-center gap-2">
+        <img src="img/logo.png" class="w-10" alt="Logo" />
+        <p class="text-3xl font-bold text-[#3F3A3A]">RoznaHub</p>
+      </div>
+      <p class="text-[#595959] mt-4">AI Essay Checker for Handwritten Work</p>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3 w-full px-6">
+      <!-- Role -->
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Select Your Role</label>
+        <div class="relative">
+          <select
+            id="role"
+            formControlName="role"
+            class="input-text appearance-none pr-10 cursor-pointer"
+            required
+          >
+            <option value="" disabled selected>Select Your Role</option>
+            <option value="teacher">Teacher</option>
+            <option value="student">Student</option>
+          </select>
+          <i
+            class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"
+          ></i>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Email</label>
+        <div class="relative">
+          <input
+            type="email"
+            id="email"
+            formControlName="email"
+            class="input-text"
+            placeholder="Username"
+            required
+            aria-label="Email"
+          />
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Password</label>
+        <div class="relative">
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            id="password"
+            formControlName="password"
+            class="input-text"
+            placeholder="Password"
+            required
+            aria-label="Password"
+          />
+          <button
+            type="button"
+            (click)="togglePassword()"
+            class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+            aria-label="Toggle password visibility"
+          >
+            <i class="bx text text-2xl" [ngClass]="showPassword ? 'bx-show' : 'bx-hide'"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Remember & Forgot -->
+      <div class="flex items-center justify-between">
+        <label class="flex items-center cursor-pointer select-none">
+          <input
+            type="checkbox"
+            id="remember"
+            formControlName="remember"
+            class="h-4 w-4 text-[#008081] focus:ring-[#008081] border-gray-300 rounded"
+          />
+          <span class="ml-2 block text-base text-gray-700">Remember Me</span>
+        </label>
+
+        <a href="#" class="text-base text-[#EE4E4E] underline hover:text-[#e73a3a] font-medium">
+          Forgot Password?
+        </a>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
+        <button type="button" class="btn-warning w-1/2">Sign Up</button>
+        <button type="submit" class="btn-primary w-1/2">Log In</button>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative flex items-center my-6">
+        <div class="grow border-t border-gray-300"></div>
+        <span class="shrink-0 mx-4 text-gray-500 text-base">Or continue with</span>
+        <div class="grow border-t border-gray-300"></div>
+      </div>
+
+      <!-- Social buttons -->
+      <div class="flex flex-row justify-center gap-3">
+        <div
+          class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
+        >
+          <img src="icons/ic_google.svg" alt="Google" />
+        </div>
+        <div
+          class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
+        >
+          <img src="icons/ic_apple.svg" alt="Apple" />
+        </div>
+      </div>
+    </form>
+    <!-- <div class="w-full max-w-sm"></div> -->
+  </div>
+  }
+</ng-container>

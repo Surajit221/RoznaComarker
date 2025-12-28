@@ -1,0 +1,172 @@
+<ng-container>
+  @if(device.isDesktop()) {
+  <div class="mb-6 flex flex-row justify-between items-center">
+    <h1 class="text-4xl text-center font-bold text-gray-800">Sarah Connors</h1>
+    <div class="flex flex-row gap-2">
+      <button type="button" class="btn-danger" (click)="toDetailMyClasses()">
+        Back To Detail Classes
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="col-span-2">
+      <div class="flex flex-col gap-4">
+        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
+          <img
+            src="img/default-img.png"
+            class="w-32 h-32 rounded-full object-cover mx-auto"
+            alt="class image"
+          />
+
+          <h3 class="text-2xl font-bold text-center">Sarah Connor</h3>
+          <div class="flex flex-col gap-3">
+            <p>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-span-3">
+      <div class="flex flex-col gap-4">
+        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
+          <div class="flex flex-row justify-between items-center">
+            <p class="text-2xl font-bold">Assignment Submissions</p>
+          </div>
+          <div class="max-h-[480px] overflow-y-auto">
+            <div class="flex flex-col gap-3">
+              @for (item of assignments; track item.title) {
+              <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+                <div class="col-span-5">
+                  <p class="text-lg font-semibold text-gray-800 mb-0">
+                    {{ item.title }}
+                  </p>
+                  <div class="flex flex-row items-center gap-4 mt-1">
+                    <p class="text-gray-600">Due: {{ item.dueDate }}</p>
+                    <div class="flex flex-row items-center gap-2">
+                      <i
+                        class="bx bx-history"
+                        [ngClass]="{
+                          'text-red-500': item.status === 'pending',
+                          'text-yellow-500': item.status === 'in-progress',
+                          'text-green-500': item.status === 'completed'
+                        }"
+                      ></i>
+                      <p
+                        [ngClass]="{
+                          'text-red-500': item.status === 'pending',
+                          'text-yellow-500': item.status === 'in-progress',
+                          'text-green-500': item.status === 'completed'
+                        }"
+                        class="font-medium"
+                      >
+                        {{ item.status }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-span-2 text-right">
+                  <p
+                    class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
+                    (click)="toStudentEssay()"
+                  >
+                    View Submissions
+                  </p>
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- <app-modal-dialog [open]="showDialog" (closed)="closeDialog()">
+          <h2 class="text-3xl font-bold text-center mb-8">Create New Class</h2>
+          <app-my-classes-form></app-my-classes-form>
+        </app-modal-dialog> -->
+
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isTablet() || device.isMobile()) {
+  <app-app-bar-back-button
+    title="Creative Essay Practice"
+    (back)="toDetailMyClasses()"
+  ></app-app-bar-back-button>
+  <div class="flex flex-col gap-6">
+    <div class="w-full flex flex-col gap-2">
+      <div class="w-36 h-36 mx-auto bg-[#008081] border-4 border-[#008081] rounded-full">
+        <img
+          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+          alt=""
+          class="rounded-full"
+        />
+      </div>
+      <div class="w-full flex flex-col">
+        <h1 class="text-center text-2xl font-bold mb-0">Smith Hafiana</h1>
+        <p class="text-center text-sm text-gray-600">ID: 01212321</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4">
+        <p class="text-sm">
+          Lorem ipsum dolor sit amet consectetur adipisicing elit. Earum deserunt obcaecati
+          explicabo distinctio expedita sint fugit aliquid voluptatibus atque ut quis velit,
+          suscipit consequatur ipsam nobis omnis tenetur? Esse, optio!
+        </p>
+      </div>
+      <p class="text-xl mt-5 font-bold">Assignment Submissions</p>
+      <div class="flex flex-col gap-2 bg-white py-4 px-3 rounded-2xl mb-5">
+        @for (item of assignments; track item.title) {
+        <div class="w-full flex flex-col py-4 px-4 bg-[#F3F3F3] rounded-xl gap-1">
+          <div class="w-full flex flex-row justify-between items-center">
+            <p class="text-gray-600 text-xs">Due: {{ item.dueDate }}</p>
+            <div class="flex flex-row items-center gap-1">
+              <i
+                class="bx bx-history"
+                [ngClass]="{
+                  'text-red-500': item.status === 'pending',
+                  'text-yellow-500': item.status === 'in-progress',
+                  'text-green-500': item.status === 'completed'
+                }"
+              ></i>
+              <p
+                [ngClass]="{
+                  'text-red-500': item.status === 'pending',
+                  'text-yellow-500': item.status === 'in-progress',
+                  'text-green-500': item.status === 'completed'
+                }"
+                class="font-medium text-xs"
+              >
+                {{ item.status }}
+              </p>
+            </div>
+          </div>
+          <div class="w-full grid grid-cols-7 items-center">
+            <div class="col-span-7">
+              <p class="text-base leading-5 font-bold text-gray-800 mb-0">
+                {{ item.title }}
+              </p>
+            </div>
+          </div>
+          <div class="col-span-7 text-start">
+            <p
+              class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
+              (click)="toStudentEssay()"
+            >
+              View Submission
+            </p>
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  }
+</ng-container>

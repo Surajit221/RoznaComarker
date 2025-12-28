@@ -1,0 +1,18 @@
+/* Hapus icon bawaan date input di berbagai browser */
+.date-input::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
+.date-input::-webkit-inner-spin-button,
+.date-input::-webkit-clear-button {
+  display: none;
+}
+
+.date-input::-moz-focus-inner {
+  border: 0;
+}
+
+textarea.input-text {
+  @apply resize-none;
+}

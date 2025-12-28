@@ -1,0 +1,160 @@
+<!-- desktop -->
+<ng-container>
+  @if(device.isDesktop()){
+  <div class="flex h-screen">
+    <aside class="hidden md:flex w-60 flex-col">
+      <div class="flex items-center justify-center h-16 px-4 mt-10">
+        <div class="flex items-center gap-2">
+          <img src="./img/logo.png" class="w-10" alt="" />
+          <p class="text-3xl font-bold text-primary-text-color">RoznaHub</p>
+        </div>
+      </div>
+      <nav class="flex-1 mt-4 px-4 py-4 space-y-2 overflow-y-auto">
+        @for (menu of mainMenu; track menu.path) {
+        <a [routerLink]="menu.path" routerLinkActive="active-menu" class="nav-link">
+          <i class="{{ menu.icon }} text-xl"></i>
+          <span>{{ menu.name }}</span>
+        </a>
+        }
+      </nav>
+    </aside>
+
+    <div class="flex flex-col flex-1 overflow-hidden">
+      <header class="flex items-center justify-end px-6 py-2">
+        <div class="flex flex-row gap-10">
+          <app-chart-storage [used]="5" [total]="9" [strokeColor]="'#FFC300'" [size]="150">
+          </app-chart-storage>
+
+          <div class="flex items-center gap-4">
+            <div id="notif-menu" class="relative">
+              <button
+                class="w-12 h-12 bg-white border-2 border-gray-200 text-[#008081] rounded-full flex items-center justify-center hover:bg-gray-100"
+                (click)="toggleNotificationsDropdown()"
+              >
+                <i class="bx bx-bell text-3xl"></i>
+              </button>
+              <span
+                class="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full"
+                >3</span
+              >
+
+              <div
+                class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-20 transition-all duration-200"
+                [class.hidden]="!isNotificationsDropdownOpen"
+              >
+                <div class="px-4 py-2 border-b border-gray-100">
+                  <h3 class="text-lg font-semibold text-gray-800">Notifications</h3>
+                </div>
+                <div class="max-h-60 overflow-y-auto">
+                  @for (notif of notifications; track notif.title) {
+                  <div
+                    class="px-4 py-3 hover: bg-[#F3F3F3] border-b border-gray-100 cursor-pointer flex items-start"
+                  >
+                    <div class="{{ notif.iconBg }} p-2 rounded-full mr-3">
+                      <i class="{{ notif.icon }} {{ notif.iconColor }}"></i>
+                    </div>
+                    <div class="flex-1">
+                      <p class="text-sm font-medium text-gray-800">{{ notif.title }}</p>
+                      <p class="text-xs text-gray-500">{{ notif.description }}</p>
+                      <p class="text-xs text-gray-400 mt-1">{{ notif.time }}</p>
+                    </div>
+                  </div>
+                  }
+                </div>
+                <div
+                  class="px-4 py-2 border-t border-gray-100 text-center text-sm text-blue-600 font-medium cursor-pointer"
+                >
+                  View All Notifications
+                </div>
+              </div>
+            </div>
+
+            <div id="user-menu" class="relative">
+              <div class="flex items-center cursor-pointer" (click)="toggleUserDropdown()">
+                <img
+                  class="h-12 w-12 rounded-full"
+                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                  alt="User profile"
+                />
+                <div class="hidden md:flex flex-col ml-2">
+                  <span class="font-semibold text-gray-700">Irfan Hafiana</span>
+                  <span class="text-sm text-gray-500">{{
+                    role === 'student' ? 'Student' : 'Teacher'
+                  }}</span>
+                </div>
+              </div>
+
+              @if (isUserDropdownOpen()) {
+              <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10">
+                <div
+                  class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                >
+                  <i class="bx bx-user mr-2"></i>Profile
+                </div>
+                <div
+                  class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                >
+                  <i class="bx bx-cog mr-2"></i>Settings
+                </div>
+                <div
+                  class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                  (click)="toLogin()"
+                >
+                  <i class="bx bx-log-out mr-2"></i>Sign out
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-6">
+        <router-outlet></router-outlet>
+      </main>
+    </div>
+  </div>
+  }
+</ng-container>
+
+<!-- mobile -->
+<ng-container>
+  @if(device.isTablet() || device.isMobile()){
+  <div class="min-h-screen bg-[#F3F3F3] flex flex-col">
+    @if (showBottomNav()) {
+    <div
+      class="w-full py-4 flex flex-row justify-between items-center px-4 fixed bg-[#F3F3F3] top-0 left-0 right-0 z-40"
+    >
+      <div class="flex items-center gap-2">
+        <img src="./img/logo.png" class="w-8" alt="" />
+        <h1 class="font-bold text-xl text-gray-800">RoznaHub</h1>
+      </div>
+    </div>
+    }
+
+    <main class="flex-1 overflow-auto">
+      <div class="mt-20 px-4" [ngClass]="{ 'pb-20': showBottomNav() }">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+
+    @if (showBottomNav()) {
+    <nav class="fixed bottom-0 left-0 right-0 bg-[#F3F3F3] z-40">
+      <div class="grid grid-cols-4 justify-center items-center py-3">
+        @for (menu of mainMenuMobile; track menu.path) {
+        <a
+          [routerLink]="menu.path"
+          routerLinkActive="text-teal-600 font-bold"
+          [routerLinkActiveOptions]="{ exact: false }"
+          class="flex flex-col items-center text-gray-400"
+        >
+          <i class="{{ menu.icon }} text-lg"></i>
+          <span class="text-xs mt-1">{{ menu.name }}</span>
+        </a>
+        }
+      </div>
+    </nav>
+    }
+  </div>
+  }
+</ng-container>

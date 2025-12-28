@@ -1,0 +1,508 @@
+<div class="mb-6 flex flex-row justify-start items-center">
+  <h1 class="text-4xl text-center font-bold text-gray-800">Reports</h1>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+  <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-blue-500">
+    <div class="flex justify-between items-start">
+      <div>
+        <p class="text-sm font-medium text-gray-600">Total Essays</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">127</p>
+      </div>
+      <div class="p-3 rounded-lg bg-blue-100 text-blue-600">
+        <!-- <i class="fas fa-file-alt text-xl"></i> -->
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">
+      <span class="text-green-500 font-medium">+12%</span> from last month
+    </p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
+    <div class="flex justify-between items-start">
+      <div>
+        <p class="text-sm font-medium text-gray-600">Completed</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">89</p>
+      </div>
+      <div class="p-3 rounded-lg bg-green-100 text-green-600">
+        <!-- <i class="fas fa-check-circle text-xl"></i> -->
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">70% of total essays</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-yellow-500">
+    <div class="flex justify-between items-start">
+      <div>
+        <p class="text-sm font-medium text-gray-600">Need Revision</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">24</p>
+      </div>
+      <div class="p-3 rounded-lg bg-yellow-100 text-yellow-600">
+        <!-- <i class="fas fa-edit text-xl"></i> -->
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">19% of total essays</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
+    <div class="flex justify-between items-start">
+      <div>
+        <p class="text-sm font-medium text-gray-600">Needs Improvement</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">14</p>
+      </div>
+      <div class="p-3 rounded-lg bg-red-100 text-red-600">
+        <!-- <i class="fas fa-exclamation-triangle text-xl"></i> -->
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">11% of total essays</p>
+  </div>
+</div>
+
+<!-- Controls -->
+<div
+  class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0"
+>
+  <div class="flex flex-wrap gap-2">
+    <button class="btn-primary">Filter</button>
+    <button class="btn-info">Export</button>
+  </div>
+  <div class="relative w-72">
+    <input
+      type="text"
+      id="search"
+      class="input-text bg-white"
+      placeholder="Search"
+      required
+      aria-label="search"
+    />
+  </div>
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-xl overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th
+            scope="col"
+            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Essay Details
+          </th>
+          <th
+            scope="col"
+            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Author
+          </th>
+          <th
+            scope="col"
+            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Date
+          </th>
+          <th
+            scope="col"
+            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Score
+          </th>
+          <th
+            scope="col"
+            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Status
+          </th>
+          <th
+            scope="col"
+            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        <!-- Row 1 -->
+        <tr class="hover:bg-blue-50 transition-all duration-150">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div
+                class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-file-alt text-blue-600"></i>
+              </div>
+              <div class="ml-4">
+                <div class="text-sm font-semibold text-gray-900">The Impact of Climate Change</div>
+                <div class="text-sm text-gray-500">745 words • Academic</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">Jennifer Wilson</div>
+            <div class="text-sm text-gray-500">Grade 12</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Mar 15, 2023</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="h-2 w-24 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-green-500 rounded-full" style="width: 92%"></div>
+              </div>
+              <span class="ml-2 text-sm font-semibold text-gray-700">92%</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">Excellent</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span
+              class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
+            >
+              <i class="fas fa-check-circle mr-1"></i> Completed
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div class="flex space-x-2">
+              <button class="text-blue-600 hover:text-blue-900 p-1 rounded" title="View Details">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="text-green-600 hover:text-green-900 p-1 rounded" title="Download">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="text-purple-600 hover:text-purple-900 p-1 rounded" title="Share">
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="text-red-600 hover:text-red-900 p-1 rounded" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Row 2 -->
+        <tr class="hover:bg-blue-50 transition-all duration-150">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div
+                class="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-file-alt text-purple-600"></i>
+              </div>
+              <div class="ml-4">
+                <div class="text-sm font-semibold text-gray-900">
+                  Artificial Intelligence Ethics
+                </div>
+                <div class="text-sm text-gray-500">623 words • Argumentative</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">Michael Chen</div>
+            <div class="text-sm text-gray-500">University</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Mar 14, 2023</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="h-2 w-24 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-yellow-500 rounded-full" style="width: 78%"></div>
+              </div>
+              <span class="ml-2 text-sm font-semibold text-gray-700">78%</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">Good</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span
+              class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"
+            >
+              <i class="fas fa-edit mr-1"></i> Needs Revision
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div class="flex space-x-2">
+              <button class="text-blue-600 hover:text-blue-900 p-1 rounded" title="View Details">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="text-green-600 hover:text-green-900 p-1 rounded" title="Download">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="text-purple-600 hover:text-purple-900 p-1 rounded" title="Share">
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="text-red-600 hover:text-red-900 p-1 rounded" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Row 3 -->
+        <tr class="hover:bg-blue-50 transition-all duration-150">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div
+                class="flex-shrink-0 h-10 w-10 bg-red-100 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-file-alt text-red-600"></i>
+              </div>
+              <div class="ml-4">
+                <div class="text-sm font-semibold text-gray-900">Social Media Influence</div>
+                <div class="text-sm text-gray-500">512 words • Reflective</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">Sarah Johnson</div>
+            <div class="text-sm text-gray-500">Grade 11</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Mar 12, 2023</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="h-2 w-24 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-red-500 rounded-full" style="width: 65%"></div>
+              </div>
+              <span class="ml-2 text-sm font-semibold text-gray-700">65%</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">Needs Work</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span
+              class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"
+            >
+              <i class="fas fa-exclamation-triangle mr-1"></i> Needs Improvement
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div class="flex space-x-2">
+              <button class="text-blue-600 hover:text-blue-900 p-1 rounded" title="View Details">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="text-green-600 hover:text-green-900 p-1 rounded" title="Download">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="text-purple-600 hover:text-purple-900 p-1 rounded" title="Share">
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="text-red-600 hover:text-red-900 p-1 rounded" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Row 4 -->
+        <tr class="hover:bg-blue-50 transition-all duration-150">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div
+                class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-file-alt text-green-600"></i>
+              </div>
+              <div class="ml-4">
+                <div class="text-sm font-semibold text-gray-900">Renewable Energy Solutions</div>
+                <div class="text-sm text-gray-500">834 words • Research</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">David Miller</div>
+            <div class="text-sm text-gray-500">College</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Mar 10, 2023</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="h-2 w-24 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-green-500 rounded-full" style="width: 88%"></div>
+              </div>
+              <span class="ml-2 text-sm font-semibold text-gray-700">88%</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">Very Good</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span
+              class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
+            >
+              <i class="fas fa-check-circle mr-1"></i> Completed
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div class="flex space-x-2">
+              <button class="text-blue-600 hover:text-blue-900 p-1 rounded" title="View Details">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="text-green-600 hover:text-green-900 p-1 rounded" title="Download">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="text-purple-600 hover:text-purple-900 p-1 rounded" title="Share">
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="text-red-600 hover:text-red-900 p-1 rounded" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Row 5 -->
+        <tr class="hover:bg-blue-50 transition-all duration-150">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div
+                class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-file-alt text-indigo-600"></i>
+              </div>
+              <div class="ml-4">
+                <div class="text-sm font-semibold text-gray-900">
+                  The Future of Space Exploration
+                </div>
+                <div class="text-sm text-gray-500">698 words • Analytical</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">Emily Rodriguez</div>
+            <div class="text-sm text-gray-500">Grade 10</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Mar 8, 2023</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="h-2 w-24 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-yellow-500 rounded-full" style="width: 72%"></div>
+              </div>
+              <span class="ml-2 text-sm font-semibold text-gray-700">72%</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">Satisfactory</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span
+              class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800"
+            >
+              <i class="fas fa-edit mr-1"></i> Needs Revision
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <div class="flex space-x-2">
+              <button class="text-blue-600 hover:text-blue-900 p-1 rounded" title="View Details">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="text-green-600 hover:text-green-900 p-1 rounded" title="Download">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="text-purple-600 hover:text-purple-900 p-1 rounded" title="Share">
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="text-red-600 hover:text-red-900 p-1 rounded" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div
+    class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6"
+  >
+    <div class="flex-1 flex justify-between sm:hidden">
+      <a
+        href="#"
+        class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+      >
+        Previous
+      </a>
+      <a
+        href="#"
+        class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+      >
+        Next
+      </a>
+    </div>
+    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+      <div>
+        <p class="text-sm text-gray-700">
+          Showing
+          <span class="font-medium">1</span>
+          to
+          <span class="font-medium">5</span>
+          of
+          <span class="font-medium">127</span>
+          results
+        </p>
+      </div>
+      <div>
+        <nav
+          class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+          aria-label="Pagination"
+        >
+          <a
+            href="#"
+            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+          >
+            <span class="sr-only">Previous</span>
+            <i class="fas fa-chevron-left"></i>
+          </a>
+          <a
+            href="#"
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-50 text-blue-600 text-sm font-medium"
+            >1</a
+          >
+          <a
+            href="#"
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >2</a
+          >
+          <a
+            href="#"
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >3</a
+          >
+          <a
+            href="#"
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >4</a
+          >
+          <a
+            href="#"
+            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >5</a
+          >
+          <a
+            href="#"
+            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+          >
+            <span class="sr-only">Next</span>
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Additional Info -->
+<div class="mt-8 bg-white rounded-xl p-6">
+  <h2 class="text-lg font-semibold text-gray-800 mb-4">Essay Analysis Overview</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <h3 class="text-md font-medium text-gray-700 mb-2">Common Issues Detected</h3>
+      <ul class="list-disc pl-5 text-sm text-gray-600 space-y-1">
+        <li>Grammar and punctuation errors (42%)</li>
+        <li>Weak thesis statements (28%)</li>
+        <li>Insufficient supporting evidence (25%)</li>
+        <li>Poor paragraph structure (19%)</li>
+        <li>Vocabulary repetition (15%)</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="text-md font-medium text-gray-700 mb-2">Performance Trends</h3>
+      <ul class="list-disc pl-5 text-sm text-gray-600 space-y-1">
+        <li>Average score improved by 8% this month</li>
+        <li>Revision rate decreased by 12%</li>
+        <li>Most common essay type: Argumentative (34%)</li>
+        <li>Longest essay: 1,245 words</li>
+        <li>Shortest essay: 312 words</li>
+      </ul>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Poppins', 'sans-serif';
+}
+
+@layer components {
+  .input-text {
+    @apply w-full pl-6 pr-4 py-3 border-2 border-[#E7E7E7] rounded-xl placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081];
+  }
+
+  .btn-primary {
+    @apply bg-[#008081] text-base font-semibold text-white py-3 px-6 rounded-xl border-2 border-[#136C6D] shadow-[0px_4px_0_#136C6D] hover:bg-[#079696]  cursor-pointer;
+  }
+
+  .btn-warning {
+    @apply bg-[#FFC300] text-base font-semibold text-white py-3 px-6 rounded-xl border-2 border-[#DBB12A] shadow-[0px_4px_0_#DBB12A] hover:bg-[#fccf3c]  cursor-pointer;
+  }
+
+  .btn-danger {
+    @apply bg-[#EE4E4E] text-base font-semibold text-white py-3 px-6 rounded-xl border-2 border-[#E63D3D] shadow-[0px_4px_0_#E63D3D] hover:bg-[#f15c5c]  cursor-pointer;
+  }
+
+  .btn-info {
+    @apply bg-[#203864] text-base font-semibold text-white py-3 px-6 rounded-xl border-2 border-[#152E5E] shadow-[0px_4px_0_#152E5E] hover:bg-[#2c436e]  cursor-pointer;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 text-lg font-normal px-4 py-3 text-[#7A7A7A] bg-transparent border-2 border-transparent rounded-2xl hover:text-white hover:bg-[#69baba] ease-in-out;
+  }
+
+  .active-menu {
+    @apply flex items-center gap-3 text-lg font-medium px-4 py-3 text-white bg-[#008081] border-2 border-[#136C6D] hover:bg-[#008081] shadow-[0px_6px_0_#136C6D] rounded-2xl ease-in-out;
+  }
+
+  .active-nav {
+    @apply text-red-400 font-bold;
+  }
+
+  .swal-popup-custom {
+    @apply rounded-3xl bg-red-200 shadow-xl p-6;
+  }
+
+  .swal-title-custom {
+    @apply text-2xl font-bold text-gray-800 mb-2;
+  }
+
+  .swal-html-custom {
+    @apply text-base bg-red-400 text-gray-600;
+  }
+
+  .swal2-actions {
+    @apply flex justify-center gap-3 mt-4;
+  }
+
+  .swal-confirm-button-custom {
+    @apply bg-[#008081] text-base font-semibold text-white py-3 px-6 rounded-xl border-2 border-[#136C6D] shadow-[0px_4px_0_#136C6D] hover:bg-[#079696]  cursor-pointer;
+  }
+
+  .swal-cancel-button-custom {
+    @apply bg-[#EE4E4E] text-base font-semibold text-white py-3 px-6 rounded-xl border-2 border-[#E63D3D] shadow-[0px_4px_0_#E63D3D] hover:bg-[#f15c5c]  cursor-pointer;
+  }
+
+  .btn-primary-sm {
+    @apply bg-[#008081] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#136C6D] shadow-[0px_4px_0_#136C6D] hover:bg-[#079696]  cursor-pointer;
+  }
+
+  .btn-danger-sm {
+    @apply bg-[#EE4E4E] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#E63D3D] shadow-[0px_4px_0_#E63D3D] hover:bg-[#f15c5c]  cursor-pointer;
+  }
+
+  .btn-info-sm {
+    @apply bg-[#203864] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#152E5E] shadow-[0px_4px_0_#152E5E] hover:bg-[#2c436e]  cursor-pointer;
+  }
+
+  .btn-warning-sm {
+    @apply bg-[#FFC300] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#DBB12A] shadow-[0px_4px_0_#DBB12A] hover:bg-[#fccf3c]  cursor-pointer;
+  }
+}

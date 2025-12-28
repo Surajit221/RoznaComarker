@@ -1,0 +1,52 @@
+<ng-container>
+  @if(device.isTablet() || device.isMobile()){
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-2">
+      <div class="w-full flex flex-row justify-between items-center">
+        <p class="text-2xl font-bold">My Notification</p>
+      </div>
+      <div class="relative">
+        <input
+          type="text"
+          class="input-text bg-white w-full"
+          placeholder="Search Your Notification"
+          required
+        />
+      </div>
+    </div>
+    <div class="w-full flex flex-col gap-2">
+      @for (item of notifications; track item.title) {
+      <div
+        class="w-full bg-white p-3 border-[1.5px] lg:border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747] items-center"
+        (click)="onOpenSheet()"
+      >
+        <div class="w-16 h-16 flex justify-center items-center rounded-xl" [ngClass]="item.iconBg">
+          <i [ngClass]="['bx', item.icon, item.iconColor]" class="text-3xl"></i>
+        </div>
+        <div class="flex flex-col w-80">
+          <h1 class="block w-full text-base font-bold truncate cursor-pointer">
+            {{ item.title | truncate : 20 }}
+          </h1>
+          <p class="text-sm line-clamp-2">
+            {{ item.description }}
+          </p>
+          <small class="mb-0 text-xs text-gray-500"> {{ item.time }}</small>
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+
+  <app-bottomsheet-dialog [open]="openSheet" (closed)="onCloseSheetDetailNotification()">
+    <h2 class="text-2xl font-bold mb-3">Assignment submitted</h2>
+    <p>
+      Lorem ipsum dolor sit, amet consectetur adipisicing elit. Error et sed dolorum maxime.
+      Voluptates eum dolores commodi animi et alias, voluptatibus, doloremque vero quia ab pariatur
+      iusto, quis molestiae id!
+    </p>
+    <button class="btn-danger-sm w-full mt-10" (click)="onCloseSheetDetailNotification()">
+      Close
+    </button>
+  </app-bottomsheet-dialog>
+  }
+</ng-container>

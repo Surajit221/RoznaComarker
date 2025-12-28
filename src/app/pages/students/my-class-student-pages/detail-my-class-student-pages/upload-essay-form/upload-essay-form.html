@@ -1,0 +1,68 @@
+<div
+  class="relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition cursor-pointer select-none"
+  [ngClass]="{
+    'border-blue-600 bg-blue-50': isDragging,
+    'border-gray-300 hover:border-blue-400': !isDragging
+  }"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+  (click)="triggerFileInput()"
+>
+  <input #fileInput type="file" class="hidden" multiple (change)="onFilesSelected($event)" />
+
+  <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15"
+      stroke="#E7E7E7"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+
+  @if(device.isDesktop()) {
+  <div class="flex flex-col justify-center items-center">
+    <p class="text-center text-xl font-bold text-[#E7E7E7]">Upload Image, PDF or Audio File</p>
+    <p class="text-center text-base text-[#E7E7E7]">Drop file or click here to choose file</p>
+  </div>
+  } @if(device.isMobile() || device.isTablet()) {
+  <div class="flex flex-col justify-center items-center">
+    <p class="text-center text-lg font-semibold text-[#E7E7E7]">Upload Image, PDF or Audio File</p>
+    <p class="text-center text-sm text-[#E7E7E7]">Drop file or click here to choose file</p>
+  </div>
+  }
+</div>
+
+<!-- Preview list -->
+@if (files.length > 0) {
+<div
+  class="mt-6 w-full overflow-y-auto space-y-3"
+  [ngClass]="{'max-h-[350px]': device.isMobile() || device.isTablet(), 'max-h-[250px]': device.isDesktop(), }"
+>
+  @for (file of files; track $index) {
+  <div
+    class="flex items-center justify-between bg-white border-2 border-dashed border-[#E7E7E7] rounded-xl p-4"
+  >
+    <div class="flex items-center space-x-3">
+      @if (file.preview) {
+      <img [src]="file.preview" alt="preview" class="w-12 h-12 object-cover rounded-lg border" />
+      }
+      <div>
+        <p class="text-sm font-medium text-gray-700 truncate max-w-[380px]">
+          {{ file.name }}
+        </p>
+        <p class="text-xs text-gray-400">{{ (file.size / 1024).toFixed(1) }} KB</p>
+      </div>
+    </div>
+
+    <button
+      (click)="removeFile($event, $index)"
+      class="text-red-500 hover:text-red-600 text-sm font-medium"
+    >
+      <i class="bx bxs-trash text-2xl"></i>
+    </button>
+  </div>
+  }
+</div>
+}

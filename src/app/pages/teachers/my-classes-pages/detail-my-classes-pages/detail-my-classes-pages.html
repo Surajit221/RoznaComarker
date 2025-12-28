@@ -1,0 +1,415 @@
+<ng-container>
+  @if(device.isDesktop()){
+
+  <div class="mb-6 flex flex-row justify-between items-center">
+    <h1 class="text-4xl text-center font-bold text-gray-800">Creative Essay Practice</h1>
+    <div class="flex flex-row gap-2">
+      <button type="button" class="btn-danger" (click)="toMyClasses()">Back To My Classes</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="col-span-2">
+      <div class="flex flex-col gap-4">
+        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-8">
+          <img
+            src="img/default-img.png"
+            class="w-full h-52 rounded-2xl object-cover"
+            alt="class image"
+          />
+
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-row justify-between gap-4 items-center">
+              <div class="flex flex-row gap-1 items-center">
+                <i class="bx bxs-group text-lg"></i>
+                <p class="text-base">32 Students</p>
+              </div>
+              <div class="flex flex-row gap-1 items-center">
+                <i class="bx bxs-book text-lg"></i>
+                <p class="text-base">12 Assignments</p>
+              </div>
+              <div class="flex flex-row gap-1 items-center">
+                <i class="bx bxs-edit text-lg"></i>
+                <p class="text-base">22 Submissions</p>
+              </div>
+            </div>
+
+            <p class="text-base">
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor inci
+            </p>
+          </div>
+        </div>
+
+        <div class="w-full bg-white p-6 rounded-3xl">
+          <div class="flex flex-col w-full gap-4">
+            <h3 class="font-bold text-2xl">Share This Class</h3>
+
+            <div class="flex flex-col gap-1">
+              <label for="role" class="text-sm font-bold pl-2">Class Link</label>
+              <div class="relative w-full">
+                <i
+                  class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
+                ></i>
+                <input
+                  type="text"
+                  formControlName="className"
+                  class="input-text bg-white pl-6"
+                  placeholder="Search Your Class"
+                  value="http://rz.na/class-links"
+                  readonly
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label for="role" class="text-sm font-bold pl-2">Class Code</label>
+              <div class="relative w-full">
+                <i
+                  class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
+                ></i>
+                <input
+                  type="text"
+                  formControlName="className"
+                  class="input-text bg-white pl-6"
+                  placeholder="Search Your Class"
+                  value="CLS001"
+                  readonly
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-row gap-2 mx-auto">
+              <button type="button" class="btn-info" (click)="onOpenQRClasses()">
+                Generate QR Code
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-span-3">
+      <div class="flex flex-col gap-4">
+        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
+          <div class="flex flex-row justify-between items-center">
+            <p class="text-2xl font-bold">22 Assignments</p>
+            <button type="button" class="btn-primary" (click)="onAddAssignment()">
+              Create New Assignment
+            </button>
+          </div>
+          <div class="max-h-[480px] overflow-y-auto">
+            <div class="flex flex-col gap-3">
+              @for (item of assignments; track item.title) {
+              <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+                <div class="col-span-5">
+                  <p class="text-xl font-bold mb-1">
+                    {{ item.title }}
+                  </p>
+                  <div class="flex flex-row items-center gap-4">
+                    <p class="text-gray-500 text-sm">Due: {{ item.dueDate }}</p>
+                    <div class="flex flex-row items-center gap-1">
+                      <i
+                        class="bx bx-history font-bold"
+                        [ngClass]="{
+                          'text-red-500': item.status === 'pending',
+                          'text-yellow-500': item.status === 'in-progress',
+                          'text-green-500': item.status === 'completed'
+                        }"
+                      ></i>
+                      <p
+                        [ngClass]="{
+                          'text-red-500': item.status === 'pending',
+                          'text-yellow-500': item.status === 'in-progress',
+                          'text-green-500': item.status === 'completed'
+                        }"
+                        class="text-sm font-semibold"
+                      >
+                        {{ item.submitted }}/{{ item.total }} Submitted
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-span-2 text-right">
+                  <p class="text-sm underline cursor-pointer" (click)="onOpenSubmission()">
+                    View Submissions
+                  </p>
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="w-full bg-white p-6 rounded-2xl flex flex-col gap-6">
+          <div class="flex flex-row justify-between items-center">
+            <p class="text-2xl font-bold">29 Students Joined</p>
+            <button type="button" class="btn-primary">Invite Students</button>
+          </div>
+          <div class="max-h-[480px] overflow-y-auto">
+            <div class="flex flex-col gap-3">
+              @for (student of students; track student.name) {
+              <div class="w-full grid grid-cols-7 items-center p-2 bg-[#F3F3F3] rounded-xl">
+                <!-- Avatar -->
+                <div class="col-span-1 flex justify-start">
+                  <img
+                    [src]="student.image"
+                    alt="{{ student.name }}"
+                    class="w-18 h-18 rounded-xl object-cover"
+                  />
+                </div>
+
+                <!-- Info -->
+                <div class="col-span-5 flex flex-col justify-center">
+                  <div class="flex items-center gap-2">
+                    <p class="text-lg font-bold mb-0">
+                      {{ student.name }}
+                    </p>
+                  </div>
+
+                  <div class="flex flex-row items-center gap-2 mt-1">
+                    <p
+                      class="font-bold uppercase tracking-wide text-sm"
+                      [ngClass]="{
+                        'text-[#008081]': student.status === 'ACTIVE',
+                        'text-red-500': student.status === 'INVITED'
+                      }"
+                    >
+                      {{ student.status }}
+                    </p>
+
+                    <p class="text-gray-500 text-sm">
+                      {{ student.submitted }}/{{ student.total }} Submitted ({{
+                        (student.submitted / student.total) * 100 | number : '1.0-0'
+                      }}%)
+                    </p>
+
+                    <p class="text-gray-500 text-sm">Last Activity: {{ student.lastActivity }}</p>
+                  </div>
+                </div>
+
+                <!-- Action -->
+                <div class="col-span-1 text-right">
+                  <p
+                    class="text-sm font-normal underline cursor-pointer hover:text-gray-600"
+                    (click)="toStudentProfile()"
+                  >
+                    View Profile
+                  </p>
+                </div>
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- dialog -->
+  <app-modal-dialog [open]="showDialog">
+    <h2 class="text-3xl font-bold text-center mb-8">Create New Assignment</h2>
+    <app-assignment-form (closed)="closeDialog()"></app-assignment-form>
+  </app-modal-dialog>
+
+  <app-modal-dialog [open]="showDialogSubmission">
+    <h2 class="text-3xl font-bold text-center mb-8">Narrative Perspective: First-Person Draft</h2>
+    <app-dialog-view-submissions (closed)="closeDialogSubmission()"></app-dialog-view-submissions>
+  </app-modal-dialog>
+
+  <app-modal-dialog [open]="showDialogQRClasses">
+    <h2 class="text-3xl font-bold text-center">Share This QR Code</h2>
+    <app-dialog-qr-classes (closed)="closeDialogQRClasses()"></app-dialog-qr-classes>
+  </app-modal-dialog>
+
+  }
+</ng-container>
+
+<ng-container>
+  @if (device.isMobile() || device.isTablet()) {
+  <app-app-bar-back-button
+    title="Creative Essay Practice"
+    (back)="handleGoBack()"
+  ></app-app-bar-back-button>
+
+  <div class="w-full flex flex-col gap-3 mb-10">
+    <div class="w-full bg-white p-3 rounded-2xl flex flex-col gap-4">
+      <img
+        src="img/default-img.png"
+        class="w-full h-44 rounded-xl object-cover"
+        alt="class image"
+      />
+
+      <div class="flex flex-col gap-2 p-2">
+        <div class="flex flex-row justify-between gap-4 items-center">
+          <div class="flex flex-row gap-1 items-center">
+            <i class="bx bxs-group text-lg"></i>
+            <p class="text-sm">32 Students</p>
+          </div>
+          <div class="flex flex-row gap-1 items-center">
+            <i class="bx bxs-book text-lg"></i>
+            <p class="text-sm">12 Assignments</p>
+          </div>
+        </div>
+
+        <div>
+          <p class="font-bold">Description</p>
+          <p class="text-sm text-gray-600">
+            Lorem ipsum dolor sit, amet consectetur adipisicing elit. Deserunt incidunt velit at,
+            suscipit rem natus minima quisquam perferendis quidem autem, beatae eaque dolore
+            molestiae recusandae. Et corrupti accusantium error maiores!
+          </p>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="role" class="text-sm font-bold pl-2">Class Link</label>
+          <div class="relative w-full">
+            <i
+              class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
+            ></i>
+            <input
+              type="text"
+              formControlName="className"
+              class="input-text bg-white pl-6"
+              placeholder="Search Your Class"
+              value="http://rz.na/class-links"
+              readonly
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="role" class="text-sm font-bold pl-2">Class Code</label>
+          <div class="relative w-full">
+            <i
+              class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
+            ></i>
+            <input
+              type="text"
+              formControlName="className"
+              class="input-text bg-white pl-6"
+              placeholder="Search Your Class"
+              value="CLS001"
+              readonly
+            />
+          </div>
+        </div>
+        <button class="btn-info-sm mt-2" (click)="onOpenQR()">Share This Class</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white px-4 rounded-2xl">
+    <div class="flex flex-col gap-3">
+      <div class="w-full flex flex-row justify-between items-center pt-4">
+        <p class="font-bold text-lg pt-4">31 Assignments</p>
+        <button class="btn-primary-sm w-fit" (click)="onOpenCreateNewAssignment()">
+          + Assignment
+        </button>
+      </div>
+      <div class="overflow-y-auto">
+        @for (item of assignments; track item.title) {
+        <div class="bg-[#F3F3F3] w-full rounded-xl my-2 py-4 px-4">
+          <div class="flex flex-row justify-between items-center gap-4 w-full">
+            <p class="text-gray-500 text-xs">Due: {{ item.dueDate }}</p>
+            <div class="flex flex-row items-center gap-1">
+              <i
+                class="bx bx-history font-bold"
+                [ngClass]="{
+                  'text-red-500': item.status === 'pending',
+                  'text-yellow-500': item.status === 'in-progress',
+                  'text-green-500': item.status === 'completed'
+                }"
+              ></i>
+              <p
+                [ngClass]="{
+                  'text-red-500': item.status === 'pending',
+                  'text-yellow-500': item.status === 'in-progress',
+                  'text-green-500': item.status === 'completed'
+                }"
+                class="text-xs font-semibold"
+              >
+                {{ item.submitted }}/{{ item.total }} Submitted
+              </p>
+            </div>
+          </div>
+          <div class="w-full grid grid-cols-1 items-center mt-2">
+            <p class="text-base font-bold mb-1 leading-5">
+              {{ item.title }}
+            </p>
+            <p class="text-xs underline cursor-pointer" (click)="onOpenSheetSubmission()">
+              View Submissions
+            </p>
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white px-4 rounded-2xl mt-4">
+    <div class="flex flex-col gap-3">
+      <div class="w-full flex flex-row justify-between items-center pt-4">
+        <p class="font-bold text-lg pt-4">31 Students</p>
+        <button class="btn-primary-sm w-fit">Invite Students</button>
+      </div>
+      <div class="overflow-y-auto">
+        @for (student of students; track student.name) {
+        <div class="bg-[#F3F3F3] my-2 p-3 rounded-xl">
+          <div class="flex flex-row gap-2 justify-between items-center">
+            <div class="flex flex-row gap-2 items-center w-6/7">
+              <img
+                [src]="student.image"
+                alt="{{ student.name }}"
+                class="w-14 h-14 rounded-lg object-cover"
+              />
+              <div>
+                <p class="text-base font-bold mb-0">
+                  {{ student.name }}
+                </p>
+                <p
+                  class="font-bold uppercase tracking-wide text-xs"
+                  [ngClass]="{
+                    'text-[#008081]': student.status === 'ACTIVE',
+                    'text-red-500': student.status === 'INVITED'
+                  }"
+                >
+                  {{ student.status }}
+                </p>
+                <p class="text-gray-500 text-xs">
+                  {{ student.submitted }}/{{ student.total }} Submitted ({{
+                    (student.submitted / student.total) * 100 | number : '1.0-0'
+                  }}%)
+                </p>
+              </div>
+            </div>
+            <div class="w-1/7">
+              <p
+                class="text-xs font-normal underline cursor-pointer hover:text-gray-600"
+                (click)="toStudentProfile()"
+              >
+                View
+              </p>
+            </div>
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+  <app-bottomsheet-dialog [open]="openSheetAssignment" (closed)="onCloseCreateAssignment()">
+    <h2 class="text-2xl font-bold mb-5">Create New Assignment</h2>
+    <app-assignment-form (closed)="onCloseCreateAssignment()"></app-assignment-form>
+  </app-bottomsheet-dialog>
+
+  <app-bottomsheet-dialog [open]="openSheetQr" (closed)="onCloseQR()">
+    <h2 class="text-2xl font-bold mb-5">Share This Class</h2>
+    <app-dialog-qr-classes (closed)="onCloseQR()"></app-dialog-qr-classes>
+  </app-bottomsheet-dialog>
+
+  <app-bottomsheet-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
+    <h2 class="text-2xl font-bold mb-5">Narrative Perspective: First-Person Draft</h2>
+    <app-dialog-view-submissions (closed)="onCloseSubmission()"></app-dialog-view-submissions>
+  </app-bottomsheet-dialog>
+  }
+</ng-container>

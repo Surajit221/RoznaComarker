@@ -1,0 +1,89 @@
+<ng-container>
+  @if(device.isDesktop()){
+  <div
+    class="bg-white p-4 border-[1.5px] lg:border-[3px] border-[#E7E7E7] rounded-3xl flex flex-col gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747]"
+    (click)="toDetailMyClasses()"
+  >
+    <img src="img/default-img.png" class="w-full h-32 rounded-xl object-cover" alt="class image" />
+
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-row justify-between flex-wrap gap-4 items-center">
+        <div class="flex flex-row gap-1 items-center">
+          <i class="bx bx-clipboard"></i>
+          <p class="text-xs">{{ assignments }} Assignments</p>
+        </div>
+
+        <div class="flex flex-row gap-1 items-center">
+          <i class="bx bxs-check-square text-base text-teal-600"></i>
+          <p class="text-xs">Joined</p>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <div class="relative group w-full">
+          <h1 class="block w-full text-lg font-bold truncate cursor-pointer">
+            {{ title }}
+          </h1>
+          <div
+            class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-[#136C6D] text-white text-xs font-medium rounded-lg px-3 py-2 whitespace-normal max-w-xs shadow-lg z-50 transition-opacity duration-200 cursor-pointer"
+          >
+            {{ title }}
+          </div>
+        </div>
+        <p class="text-sm line-clamp-2">
+          {{ teacher }}
+        </p>
+      </div>
+      <div class="flex flex-row justify-between items-center">
+        <div class="flex flex-row gap-1 items-center">
+          <i class="bx bx-history text-xs"></i>
+          <small class="text-xs">Joined 4 minutes ago</small>
+        </div>
+
+        <div
+          class="h-9 w-9 bg-[#EBEBEB] rounded-lg flex justify-center items-center hover:bg-[#d6d6d6]"
+        >
+          <i class="bx bx-dots-vertical-rounded text-xl"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isMobile() || device.isTablet()){
+  <div
+    class="w-full bg-white p-3 border-[1.5px] lg:border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747] items-center"
+    (click)="toDetailMyClasses()"
+  >
+    <img src="img/default-img.png" class="w-20 h-20 rounded-xl object-cover" alt="class image" />
+    <div class="flex flex-col w-full">
+      <div class="flex flex-row justify-between w-full items-center">
+        <div class="flex flex-row gap-1 items-center">
+          <i class="bx bx-clipboard text-sm"></i>
+          <p class="text-xs">{{ assignments }} Assignments</p>
+        </div>
+
+        <div class="flex flex-row gap-1 items-center">
+          <i class="bx bxs-check-square text-sm text-teal-600"></i>
+          <p class="text-xs">Joined</p>
+        </div>
+      </div>
+
+      @if(device.isMobile()) {
+      <h1 class="block w-full text-base font-bold truncate cursor-pointer">
+        {{ title | truncate : 20 }}
+      </h1>
+      } @if(device.isTablet()){
+      <h1 class="block w-full text-base font-bold truncate cursor-pointer">
+        {{ title }}
+      </h1>
+      }
+      <p class="text-sm line-clamp-2">
+        {{ teacher }}
+      </p>
+    </div>
+  </div>
+  }
+</ng-container>

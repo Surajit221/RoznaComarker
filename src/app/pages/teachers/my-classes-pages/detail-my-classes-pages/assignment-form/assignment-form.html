@@ -1,0 +1,114 @@
+<form [formGroup]="classForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+  <div class="grid grid-cols-1 gap-4 w-full">
+    <div class="flex flex-col gap-1">
+      <label for="role" class="text-sm font-bold pl-2">Assignment Title</label>
+      <div class="w-full">
+        <input
+          type="text"
+          formControlName="className"
+          class="input-text bg-white"
+          placeholder="Enter Assignment Title Here"
+          [class.input-error]="isFieldInvalid('className')"
+        />
+        @if (isFieldInvalid('className')) {
+        <div class="text-red-500 text-sm mt-1">
+          @if (classForm.get('className')?.errors?.['required']) {
+          <span>Assignment Title is required</span>
+          } @if (classForm.get('className')?.errors?.['minlength']) {
+          <span>Assignment Title must be at least 3 characters</span>
+          }
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 w-full">
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Subject / Level</label>
+        <div class="relative w-full">
+          <select
+            formControlName="role"
+            class="input-text appearance-none pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('role')"
+          >
+            <option value="" disabled>Select Your Role</option>
+            <option value="teacher">Teacher</option>
+            <option value="student">Student</option>
+          </select>
+          <i
+            class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"
+          ></i>
+        </div>
+        @if (isFieldInvalid('role')) {
+        <div class="text-red-500 text-sm mt-1">Please select a role</div>
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Deadline</label>
+
+        <div class="relative w-full">
+          <input
+            type="date"
+            formControlName="startDate"
+            class="input-text date-input pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('startDate')"
+            #startDateInput
+          />
+          <i
+            class="bx bx-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer text-2xl"
+            (click)="startDateInput.showPicker()"
+          ></i>
+        </div>
+        @if (isFieldInvalid('startDate')) {
+        <div class="text-red-500 text-sm mt-1">Submission Deadline is required</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 w-full">
+    <!-- Message Textarea -->
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <label for="role" class="text-sm font-bold pl-2">Description</label>
+      </div>
+      <textarea
+        formControlName="message"
+        class="input-text h-32 resize-none"
+        placeholder="Type your message..."
+        [class.input-error]="isFieldInvalid('message')"
+      ></textarea>
+      @if (isFieldInvalid('message')) {
+      <div class="text-red-500 text-sm mt-1">
+        @if (classForm.get('message')?.errors?.['required']) {
+        <span>Message is required</span>
+        } @if (classForm.get('message')?.errors?.['minlength']) {
+        <span>Message must be at least 10 characters</span>
+        }
+      </div>
+      }
+      <div class="text-sm text-gray-500 mt-1">
+        {{ classForm.get('message')?.value?.length || 0 }}/500 characters
+      </div>
+    </div>
+  </div>
+
+  @if(device.isDesktop()) {
+  <div class="flex justify-center items-center gap-3">
+    <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
+    <button type="submit" class="btn-primary" [disabled]="classForm.invalid">Submit</button>
+  </div>
+  } @if(device.isMobile() || device.isTablet()) {
+  <div class="flex flex-col justify-center items-center gap-3">
+    <button type="submit" class="btn-primary-sm w-full" [disabled]="classForm.invalid">
+      Submit
+    </button>
+    <button type="button" class="btn-danger-sm w-full" (click)="closeDialog()">Cancel</button>
+  </div>
+  }
+</form>

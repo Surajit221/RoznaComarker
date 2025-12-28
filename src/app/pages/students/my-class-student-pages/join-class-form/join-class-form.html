@@ -1,0 +1,46 @@
+<ng-container>
+  @if(device.isDesktop()){
+  <div class="w-full flex flex-row gap-8 items-center">
+    <div class="relative">
+      <input
+        type="text"
+        class="input-text bg-white w-[270px]"
+        placeholder="Enter Class Code Here"
+        required
+      />
+    </div>
+    <p>Or Join With</p>
+    <button type="button" class="btn-info">Scan QR Code</button>
+  </div>
+
+  <div class="flex flex-col justify-center items-center gap-8 mt-10">
+    <div class="flex flex-row gap-3">
+      <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
+      <button type="button" class="btn-primary">Find A Class</button>
+    </div>
+  </div>
+
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isMobile() || device.isTablet() ){
+  <div class="w-full flex flex-col gap-4 items-center">
+    <input
+      type="text"
+      class="input-text mx-0 bg-white w-full"
+      placeholder="Enter Class Code Here"
+      required
+    />
+    <div class="flex flex-row gap-2 items-center justify-between w-full">
+      <p>Or Join With</p>
+      <button type="button" class="btn-info-sm">Scan QR Code</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 justify-center items-center gap-3 mt-8">
+    <button type="button" class="btn-primary-sm w-full">Find A Class</button>
+    <button type="button" class="btn-danger-sm w-full" (click)="closeDialog()">Close</button>
+  </div>
+  }
+</ng-container>
