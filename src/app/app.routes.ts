@@ -1,10 +1,16 @@
 import { Routes } from '@angular/router';
+import { LandingPage } from './pages/landing-page/landing-page';
 
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'login',
+    redirectTo: '',
     pathMatch: 'full',
+  },
+  {
+    path: '',
+    loadChildren: () =>
+      import('./pages/landing-page/landing-page.route').then((m) => m.LANDINGPAGE_ROUTE),
   },
 
   {
