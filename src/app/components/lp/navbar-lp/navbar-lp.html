@@ -1,0 +1,48 @@
+<nav class="fixed top-2 inset-x-0 z-50">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="grid grid-cols-[1fr_auto_1fr] items-center h-16">
+            <!-- LEFT : LOGO -->
+            <div class="flex items-center justify-start">
+                <p class="text-xl font-bold">
+                    Rozna <span class="text-green-600">Co-Marker</span>
+                </p>
+            </div>
+
+            <!-- CENTER : MENU (DESKTOP) -->
+            <div class="hidden md:flex items-center justify-center">
+                <a href="#" class="nav-link">Home</a>
+                <a href="#" class="nav-link">Feature</a>
+                <a href="#" class="nav-link">Why Choose Us</a>
+            </div>
+
+            <!-- RIGHT : CTA / HAMBURGER -->
+            <div class="flex items-center justify-end gap-3">
+                <button class="btn-primary hidden md:inline-flex">
+                    Get Started
+                </button>
+
+                <!-- Hamburger (Mobile) -->
+                <button class="md:hidden p-2 rounded-lg hover:bg-black/10 transition" aria-label="Open Menu">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- MOBILE MENU -->
+        <div class="md:hidden mt-2 rounded-xl bg-yellow-100 px-6 py-4 shadow-sm">
+            <div class="flex flex-col gap-4">
+                <a href="#" class="nav-link">Home</a>
+                <a href="#" class="nav-link">Feature</a>
+                <a href="#" class="nav-link">Why Teacher Choose</a>
+
+                <button class="btn-primary w-full mt-2">
+                    Get Started
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>
