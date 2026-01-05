@@ -6,8 +6,8 @@ import { FooterLp } from '../../components/lp/footer-lp/footer-lp';
 
 @Component({
   selector: 'app-landing-page-layout',
-  imports: [CommonModule, RouterOutlet, NavbarLp, FooterLp],
+  imports: [CommonModule, RouterOutlet, NavbarLp],
   templateUrl: './landing-page-layout.html',
   styleUrl: './landing-page-layout.css',
 })
-export class LandingPageLayout {}
+export class LandingPageLayout { }
