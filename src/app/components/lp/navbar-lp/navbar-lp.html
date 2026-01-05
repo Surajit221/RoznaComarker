@@ -1,48 +1,109 @@
-<nav class="fixed top-2 inset-x-0 z-50">
-    <div class="max-w-7xl mx-auto px-4">
-        <div class="grid grid-cols-[1fr_auto_1fr] items-center h-16">
-            <!-- LEFT : LOGO -->
-            <div class="flex items-center justify-start">
-                <p class="text-xl font-bold">
-                    Rozna <span class="text-green-600">Co-Marker</span>
-                </p>
-            </div>
+<nav class="fixed top-2 inset-x-0 z-50 px-4">
+  <div
+    class="max-w-7xl mx-auto bg-white/90 backdrop-blur-md border border-white/20 shadow-sm rounded-2xl px-4 md:px-6 transition-all duration-300"
+  >
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center h-16">
+      <div class="flex items-center justify-start">
+        <a href="#" (click)="closeMenu()" class="text-xl font-bold cursor-pointer select-none">
+          Rozna <span class="text-[#377E80]">Co-Marker</span>
+        </a>
+      </div>
 
-            <!-- CENTER : MENU (DESKTOP) -->
-            <div class="hidden md:flex items-center justify-center">
-                <a href="#" class="nav-link">Home</a>
-                <a href="#" class="nav-link">Feature</a>
-                <a href="#" class="nav-link">Why Choose Us</a>
-            </div>
+      <div class="hidden md:flex items-center justify-center gap-8">
+        <a href="#" class="text-gray-600 hover:text-[#377E80] font-medium transition-colors"
+          >Home</a
+        >
+        <a href="#" class="text-gray-600 hover:text-[#377E80] font-medium transition-colors"
+          >Feature</a
+        >
+        <a href="#" class="text-gray-600 hover:text-[#377E80] font-medium transition-colors"
+          >Why Choose Us</a
+        >
+      </div>
 
-            <!-- RIGHT : CTA / HAMBURGER -->
-            <div class="flex items-center justify-end gap-3">
-                <button class="btn-primary hidden md:inline-flex">
-                    Get Started
-                </button>
+      <div class="flex items-center justify-end gap-3">
+        <button
+          class="hidden md:inline-flex bg-[#377E80] hover:bg-[#2c6566] text-white px-5 py-2 rounded-xl font-semibold transition-colors shadow-sm"
+        >
+          Get Started
+        </button>
 
-                <!-- Hamburger (Mobile) -->
-                <button class="md:hidden p-2 rounded-lg hover:bg-black/10 transition" aria-label="Open Menu">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-            </div>
-        </div>
+        <button
+          (click)="toggleMenu()"
+          class="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition active:scale-95"
+          aria-label="Toggle Menu"
+        >
+          <svg
+            *ngIf="!isMobileMenuOpen"
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
 
-        <!-- MOBILE MENU -->
-        <div class="md:hidden mt-2 rounded-xl bg-yellow-100 px-6 py-4 shadow-sm">
-            <div class="flex flex-col gap-4">
-                <a href="#" class="nav-link">Home</a>
-                <a href="#" class="nav-link">Feature</a>
-                <a href="#" class="nav-link">Why Teacher Choose</a>
-
-                <button class="btn-primary w-full mt-2">
-                    Get Started
-                </button>
-            </div>
-        </div>
+          <svg
+            *ngIf="isMobileMenuOpen"
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
+
+    <div
+      class="md:hidden overflow-hidden transition-all duration-300 ease-in-out"
+      [ngClass]="isMobileMenuOpen ? 'max-h-96 opacity-100 pb-4' : 'max-h-0 opacity-0 pb-0'"
+    >
+      <div class="bg-yellow-50/80 rounded-xl p-4 flex flex-col gap-2 border border-yellow-100">
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="block px-4 py-2 rounded-lg text-gray-700 hover:bg-white hover:text-[#377E80] font-medium transition-colors"
+        >
+          Home
+        </a>
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="block px-4 py-2 rounded-lg text-gray-700 hover:bg-white hover:text-[#377E80] font-medium transition-colors"
+        >
+          Feature
+        </a>
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="block px-4 py-2 rounded-lg text-gray-700 hover:bg-white hover:text-[#377E80] font-medium transition-colors"
+        >
+          Why Teacher Choose
+        </a>
+
+        <div class="h-px bg-yellow-200 my-1"></div>
+
+        <button
+          (click)="closeMenu()"
+          class="w-full bg-[#377E80] text-white py-3 rounded-xl font-bold hover:bg-[#2c6566] transition-colors shadow-sm"
+        >
+          Get Started
+        </button>
+      </div>
+    </div>
+  </div>
 </nav>

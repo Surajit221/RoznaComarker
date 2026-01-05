@@ -1,9 +1,23 @@
+import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-navbar-lp',
-  imports: [],
+  imports: [CommonModule],
   templateUrl: './navbar-lp.html',
   styleUrl: './navbar-lp.css',
 })
-export class NavbarLp {}
+export class NavbarLp {
+  // State untuk menu mobile
+  isMobileMenuOpen = false;
+
+  // Fungsi toggle buka/tutup
+  toggleMenu() {
+    this.isMobileMenuOpen = !this.isMobileMenuOpen;
+  }
+
+  // Fungsi untuk menutup menu saat link diklik (UX improvement)
+  closeMenu() {
+    this.isMobileMenuOpen = false;
+  }
+}
