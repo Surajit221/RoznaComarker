@@ -77,4 +77,10 @@
   .btn-warning-sm {
     @apply bg-[#FFC300] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#DBB12A] shadow-[0px_4px_0_#DBB12A] hover:bg-[#fccf3c]  cursor-pointer;
   }
+
+
+  /*  */
+  .btn-3d-style {
+    @apply items-center justify-center bg-[#377E80] text-white font-semibold px-6 py-2.5 rounded-xl border-2 border-[#136C6D] shadow-[0px_4px_0_#136C6D] transition-all hover:bg-[#2c6566] active:scale-95 cursor-pointer;
+  }
 }

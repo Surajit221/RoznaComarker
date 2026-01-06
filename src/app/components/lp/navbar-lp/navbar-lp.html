@@ -1,0 +1,113 @@
+<div class="h-24"></div>
+
+<nav class="fixed top-4 inset-x-0 z-50 px-4">
+  <div
+    class="max-w-7xl mx-auto bg-[#F3F3F3] backdrop-blur-xl px-4 md:px-6 transition-all duration-300 rounded-2xl"
+  >
+    <!-- Gunakan flex dengan distribusi space-between -->
+    <div class="flex items-center justify-between h-16 md:h-20">
+      <!-- Logo (Tetap di kiri) -->
+      <div class="w-40 md:w-[180px] shrink-0">
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="text-xl font-extrabold tracking-tight cursor-pointer select-none inline-block"
+        >
+          Rozna <span class="text-[#377E80]">Co-Marker</span>
+        </a>
+      </div>
+
+      <!-- Menu (Absolute center dengan teknik margin auto) -->
+      <div class="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
+        <div class="flex items-center gap-8">
+          <a
+            href="#"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >Home</a
+          >
+          <a
+            href="#"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >Feature</a
+          >
+          <a
+            href="#"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >Why Choose Us</a
+          >
+        </div>
+      </div>
+
+      <!-- Button (Tetap di kanan dengan width yang sama dengan logo) -->
+      <div class="w-40 md:w-[180px] shrink-0 flex items-center justify-end gap-3">
+        <button class="hidden md:inline-flex btn-3d-style text-white w-full justify-center">
+          Get Started
+        </button>
+
+        <button
+          (click)="toggleMenu()"
+          class="md:hidden p-2.5 rounded-xl text-gray-700 hover:bg-gray-100/50 transition-all active:scale-90"
+          aria-label="Toggle Menu"
+        >
+          <div class="w-6 h-6 flex flex-col justify-center items-center relative">
+            <span
+              class="w-6 h-0.5 bg-current transition-all duration-300 absolute"
+              [class.rotate-45]="isMobileMenuOpen"
+              [class.translate-y-0]="isMobileMenuOpen"
+              [class.-translate-y-2]="!isMobileMenuOpen"
+            >
+            </span>
+            <span
+              class="w-6 h-0.5 bg-current transition-all duration-300"
+              [class.opacity-0]="isMobileMenuOpen"
+            >
+            </span>
+            <span
+              class="w-6 h-0.5 bg-current transition-all duration-300 absolute"
+              [class.-rotate-45]="isMobileMenuOpen"
+              [class.translate-y-0]="isMobileMenuOpen"
+              [class.translate-y-2]="!isMobileMenuOpen"
+            >
+            </span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile menu tetap sama -->
+    <div
+      class="md:hidden overflow-hidden transition-all duration-500 ease-in-out"
+      [style.max-height]="isMobileMenuOpen ? '400px' : '0px'"
+      [style.opacity]="isMobileMenuOpen ? '1' : '0'"
+    >
+      <div class="pt-2 pb-6 flex flex-col gap-1.5 border-t border-gray-100">
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Home</a
+        >
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Feature</a
+        >
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Why Choose Us</a
+        >
+        <div class="mt-4 px-2">
+          <button
+            (click)="closeMenu()"
+            class="w-full bg-[#377E80] text-white py-4 rounded-xl font-semibold shadow-md"
+          >
+            Get Started
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
