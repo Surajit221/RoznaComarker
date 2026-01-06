@@ -1,108 +1,112 @@
-<nav class="fixed top-2 inset-x-0 z-50 px-4">
+<div class="h-24"></div>
+
+<nav class="fixed top-4 inset-x-0 z-50 px-4">
   <div
-    class="max-w-7xl mx-auto bg-white/90 backdrop-blur-md border border-white/20 shadow-sm rounded-2xl px-4 md:px-6 transition-all duration-300"
+    class="max-w-7xl mx-auto bg-[#F3F3F3] backdrop-blur-xl px-4 md:px-6 transition-all duration-300 rounded-2xl"
   >
-    <div class="grid grid-cols-[1fr_auto_1fr] items-center h-16">
-      <div class="flex items-center justify-start">
-        <a href="#" (click)="closeMenu()" class="text-xl font-bold cursor-pointer select-none">
+    <!-- Gunakan flex dengan distribusi space-between -->
+    <div class="flex items-center justify-between h-16 md:h-20">
+      <!-- Logo (Tetap di kiri) -->
+      <div class="w-40 md:w-[180px] shrink-0">
+        <a
+          href="#"
+          (click)="closeMenu()"
+          class="text-xl font-extrabold tracking-tight cursor-pointer select-none inline-block"
+        >
           Rozna <span class="text-[#377E80]">Co-Marker</span>
         </a>
       </div>
 
-      <div class="hidden md:flex items-center justify-center gap-8">
-        <a href="#" class="text-gray-600 hover:text-[#377E80] font-medium transition-colors"
-          >Home</a
-        >
-        <a href="#" class="text-gray-600 hover:text-[#377E80] font-medium transition-colors"
-          >Feature</a
-        >
-        <a href="#" class="text-gray-600 hover:text-[#377E80] font-medium transition-colors"
-          >Why Choose Us</a
-        >
+      <!-- Menu (Absolute center dengan teknik margin auto) -->
+      <div class="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
+        <div class="flex items-center gap-8">
+          <a
+            href="#"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >Home</a
+          >
+          <a
+            href="#"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >Feature</a
+          >
+          <a
+            href="#"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >Why Choose Us</a
+          >
+        </div>
       </div>
 
-      <div class="flex items-center justify-end gap-3">
-        <button
-          class="hidden md:inline-flex bg-[#377E80] hover:bg-[#2c6566] text-white px-5 py-2 rounded-xl font-semibold transition-colors shadow-sm"
-        >
+      <!-- Button (Tetap di kanan dengan width yang sama dengan logo) -->
+      <div class="w-40 md:w-[180px] shrink-0 flex items-center justify-end gap-3">
+        <button class="hidden md:inline-flex btn-3d-style text-white w-full justify-center">
           Get Started
         </button>
 
         <button
           (click)="toggleMenu()"
-          class="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition active:scale-95"
+          class="md:hidden p-2.5 rounded-xl text-gray-700 hover:bg-gray-100/50 transition-all active:scale-90"
           aria-label="Toggle Menu"
         >
-          <svg
-            *ngIf="!isMobileMenuOpen"
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-
-          <svg
-            *ngIf="isMobileMenuOpen"
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <div class="w-6 h-6 flex flex-col justify-center items-center relative">
+            <span
+              class="w-6 h-0.5 bg-current transition-all duration-300 absolute"
+              [class.rotate-45]="isMobileMenuOpen"
+              [class.translate-y-0]="isMobileMenuOpen"
+              [class.-translate-y-2]="!isMobileMenuOpen"
+            >
+            </span>
+            <span
+              class="w-6 h-0.5 bg-current transition-all duration-300"
+              [class.opacity-0]="isMobileMenuOpen"
+            >
+            </span>
+            <span
+              class="w-6 h-0.5 bg-current transition-all duration-300 absolute"
+              [class.-rotate-45]="isMobileMenuOpen"
+              [class.translate-y-0]="isMobileMenuOpen"
+              [class.translate-y-2]="!isMobileMenuOpen"
+            >
+            </span>
+          </div>
         </button>
       </div>
     </div>
 
+    <!-- Mobile menu tetap sama -->
     <div
-      class="md:hidden overflow-hidden transition-all duration-300 ease-in-out"
-      [ngClass]="isMobileMenuOpen ? 'max-h-96 opacity-100 pb-4' : 'max-h-0 opacity-0 pb-0'"
+      class="md:hidden overflow-hidden transition-all duration-500 ease-in-out"
+      [style.max-height]="isMobileMenuOpen ? '400px' : '0px'"
+      [style.opacity]="isMobileMenuOpen ? '1' : '0'"
     >
-      <div class="bg-yellow-50/80 rounded-xl p-4 flex flex-col gap-2 border border-yellow-100">
+      <div class="pt-2 pb-6 flex flex-col gap-1.5 border-t border-gray-100">
         <a
           href="#"
           (click)="closeMenu()"
-          class="block px-4 py-2 rounded-lg text-gray-700 hover:bg-white hover:text-[#377E80] font-medium transition-colors"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Home</a
         >
-          Home
-        </a>
         <a
           href="#"
           (click)="closeMenu()"
-          class="block px-4 py-2 rounded-lg text-gray-700 hover:bg-white hover:text-[#377E80] font-medium transition-colors"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Feature</a
         >
-          Feature
-        </a>
         <a
           href="#"
           (click)="closeMenu()"
-          class="block px-4 py-2 rounded-lg text-gray-700 hover:bg-white hover:text-[#377E80] font-medium transition-colors"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Why Choose Us</a
         >
-          Why Teacher Choose
-        </a>
-
-        <div class="h-px bg-yellow-200 my-1"></div>
-
-        <button
-          (click)="closeMenu()"
-          class="w-full bg-[#377E80] text-white py-3 rounded-xl font-bold hover:bg-[#2c6566] transition-colors shadow-sm"
-        >
-          Get Started
-        </button>
+        <div class="mt-4 px-2">
+          <button
+            (click)="closeMenu()"
+            class="w-full bg-[#377E80] text-white py-4 rounded-xl font-semibold shadow-md"
+          >
+            Get Started
+          </button>
+        </div>
       </div>
     </div>
   </div>
