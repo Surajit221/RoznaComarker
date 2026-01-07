@@ -3,12 +3,12 @@ import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
 @Component({
-  selector: 'app-navbar-lp',
+  selector: 'app-navbar-no-menu-lp',
   imports: [CommonModule, RouterModule],
-  templateUrl: './navbar-lp.html',
-  styleUrl: './navbar-lp.css',
+  templateUrl: './navbar-no-menu-lp.html',
+  styleUrl: './navbar-no-menu-lp.css',
 })
-export class NavbarLp {
+export class NavbarNoMenuLp {
   // State untuk menu mobile
   isMobileMenuOpen = false;
 
@@ -20,13 +20,5 @@ export class NavbarLp {
   // Fungsi untuk menutup menu saat link diklik (UX improvement)
   closeMenu() {
     this.isMobileMenuOpen = false;
-  }
-
-  scrollTo(id: string) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    this.closeMenu(); // kalau mau auto close mobile menu
   }
 }
