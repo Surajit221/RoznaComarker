@@ -21,17 +21,22 @@
       <div class="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
         <div class="flex items-center gap-8">
           <a
-            href="#"
+            (click)="scrollTo('home')"
             class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
             >Home</a
           >
           <a
-            href="#"
+            (click)="scrollTo('about-us')"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
+            >About Us</a
+          >
+          <a
+            (click)="scrollTo('features')"
             class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
             >Feature</a
           >
           <a
-            href="#"
+            (click)="scrollTo('why')"
             class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors whitespace-nowrap"
             >Why Choose Us</a
           >

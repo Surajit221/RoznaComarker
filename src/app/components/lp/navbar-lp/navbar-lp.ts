@@ -20,4 +20,12 @@ export class NavbarLp {
   closeMenu() {
     this.isMobileMenuOpen = false;
   }
+
+  scrollTo(id: string) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    this.closeMenu(); // kalau mau auto close mobile menu
+  }
 }
