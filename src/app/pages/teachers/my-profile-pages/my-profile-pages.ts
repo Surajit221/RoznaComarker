@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { DeviceService } from '../../../services/device.service';
 import { CommonModule } from '@angular/common';
-import { TruncatePipe } from "../../../pipe/truncate.pipe";
+import { TruncatePipe } from '../../../pipe/truncate.pipe';
 
 @Component({
   selector: 'app-my-profile-pages',
@@ -37,4 +37,5 @@ export class MyProfilePages {
       time: '3 hours ago',
     },
   ];
+  activeTab = 'general';
 }
