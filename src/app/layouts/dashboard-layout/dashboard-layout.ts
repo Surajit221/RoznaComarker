@@ -1,8 +1,9 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, effect, HostListener, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { DeviceService } from '../../services/device.service';
 import { ChartStorage } from '../../shared/chart-storage/chart-storage';
+import { RoleService } from '../../services/role.service';
 
 @Component({
   selector: 'app-dashboard-layout',
@@ -12,44 +13,51 @@ import { ChartStorage } from '../../shared/chart-storage/chart-storage';
   styleUrls: ['./dashboard-layout.css'],
 })
 export class DashboardLayout {
-  role = localStorage.getItem('role');
+  // 1. Inject Role Service & Device Service
+  roleService = inject(RoleService);
+  device = inject(DeviceService);
+
+  // 2. State Dropdown & UI
   isUserDropdownOpen = signal(false);
   isNotificationsDropdownOpen = false;
-
   showAppBar = signal(false);
   showBottomNav = signal(true);
 
-  device = inject(DeviceService);
-
+  // 3. Definisi Menu (Hardcoded Paths sudah sesuai dengan deteksi URL)
   teacherMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
     { name: 'Reports', icon: 'bx bxs-report', path: '/teacher/reports' },
+    // Tambahkan menu shared jika perlu
+    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/profile' },
   ];
 
   teacherMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/my-notification' },
-    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
+    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/notifications' }, // Sesuaikan path
+    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/profile' },
   ];
 
   studentMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
-    { name: 'Report', icon: 'bx bxs-report', path: '/student/my-report' },
+    { name: 'Report', icon: 'bx bxs-report', path: '/student/reports' }, // Sesuaikan path
+    { name: 'Profile', icon: 'bx bxs-user', path: '/student/profile' },
   ];
 
   studentMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/student/my-notification' },
-    { name: 'Profile', icon: 'bx bxs-user', path: '/student/my-profile' },
+    { name: 'Notification', icon: 'bx bxs-bell', path: '/student/notifications' },
+    { name: 'Profile', icon: 'bx bxs-user', path: '/student/profile' },
   ];
 
+  // Array Menu Aktif
   mainMenu: any[] = [];
   mainMenuMobile: any[] = [];
 
+  // Data Notifikasi Dummy
   notifications = [
     {
       icon: 'bx-user-plus',
@@ -78,32 +86,43 @@ export class DashboardLayout {
   ];
 
   constructor(private router: Router, private location: Location) {
+    // A. Logic Deteksi Detail Page (AppBar vs BottomNav)
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         const url = event.urlAfterRedirects;
 
         if (url.includes('/detail')) {
-          // Jika URL mengandung /detail
           this.showAppBar.set(true);
           this.showBottomNav.set(false);
         } else {
-          // Halaman utama
           this.showAppBar.set(false);
           this.showBottomNav.set(true);
         }
       }
     });
+
+    effect(() => {
+      const currentRole = this.roleService.currentRole();
+
+      if (currentRole === 'teacher') {
+        this.mainMenu = this.teacherMenu;
+        this.mainMenuMobile = this.teacherMenuMobile;
+      } else if (currentRole === 'student') {
+        this.mainMenu = this.studentMenu;
+        this.mainMenuMobile = this.studentMenuMobile;
+      } else {
+        this.mainMenu = [];
+        this.mainMenuMobile = [];
+      }
+    });
   }
 
-  ngOnInit() {
-    this.mainMenu = this.role === 'student' ? this.studentMenu : this.teacherMenu;
-    this.mainMenuMobile = this.role === 'student' ? this.studentMenuMobile : this.teacherMenuMobile;
-  }
-
+  // Helper navigasi
   goBack() {
     this.location.back();
   }
 
+  // Dropdown Logic
   toggleUserDropdown() {
     this.isUserDropdownOpen.update((v) => !v);
     this.isNotificationsDropdownOpen = false;
@@ -119,6 +138,7 @@ export class DashboardLayout {
     this.isNotificationsDropdownOpen = false;
   }
 
+  // Close dropdown when clicking outside
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -127,7 +147,9 @@ export class DashboardLayout {
     }
   }
 
+  // Logout Logic
   toLogin() {
+    // Optional: Clear storage jika masih menyimpan token auth
     localStorage.clear();
     this.router.navigate(['/login']);
   }
