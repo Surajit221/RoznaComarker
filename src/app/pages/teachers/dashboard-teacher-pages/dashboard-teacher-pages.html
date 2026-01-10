@@ -1,6 +1,6 @@
 <ng-container>
   @if(device.isDesktop()) {
-  <div class="w-full min-h-screen p-8 font-sans text-[#474747]">
+  <div class="w-full min-h-screen font-sans text-[#474747]">
     <div class="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4 animate-fade-in-down">
       <div class="flex flex-col gap-1">
         <h1 class="text-3xl lg:text-4xl font-bold text-[#203864]">
@@ -23,7 +23,7 @@
       <div
         class="bg-white p-4 rounded-3xl border-[3px] border-[#FFC300] flex flex-col justify-between h-32 hover:shadow-[0px_6px_0_#DBB12A] transition-all cursor-pointer relative overflow-hidden group">
         <div
-          class="absolute right-[-10px] top-[-10px] w-20 h-20 bg-[#FFF4E5] rounded-full group-hover:scale-150 transition-transform duration-500">
+          class="absolute -right-2.5 -top-2.5 w-20 h-20 bg-[#FFF4E5] rounded-full group-hover:scale-150 transition-transform duration-500">
         </div>
         <div class="z-10 flex justify-between items-start">
           <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Pending Review</span>
@@ -291,17 +291,13 @@
 
 <ng-container>
   @if(device.isMobile() || device.isTablet()){
-  <div class="w-full min-h-screen bg-[#FAFAFA] pb-24 font-sans text-[#474747]">
+  <div class="w-full min-h-screen  pb-10 font-sans text-[#474747]">
 
-    <div class="bg-white px-5 pt-6 pb-6 rounded-b-[2.5rem] border-b-[3px] border-[#E7E7E7] shadow-sm mb-6">
+    <div class="pt-6 pb-6 rounded-b-[2.5rem] mb-6">
       <div class="flex flex-row justify-between items-center mb-4">
         <div class="flex flex-col">
           <h1 class="text-2xl font-bold text-[#203864]">Hello, Teacher!</h1>
           <p class="text-sm text-[#7A7A7A]">Here's your daily summary.</p>
-        </div>
-        <div
-          class="w-10 h-10 bg-[#E6F2F2] rounded-xl border-2 border-[#136C6D] flex items-center justify-center text-[#008081] shadow-[0px_3px_0_#136C6D]">
-          <i class='bx bxs-bell text-xl'></i>
         </div>
       </div>
 
@@ -312,7 +308,7 @@
       </div>
     </div>
 
-    <div class="px-5 flex flex-col gap-6">
+    <div class=" flex flex-col gap-6">
 
       <div class="grid grid-cols-2 gap-3">
         <div
@@ -454,12 +450,6 @@
       </div>
 
     </div>
-
-    <button
-      class="fixed bottom-6 right-5 w-14 h-14 bg-[#008081] rounded-full text-white shadow-[0px_4px_0_#136C6D] border-2 border-[#136C6D] flex items-center justify-center text-3xl hover:bg-[#079696] active:translate-y-1 active:shadow-none transition-all z-50">
-      <i class='bx bx-plus'></i>
-    </button>
-
   </div>
   }
 </ng-container>

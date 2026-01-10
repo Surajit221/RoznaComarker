@@ -1,17 +1,15 @@
 <ng-container>
   @if(device.isDesktop()){
-  <div class="w-full min-h-screen font-sans text-[#474747] p-8">
+  <div class="w-full min-h-screen font-sans text-[#474747]">
 
     <div class="flex flex-col gap-1 mb-8 animate-fade-in-down">
-      <h1 class="text-4xl font-bold text-[#203864]">Teacher Settings</h1>
-      <p class="text-[#7A7A7A] text-lg">Manage your profile and configure AI grading strictness.</p>
+      <h1 class="text-4xl font-bold text-[#203864]">My Profile</h1>
     </div>
 
     <div class="flex flex-col lg:flex-row gap-8 items-start">
 
       <div class="w-full lg:w-1/3 flex flex-col gap-6">
-        <div
-          class="bg-white p-6 border-[3px] border-[#E7E7E7] rounded-3xl flex flex-col items-center text-center gap-5">
+        <div class="bg-white p-6 rounded-3xl flex flex-col items-center text-center gap-5">
           <div class="relative group cursor-pointer">
             <div class="w-32 h-32 rounded-full border-4 border-[#008081] p-1 bg-white">
               <img src="https://i.pravatar.cc/300?u=teacher_id_1" class="w-full h-full rounded-full object-cover"
@@ -43,7 +41,7 @@
           </div>
         </div>
 
-        <div class="bg-white p-3 border-[3px] border-[#E7E7E7] rounded-3xl flex flex-col gap-2">
+        <div class="bg-white p-3  rounded-3xl flex flex-col gap-2">
           <button (click)="activeTab = 'general'" [class]="activeTab === 'general' ? 'active-menu' : 'nav-link'">
             <i class='bx bxs-id-card'></i> General Profile
           </button>
@@ -63,7 +61,7 @@
       </div>
 
       <div class="w-full lg:w-2/3">
-        <div class="bg-white p-8 border-[3px] border-[#E7E7E7] rounded-3xl min-h-[600px] relative">
+        <div class="bg-white p-8  rounded-3xl min-h-[600px] relative">
 
           @if(activeTab === 'general'){
           <div class="flex flex-col gap-6 animate-fade-in">
@@ -262,9 +260,8 @@
 
 <ng-container>
   @if(device.isTablet() || device.isMobile()){
-  <div class="w-full min-h-screen bg-[#FAFAFA] pb-24 font-sans text-[#474747]">
-
-    <div class="bg-white px-5 pt-6 pb-6 rounded-b-[2.5rem] border-b-[3px] border-[#E7E7E7] shadow-sm mb-6">
+  <div class="w-full min-h-screen pb-10 font-sans text-[#474747]">
+    <div class="pt-6 pb-6 rounded-xl mb-6">
       <div class="flex flex-col items-center gap-4">
         <div class="relative group">
           <div class="w-28 h-28 rounded-full border-4 border-[#008081] p-1 bg-white">
@@ -287,7 +284,7 @@
       </div>
     </div>
 
-    <div class="px-5 flex flex-col gap-6">
+    <div class="flex flex-col gap-6">
 
       <div class="flex p-1 bg-white rounded-xl border-2 border-[#E7E7E7]">
         <button (click)="activeTab = 'general'"

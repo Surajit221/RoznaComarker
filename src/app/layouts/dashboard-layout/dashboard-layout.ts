@@ -42,15 +42,15 @@ export class DashboardLayout {
   studentMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
-    { name: 'Report', icon: 'bx bxs-report', path: '/student/reports' }, // Sesuaikan path
-    { name: 'Profile', icon: 'bx bxs-user', path: '/student/profile' },
+    { name: 'Report', icon: 'bx bxs-report', path: '/student/reports' },
+    { name: 'Profile', icon: 'bx bxs-user', path: '/student/my-profile' },
   ];
 
   studentMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
     { name: 'Notification', icon: 'bx bxs-bell', path: '/student/notifications' },
-    { name: 'Profile', icon: 'bx bxs-user', path: '/student/profile' },
+    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
   ];
 
   // Array Menu Aktif

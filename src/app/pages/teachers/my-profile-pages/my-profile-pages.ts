@@ -1,11 +1,10 @@
 import { Component, inject } from '@angular/core';
 import { DeviceService } from '../../../services/device.service';
 import { CommonModule } from '@angular/common';
-import { TruncatePipe } from '../../../pipe/truncate.pipe';
 
 @Component({
   selector: 'app-my-profile-pages',
-  imports: [CommonModule, TruncatePipe],
+  imports: [CommonModule],
   templateUrl: './my-profile-pages.html',
   styleUrl: './my-profile-pages.css',
 })
