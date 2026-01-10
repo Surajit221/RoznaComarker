@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { DeviceService } from '../../../services/device.service';
 import { CommonModule } from '@angular/common';
-import { TruncatePipe } from "../../../pipe/truncate.pipe";
+import { TruncatePipe } from '../../../pipe/truncate.pipe';
 
 @Component({
   selector: 'app-my-profile-student-pages',
@@ -37,4 +37,21 @@ export class MyProfileStudentPages {
       time: '3 hours ago',
     },
   ];
+
+  user = {
+    name: 'Rizky Hasan',
+    email: 'rizky@student.com',
+    role: 'Student', // atau 'Teacher'
+    bio: 'Eager to learn AI and programming.',
+    stats: {
+      classes: 4,
+      essays: 12,
+    },
+  };
+
+  activeTab: string = 'profile';
+
+  setTab(tabName: string) {
+    this.activeTab = tabName;
+  }
 }
