@@ -28,22 +28,19 @@ export class DashboardLayout {
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
     { name: 'Reports', icon: 'bx bxs-report', path: '/teacher/reports' },
-    // Tambahkan menu shared jika perlu
-    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/profile' },
   ];
 
   teacherMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
     { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/notifications' }, // Sesuaikan path
-    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/profile' },
+    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
   ];
 
   studentMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
     { name: 'Report', icon: 'bx bxs-report', path: '/student/reports' },
-    { name: 'Profile', icon: 'bx bxs-user', path: '/student/my-profile' },
   ];
 
   studentMenuMobile = [
