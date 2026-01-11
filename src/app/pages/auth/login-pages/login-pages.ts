@@ -30,17 +30,17 @@ export class LoginPages {
   }
 
   onSubmit() {
-    const role = this.loginForm.value.role
+    const role = this.loginForm.value.role;
     if (!role || role == '' || role == undefined) {
       return;
     }
 
     if (this.loginForm.value.role == 'student') {
-      localStorage.setItem('role', 'student')
-      this.router.navigate(['/student/my-classes'])
+      localStorage.setItem('role', 'student');
+      this.router.navigate(['/student/dashboard']);
     } else {
-      localStorage.setItem('role', 'teacher')
-      this.router.navigate(['/teacher/my-classes'])
+      localStorage.setItem('role', 'teacher');
+      this.router.navigate(['/teacher/dashboard']);
     }
   }
 }
