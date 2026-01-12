@@ -8,6 +8,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { DeviceService } from '../../../../services/device.service';
+import { AlertService } from '../../../../services/alert.service';
+import { ClassApiService, type BackendClass } from '../../../../api/class-api.service';
 
 @Component({
   selector: 'app-my-classes-form',
@@ -18,7 +20,10 @@ import { DeviceService } from '../../../../services/device.service';
 export class MyClassesForm {
   classForm: FormGroup;
   device = inject(DeviceService);
+  private classApi = inject(ClassApiService);
+  private alert = inject(AlertService);
 
+  @Output() created = new EventEmitter<BackendClass>();
   @Output() closed = new EventEmitter<void>();
   dismissible: any;
 
@@ -68,11 +73,29 @@ export class MyClassesForm {
   }
 
   onSubmit(): void {
-    if (this.classForm.valid) {
-      console.log('Form submitted:', this.classForm.value);
-      alert('Class created successfully!');
-    } else {
+    void this.handleSubmit();
+  }
+
+  private async handleSubmit() {
+    if (!this.classForm.valid) {
       this.markAllFieldsAsTouched();
+      return;
+    }
+
+    try {
+      const name = this.classForm.value.className;
+      const description = this.classForm.value.message;
+
+      const created = await this.classApi.createClass({
+        name,
+        description
+      });
+
+      this.created.emit(created);
+      this.closeDialog();
+      this.onReset();
+    } catch (err: any) {
+      this.alert.showError('Failed to create class', err?.message || 'Please try again');
     }
   }
 

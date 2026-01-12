@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -8,6 +8,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { DeviceService } from '../../../../../services/device.service';
+import { AlertService } from '../../../../../services/alert.service';
+import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
 
 @Component({
   selector: 'app-assignment-form',
@@ -17,8 +19,12 @@ import { DeviceService } from '../../../../../services/device.service';
 })
 export class AssignmentForm {
   classForm: FormGroup;
+  @Input() classId: string | null = null;
+  @Output() created = new EventEmitter<BackendAssignment>();
   @Output() closed = new EventEmitter<void>();
   device = inject(DeviceService);
+  private assignmentApi = inject(AssignmentApiService);
+  private alert = inject(AlertService);
 
   constructor(private fb: FormBuilder) {
     this.classForm = this.createForm();
@@ -66,11 +72,40 @@ export class AssignmentForm {
   }
 
   onSubmit(): void {
-    if (this.classForm.valid) {
-      console.log('Form submitted:', this.classForm.value);
-      alert('Class created successfully!');
-    } else {
+    void this.handleSubmit();
+  }
+
+  private async handleSubmit() {
+    if (!this.classForm.valid) {
       this.markAllFieldsAsTouched();
+      return;
+    }
+
+    const classId = this.classId;
+    if (!classId) {
+      this.alert.showError('Missing class', 'Unable to create assignment: class id is missing.');
+      return;
+    }
+
+    try {
+      const title = this.classForm.value.className;
+      const instructions = this.classForm.value.message;
+      const endDate = this.classForm.value.endDate;
+
+      const deadlineDate = new Date(endDate);
+      const deadline = deadlineDate.toISOString();
+
+      const created = await this.assignmentApi.createAssignment({
+        title,
+        classId,
+        deadline,
+        instructions
+      });
+
+      this.created.emit(created);
+      this.closeDialog();
+    } catch (err: any) {
+      this.alert.showError('Failed to create assignment', err?.message || 'Please try again');
     }
   }
 

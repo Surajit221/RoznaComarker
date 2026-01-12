@@ -6,10 +6,12 @@ import { DetailMyClassStudentPages } from './my-class-student-pages/detail-my-cl
 import { MySubmissionPage } from './my-class-student-pages/detail-my-class-student-pages/my-submission-page/my-submission-page';
 import { MyNotificationStudentPages } from './my-notification-student-pages/my-notification-student-pages';
 import { MyProfileStudentPages } from './my-profile-student-pages/my-profile-student-pages';
+import { StudentGuard } from '../../auth/student.guard';
 export const STUDENT_ROUTE: Routes = [
   {
     path: 'student',
     component: DashboardLayout,
+    canActivate: [StudentGuard],
     children: [
       { path: 'dashboard', component: DashboardStudentPages },
       { path: 'my-notification', component: MyNotificationStudentPages },

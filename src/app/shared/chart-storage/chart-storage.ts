@@ -32,7 +32,11 @@ export class ChartStorage {
   }
 
   calculateChart() {
-    this.percentage = Math.round((this.used / this.total) * 100);
+    const total = Number(this.total);
+    const used = Number(this.used);
+    const safeTotal = Number.isFinite(total) && total > 0 ? total : 0;
+    const safeUsed = Number.isFinite(used) && used > 0 ? used : 0;
+    this.percentage = safeTotal > 0 ? Math.round((safeUsed / safeTotal) * 100) : 0;
     const radius = 54; // SVG circle radius
     this.circumference = 2 * Math.PI * radius;
     this.strokeDashoffset = this.circumference - (this.percentage / 100) * this.circumference;

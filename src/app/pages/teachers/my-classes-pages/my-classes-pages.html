@@ -4,23 +4,56 @@
     <h1 class="text-4xl text-center font-bold text-gray-800">My Classes</h1>
     <div class="flex flex-row gap-2">
       <div class="relative">
-        <input type="text" class="input-text bg-white w-[370px]" placeholder="Search Your Class" required />
+        <input 
+          type="text" 
+          class="input-text bg-white w-[370px]" 
+          placeholder="Search Your Class" 
+          (input)="onSearchInput($event)"
+          [value]="searchTerm"
+          required 
+        />
       </div>
-      <button type="button" class="btn-warning">Refresh</button>
+      <button type="button" class="btn-warning" (click)="loadClasses()">Refresh</button>
       <button type="submit" class="btn-primary" (click)="onAddClasses()">Create New Class</button>
     </div>
   </div>
 
   <div class="grid grid-cols-4 gap-3">
-    @for (item of classes; track item.title) {
-    <app-my-classes-card [image]="item.image" [title]="item.title" [students]="item.students"
-      [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" />
+    @if (isLoading) {
+    <div class="col-span-4 flex justify-center items-center py-12">
+      <div class="flex flex-col items-center gap-4">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#136C6D]"></div>
+        <p class="text-gray-500">Loading your classes...</p>
+      </div>
+    </div>
+    } @else if (filteredClasses.length === 0 && searchTerm) {
+    <div class="col-span-4 flex justify-center items-center py-12">
+      <div class="text-center">
+        <i class="bx bx-search text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg">No classes found for "{{ searchTerm }}"</p>
+        <p class="text-gray-400 text-sm">Try a different search term</p>
+      </div>
+    </div>
+    } @else if (classes.length === 0) {
+    <div class="col-span-4 flex justify-center items-center py-12">
+      <div class="text-center">
+        <i class="bx bx-book-open text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg">No classes found</p>
+        <p class="text-gray-400 text-sm">Create your first class to get started</p>
+      </div>
+    </div>
+    } @else {
+    @for (item of filteredClasses; track item.title) {
+    <app-my-classes-card [id]="item.id" [image]="item.image" [title]="item.title" [students]="item.students"
+      [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" 
+      [lastEdited]="item.lastEdited" />
+    }
     }
   </div>
 
   <app-modal-dialog [open]="showDialog">
     <h2 class="text-3xl font-bold text-center mb-8">Create New Class</h2>
-    <app-my-classes-form (closed)="closeDialog()"></app-my-classes-form>
+    <app-my-classes-form (created)="onClassCreated($event)" (closed)="closeDialog()"></app-my-classes-form>
   </app-modal-dialog>
   }
 </ng-container>
@@ -33,14 +66,40 @@
         <p class="text-2xl font-bold">My Classes</p>
       </div>
       <div class="relative">
-        <input type="text" class="input-text bg-white w-full" placeholder="Search Your Class" required />
+        <input 
+          type="text" 
+          class="input-text bg-white w-full" 
+          placeholder="Search Your Class" 
+          (input)="onSearchInput($event)"
+          [value]="searchTerm"
+          required 
+        />
       </div>
     </div>
+
     <div class="w-full flex flex-col gap-2">
-      @for (item of classes; track item.title) {
-      <app-my-classes-card [image]="item.image" [title]="item.title" [students]="item.students"
-        [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" />
-      }
+    @if (isLoading) {
+    <div class="flex justify-center items-center py-12">
+      <div class="flex flex-col items-center gap-4">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#136C6D]"></div>
+        <p class="text-gray-500">Loading your classes...</p>
+      </div>
+    </div>
+    } @else if (classes.length === 0) {
+    <div class="flex justify-center items-center py-12">
+      <div class="text-center">
+        <i class="bx bx-book-open text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg">No classes found</p>
+        <p class="text-gray-400 text-sm">Create your first class to get started</p>
+      </div>
+    </div>
+    } @else {
+    @for (item of classes; track item.title) {
+    <app-my-classes-card [id]="item.id" [image]="item.image" [title]="item.title" [students]="item.students"
+      [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" 
+      [lastEdited]="item.lastEdited" />
+    }
+    }
     </div>
   </div>
   <button class="fixed bottom-20 right-6 btn-primary-sm" (click)="onOpenCreateClass()">
@@ -49,7 +108,7 @@
 
   <app-bottomsheet-dialog [open]="openSheet" (closed)="onCloseCreateClass()">
     <h2 class="text-2xl font-bold mb-3">Create A New Class</h2>
-    <app-my-classes-form (closed)="onCloseCreateClass()"></app-my-classes-form>
+    <app-my-classes-form (created)="onClassCreated($event)" (closed)="onCloseCreateClass()"></app-my-classes-form>
   </app-bottomsheet-dialog>
   }
 </ng-container>

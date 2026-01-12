@@ -1,19 +1,19 @@
 <div class="w-full flex justify-center items-center">
-  <qr-code value="Hello world!" size="300" errorCorrectionLevel="M" />
+  <qr-code [value]="qrValue" size="300" errorCorrectionLevel="M" />
 </div>
 
 <div class="flex flex-col justify-center items-center gap-8">
-  <h1 class="font-bold text-2xl">Creative Essay Practice</h1>
+  <h1 class="font-bold text-2xl">{{ classTitle }}</h1>
   @if(device.isDesktop()){
   <div class="flex flex-row gap-3">
     <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
-    <button type="button" class="btn-primary">Download QR Code</button>
+    <button type="button" class="btn-primary" (click)="downloadQRCode()">Download QR Code</button>
   </div>
   }
 
   @if(device.isMobile() || device.isTablet()){
   <div class="grid grid-cols-1 w-full gap-3">
-    <button type="button" class="btn-primary-sm w-full">Download QR Code</button>
+    <button type="button" class="btn-primary-sm w-full" (click)="downloadQRCode()">Download QR Code</button>
     <button type="button" class="btn-danger-sm w-full" (click)="closeDialog()">Close</button>
   </div>
   }

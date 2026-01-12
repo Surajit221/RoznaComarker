@@ -1,4 +1,4 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, Input } from '@angular/core';
 import { Marker, SAMPLE_MARKERS } from '../../../models/markers-data';
 import { CommonModule } from '@angular/common';
 
@@ -9,6 +9,8 @@ import { CommonModule } from '@angular/common';
   styleUrl: './essay-images.css',
 })
 export class EssayImages {
+  @Input() imageUrl: string | null = null;
+
   markers: Marker[] = [];
   editMode = false;
   draggingId: number | null = null;

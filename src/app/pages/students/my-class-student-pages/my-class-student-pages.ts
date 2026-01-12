@@ -5,6 +5,11 @@ import { ModalDialog } from '../../../shared/modal-dialog/modal-dialog';
 import { JoinClassForm } from './join-class-form/join-class-form';
 import { DeviceService } from '../../../services/device.service';
 import { BottomsheetDialog } from '../../../shared/bottomsheet-dialog/bottomsheet-dialog';
+import { MembershipApiService, type BackendMembership, type JoinClassResponse } from '../../../api/membership-api.service';
+import { ClassApiService, type BackendClassSummary } from '../../../api/class-api.service';
+import { AlertService } from '../../../services/alert.service';
+import { DebounceService } from '../../../services/debounce.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-my-class-student-pages',
@@ -17,98 +22,133 @@ export class MyClassStudentPages {
   openSheet = false;
   device = inject(DeviceService);
 
-  classes = [
-    {
-      image: 'https://images.unsplash.com/photo-1584697964154-3f82a5da3d3f?w=600',
-      title: 'Creative Essay Practice',
-      teacher: 'Ms. Olivia Green',
-      students: 35,
-      assignments: 22,
-      submissions: 24,
-      description: 'Improve your essay writing with structured creative practice sessions.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1581092334703-fc7c0f6db5c6?w=600',
-      title: 'Mathematics for Beginners',
-      teacher: 'Mr. Ethan Miller',
-      students: 40,
-      assignments: 18,
-      submissions: 20,
-      description: 'Basic arithmetic, algebra, and geometry concepts explained clearly.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1513258496099-48168024aec0?w=600',
-      title: 'Modern Web Development',
-      teacher: 'Mr. Liam Anderson',
-      students: 50,
-      assignments: 30,
-      submissions: 42,
-      description: 'Learn HTML, CSS, and JavaScript fundamentals with projects.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1603570419983-c981ef2d7e8f?w=600',
-      title: 'Digital Illustration',
-      teacher: 'Ms. Ava Johnson',
-      students: 25,
-      assignments: 15,
-      submissions: 18,
-      description: 'Master drawing and coloring techniques using digital tools.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1596495577886-d920f1fb7238?w=600',
-      title: 'Physics for Thinkers',
-      teacher: 'Dr. Noah Thompson',
-      students: 28,
-      assignments: 20,
-      submissions: 17,
-      description: 'Explore physical concepts through logic and thought experiments.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1573496529574-be85d6a60704?w=600',
-      title: 'Public Speaking Mastery',
-      teacher: 'Ms. Sophia Martinez',
-      students: 32,
-      assignments: 10,
-      submissions: 12,
-      description: 'Develop confidence and communication skills for presentations.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=600',
-      title: 'Creative Writing Basics',
-      teacher: 'Mr. James Carter',
-      students: 27,
-      assignments: 14,
-      submissions: 15,
-      description: 'Build your storytelling skills through guided exercises.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=600',
-      title: 'UI/UX Design Introduction',
-      teacher: 'Ms. Emma Wilson',
-      students: 42,
-      assignments: 25,
-      submissions: 29,
-      description: 'Learn the basics of modern UI/UX design with hands-on projects.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1531497865144-0464ef8fb9f7?w=600',
-      title: 'Photography 101',
-      teacher: 'Mr. Benjamin Harris',
-      students: 36,
-      assignments: 12,
-      submissions: 10,
-      description: 'Understand composition, lighting, and camera techniques.',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1494173853739-c21f58b16055?w=600',
-      title: 'Startup Fundamentals',
-      teacher: 'Dr. Isabella Clark',
-      students: 18,
-      assignments: 9,
-      submissions: 8,
-      description: 'Learn how to start and grow your own business from scratch.',
-    },
-  ];
+  private membershipApi = inject(MembershipApiService);
+  private classApi = inject(ClassApiService);
+  private alert = inject(AlertService);
+  private debounceService = inject(DebounceService);
+
+  private destroy$ = new Subject<void>();
+
+  isLoading = false;
+  searchTerm = '';
+  filteredClasses: Array<{
+    id: string;
+    image: string;
+    title: string;
+    teacher: string;
+    students: number;
+    assignments: number;
+    submissions: number;
+    description: string;
+    lastEdited: string;
+  }> = [];
+
+  classes: Array<{
+    id: string;
+    image: string;
+    title: string;
+    teacher: string;
+    students: number;
+    assignments: number;
+    submissions: number;
+    description: string;
+    lastEdited: string;
+  }> = [];
+
+  async ngOnInit() {
+    await this.loadClasses();
+    this.setupSearchDebounce();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private setupSearchDebounce() {
+    const searchDebounce = this.debounceService.createDebounce(300);
+    searchDebounce.pipe(takeUntil(this.destroy$)).subscribe(term => {
+      this.filterClasses(term);
+    });
+  }
+
+  onSearchInput(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.searchTerm = target.value;
+    this.filterClasses(this.searchTerm);
+  }
+
+  private filterClasses(searchTerm: string) {
+    if (!searchTerm || searchTerm.trim() === '') {
+      this.filteredClasses = [...this.classes];
+      return;
+    }
+
+    const term = searchTerm.toLowerCase().trim();
+    this.filteredClasses = this.classes.filter(cls => 
+      cls.title.toLowerCase().includes(term) ||
+      cls.teacher.toLowerCase().includes(term) ||
+      cls.description.toLowerCase().includes(term)
+    );
+  }
+
+  private async mapMembershipToCardItem(m: BackendMembership) {
+    const c: any = m && (m as any).class;
+    const teacher = c && c.teacher;
+    const teacherName = (teacher && (teacher.displayName || teacher.email)) || '';
+    
+    try {
+      // Get class summary to get dynamic counts and last edited time
+      const summary: BackendClassSummary = await this.classApi.getClassSummary(c?._id);
+      return {
+        id: c?._id,
+        image: 'img/default-img.png',
+        title: c?.name || '',
+        teacher: teacherName,
+        students: summary.studentsCount || 0,
+        assignments: summary.assignmentsCount || 0,
+        submissions: summary.submissionsCount || 0,
+        description: c?.description || '',
+        lastEdited: summary.lastEdited || ''
+      };
+    } catch (err) {
+      // Fallback if summary fails
+      return {
+        id: c?._id,
+        image: 'img/default-img.png',
+        title: c?.name || '',
+        teacher: teacherName,
+        students: 0,
+        assignments: 0,
+        submissions: 0,
+        description: c?.description || '',
+        lastEdited: ''
+      };
+    }
+  }
+
+  async loadClasses() {
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      const memberships = await this.membershipApi.getMyMemberships();
+      const classCards = await Promise.all(
+        (memberships || []).map((m) => this.mapMembershipToCardItem(m))
+      );
+      this.classes = classCards;
+      this.filteredClasses = [...this.classes];
+    } catch (err: any) {
+      this.alert.showError('Failed to load classes', err?.message || 'Please try again');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onJoined(_resp: JoinClassResponse) {
+    this.closeDialog();
+    this.onCloseSheetAddClasses();
+    await this.loadClasses();
+  }
 
   onAddClasses() {
     this.showDialog = true;

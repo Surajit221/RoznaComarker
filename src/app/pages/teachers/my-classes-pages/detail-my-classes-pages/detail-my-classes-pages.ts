@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
 import { AssignmentForm } from './assignment-form/assignment-form';
 import { DialogQrClasses } from './dialog-qr-classes/dialog-qr-classes';
@@ -8,6 +8,11 @@ import { DialogViewSubmissions } from './dialog-view-submissions/dialog-view-sub
 import { DeviceService } from '../../../../services/device.service';
 import { AppBarBackButton } from '../../../../shared/app-bar-back-button/app-bar-back-button';
 import { BottomsheetDialog } from '../../../../shared/bottomsheet-dialog/bottomsheet-dialog';
+import { AssignmentApiService, type BackendAssignment } from '../../../../api/assignment-api.service';
+import { AlertService } from '../../../../services/alert.service';
+import { ClassApiService, type BackendClassStudent, type BackendClassSummary } from '../../../../api/class-api.service';
+import { SubmissionApiService } from '../../../../api/submission-api.service';
+import { QrGeneratorService } from '../../../../services/qr-generator.service';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -28,166 +33,181 @@ export class DetailMyClassesPages {
   showDialogSubmission = false;
   showDialogQRClasses = false;
   device = inject(DeviceService);
+  private route = inject(ActivatedRoute);
+  private assignmentApi = inject(AssignmentApiService);
+  private alert = inject(AlertService);
+  private classApi = inject(ClassApiService);
+  private submissionApi = inject(SubmissionApiService);
+  private qrGenerator = inject(QrGeneratorService);
   isButtonFabOpen = false;
   openSheetAssignment = false;
   openSheetQr = false;
   openSheetSubmission = false;
 
-  assignments = [
-    {
-      title: 'Narrative Perspective: First-Person Draft',
-      dueDate: 'Nov, 05 2025',
-      submitted: 2,
-      total: 10,
-      status: 'pending', // warna merah
-    },
-    {
-      title: 'Descriptive Essay: My Favorite Place',
-      dueDate: 'Nov, 10 2025',
-      submitted: 6,
-      total: 10,
-      status: 'in-progress', // warna kuning
-    },
-    {
-      title: 'Poetry: Emotion in Words',
-      dueDate: 'Nov, 12 2025',
-      submitted: 10,
-      total: 10,
-      status: 'completed', // warna hijau
-    },
-    {
-      title: 'Short Story Draft',
-      dueDate: 'Nov, 15 2025',
-      submitted: 4,
-      total: 10,
-      status: 'pending',
-    },
-    {
-      title: 'Argumentative Essay: Technology Impact',
-      dueDate: 'Nov, 20 2025',
-      submitted: 5,
-      total: 10,
-      status: 'in-progress',
-    },
-    {
-      title: 'Final Reflection Paper',
-      dueDate: 'Nov, 25 2025',
-      submitted: 10,
-      total: 10,
-      status: 'completed',
-    },
-    {
-      title: 'Creative Writing: Short Poem',
-      dueDate: 'Dec, 01 2025',
-      submitted: 2,
-      total: 10,
-      status: 'pending',
-    },
-    {
-      title: 'Essay Draft: My Learning Experience',
-      dueDate: 'Dec, 05 2025',
-      submitted: 8,
-      total: 10,
-      status: 'in-progress',
-    },
-    {
-      title: 'Peer Review: Partner Feedback',
-      dueDate: 'Dec, 10 2025',
-      submitted: 10,
-      total: 10,
-      status: 'completed',
-    },
-    {
-      title: 'Portfolio Compilation',
-      dueDate: 'Dec, 15 2025',
-      submitted: 7,
-      total: 10,
-      status: 'in-progress',
-    },
-  ];
+  classId: string | null = null;
+  isLoading = false;
 
-  students = [
-    {
-      name: 'Sarah Connor',
-      image: 'https://randomuser.me/api/portraits/women/1.jpg',
-      status: 'ACTIVE',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 05, 2025',
-    },
-    {
-      name: 'John Reese',
-      image: 'https://randomuser.me/api/portraits/men/12.jpg',
-      status: 'ACTIVE',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 05, 2025',
-    },
-    {
-      name: 'Emily Stone',
-      image: 'https://randomuser.me/api/portraits/women/8.jpg',
-      status: 'ACTIVE',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 05, 2025',
-    },
-    {
-      name: 'Michael Lee',
-      image: 'https://randomuser.me/api/portraits/men/9.jpg',
-      status: 'INVITED',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 05, 2025',
-    },
-    {
-      name: 'Sophia Brown',
-      image: 'https://randomuser.me/api/portraits/women/5.jpg',
-      status: 'ACTIVE',
-      submitted: 3,
-      total: 4,
-      lastActivity: 'Nov 05, 2025',
-    },
-    {
-      name: 'Ethan Davis',
-      image: 'https://randomuser.me/api/portraits/men/7.jpg',
-      status: 'INVITED',
-      submitted: 2,
-      total: 4,
-      lastActivity: 'Nov 04, 2025',
-    },
-    {
-      name: 'Ava Johnson',
-      image: 'https://randomuser.me/api/portraits/women/9.jpg',
-      status: 'ACTIVE',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 05, 2025',
-    },
-    {
-      name: 'Noah Wilson',
-      image: 'https://randomuser.me/api/portraits/men/3.jpg',
-      status: 'ACTIVE',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 03, 2025',
-    },
-    {
-      name: 'Isabella Martinez',
-      image: 'https://randomuser.me/api/portraits/women/6.jpg',
-      status: 'INVITED',
-      submitted: 1,
-      total: 4,
-      lastActivity: 'Nov 02, 2025',
-    },
-    {
-      name: 'Liam Anderson',
-      image: 'https://randomuser.me/api/portraits/men/2.jpg',
-      status: 'ACTIVE',
-      submitted: 4,
-      total: 4,
-      lastActivity: 'Nov 01, 2025',
-    },
-  ];
+  classSummary: BackendClassSummary | null = null;
+
+  get classTitle(): string {
+    return this.classSummary?.name || '';
+  }
+
+  get classDescription(): string {
+    return this.classSummary?.description || '';
+  }
+
+  get classCode(): string {
+    const code = this.classSummary?.joinCode;
+    return typeof code === 'string' ? code : '';
+  }
+
+  get shareLink(): string {
+    const code = this.classCode;
+    if (!code) return '';
+    return this.qrGenerator.generateClassJoinUrl(code);
+  }
+
+  get qrValue(): string {
+    const code = this.classCode;
+    if (!code) return '';
+    return this.qrGenerator.generateQrValue(code, true);
+  }
+
+  get selectedAssignmentTitle(): string {
+    const id = this.selectedAssignmentId;
+    if (!id) return '';
+    const found = (this.assignments || []).find((a) => a.id === id);
+    return found?.title || '';
+  }
+
+  selectedAssignmentId: string | null = null;
+
+  assignments: Array<{
+    id: string;
+    title: string;
+    dueDate: string;
+    submitted: number;
+    total: number;
+    status: 'pending' | 'in-progress' | 'completed';
+  }> = [];
+
+  async ngOnInit() {
+    this.classId = this.route.snapshot.paramMap.get('slug');
+    await this.loadClassSummary();
+    await this.loadStudents();
+    await this.loadAssignments();
+  }
+
+  private async loadClassSummary() {
+    const classId = this.classId;
+    if (!classId) return;
+    try {
+      this.classSummary = await this.classApi.getClassSummary(classId);
+    } catch {
+      this.classSummary = null;
+    }
+  }
+
+  private mapAssignment(a: BackendAssignment) {
+    const deadline = a.deadline ? new Date(a.deadline) : null;
+    const dueDate = deadline ? deadline.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' }) : '';
+    const status: 'pending' | 'in-progress' | 'completed' = deadline && deadline.getTime() < Date.now() ? 'completed' : 'pending';
+
+    return {
+      id: a._id,
+      title: a.title,
+      dueDate,
+      submitted: 0,
+      total: 0,
+      status
+    };
+  }
+
+  async loadAssignments() {
+    const classId = this.classId;
+    if (!classId) return;
+
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      const assignments = await this.assignmentApi.getClassAssignments(classId);
+      this.assignments = (assignments || []).map((a) => this.mapAssignment(a));
+
+      // fill in submission stats
+      const totalStudents = this.studentsCount;
+      await Promise.all(
+        this.assignments.map(async (item) => {
+          try {
+            const submissions = await this.submissionApi.getSubmissionsByAssignment(item.id);
+            item.submitted = (submissions || []).length;
+            item.total = totalStudents;
+          } catch {
+            item.submitted = 0;
+            item.total = totalStudents;
+          }
+        })
+      );
+    } catch (err: any) {
+      this.alert.showError('Failed to load assignments', err?.message || 'Please try again');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onAssignmentCreated(_created: BackendAssignment) {
+    this.closeDialog();
+    this.onCloseCreateAssignment();
+    await this.loadAssignments();
+  }
+
+  students: Array<{
+    id: string;
+    name: string;
+    image: string;
+    status: 'ACTIVE' | 'INVITED';
+    submitted: number;
+    total: number;
+    lastActivity: string;
+  }> = [];
+
+  get studentsCount(): number {
+    return this.students.length;
+  }
+
+  get assignmentsCount(): number {
+    return this.assignments.length;
+  }
+
+  get totalSubmissions(): number {
+    const sum = (this.assignments || []).reduce((acc, a) => acc + (Number.isFinite(a.submitted) ? a.submitted : 0), 0);
+    return Number.isFinite(sum) ? sum : 0;
+  }
+
+  private mapStudent(s: BackendClassStudent) {
+    const joined = s.joinedAt ? new Date(s.joinedAt) : null;
+    const lastActivity = joined ? joined.toLocaleDateString() : '';
+    return {
+      id: s.id,
+      name: s.name,
+      image: 'img/default-img.png',
+      status: 'ACTIVE' as const,
+      submitted: 0,
+      total: 0,
+      lastActivity
+    };
+  }
+
+  private async loadStudents() {
+    const classId = this.classId;
+    if (!classId) return;
+    try {
+      const students = await this.classApi.getClassStudents(classId);
+      this.students = (students || []).map((s) => this.mapStudent(s));
+    } catch (err: any) {
+      this.alert.showError('Failed to load students', err?.error?.message || err?.message || 'Please try again');
+    }
+  }
 
   constructor(private router: Router) {}
 
@@ -195,15 +215,20 @@ export class DetailMyClassesPages {
     this.router.navigate(['/teacher/my-classes']);
   }
 
-  toStudentProfile() {
-    this.router.navigate(['/teacher/my-classes/detail/student-profile/nana']);
+  toStudentProfile(studentId: string) {
+    this.router.navigate(['/teacher/my-classes/detail/student-profile', studentId], {
+      queryParams: {
+        classId: this.classId || undefined
+      }
+    });
   }
 
   onAddAssignment() {
     this.showDialog = true;
   }
 
-  onOpenSubmission() {
+  onOpenSubmission(assignmentId: string) {
+    this.selectedAssignmentId = assignmentId;
     this.showDialogSubmission = true;
   }
 
@@ -217,13 +242,12 @@ export class DetailMyClassesPages {
 
   closeDialogSubmission() {
     this.showDialogSubmission = false;
+    this.selectedAssignmentId = null;
   }
 
   closeDialogQRClasses() {
     this.showDialogQRClasses = false;
   }
-
-  viewSubmissions() {}
 
   onCloseCreateAssignment() {
     document.body.classList.remove('overflow-hidden');
@@ -248,14 +272,40 @@ export class DetailMyClassesPages {
   onCloseSubmission() {
     document.body.classList.remove('overflow-hidden');
     this.openSheetSubmission = false;
+    this.selectedAssignmentId = null;
   }
 
-  onOpenSheetSubmission() {
+  onOpenSheetSubmission(assignmentId?: string) {
     document.body.classList.add('overflow-hidden');
+    this.selectedAssignmentId = assignmentId || null;
     this.openSheetSubmission = true;
   }
 
   handleGoBack() {
     this.router.navigate(['/student/my-classes']);
+  }
+
+  async copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      this.alert.showSuccess('Success', 'Copied to clipboard!');
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      this.alert.showSuccess('Success', 'Copied to clipboard!');
+    }
+  }
+
+  copyClassLink() {
+    this.copyToClipboard(this.shareLink);
+  }
+
+  copyClassCode() {
+    this.copyToClipboard(this.classCode);
   }
 }
