@@ -1,51 +1,418 @@
 <ng-container>
+  @if(device.isDesktop()){
+  <div class="w-full min-h-screen font-sans text-[#474747]">
+
+    <div class="flex flex-col gap-1 mb-8 animate-fade-in-down">
+      <h1 class="text-4xl font-bold text-[#203864]">My Profile</h1>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-8 items-start">
+
+      <div class="w-full lg:w-1/3 flex flex-col gap-6">
+        <div class="bg-white p-6 rounded-3xl flex flex-col items-center text-center gap-5">
+          <div class="relative group cursor-pointer">
+            <div class="w-32 h-32 rounded-full border-4 border-[#008081] p-1 bg-white">
+              <img src="https://i.pravatar.cc/300?u=teacher_id_1" class="w-full h-full rounded-full object-cover"
+                alt="Teacher Avatar">
+            </div>
+            <div
+              class="absolute bottom-1 right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
+              <i class='bx bxs-camera'></i>
+            </div>
+          </div>
+
+          <div>
+            <h2 class="text-2xl font-bold text-[#203864]">Mr. Anderson</h2>
+            <span
+              class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold text-xs rounded-lg border border-[#136C6D] mt-2 inline-block">
+              SENIOR TEACHER
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 w-full mt-2">
+            <div class="p-3 rounded-xl border-2 border-[#E7E7E7] bg-[#FAFAFA] flex flex-col items-center">
+              <span class="text-xl font-bold text-[#203864]">142</span>
+              <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Students</span>
+            </div>
+            <div class="p-3 rounded-xl border-2 border-[#E7E7E7] bg-[#FAFAFA] flex flex-col items-center">
+              <span class="text-xl font-bold text-[#008081]">350+</span>
+              <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Reviews</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white p-3  rounded-3xl flex flex-col gap-2">
+          <button (click)="activeTab = 'general'" [class]="activeTab === 'general' ? 'active-menu' : 'nav-link'">
+            <i class='bx bxs-id-card'></i> General Profile
+          </button>
+
+          <button (click)="activeTab = 'ai-config'" [class]="activeTab === 'ai-config' ? 'active-menu' : 'nav-link'">
+            <i class='bx bxs-bot'></i> AI Intelligence
+          </button>
+
+          <button (click)="activeTab = 'classroom'" [class]="activeTab === 'classroom' ? 'active-menu' : 'nav-link'">
+            <i class='bx bxs-school'></i> Classroom Defaults
+          </button>
+
+          <button (click)="activeTab = 'security'" [class]="activeTab === 'security' ? 'active-menu' : 'nav-link'">
+            <i class='bx bxs-lock-alt'></i> Security
+          </button>
+        </div>
+      </div>
+
+      <div class="w-full lg:w-2/3">
+        <div class="bg-white p-8  rounded-3xl min-h-[600px] relative">
+
+          @if(activeTab === 'general'){
+          <div class="flex flex-col gap-6 animate-fade-in">
+            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
+              <h3 class="text-xl font-bold text-[#203864]">Profile Information</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">Full Name</label>
+                <input type="text" class="input-text" value="Thomas Anderson">
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">Email Address</label>
+                <input type="email" class="input-text bg-gray-50 text-gray-400" value="t.anderson@school.edu" readonly>
+              </div>
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label class="font-semibold text-sm ml-1">School / Institution</label>
+                <div class="relative">
+                  <i class='bx bxs-building-house absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400'></i>
+                  <input type="text" class="input-text pl-12" value="Neo High School">
+                </div>
+              </div>
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label class="font-semibold text-sm ml-1">Bio (Visible to Students)</label>
+                <textarea class="input-text h-32 resize-none pt-3"
+                  placeholder="Describe your teaching style..."></textarea>
+              </div>
+            </div>
+            <div class="mt-4 flex justify-end">
+              <button class="btn-primary">Save Profile</button>
+            </div>
+          </div>
+          }
+
+          @if(activeTab === 'ai-config'){
+          <div class="flex flex-col gap-6 animate-fade-in">
+            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2 flex justify-between items-center">
+              <h3 class="text-xl font-bold text-[#203864]">AI Grading Intelligence</h3>
+              <span
+                class="bg-[#FFC300] text-white text-xs font-bold px-2 py-1 rounded border border-[#DBB12A]">PRO</span>
+            </div>
+
+            <div class="flex flex-col gap-4">
+              <label class="font-bold text-[#203864]">Correction Strictness</label>
+              <div class="grid grid-cols-3 gap-4">
+                <label class="relative group cursor-pointer">
+                  <input type="radio" name="strictness" class="focus-card-input sr-only">
+                  <div
+                    class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 h-full flex flex-col items-center text-center gap-2 hover:bg-gray-50 transition-all">
+                    <i class='bx bxs-smile text-4xl text-[#FFC300] mb-2'></i>
+                    <span class="font-bold text-[#203864]">Friendly</span>
+                    <span class="text-xs text-[#7A7A7A]">Encouraging tone. Ignores minor errors.</span>
+                  </div>
+                </label>
+
+                <label class="relative group cursor-pointer">
+                  <input type="radio" name="strictness" class="focus-card-input sr-only" checked>
+                  <div
+                    class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 h-full flex flex-col items-center text-center gap-2 hover:bg-gray-50 transition-all">
+                    <i class='bx bxs-user-check text-4xl text-[#008081] mb-2'></i>
+                    <span class="font-bold text-[#203864]">Balanced</span>
+                    <span class="text-xs text-[#7A7A7A]">Standard grading. Fixes grammar & flow.</span>
+                  </div>
+                </label>
+
+                <label class="relative group cursor-pointer">
+                  <input type="radio" name="strictness" class="focus-card-input sr-only">
+                  <div
+                    class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 h-full flex flex-col items-center text-center gap-2 hover:bg-gray-50 transition-all">
+                    <i class='bx bxs-analyse text-4xl text-[#EE4E4E] mb-2'></i>
+                    <span class="font-bold text-[#203864]">Strict</span>
+                    <span class="text-xs text-[#7A7A7A]">Rigorous academic standard. Zero tolerance.</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <hr class="border-[#F0F0F0]">
+
+            <div class="flex flex-col gap-4">
+              <label class="font-bold text-[#203864]">Detailed Checks</label>
+
+              <div class="flex items-center justify-between p-3 border-2 border-[#E7E7E7] rounded-xl">
+                <div class="flex items-center gap-3">
+                  <div class="bg-blue-100 p-2 rounded-lg text-blue-600"><i class='bx bx-text'></i></div>
+                  <span class="font-semibold text-sm">Check Grammar & Spelling</span>
+                </div>
+                <input type="checkbox" checked class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
+              </div>
+
+              <div class="flex items-center justify-between p-3 border-2 border-[#E7E7E7] rounded-xl">
+                <div class="flex items-center gap-3">
+                  <div class="bg-purple-100 p-2 rounded-lg text-purple-600"><i class='bx bx-git-branch'></i></div>
+                  <span class="font-semibold text-sm">Check Coherence & Logic</span>
+                </div>
+                <input type="checkbox" checked class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
+              </div>
+
+              <div class="flex items-center justify-between p-3 border-2 border-[#E7E7E7] rounded-xl">
+                <div class="flex items-center gap-3">
+                  <div class="bg-orange-100 p-2 rounded-lg text-orange-600"><i class='bx bx-search-alt'></i></div>
+                  <span class="font-semibold text-sm">Fact Checking (Beta)</span>
+                </div>
+                <input type="checkbox" class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
+              </div>
+            </div>
+
+            <div class="mt-2 flex justify-end">
+              <button class="btn-primary">Update AI Logic</button>
+            </div>
+          </div>
+          }
+
+          @if(activeTab === 'classroom'){
+          <div class="flex flex-col gap-6 animate-fade-in">
+            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
+              <h3 class="text-xl font-bold text-[#203864]">Classroom Defaults</h3>
+              <p class="text-sm text-[#7A7A7A]">These settings will apply to new classes you create.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">Default Grading Scale</label>
+                <select class="input-text bg-white appearance-none">
+                  <option>Score 0 - 100</option>
+                  <option>Grade A - F</option>
+                  <option>Pass / Fail</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">Late Submission Penalty</label>
+                <div class="relative">
+                  <input type="number" class="input-text pr-12" value="10">
+                  <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between p-4 border-2 border-[#E7E7E7] rounded-xl bg-[#F9F9F9]">
+              <div class="flex flex-col">
+                <span class="font-bold text-[#203864]">Auto-Publish Grades</span>
+                <span class="text-xs text-[#7A7A7A]">Automatically release AI grades to students immediately.</span>
+              </div>
+              <input type="checkbox" class="w-6 h-6 accent-[#008081] cursor-pointer">
+            </div>
+
+            <div class="mt-4 flex justify-end">
+              <button class="btn-primary">Save Defaults</button>
+            </div>
+          </div>
+          }
+
+          @if(activeTab === 'security'){
+          <div class="flex flex-col gap-6 animate-fade-in">
+            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
+              <h3 class="text-xl font-bold text-[#203864]">Account Security</h3>
+            </div>
+
+            <div class="flex flex-col gap-4 max-w-md">
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">Current Password</label>
+                <input type="password" class="input-text" placeholder="••••••••">
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">New Password</label>
+                <input type="password" class="input-text" placeholder="••••••••">
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="font-semibold text-sm ml-1">Confirm Password</label>
+                <input type="password" class="input-text" placeholder="••••••••">
+              </div>
+              <button class="btn-info w-fit mt-2">Update Password</button>
+            </div>
+
+            <div class="border-t-2 border-[#E7E7E7] pt-6 mt-4">
+              <div class="bg-[#FFE5E5] p-5 rounded-2xl border border-[#EE4E4E] flex flex-col gap-3">
+                <h4 class="font-bold text-[#EE4E4E] flex items-center gap-2"><i class='bx bxs-error'></i> Danger Zone
+                </h4>
+                <p class="text-sm text-[#EE4E4E]">Deleting your account will remove all classes, student data, and
+                  grading history.</p>
+                <button
+                  class="bg-white text-[#EE4E4E] border border-[#EE4E4E] px-4 py-2 rounded-lg font-bold w-fit hover:bg-red-50">Delete
+                  Account</button>
+              </div>
+            </div>
+          </div>
+          }
+
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+</ng-container>
+
+<ng-container>
   @if(device.isTablet() || device.isMobile()){
-  <div class="flex flex-col gap-6">
-    <div class="w-full flex flex-col gap-2">
-      <div class="w-36 h-36 mx-auto bg-[#008081] border-4 border-[#008081] rounded-full">
-        <img
-          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-          alt=""
-          class="rounded-full"
-        />
+  <div class="w-full min-h-screen pb-10 font-sans text-[#474747]">
+    <div class="pt-6 pb-6 rounded-xl mb-6">
+      <div class="flex flex-col items-center gap-4">
+        <div class="relative group">
+          <div class="w-28 h-28 rounded-full border-4 border-[#008081] p-1 bg-white">
+            <img src="https://i.pravatar.cc/300?u=teacher_id_1" class="w-full h-full rounded-full object-cover"
+              alt="Avatar">
+          </div>
+          <div
+            class="absolute bottom-0 right-0 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md">
+            <i class='bx bxs-camera'></i>
+          </div>
+        </div>
+
+        <div class="text-center">
+          <h1 class="text-2xl font-bold text-[#203864]">Mr. Anderson</h1>
+          <p
+            class="text-sm font-bold text-[#008081] bg-[#E6F2F2] px-3 py-1 rounded-lg border border-[#136C6D] inline-block mt-1">
+            Senior Teacher
+          </p>
+        </div>
       </div>
       <div class="w-full flex flex-col">
         <h1 class="text-center text-2xl font-bold mb-0">{{ meName }}</h1>
         <p class="text-center text-sm text-gray-600">ID: {{ meId }}</p>
       </div>
-      <div class="bg-white rounded-2xl p-4">
-        <p class="text-sm">
-          Lorem ipsum dolor sit amet consectetur adipisicing elit. Earum deserunt obcaecati
-          explicabo distinctio expedita sint fugit aliquid voluptatibus atque ut quis velit,
-          suscipit consequatur ipsam nobis omnis tenetur? Esse, optio!
-        </p>
-      </div>
-      <p class="text-xl mt-5 font-bold">Last Activity</p>
-      <div class="w-full flex flex-col gap-2">
-        @for (item of notifications; track item.title) {
-        <div
-          class="w-full bg-white p-3 border-[1.5px] lg:border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747] items-center"
-        >
-          <div
-            class="w-16 h-16 flex justify-center items-center rounded-xl"
-            [ngClass]="item.iconBg"
-          >
-            <i [ngClass]="['bx', item.icon, item.iconColor]" class="text-3xl"></i>
+
+      @if(activeTab === 'general'){
+      <div class="flex flex-col gap-4 animate-fade-in">
+        <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
+          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Teacher Info</h3>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Full Name</label>
+            <input type="text" class="input-text py-2" value="Thomas Anderson">
           </div>
-          <div class="flex flex-col w-80">
-            <h1 class="block w-full text-base font-bold truncate cursor-pointer">
-              {{ item.title | truncate : 20 }}
-            </h1>
-            <p class="text-sm line-clamp-2">
-              {{ item.description }}
-            </p>
-            <small class="mb-0 text-xs text-gray-500"> {{ item.time }}</small>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">School Name</label>
+            <input type="text" class="input-text py-2" value="Neo High School">
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Bio</label>
+            <textarea class="input-text py-2 h-24 resize-none" placeholder="Teaching philosophy..."></textarea>
+          </div>
+          <button class="btn-primary w-full mt-2">Save Profile</button>
+        </div>
+      </div>
+      }
+
+      @if(activeTab === 'ai-config'){
+      <div class="flex flex-col gap-4 animate-fade-in">
+        <div class="bg-[#FFF4E5] p-3 rounded-xl border border-[#DBB12A] flex gap-3 items-center">
+          <i class='bx bxs-bot text-[#FFC300] text-2xl'></i>
+          <p class="text-xs text-[#B45309] font-bold">
+            Configure how the AI grades your student essays.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <label class="font-bold text-[#203864] ml-1">Strictness Level</label>
+
+          <label class="relative group cursor-pointer">
+            <input type="radio" name="strictness_mobile" class="focus-card-input sr-only">
+            <div
+              class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
+              <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center text-yellow-600 shrink-0">
+                <i class='bx bxs-smile text-2xl'></i>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-bold text-[#203864]">Friendly</span>
+                <span class="text-[10px] text-[#7A7A7A]">Encouraging, ignores minor errors.</span>
+              </div>
+            </div>
+          </label>
+
+          <label class="relative group cursor-pointer">
+            <input type="radio" name="strictness_mobile" class="focus-card-input sr-only" checked>
+            <div
+              class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
+              <div class="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 shrink-0">
+                <i class='bx bxs-user-check text-2xl'></i>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-bold text-[#203864]">Balanced</span>
+                <span class="text-[10px] text-[#7A7A7A]">Standard academic grading.</span>
+              </div>
+            </div>
+          </label>
+
+          <label class="relative group cursor-pointer">
+            <input type="radio" name="strictness_mobile" class="focus-card-input sr-only">
+            <div
+              class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
+              <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+                <i class='bx bxs-analyse text-2xl'></i>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-bold text-[#203864]">Strict</span>
+                <span class="text-[10px] text-[#7A7A7A]">Zero tolerance for errors.</span>
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <div class="bg-white p-4 border-2 border-[#E7E7E7] rounded-xl flex flex-col gap-3">
+          <span class="font-bold text-[#203864] text-sm">Active Checks</span>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Grammar & Spelling</span>
+            <input type="checkbox" checked class="w-5 h-5 accent-[#008081]">
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Coherence</span>
+            <input type="checkbox" checked class="w-5 h-5 accent-[#008081]">
           </div>
         </div>
-        }
+
+        <button class="btn-primary w-full mt-2">Save AI Config</button>
       </div>
+      }
+
+      @if(activeTab === 'settings'){
+      <div class="flex flex-col gap-4 animate-fade-in">
+        <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
+          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Classroom Defaults</h3>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Grading Scale</label>
+            <select class="input-text py-2 bg-white">
+              <option>0-100</option>
+              <option>A-F</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-sm font-bold text-[#203864]">Auto-Publish Grades</span>
+            <input type="checkbox" class="w-5 h-5 accent-[#008081]">
+          </div>
+        </div>
+
+        <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
+          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Security</h3>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">New Password</label>
+            <input type="password" class="input-text py-2" placeholder="••••••••">
+          </div>
+          <button class="btn-info w-full mt-2">Update Password</button>
+        </div>
+
+        <button class="w-full bg-white border-2 border-[#EE4E4E] text-[#EE4E4E] font-bold py-3 rounded-xl">
+          Sign Out
+        </button>
+      </div>
+      }
+
     </div>
   </div>
-
   }
 </ng-container>

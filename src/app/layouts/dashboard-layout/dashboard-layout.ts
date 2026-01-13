@@ -1,5 +1,5 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, effect, HostListener, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { DeviceService } from '../../services/device.service';
 import { ChartStorage } from '../../shared/chart-storage/chart-storage';
@@ -49,23 +49,24 @@ export class DashboardLayout {
   teacherMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/my-notification' },
+    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/notifications' }, // Sesuaikan path
     { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
   ];
 
   studentMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
-    { name: 'Report', icon: 'bx bxs-report', path: '/student/my-report' },
+    { name: 'Report', icon: 'bx bxs-report', path: '/student/reports' },
   ];
 
   studentMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/student/my-notification' },
-    { name: 'Profile', icon: 'bx bxs-user', path: '/student/my-profile' },
+    { name: 'Notification', icon: 'bx bxs-bell', path: '/student/notifications' },
+    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
   ];
 
+  // Array Menu Aktif
   mainMenu: any[] = [];
   mainMenuMobile: any[] = [];
 
@@ -79,22 +80,20 @@ export class DashboardLayout {
   }> = [];
 
   constructor(private router: Router, private location: Location) {
+    // A. Logic Deteksi Detail Page (AppBar vs BottomNav)
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         const url = event.urlAfterRedirects;
 
         if (url.includes('/detail')) {
-          // Jika URL mengandung /detail
           this.showAppBar.set(true);
           this.showBottomNav.set(false);
         } else {
-          // Halaman utama
           this.showAppBar.set(false);
           this.showBottomNav.set(true);
         }
       }
     });
-  }
 
   async ngOnInit() {
     const token = localStorage.getItem('backend_jwt');
@@ -112,10 +111,12 @@ export class DashboardLayout {
     }
   }
 
+  // Helper navigasi
   goBack() {
     this.location.back();
   }
 
+  // Dropdown Logic
   toggleUserDropdown() {
     this.isUserDropdownOpen.update((v) => !v);
     this.isNotificationsDropdownOpen = false;
@@ -131,6 +132,7 @@ export class DashboardLayout {
     this.isNotificationsDropdownOpen = false;
   }
 
+  // Close dropdown when clicking outside
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;

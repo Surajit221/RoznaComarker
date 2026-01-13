@@ -78,9 +78,42 @@
     @apply bg-[#FFC300] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#DBB12A] shadow-[0px_4px_0_#DBB12A] hover:bg-[#fccf3c]  cursor-pointer;
   }
 
-
   /*  */
   .btn-3d-style {
     @apply items-center justify-center bg-[#377E80] text-white font-semibold px-6 py-2.5 rounded-xl border-2 border-[#136C6D] shadow-[0px_4px_0_#136C6D] transition-all hover:bg-[#2c6566] active:scale-95 cursor-pointer;
+  }
+
+  /* wrapper default card */
+  .focus-card-label {
+    @apply border-2 border-[#E7E7E7] bg-white transition-all rounded-2xl p-4 h-full
+         flex flex-row items-center gap-4 cursor-pointer;
+  }
+
+  /* hover */
+  label:hover .focus-card-label {
+    @apply border-[#008081] bg-gray-50;
+  }
+
+  /* checked state */
+  .focus-card-input:checked + .focus-card-label {
+    @apply border-[#008081] bg-[#E6F2F2] shadow-[0px_4px_0_#008081];
+  }
+
+  /* icon color when checked */
+  .focus-card-input:checked + .focus-card-label i {
+    @apply text-[#008081];
+  }
+
+  /* 2. Style Progress Bar (Gamification) */
+  .progress-bar-container {
+    @apply w-full bg-[#E7E7E7] rounded-full h-3 overflow-hidden;
+  }
+  .progress-bar-fill {
+    @apply bg-[#FFC300] h-full rounded-full transition-all duration-500 ease-out shadow-[0px_2px_0_#DBB12A];
+  }
+
+  /* 3. Style Badge Kecil */
+  .stat-card {
+    @apply p-3 rounded-xl border-2 border-[#E7E7E7] bg-white flex flex-col items-center transition-all cursor-default;
   }
 }

@@ -1,4 +1,455 @@
-<div class="mb-6 flex flex-row justify-between">
-  <h1 class="text-4xl font-bold text-gray-800">Dasboard</h1>
-  <div class="flex flex-row gap-2"></div>
-</div>
+<ng-container>
+  @if(device.isDesktop()) {
+  <div class="w-full min-h-screen font-sans text-[#474747]">
+    <div class="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4 animate-fade-in-down">
+      <div class="flex flex-col gap-1">
+        <h1 class="text-3xl lg:text-4xl font-bold text-[#203864]">
+          Dashboard
+        </h1>
+        <p class="text-[#7A7A7A] text-lg">Overview of your classes and student performance.</p>
+      </div>
+
+      <div class="flex gap-3">
+        <button
+          class="btn-primary flex items-center gap-2 shadow-[0px_6px_0_#136C6D] hover:-translate-y-1 transition-all">
+          <i class='bx bx-plus text-xl'></i>
+          <span>Create Class</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+
+      <div
+        class="bg-white p-4 rounded-3xl border-[3px] border-[#FFC300] flex flex-col justify-between h-32 hover:shadow-[0px_6px_0_#DBB12A] transition-all cursor-pointer relative overflow-hidden group">
+        <div
+          class="absolute -right-2.5 -top-2.5 w-20 h-20 bg-[#FFF4E5] rounded-full group-hover:scale-150 transition-transform duration-500">
+        </div>
+        <div class="z-10 flex justify-between items-start">
+          <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Pending Review</span>
+          <i class='bx bx-time-five text-2xl text-[#FFC300]'></i>
+        </div>
+        <div class="z-10 flex items-baseline gap-2">
+          <span class="text-4xl font-bold text-[#203864]">8</span>
+          <span class="text-xs text-[#EE4E4E] font-bold">+2 today</span>
+        </div>
+      </div>
+
+      <div
+        class="bg-white p-4 rounded-3xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-32 hover:border-[#203864] transition-all group">
+        <div class="flex justify-between items-start">
+          <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Total Students</span>
+          <i class='bx bxs-user-detail text-2xl text-[#203864]'></i>
+        </div>
+        <span class="text-4xl font-bold text-[#203864]">142</span>
+      </div>
+
+      <div
+        class="bg-white p-4 rounded-3xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-32 hover:border-[#008081] transition-all group">
+        <div class="flex justify-between items-start">
+          <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Avg. Score</span>
+          <i class='bx bxs-bar-chart-alt-2 text-2xl text-[#008081]'></i>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-4xl font-bold text-[#008081]">76.5</span>
+          <i class='bx bxs-up-arrow text-xs text-green-500'></i>
+        </div>
+      </div>
+
+      <div
+        class="bg-white p-4 rounded-3xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-32 hover:border-[#203864] transition-all group">
+        <div class="flex justify-between items-start">
+          <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Active Classes</span>
+          <i class='bx bxs-school text-2xl text-[#7A7A7A]'></i>
+        </div>
+        <span class="text-4xl font-bold text-[#203864]">6</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+      <div class="lg:col-span-2 flex flex-col gap-8">
+
+        <div class="flex flex-col gap-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xl font-bold text-[#203864] flex items-center gap-2">
+              <i class='bx bx-check-shield text-[#FFC300]'></i> Awaiting Your Approval
+            </h3>
+            <a href="#" class="text-sm font-bold text-[#008081] hover:underline">View All</a>
+          </div>
+
+          <div class="bg-white border-[3px] border-[#E7E7E7] rounded-3xl overflow-hidden">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-[#F9F9F9] border-b-2 border-[#E7E7E7]">
+                <tr>
+                  <th class="p-4 text-xs font-bold text-[#7A7A7A] uppercase">Student</th>
+                  <th class="p-4 text-xs font-bold text-[#7A7A7A] uppercase">Essay Title</th>
+                  <th class="p-4 text-xs font-bold text-[#7A7A7A] uppercase">AI Score</th>
+                  <th class="p-4 text-xs font-bold text-[#7A7A7A] uppercase text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#E7E7E7]">
+                <tr class="hover:bg-[#E6F2F2] transition-colors group">
+                  <td class="p-4 flex items-center gap-3">
+                    <img src="https://i.pravatar.cc/150?u=1" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+                    <span class="font-bold text-[#203864]">Budi Santoso</span>
+                  </td>
+                  <td class="p-4 text-sm font-medium">Global Warming Effects</td>
+                  <td class="p-4">
+                    <span
+                      class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold rounded-lg text-sm border border-[#136C6D]">88</span>
+                  </td>
+                  <td class="p-4 text-right">
+                    <button class="btn-primary-sm">Review</button>
+                  </td>
+                </tr>
+                <tr class="hover:bg-[#E6F2F2] transition-colors group">
+                  <td class="p-4 flex items-center gap-3">
+                    <img src="https://i.pravatar.cc/150?u=2" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+                    <span class="font-bold text-[#203864]">Sarah Jenkins</span>
+                  </td>
+                  <td class="p-4 text-sm font-medium">History of AI</td>
+                  <td class="p-4">
+                    <span
+                      class="px-3 py-1 bg-[#FFF4E5] text-[#FFC300] font-bold rounded-lg text-sm border border-[#DBB12A]">65</span>
+                  </td>
+                  <td class="p-4 text-right">
+                    <button class="btn-primary-sm">Review</button>
+                  </td>
+                </tr>
+                <tr class="hover:bg-[#E6F2F2] transition-colors group">
+                  <td class="p-4 flex items-center gap-3">
+                    <img src="https://i.pravatar.cc/150?u=3" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+                    <span class="font-bold text-[#203864]">Michael Chen</span>
+                  </td>
+                  <td class="p-4 text-sm font-medium">Future of Tech</td>
+                  <td class="p-4">
+                    <span
+                      class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold rounded-lg text-sm border border-[#136C6D]">92</span>
+                  </td>
+                  <td class="p-4 text-right">
+                    <button class="btn-primary-sm">Review</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-4">
+          <h3 class="text-xl font-bold text-[#203864]">Your Classes</h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              class="bg-white p-5 rounded-3xl border-[3px] border-[#E7E7E7] hover:border-[#203864] hover:shadow-[0px_6px_0_#203864] transition-all cursor-pointer flex flex-col gap-4 relative overflow-hidden">
+              <div class="flex justify-between items-start z-10">
+                <div class="flex flex-col">
+                  <h4 class="text-lg font-bold text-[#203864]">English 101 - A</h4>
+                  <span class="text-xs text-[#7A7A7A]">32 Students</span>
+                </div>
+                <div class="bg-[#E6F2F2] p-2 rounded-lg text-[#008081]">
+                  <i class='bx bxs-book-open text-xl'></i>
+                </div>
+              </div>
+
+              <div class="flex gap-2 z-10">
+                <span
+                  class="bg-[#FFE5E5] text-[#EE4E4E] text-[10px] font-bold px-2 py-1 rounded-md border border-[#EE4E4E]">
+                  3 Deadline Today
+                </span>
+                <span
+                  class="bg-[#F0F0F0] text-[#7A7A7A] text-[10px] font-bold px-2 py-1 rounded-md border border-[#D4D4D4]">
+                  Term 2
+                </span>
+              </div>
+              <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#F0F4F8] rounded-full z-0"></div>
+            </div>
+
+            <div
+              class="bg-white p-5 rounded-3xl border-[3px] border-[#E7E7E7] hover:border-[#008081] hover:shadow-[0px_6px_0_#008081] transition-all cursor-pointer flex flex-col gap-4 relative overflow-hidden">
+              <div class="flex justify-between items-start z-10">
+                <div class="flex flex-col">
+                  <h4 class="text-lg font-bold text-[#203864]">Creative Writing</h4>
+                  <span class="text-xs text-[#7A7A7A]">18 Students</span>
+                </div>
+                <div class="bg-[#E6F2F2] p-2 rounded-lg text-[#008081]">
+                  <i class='bx bxs-pencil text-xl'></i>
+                </div>
+              </div>
+
+              <div class="flex gap-2 z-10">
+                <span
+                  class="bg-[#E6F2F2] text-[#008081] text-[10px] font-bold px-2 py-1 rounded-md border border-[#136C6D]">
+                  All Graded
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="lg:col-span-1 flex flex-col gap-8">
+
+        <div
+          class="bg-white p-6 rounded-3xl border-[3px] border-[#EE4E4E] shadow-[0px_6px_0_#E63D3D] relative overflow-hidden">
+          <div class="flex items-center gap-2 mb-4 relative z-10">
+            <i class='bx bxs-error-circle text-[#EE4E4E] text-xl'></i>
+            <h3 class="text-lg font-bold text-[#203864]">Needs Attention</h3>
+          </div>
+
+          <div class="flex flex-col gap-3 relative z-10">
+            <div class="flex items-center justify-between bg-white border border-[#EE4E4E] p-3 rounded-xl shadow-sm">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-[#EE4E4E] font-bold text-xs">
+                  A</div>
+                <div class="flex flex-col">
+                  <span class="text-sm font-bold text-[#203864]">Alex Doe</span>
+                  <span class="text-[10px] text-[#7A7A7A]">Avg. Score: 45</span>
+                </div>
+              </div>
+              <button class="text-xs font-bold text-[#008081] hover:underline">Message</button>
+            </div>
+
+            <div class="flex items-center justify-between bg-white border border-[#EE4E4E] p-3 rounded-xl shadow-sm">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-[#EE4E4E] font-bold text-xs">
+                  J</div>
+                <div class="flex flex-col">
+                  <span class="text-sm font-bold text-[#203864]">John S.</span>
+                  <span class="text-[10px] text-[#7A7A7A]">Missed 2 Tasks</span>
+                </div>
+              </div>
+              <button class="text-xs font-bold text-[#008081] hover:underline">Message</button>
+            </div>
+          </div>
+          <div class="absolute -right-5 -top-5 w-32 h-32 bg-[#FFE5E5] rounded-full opacity-50 z-0"></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl border-[3px] border-[#E7E7E7] flex flex-col gap-4">
+          <h3 class="text-lg font-bold text-[#203864]">Weekly Submissions</h3>
+
+          <div class="flex items-end justify-between h-40 gap-2 px-2">
+            <div class="flex flex-col items-center gap-2 w-full group">
+              <div class="w-full bg-[#E6F2F2] rounded-t-lg relative h-full flex items-end">
+                <div class="w-full bg-[#008081] rounded-t-lg hover:bg-[#FFC300] transition-colors" style="height: 40%">
+                </div>
+              </div>
+              <span class="text-xs font-bold text-[#7A7A7A]">M</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 w-full group">
+              <div class="w-full bg-[#E6F2F2] rounded-t-lg relative h-full flex items-end">
+                <div class="w-full bg-[#008081] rounded-t-lg hover:bg-[#FFC300] transition-colors" style="height: 65%">
+                </div>
+              </div>
+              <span class="text-xs font-bold text-[#7A7A7A]">T</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 w-full group">
+              <div class="w-full bg-[#E6F2F2] rounded-t-lg relative h-full flex items-end">
+                <div class="w-full bg-[#008081] rounded-t-lg hover:bg-[#FFC300] transition-colors" style="height: 30%">
+                </div>
+              </div>
+              <span class="text-xs font-bold text-[#7A7A7A]">W</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 w-full group">
+              <div class="w-full bg-[#E6F2F2] rounded-t-lg relative h-full flex items-end">
+                <div class="w-full bg-[#008081] rounded-t-lg hover:bg-[#FFC300] transition-colors" style="height: 85%">
+                </div>
+              </div>
+              <span class="text-xs font-bold text-[#7A7A7A]">T</span>
+            </div>
+            <div class="flex flex-col items-center gap-2 w-full group">
+              <div class="w-full bg-[#E6F2F2] rounded-t-lg relative h-full flex items-end">
+                <div class="w-full bg-[#008081] rounded-t-lg hover:bg-[#FFC300] transition-colors" style="height: 50%">
+                </div>
+              </div>
+              <span class="text-xs font-bold text-[#7A7A7A]">F</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl border-[3px] border-[#E7E7E7] flex flex-col gap-3">
+          <h3 class="text-lg font-bold text-[#203864]">Quick Tools</h3>
+          <button
+            class="w-full py-3 px-4 rounded-xl border-2 border-[#E7E7E7] flex items-center gap-3 hover:bg-[#F9F9F9] transition-colors font-bold text-[#7A7A7A] hover:text-[#008081] hover:border-[#008081]">
+            <i class='bx bx-qr-scan text-xl'></i> Generate Class QR
+          </button>
+          <button
+            class="w-full py-3 px-4 rounded-xl border-2 border-[#E7E7E7] flex items-center gap-3 hover:bg-[#F9F9F9] transition-colors font-bold text-[#7A7A7A] hover:text-[#008081] hover:border-[#008081]">
+            <i class='bx bx-export text-xl'></i> Export Grades (CSV)
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+  }
+</ng-container>
+
+<ng-container>
+  @if(device.isMobile() || device.isTablet()){
+  <div class="w-full min-h-screen  pb-10 font-sans text-[#474747]">
+
+    <div class="pt-6 pb-6 rounded-b-[2.5rem] mb-6">
+      <div class="flex flex-row justify-between items-center mb-4">
+        <div class="flex flex-col">
+          <h1 class="text-2xl font-bold text-[#203864]">Hello, Teacher!</h1>
+          <p class="text-sm text-[#7A7A7A]">Here's your daily summary.</p>
+        </div>
+      </div>
+
+      <div class="relative w-full">
+        <i class='bx bx-search absolute left-4 top-1/2 -translate-y-1/2 text-xl text-[#A0A0A0]'></i>
+        <input type="text" placeholder="Search student or class..."
+          class="w-full pl-12 pr-4 py-3 bg-[#F9F9F9] border-2 border-[#E7E7E7] rounded-xl focus:outline-none focus:border-[#008081] font-medium placeholder:text-[#A0A0A0]">
+      </div>
+    </div>
+
+    <div class=" flex flex-col gap-6">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div
+          class="bg-[#FFF8E1] p-4 rounded-2xl border-[3px] border-[#FFC300] shadow-[0px_4px_0_#DBB12A] flex flex-col justify-between h-36 relative overflow-hidden">
+          <div class="absolute -right-4 -top-4 w-16 h-16 bg-[#FFE082] rounded-full opacity-50"></div>
+          <div class="z-10 flex justify-between items-start">
+            <i class='bx bx-time-five text-2xl text-[#FF8F00]'></i>
+            <span class="text-3xl font-bold text-[#203864]">8</span>
+          </div>
+          <div class="z-10">
+            <p class="text-xs font-bold text-[#FF8F00] uppercase tracking-wide">Pending</p>
+            <p class="text-[10px] text-[#203864] font-semibold mt-1">Review needed</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-36">
+          <div class="flex justify-between items-start">
+            <i class='bx bxs-user text-2xl text-[#008081]'></i>
+            <span class="text-3xl font-bold text-[#203864]">142</span>
+          </div>
+          <p class="text-xs font-bold text-[#7A7A7A] uppercase tracking-wide">Students</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-36">
+          <div class="flex justify-between items-start">
+            <i class='bx bxs-bar-chart-alt-2 text-2xl text-[#203864]'></i>
+            <span class="text-3xl font-bold text-[#008081]">76.5</span>
+          </div>
+          <p class="text-xs font-bold text-[#7A7A7A] uppercase tracking-wide">Avg Score</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-36">
+          <div class="flex justify-between items-start">
+            <i class='bx bxs-school text-2xl text-[#EE4E4E]'></i>
+            <span class="text-3xl font-bold text-[#203864]">6</span>
+          </div>
+          <p class="text-xs font-bold text-[#7A7A7A] uppercase tracking-wide">Classes</p>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-3xl border-[3px] border-[#EE4E4E] border-opacity-30 relative overflow-hidden">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-[#FFE5E5] flex items-center justify-center text-[#EE4E4E]">
+            <i class='bx bxs-error-circle'></i>
+          </div>
+          <h3 class="font-bold text-[#203864]">Action Required</h3>
+        </div>
+
+        <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <div class="min-w-[140px] bg-[#FAFAFA] border-2 border-[#E7E7E7] p-3 rounded-xl flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-gray-300"></div>
+              <span class="text-xs font-bold truncate">Alex Doe</span>
+            </div>
+            <span class="text-[10px] text-[#EE4E4E] font-bold bg-[#FFE5E5] px-2 py-1 rounded-md w-fit">Score: 45</span>
+          </div>
+          <div class="min-w-[140px] bg-[#FAFAFA] border-2 border-[#E7E7E7] p-3 rounded-xl flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-gray-300"></div>
+              <span class="text-xs font-bold truncate">John Smith</span>
+            </div>
+            <span class="text-[10px] text-[#EE4E4E] font-bold bg-[#FFE5E5] px-2 py-1 rounded-md w-fit">2 Missed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <div class="flex justify-between items-center">
+          <h3 class="font-bold text-[#203864] text-lg">Waiting Approval</h3>
+          <span class="text-xs font-bold text-[#008081] bg-[#E6F2F2] px-2 py-1 rounded-lg">8 Pending</span>
+        </div>
+
+        <div class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-3 shadow-sm">
+          <div class="flex justify-between items-start">
+            <div class="flex gap-3 items-center">
+              <img src="https://i.pravatar.cc/150?u=1" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+              <div class="flex flex-col">
+                <span class="font-bold text-[#203864] text-sm">Budi Santoso</span>
+                <span class="text-xs text-[#7A7A7A]">Global Warming Effects</span>
+              </div>
+            </div>
+            <span
+              class="text-sm font-bold text-[#008081] bg-[#E6F2F2] px-2 py-1 rounded-lg border border-[#136C6D]">88</span>
+          </div>
+          <button
+            class="w-full py-2 bg-[#203864] text-white text-sm font-bold rounded-xl active:scale-95 transition-transform">
+            Review Essay
+          </button>
+        </div>
+
+        <div class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-3 shadow-sm">
+          <div class="flex justify-between items-start">
+            <div class="flex gap-3 items-center">
+              <img src="https://i.pravatar.cc/150?u=2" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+              <div class="flex flex-col">
+                <span class="font-bold text-[#203864] text-sm">Sarah Jenkins</span>
+                <span class="text-xs text-[#7A7A7A]">History of AI</span>
+              </div>
+            </div>
+            <span
+              class="text-sm font-bold text-[#FFC300] bg-[#FFF4E5] px-2 py-1 rounded-lg border border-[#DBB12A]">65</span>
+          </div>
+          <button
+            class="w-full py-2 bg-[#203864] text-white text-sm font-bold rounded-xl active:scale-95 transition-transform">
+            Review Essay
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <h3 class="font-bold text-[#203864] text-lg">My Classes</h3>
+
+        <div
+          class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row justify-between items-center relative overflow-hidden">
+          <div class="flex flex-col gap-1 z-10">
+            <span class="font-bold text-[#203864]">English 101 - A</span>
+            <span class="text-xs text-[#7A7A7A]">32 Students • Term 2</span>
+            <div class="mt-2 flex gap-1">
+              <span
+                class="px-2 py-0.5 bg-[#FFE5E5] text-[#EE4E4E] text-[10px] font-bold rounded border border-[#EE4E4E]">3
+                Deadline</span>
+            </div>
+          </div>
+          <div class="h-10 w-10 bg-[#E6F2F2] rounded-full flex items-center justify-center text-[#008081] z-10">
+            <i class='bx bxs-chevron-right text-2xl'></i>
+          </div>
+        </div>
+
+        <div
+          class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row justify-between items-center relative overflow-hidden">
+          <div class="flex flex-col gap-1 z-10">
+            <span class="font-bold text-[#203864]">Creative Writing</span>
+            <span class="text-xs text-[#7A7A7A]">18 Students • Term 2</span>
+          </div>
+          <div class="h-10 w-10 bg-[#E6F2F2] rounded-full flex items-center justify-center text-[#008081] z-10">
+            <i class='bx bxs-chevron-right text-2xl'></i>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  }
+</ng-container>

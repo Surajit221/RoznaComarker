@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { DeviceService } from '../../../services/device.service';
 
 @Component({
   selector: 'app-dashboard-teacher-pages',
@@ -7,5 +8,5 @@ import { Component } from '@angular/core';
   styleUrl: './dashboard-teacher-pages.css',
 })
 export class DashboardTeacherPages {
-
+  device = inject(DeviceService);
 }

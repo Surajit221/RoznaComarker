@@ -6,7 +6,7 @@ import { AuthService } from '../../../auth/auth.service';
 
 @Component({
   selector: 'app-my-profile-pages',
-  imports: [CommonModule, TruncatePipe],
+  imports: [CommonModule],
   templateUrl: './my-profile-pages.html',
   styleUrl: './my-profile-pages.css',
 })
