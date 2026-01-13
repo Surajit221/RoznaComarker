@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-register-pages',
@@ -7,5 +8,9 @@ import { Component } from '@angular/core';
   styleUrl: './register-pages.css',
 })
 export class RegisterPages {
+  constructor(private router: Router) {}
 
+  ngOnInit() {
+    this.router.navigate(['/login']);
+  }
 }

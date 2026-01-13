@@ -3,7 +3,22 @@ import { Component, effect, HostListener, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { DeviceService } from '../../services/device.service';
 import { ChartStorage } from '../../shared/chart-storage/chart-storage';
-import { RoleService } from '../../services/role.service';
+import { AuthService } from '../../auth/auth.service';
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const payload = parts[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
 
 @Component({
   selector: 'app-dashboard-layout',
@@ -13,17 +28,18 @@ import { RoleService } from '../../services/role.service';
   styleUrls: ['./dashboard-layout.css'],
 })
 export class DashboardLayout {
-  // 1. Inject Role Service & Device Service
-  roleService = inject(RoleService);
-  device = inject(DeviceService);
-
-  // 2. State Dropdown & UI
+  role: string | null = null;
   isUserDropdownOpen = signal(false);
   isNotificationsDropdownOpen = false;
+
+  meName: string = '';
+
   showAppBar = signal(false);
   showBottomNav = signal(true);
 
-  // 3. Definisi Menu (Hardcoded Paths sudah sesuai dengan deteksi URL)
+  device = inject(DeviceService);
+  private auth = inject(AuthService);
+
   teacherMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
@@ -54,33 +70,14 @@ export class DashboardLayout {
   mainMenu: any[] = [];
   mainMenuMobile: any[] = [];
 
-  // Data Notifikasi Dummy
-  notifications = [
-    {
-      icon: 'bx-user-plus',
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      title: 'New student enrolled',
-      description: 'John Doe joined your Math class',
-      time: '2 minutes ago',
-    },
-    {
-      icon: 'bx-task',
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600',
-      title: 'Assignment submitted',
-      description: '5 students submitted Algebra homework',
-      time: '1 hour ago',
-    },
-    {
-      icon: 'bx-calendar-event',
-      iconBg: 'bg-yellow-100',
-      iconColor: 'text-yellow-600',
-      title: 'Class reminder',
-      description: 'Math class starts in 30 minutes',
-      time: '3 hours ago',
-    },
-  ];
+  notifications: Array<{
+    icon: string;
+    iconBg: string;
+    iconColor: string;
+    title: string;
+    description: string;
+    time: string;
+  }> = [];
 
   constructor(private router: Router, private location: Location) {
     // A. Logic Deteksi Detail Page (AppBar vs BottomNav)
@@ -98,20 +95,20 @@ export class DashboardLayout {
       }
     });
 
-    effect(() => {
-      const currentRole = this.roleService.currentRole();
+  async ngOnInit() {
+    const token = localStorage.getItem('backend_jwt');
+    const payload = token ? decodeJwtPayload(token) : null;
+    this.role = (payload && payload.role) || null;
 
-      if (currentRole === 'teacher') {
-        this.mainMenu = this.teacherMenu;
-        this.mainMenuMobile = this.teacherMenuMobile;
-      } else if (currentRole === 'student') {
-        this.mainMenu = this.studentMenu;
-        this.mainMenuMobile = this.studentMenuMobile;
-      } else {
-        this.mainMenu = [];
-        this.mainMenuMobile = [];
-      }
-    });
+    this.mainMenu = this.role === 'student' ? this.studentMenu : this.teacherMenu;
+    this.mainMenuMobile = this.role === 'student' ? this.studentMenuMobile : this.teacherMenuMobile;
+
+    try {
+      const me = await this.auth.getMeProfile();
+      this.meName = me.displayName || me.email || '';
+    } catch {
+      this.meName = '';
+    }
   }
 
   // Helper navigasi
@@ -144,10 +141,9 @@ export class DashboardLayout {
     }
   }
 
-  // Logout Logic
-  toLogin() {
-    // Optional: Clear storage jika masih menyimpan token auth
-    localStorage.clear();
+  async toLogin() {
+    await this.auth.logout();
+    localStorage.removeItem('role');
     this.router.navigate(['/login']);
   }
 }

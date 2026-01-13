@@ -13,8 +13,8 @@
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
     <button class="btn-warning">Previous</button>
     <div class="flex flex-col justify-center items-center">
-      <p class="font-bold text-2xl">Sarah Connor</p>
-      <p class="font-bold text-sm text-gray-500">ID:01234567</p>
+      <p class="font-bold text-2xl">{{ studentName }}</p>
+      <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
     </div>
     <button class="btn-primary">Next</button>
   </div>
@@ -29,7 +29,7 @@
           </button>
         </div>
         <!-- <img src="img/default-img.png" class="w-full rounded-2xl object-cover" alt="class image" /> -->
-        <app-essay-images></app-essay-images>
+        <app-essay-images [imageUrl]="essayImageUrl"></app-essay-images>
       </div>
     </div>
   </div>
@@ -593,7 +593,7 @@
             </div>
           </div>
           }
-          <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+          <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
             <p class="text-xl font-bold mb-1">Teacher Comments</p>
             <div class="flex flex-col gap-1">
               <div class="w-full">
@@ -605,7 +605,7 @@
               </div>
             </div>
             <div class="w-full flex justify-end mt-4">
-              <button type="button" class="btn-primary" (click)="onEditRubric()">Submit</button>
+              <button type="button" class="btn-primary" (click)="submitFeedback()">Submit</button>
             </div>
           </div>
         </div>
@@ -621,11 +621,14 @@
 
   <app-modal-dialog [open]="openSheetSubmission">
     <h2 class="text-3xl font-bold text-center mb-8">All Submissions</h2>
-    <app-dialog-view-submissions (closed)="onCloseSubmission()"></app-dialog-view-submissions>
+    <app-dialog-view-submissions
+      [assignmentId]="assignmentId"
+      (closed)="onCloseSubmission()"
+    ></app-dialog-view-submissions>
   </app-modal-dialog>
 
   <!-- <app-bottomsheet-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
-    <h2 class="text-2xl font-bold mb-5">Narrative Perspective: First-Person Draft</h2>
+    <h2 class="text-2xl font-bold mb-5">{{ selectedAssignmentTitle }}</h2>
     <app-dialog-view-submissions (closed)="onCloseSubmission()"></app-dialog-view-submissions>
   </app-bottomsheet-dialog> -->
 
@@ -635,15 +638,15 @@
 <ng-container>
   @if(device.isMobile() || device.isTablet()) {
   <app-app-bar-back-button
-    title="Creative Essay Practice"
+    [title]="classTitle"
     (back)="toBack()"
   ></app-app-bar-back-button>
 
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
     <button class="btn-warning-sm"><i class="bx bx-chevron-left"></i></button>
     <div class="flex flex-col justify-center items-center">
-      <p class="font-bold text-base">Sarah Connor</p>
-      <p class="font-bold text-xs text-gray-500">ID:01234567</p>
+      <p class="font-bold text-base">{{ studentName }}</p>
+      <p class="font-bold text-xs text-gray-500">ID:{{ studentDisplayId }}</p>
     </div>
     <button class="btn-primary-sm"><i class="bx bx-chevron-right"></i></button>
   </div>
@@ -1236,7 +1239,10 @@
 
   <app-bottomsheet-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
     <h2 class="text-2xl font-bold mb-5">All Submissions</h2>
-    <app-dialog-view-submissions (closed)="onCloseSubmission()"></app-dialog-view-submissions>
+    <app-dialog-view-submissions
+      [assignmentId]="assignmentId"
+      (closed)="onCloseSubmission()"
+    ></app-dialog-view-submissions>
   </app-bottomsheet-dialog>
   }
 </ng-container>

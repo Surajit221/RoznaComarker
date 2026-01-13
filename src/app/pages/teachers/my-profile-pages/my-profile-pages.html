@@ -282,26 +282,9 @@
           </p>
         </div>
       </div>
-    </div>
-
-    <div class="flex flex-col gap-6">
-
-      <div class="flex p-1 bg-white rounded-xl border-2 border-[#E7E7E7]">
-        <button (click)="activeTab = 'general'"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
-          [ngClass]="activeTab === 'general' ? 'bg-[#203864] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
-          Profile
-        </button>
-        <button (click)="activeTab = 'ai-config'"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
-          [ngClass]="activeTab === 'ai-config' ? 'bg-[#203864] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
-          AI Logic
-        </button>
-        <button (click)="activeTab = 'settings'"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
-          [ngClass]="activeTab === 'settings' ? 'bg-[#203864] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
-          Account
-        </button>
+      <div class="w-full flex flex-col">
+        <h1 class="text-center text-2xl font-bold mb-0">{{ meName }}</h1>
+        <p class="text-center text-sm text-gray-600">ID: {{ meId }}</p>
       </div>
 
       @if(activeTab === 'general'){
