@@ -26,6 +26,7 @@ export class MyClassesPages {
   private debounceService = inject(DebounceService);
 
   private destroy$ = new Subject<void>();
+  private readonly searchDebounce = this.debounceService.createDebounce(300);
 
   isLoading = false;
   searchTerm = '';
@@ -59,19 +60,20 @@ export class MyClassesPages {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+
+    this.searchDebounce.subject.complete();
   }
 
   private setupSearchDebounce() {
-    const searchDebounce = this.debounceService.createDebounce(300);
-    searchDebounce.pipe(takeUntil(this.destroy$)).subscribe(term => {
-      this.filterClasses(term);
-    });
+    this.searchDebounce.debounced$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((term) => this.filterClasses(term));
   }
 
   onSearchInput(event: Event) {
     const target = event.target as HTMLInputElement;
     this.searchTerm = target.value;
-    this.filterClasses(this.searchTerm);
+    this.searchDebounce.subject.next(this.searchTerm);
   }
 
   private filterClasses(searchTerm: string) {

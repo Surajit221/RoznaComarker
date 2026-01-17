@@ -7,9 +7,11 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 export class DebounceService {
   createDebounce(delay: number = 300) {
     const subject = new Subject<string>();
-    return subject.pipe(
-      debounceTime(delay),
-      distinctUntilChanged()
-    );
+    const debounced$ = subject.pipe(debounceTime(delay), distinctUntilChanged());
+
+    return {
+      subject,
+      debounced$,
+    };
   }
 }
