@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/rout
 import { DeviceService } from '../../services/device.service';
 import { ChartStorage } from '../../shared/chart-storage/chart-storage';
 import { AuthService } from '../../auth/auth.service';
+import { RoleService } from '../../services/role.service';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -39,6 +40,7 @@ export class DashboardLayout {
 
   device = inject(DeviceService);
   private auth = inject(AuthService);
+  roleService = inject(RoleService);
 
   teacherMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
@@ -94,6 +96,8 @@ export class DashboardLayout {
         }
       }
     });
+
+  }
 
   async ngOnInit() {
     const token = localStorage.getItem('backend_jwt');
