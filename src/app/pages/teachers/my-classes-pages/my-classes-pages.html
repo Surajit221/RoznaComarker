@@ -85,6 +85,14 @@
         <p class="text-gray-500">Loading your classes...</p>
       </div>
     </div>
+    } @else if (filteredClasses.length === 0 && searchTerm) {
+    <div class="flex justify-center items-center py-12">
+      <div class="text-center">
+        <i class="bx bx-search text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg">No classes found for "{{ searchTerm }}"</p>
+        <p class="text-gray-400 text-sm">Try a different search term</p>
+      </div>
+    </div>
     } @else if (classes.length === 0) {
     <div class="flex justify-center items-center py-12">
       <div class="text-center">
@@ -94,7 +102,7 @@
       </div>
     </div>
     } @else {
-    @for (item of classes; track item.title) {
+    @for (item of filteredClasses; track item.title) {
     <app-my-classes-card [id]="item.id" [image]="item.image" [title]="item.title" [students]="item.students"
       [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description" 
       [lastEdited]="item.lastEdited" />
