@@ -146,7 +146,7 @@ export class MyClassStudentPages {
     }
   }
 
-  // --
+
 
   async onJoined(_resp: JoinClassResponse) {
     this.closeDialog();
