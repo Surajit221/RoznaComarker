@@ -14,6 +14,8 @@ export class MyProfileStudentPages {
   device = inject(DeviceService);
   private auth = inject(AuthService);
 
+  activeTab: 'profile' | 'goals' | 'security' = 'profile';
+
   meName: string = '';
   meId: string = '';
   notifications: Array<{
