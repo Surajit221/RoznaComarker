@@ -1,6 +1,6 @@
 export const environment = {
     production: false,
-    apiUrl: 'http://localhost:5000',
+    apiUrl: 'http://82.112.234.151:5000',
     firebase: {
         apiKey: "AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM",
         authDomain: "rozna-comaker.firebaseapp.com",

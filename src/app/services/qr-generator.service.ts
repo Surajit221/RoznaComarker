@@ -10,7 +10,7 @@ export class QrGeneratorService {
     // Generate a proper URL format for QR codes
     const baseUrl = environment.production 
       ? 'https://yourdomain.com' 
-      : 'http://localhost:4200';
+      : 'http://82.112.234.151:4200';
     
     return `${baseUrl}/student/join-class?joinCode=${encodeURIComponent(joinCode)}`;
   }
