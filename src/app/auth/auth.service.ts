@@ -95,7 +95,7 @@ export class AuthService {
   async setMyRole(role: 'teacher' | 'student') {
     const resp = await firstValueFrom(
       this.http.patch<BackendLoginResponse>(
-        `${environment.apiUrl}/api/users/me/role`,
+        `${environment.apiBaseUrl}/api/users/me/role`,
         { role },
         {
           headers: {
@@ -128,14 +128,14 @@ export class AuthService {
 
   async getMeProfile(): Promise<BackendMe> {
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendMe>>(`${environment.apiUrl}/api/users/me`)
+      this.http.get<BackendResponse<BackendMe>>(`${environment.apiBaseUrl}/api/users/me`)
     );
     return resp.data;
   }
 
   async getUserById(userId: string): Promise<BackendUser> {
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendUser>>(`${environment.apiUrl}/api/users/${encodeURIComponent(userId)}`)
+      this.http.get<BackendResponse<BackendUser>>(`${environment.apiBaseUrl}/api/users/${encodeURIComponent(userId)}`)
     );
     return resp.data;
   }
@@ -149,7 +149,7 @@ export class AuthService {
   private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {
     const resp = await firstValueFrom(
       this.http.post<BackendLoginResponse>(
-        `${environment.apiUrl}/api/auth/login`,
+        `${environment.apiBaseUrl}/api/auth/login`,
         {},
         {
           headers: {

@@ -47,7 +47,7 @@ export class MembershipApiService {
     }
 
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendMembership[]>>(`${environment.apiUrl}/api/memberships/mine`)
+      this.http.get<BackendResponse<BackendMembership[]>>(`${environment.apiBaseUrl}/api/memberships/mine`)
     );
     const data = resp?.data || [];
     
@@ -58,7 +58,7 @@ export class MembershipApiService {
 
   async joinClassByCode(joinCode: string): Promise<JoinClassResponse> {
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<JoinClassResponse>>(`${environment.apiUrl}/api/memberships/join`, { joinCode })
+      this.http.post<BackendResponse<JoinClassResponse>>(`${environment.apiBaseUrl}/api/memberships/join`, { joinCode })
     );
     
     // Clear memberships cache after joining new class
