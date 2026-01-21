@@ -33,7 +33,7 @@ export class AssignmentApiService {
   async getClassAssignments(classId: string): Promise<BackendAssignment[]> {
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendAssignment[]>>(
-        `${environment.apiUrl}/api/assignments/class/${encodeURIComponent(classId)}`
+        `${environment.apiBaseUrl}/api/assignments/class/${encodeURIComponent(classId)}`
       )
     );
     return resp?.data || [];
@@ -48,21 +48,21 @@ export class AssignmentApiService {
     allowLateResubmission?: boolean;
   }): Promise<BackendAssignment> {
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<BackendAssignment>>(`${environment.apiUrl}/api/assignments`, payload)
+      this.http.post<BackendResponse<BackendAssignment>>(`${environment.apiBaseUrl}/api/assignments`, payload)
     );
     return resp.data;
   }
 
   async getMyAssignments(): Promise<BackendAssignment[]> {
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendAssignment[]>>(`${environment.apiUrl}/api/assignments/my`)
+      this.http.get<BackendResponse<BackendAssignment[]>>(`${environment.apiBaseUrl}/api/assignments/my`)
     );
     return resp?.data || [];
   }
 
   async getAssignmentById(id: string): Promise<BackendAssignment> {
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendAssignment>>(`${environment.apiUrl}/api/assignments/${encodeURIComponent(id)}`)
+      this.http.get<BackendResponse<BackendAssignment>>(`${environment.apiBaseUrl}/api/assignments/${encodeURIComponent(id)}`)
     );
     return resp.data;
   }

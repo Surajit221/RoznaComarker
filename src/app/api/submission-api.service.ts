@@ -56,7 +56,7 @@ export class SubmissionApiService {
 
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendSubmission>>(
-        `${environment.apiUrl}/api/submissions/${encodeURIComponent(assignmentId)}`,
+        `${environment.apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`,
         form
       )
     );
@@ -66,7 +66,7 @@ export class SubmissionApiService {
 
   async getMySubmissions(): Promise<BackendSubmission[]> {
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendSubmission[]>>(`${environment.apiUrl}/api/submissions/my`)
+      this.http.get<BackendResponse<BackendSubmission[]>>(`${environment.apiBaseUrl}/api/submissions/my`)
     );
     return resp?.data || [];
   }
@@ -74,7 +74,7 @@ export class SubmissionApiService {
   async getMySubmissionByAssignmentId(assignmentId: string): Promise<BackendSubmission> {
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendSubmission>>(
-        `${environment.apiUrl}/api/submissions/${encodeURIComponent(assignmentId)}`
+        `${environment.apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`
       )
     );
     return resp.data;
@@ -83,7 +83,7 @@ export class SubmissionApiService {
   async getSubmissionsByAssignment(assignmentId: string): Promise<BackendSubmission[]> {
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendSubmission[]>>(
-        `${environment.apiUrl}/api/submissions/assignment/${encodeURIComponent(assignmentId)}`
+        `${environment.apiBaseUrl}/api/submissions/assignment/${encodeURIComponent(assignmentId)}`
       )
     );
     return resp?.data || [];

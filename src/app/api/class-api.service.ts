@@ -61,7 +61,7 @@ export class ClassApiService {
     }
 
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendClass[]>>(`${environment.apiUrl}/api/classes/mine`)
+      this.http.get<BackendResponse<BackendClass[]>>(`${environment.apiBaseUrl}/api/classes/mine`)
     );
     const data = resp?.data || [];
     
@@ -72,7 +72,7 @@ export class ClassApiService {
 
   async createClass(payload: { name: string; description?: string }): Promise<BackendClass> {
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<BackendClass>>(`${environment.apiUrl}/api/classes`, payload)
+      this.http.post<BackendResponse<BackendClass>>(`${environment.apiBaseUrl}/api/classes`, payload)
     );
     
     // Clear cache after creating new class
@@ -90,7 +90,7 @@ export class ClassApiService {
 
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendClassStudent[]>>(
-        `${environment.apiUrl}/api/classes/${encodeURIComponent(classId)}/students`
+        `${environment.apiBaseUrl}/api/classes/${encodeURIComponent(classId)}/students`
       )
     );
     const data = resp?.data || [];
@@ -109,7 +109,7 @@ export class ClassApiService {
 
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendClassSummary>>(
-        `${environment.apiUrl}/api/classes/${encodeURIComponent(classId)}/summary`
+        `${environment.apiBaseUrl}/api/classes/${encodeURIComponent(classId)}/summary`
       )
     );
     const data = resp.data;

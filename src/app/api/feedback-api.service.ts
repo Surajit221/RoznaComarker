@@ -34,7 +34,7 @@ export class FeedbackApiService {
   async getFeedbackBySubmissionForStudent(submissionId: string): Promise<BackendFeedback> {
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendFeedback>>(
-        `${environment.apiUrl}/api/feedback/submission/${encodeURIComponent(submissionId)}`
+        `${environment.apiBaseUrl}/api/feedback/submission/${encodeURIComponent(submissionId)}`
       )
     );
     return resp.data;
@@ -43,7 +43,7 @@ export class FeedbackApiService {
   async getFeedbackByIdForTeacher(feedbackId: string): Promise<BackendFeedback> {
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendFeedback>>(
-        `${environment.apiUrl}/api/feedback/${encodeURIComponent(feedbackId)}`
+        `${environment.apiBaseUrl}/api/feedback/${encodeURIComponent(feedbackId)}`
       )
     );
     return resp.data;
@@ -75,7 +75,7 @@ export class FeedbackApiService {
 
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendFeedback>>(
-        `${environment.apiUrl}/api/feedback/${encodeURIComponent(submissionId)}`,
+        `${environment.apiBaseUrl}/api/feedback/${encodeURIComponent(submissionId)}`,
         form
       )
     );
@@ -109,7 +109,7 @@ export class FeedbackApiService {
 
     const resp = await firstValueFrom(
       this.http.put<BackendResponse<BackendFeedback>>(
-        `${environment.apiUrl}/api/feedback/${encodeURIComponent(feedbackId)}`,
+        `${environment.apiBaseUrl}/api/feedback/${encodeURIComponent(feedbackId)}`,
         form
       )
     );
