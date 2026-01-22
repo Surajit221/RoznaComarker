@@ -16,7 +16,7 @@ import { ClassApiService } from '../../../../../api/class-api.service';
   styleUrl: './my-submission-page.css',
 })
 export class MySubmissionPage {
-  isUploadedFile = false;
+  isUploadedFile = true;
   device = inject(DeviceService);
   activeTab = 'uploaded-file';
 
@@ -35,8 +35,20 @@ export class MySubmissionPage {
   submission: BackendSubmission | null = null;
   feedback: BackendFeedback | null = null;
 
+  isOcrPolling = false;
+  isOcrRefreshing = false;
+  ocrErrorMessage: string | null = null;
+  private ocrPollTimeoutId: any = null;
+
   uploadedFileUrl: string | null = null;
   teacherComment: string | null = null;
+
+  get isPdfUpload(): boolean {
+    const url = (this.uploadedFileUrl || '').toLowerCase();
+    if (!url) return false;
+    const noQuery = url.split('?')[0];
+    return noQuery.endsWith('.pdf') || noQuery.includes('/pdfs/');
+  }
 
   feedbackForm: FormGroup;
 
@@ -64,6 +76,27 @@ export class MySubmissionPage {
     this.feedbackForm = fb.group({
       message: ['']
     });
+  }
+
+  ngOnDestroy() {
+    this.stopOcrPolling();
+  }
+
+  get extractedText(): string | null {
+    const s = this.submission;
+    if (!s) return null;
+    const fromTranscript = s.transcriptText && String(s.transcriptText).trim() ? String(s.transcriptText) : '';
+    if (fromTranscript) return fromTranscript;
+    const fromOcr = s.ocrText && String(s.ocrText).trim() ? String(s.ocrText) : '';
+    return fromOcr || null;
+  }
+
+  get ocrStatus(): BackendSubmission['ocrStatus'] | null {
+    return this.submission?.ocrStatus || null;
+  }
+
+  get isOcrPending(): boolean {
+    return this.ocrStatus === 'pending' && !this.extractedText;
   }
 
   async ngOnInit() {
@@ -110,7 +143,14 @@ export class MySubmissionPage {
       }
 
       this.submission = submission;
-      this.uploadedFileUrl = submission?.fileUrl || null;
+      this.setUploadedFileUrl(submission?.fileUrl || null);
+
+      this.ocrErrorMessage = null;
+      if (submission?.ocrStatus === 'failed') {
+        this.ocrErrorMessage = submission.ocrError || 'OCR failed';
+      }
+
+      this.syncOcrPolling();
 
       if (submission && (submission as any).feedback) {
         const submissionId = submission._id;
@@ -129,6 +169,86 @@ export class MySubmissionPage {
     }
   }
 
+  private syncOcrPolling() {
+    if (!this.submission) {
+      this.stopOcrPolling();
+      return;
+    }
+
+    if (this.submission.ocrStatus === 'pending' && !this.extractedText) {
+      this.startOcrPolling();
+      return;
+    }
+
+    this.stopOcrPolling();
+  }
+
+  private startOcrPolling() {
+    if (this.isOcrPolling) return;
+    this.isOcrPolling = true;
+    this.scheduleNextOcrRefresh(1500);
+  }
+
+  private stopOcrPolling() {
+    this.isOcrPolling = false;
+    if (this.ocrPollTimeoutId) {
+      clearTimeout(this.ocrPollTimeoutId);
+      this.ocrPollTimeoutId = null;
+    }
+  }
+
+  private scheduleNextOcrRefresh(ms: number) {
+    if (!this.isOcrPolling) return;
+    if (this.ocrPollTimeoutId) {
+      clearTimeout(this.ocrPollTimeoutId);
+      this.ocrPollTimeoutId = null;
+    }
+
+    this.ocrPollTimeoutId = setTimeout(() => {
+      this.refreshSubmissionForOcr();
+    }, ms);
+  }
+
+  private async refreshSubmissionForOcr() {
+    const assignmentId = this.assignmentId;
+    if (!assignmentId) {
+      this.stopOcrPolling();
+      return;
+    }
+
+    if (!this.isOcrPolling) return;
+    if (this.isOcrRefreshing) {
+      this.scheduleNextOcrRefresh(2500);
+      return;
+    }
+
+    this.isOcrRefreshing = true;
+    try {
+      const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId);
+      this.submission = updated;
+      this.setUploadedFileUrl(updated?.fileUrl || this.uploadedFileUrl);
+
+      if (updated?.ocrStatus === 'failed') {
+        this.ocrErrorMessage = updated.ocrError || 'OCR failed';
+      } else {
+        this.ocrErrorMessage = null;
+      }
+
+      if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed' || this.extractedText) {
+        this.stopOcrPolling();
+        return;
+      }
+
+      this.scheduleNextOcrRefresh(3000);
+    } catch (err: any) {
+      const message = err?.error?.message || err?.message || 'Failed to fetch OCR text';
+      this.ocrErrorMessage = message;
+      this.stopOcrPolling();
+    } finally {
+      this.isOcrRefreshing = false;
+    }
+  }
+
   toBack() {
     if (this.classId) {
       this.router.navigate(['/student/my-classes/detail', this.classId]);
@@ -140,5 +260,9 @@ export class MySubmissionPage {
 
   onTabSelected(param: string) {
     this.activeTab = param;
+  }
+
+  private setUploadedFileUrl(url: string | null) {
+    this.uploadedFileUrl = url;
   }
 }

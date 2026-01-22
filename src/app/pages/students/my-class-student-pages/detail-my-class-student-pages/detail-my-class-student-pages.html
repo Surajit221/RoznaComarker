@@ -85,10 +85,53 @@
     <h2 class="text-3xl font-bold text-center mb-8">Upload Essay</h2>
     <app-upload-essay-form (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
 
+    @if (uploadProgressPercent !== null) {
+    <div class="w-full mt-6">
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-sm text-gray-600">Uploading...</p>
+        <p class="text-sm font-semibold text-gray-700">{{ uploadProgressPercent }}%</p>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div
+          class="h-2 bg-blue-600 rounded-full transition-all duration-200"
+          [style.width.%]="uploadProgressPercent"
+        ></div>
+      </div>
+    </div>
+    }
+
+    @if (uploadErrorMessage) {
+    <div class="w-full mt-4">
+      <p class="text-sm text-red-500 font-medium">{{ uploadErrorMessage }}</p>
+    </div>
+    }
+
+    @if (uploadSuccessMessage) {
+    <div class="w-full mt-4">
+      <p class="text-sm text-green-600 font-medium">{{ uploadSuccessMessage }}</p>
+    </div>
+    }
+
     <div class="flex justify-center items-center gap-3 mt-8">
-      <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
+      <button
+        type="button"
+        class="btn-danger"
+        (click)="closeDialog()"
+        [disabled]="isLoading"
+        [class.opacity-50]="isLoading"
+      >
+        Cancel
+      </button>
       @if (selectedFiles.length > 0) {
-      <button type="submit" class="btn-primary" (click)="uploadFiles()">Upload {{ selectedFiles.length }} File Now</button>
+      <button
+        type="submit"
+        class="btn-primary"
+        (click)="uploadFiles()"
+        [disabled]="isLoading"
+        [class.opacity-50]="isLoading"
+      >
+        Upload {{ selectedFiles.length }} File Now
+      </button>
       }
     </div>
   </app-modal-dialog>
@@ -183,11 +226,52 @@
     <h2 class="text-2xl font-bold mb-3">Upload Essay</h2>
     <app-upload-essay-form (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
 
+    @if (uploadProgressPercent !== null) {
+    <div class="w-full mt-6">
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-sm text-gray-600">Uploading...</p>
+        <p class="text-sm font-semibold text-gray-700">{{ uploadProgressPercent }}%</p>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div
+          class="h-2 bg-blue-600 rounded-full transition-all duration-200"
+          [style.width.%]="uploadProgressPercent"
+        ></div>
+      </div>
+    </div>
+    }
+
+    @if (uploadErrorMessage) {
+    <div class="w-full mt-4">
+      <p class="text-sm text-red-500 font-medium">{{ uploadErrorMessage }}</p>
+    </div>
+    }
+
+    @if (uploadSuccessMessage) {
+    <div class="w-full mt-4">
+      <p class="text-sm text-green-600 font-medium">{{ uploadSuccessMessage }}</p>
+    </div>
+    }
+
     <div class="flex flex-col justify-center items-center gap-3 mt-6">
-      <button type="submit" class="btn-primary-sm w-full" (click)="uploadFiles()">
+      <button
+        type="submit"
+        class="btn-primary-sm w-full"
+        (click)="uploadFiles()"
+        [disabled]="isLoading"
+        [class.opacity-50]="isLoading"
+      >
         Upload {{ selectedFiles.length }} File Now
       </button>
-      <button type="button" class="btn-danger-sm w-full" (click)="onCLoseSheet()">Cancel</button>
+      <button
+        type="button"
+        class="btn-danger-sm w-full"
+        (click)="onCLoseSheet()"
+        [disabled]="isLoading"
+        [class.opacity-50]="isLoading"
+      >
+        Cancel
+      </button>
       @if (selectedFiles.length > 0) { }
     </div>
   </app-bottomsheet-dialog>

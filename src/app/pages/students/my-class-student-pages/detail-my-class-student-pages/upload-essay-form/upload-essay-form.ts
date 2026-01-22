@@ -15,6 +15,11 @@ export class UploadEssayForm {
 
   isDragging = false;
   files: { file: File; name: string; size: number; preview?: string }[] = [];
+  validationError: string | null = null;
+
+  private readonly maxFileSizeBytes = 10 * 1024 * 1024;
+  private readonly allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+  private readonly allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
 
   triggerFileInput() {
     this.fileInput.nativeElement.click();
@@ -48,7 +53,13 @@ export class UploadEssayForm {
   }
 
   handleFiles(fileList: FileList) {
+    this.validationError = null;
     Array.from(fileList).forEach(file => {
+      if (!this.isFileAllowed(file)) {
+        this.validationError = 'Only JPG, PNG, and PDF files up to 10MB are allowed.';
+        return;
+      }
+
       const newFile = {
         file,
         name: file.name,
@@ -66,6 +77,10 @@ export class UploadEssayForm {
       this.files.push(newFile);
     });
 
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+
     this.filesSelected.emit(this.files.map(f => f.file));
   }
 
@@ -73,5 +88,16 @@ export class UploadEssayForm {
     event.stopPropagation();
     this.files.splice(index, 1);
     this.filesSelected.emit(this.files.map(f => f.file));
+  }
+
+  private isFileAllowed(file: File): boolean {
+    if (!file) return false;
+    if (typeof file.size === 'number' && file.size > this.maxFileSizeBytes) return false;
+
+    const typeOk = file.type ? this.allowedMimeTypes.has(file.type) : false;
+    const dot = file.name.lastIndexOf('.') >= 0 ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : '';
+    const extOk = dot ? this.allowedExtensions.has(dot) : false;
+
+    return typeOk || extOk;
   }
 }

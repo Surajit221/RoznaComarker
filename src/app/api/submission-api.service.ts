@@ -41,6 +41,11 @@ export type BackendSubmission = {
   submittedAt: string;
   isLate: boolean;
   qrToken?: string;
+  transcriptText?: string;
+  ocrStatus?: 'pending' | 'completed' | 'failed';
+  ocrText?: string;
+  ocrError?: string;
+  ocrUpdatedAt?: string;
   feedback?: string;
   createdAt: string;
   updatedAt: string;
@@ -51,12 +56,13 @@ export class SubmissionApiService {
   constructor(private http: HttpClient) {}
 
   async submitToAssignment(assignmentId: string, file: File): Promise<BackendSubmission> {
+    const apiBaseUrl = environment.apiBaseUrl;
     const form = new FormData();
     form.append('file', file);
 
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendSubmission>>(
-        `${environment.apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`,
+        `${apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`,
         form
       )
     );
@@ -65,25 +71,28 @@ export class SubmissionApiService {
   }
 
   async getMySubmissions(): Promise<BackendSubmission[]> {
+    const apiBaseUrl = environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendSubmission[]>>(`${environment.apiBaseUrl}/api/submissions/my`)
+      this.http.get<BackendResponse<BackendSubmission[]>>(`${apiBaseUrl}/api/submissions/my`)
     );
     return resp?.data || [];
   }
 
   async getMySubmissionByAssignmentId(assignmentId: string): Promise<BackendSubmission> {
+    const apiBaseUrl = environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendSubmission>>(
-        `${environment.apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`
+        `${apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`
       )
     );
     return resp.data;
   }
 
   async getSubmissionsByAssignment(assignmentId: string): Promise<BackendSubmission[]> {
+    const apiBaseUrl = environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendSubmission[]>>(
-        `${environment.apiBaseUrl}/api/submissions/assignment/${encodeURIComponent(assignmentId)}`
+        `${apiBaseUrl}/api/submissions/assignment/${encodeURIComponent(assignmentId)}`
       )
     );
     return resp?.data || [];

@@ -9,7 +9,14 @@
   (drop)="onDrop($event)"
   (click)="triggerFileInput()"
 >
-  <input #fileInput type="file" class="hidden" multiple (change)="onFilesSelected($event)" />
+  <input
+    #fileInput
+    type="file"
+    class="hidden"
+    multiple
+    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+    (change)="onFilesSelected($event)"
+  />
 
   <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20" viewBox="0 0 24 24" fill="none">
     <path
@@ -33,6 +40,12 @@
   </div>
   }
 </div>
+
+@if (validationError) {
+<div class="mt-3 w-full">
+  <p class="text-sm text-red-500 font-medium">{{ validationError }}</p>
+</div>
+}
 
 <!-- Preview list -->
 @if (files.length > 0) {

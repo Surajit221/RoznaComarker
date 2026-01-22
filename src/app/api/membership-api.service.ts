@@ -40,6 +40,7 @@ export class MembershipApiService {
   ) {}
 
   async getMyMemberships(): Promise<BackendMembership[]> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const cacheKey = 'my-memberships';
     const cached = this.cache.get<BackendMembership[]>(cacheKey);
     if (cached) {
@@ -47,7 +48,7 @@ export class MembershipApiService {
     }
 
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendMembership[]>>(`${environment.apiBaseUrl}/api/memberships/mine`)
+      this.http.get<BackendResponse<BackendMembership[]>>(`${apiBaseUrl}/api/memberships/mine`)
     );
     const data = resp?.data || [];
     
@@ -57,8 +58,9 @@ export class MembershipApiService {
   }
 
   async joinClassByCode(joinCode: string): Promise<JoinClassResponse> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<JoinClassResponse>>(`${environment.apiBaseUrl}/api/memberships/join`, { joinCode })
+      this.http.post<BackendResponse<JoinClassResponse>>(`${apiBaseUrl}/api/memberships/join`, { joinCode })
     );
     
     // Clear memberships cache after joining new class
