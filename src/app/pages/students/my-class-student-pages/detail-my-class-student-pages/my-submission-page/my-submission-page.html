@@ -18,7 +18,16 @@
             View Student Transcribed Text
           </button>
         </div>
+        @if (uploadedFileUrl && isPdfUpload) {
+        <div class="w-full bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-3">
+          <p class="text-sm text-gray-700 font-medium">PDF uploaded successfully.</p>
+          <a class="btn-info w-fit" [href]="uploadedFileUrl" target="_blank" rel="noopener">
+            Open PDF
+          </a>
+        </div>
+        } @else {
         <img [src]="uploadedFileUrl || 'img/default-img.png'" class="w-full rounded-2xl object-cover" alt="class image" />
+        }
       </div>
     </div>
   </div>
@@ -193,233 +202,26 @@
                     </div>
                   </div>
 
-                  <!-- Essay Text with Corrections -->
-                  <article class="text-gray-700 leading-relaxed text-lg space-y-6">
-                    <!-- Paragraph 1 -->
-                    <section class="p-4 rounded-lg bg-blue-50 border border-blue-100">
-                      <p>
-                        <span
-                          class="correction-highlight border-blue-500"
-                          style="background: rgba(59, 130, 246, 0.15)"
-                        >
-                          The digital revolution has transformed nearly every aspect of modern life
-                          <span class="correction-tooltip">
-                            <strong class="text-blue-400">TS - Topic Sentence</strong><br />
-                            Good topic sentence that introduces the main theme effectively.
-                          </span> </span
-                        >. Technology has made many things more easier.
-                        <span
-                          class="correction-highlight border-red-500"
-                          style="background: rgba(239, 68, 68, 0.15)"
-                        >
-                          I like using smartphone for learning
-                          <span class="correction-tooltip">
-                            <strong class="text-red-400">DEV - Idea Development</strong><br />
-                            This statement is too general and personal. Provide specific examples of
-                            how technology enhances learning.
-                          </span> </span
-                        >.
-                        <span
-                          class="correction-highlight border-red-500"
-                          style="background: rgba(239, 68, 68, 0.15)"
-                        >
-                          Yesterday I went to the mall and bought new books
-                          <span class="correction-tooltip">
-                            <strong class="text-red-400">REL - Relevance</strong><br />
-                            This idea is not relevant to the topic of technology's impact on
-                            education.
-                          </span> </span
-                        >.
-                      </p>
-                    </section>
+                  @if (isOcrPending || isOcrRefreshing) {
+                  <div class="w-full bg-white border border-gray-200 rounded-xl p-4">
+                    <p class="text-sm text-gray-600 font-medium">OCR is processing your file...</p>
+                    <p class="text-xs text-gray-500 mt-1">This may take a moment. Please wait.</p>
+                  </div>
+                  }
 
-                    <!-- Paragraph 2 -->
-                    <section class="p-4 rounded-lg bg-green-50 border border-green-100">
-                      <p>
-                        Online learning platforms
-                        <span
-                          class="correction-highlight border-green-500"
-                          style="background: rgba(34, 197, 94, 0.15)"
-                        >
-                          has opened access to education
-                          <span class="correction-tooltip">
-                            <strong class="text-green-400">AGR - Subject-Verb Agreement</strong
-                            ><br />
-                            The subject "platforms" (plural) requires the plural verb "have opened".
-                          </span>
-                        </span>
-                        <span
-                          class="correction-highlight border-green-500"
-                          style="background: rgba(34, 197, 94, 0.15)"
-                        >
-                          for many student
-                          <span class="correction-tooltip">
-                            <strong class="text-green-400">ART - Article Use</strong><br />
-                            Use the plural form "students" or be more specific: "for students in
-                            remote areas".
-                          </span> </span
-                        >.
-                        <span
-                          class="correction-highlight border-purple-500"
-                          style="background: rgba(168, 85, 247, 0.15)"
-                        >
-                          They can
-                          <span class="correction-tooltip">
-                            <strong class="text-purple-400">WC - Word Choice</strong><br />
-                            The pronoun "they" is unclear. Use "These students" or "Learners" for
-                            clarity.
-                          </span>
-                        </span>
-                        <span
-                          class="correction-highlight border-green-500"
-                          style="background: rgba(34, 197, 94, 0.15)"
-                        >
-                          access class from anywhere
-                          <span class="correction-tooltip">
-                            <strong class="text-green-400">VF - Verb Form</strong><br />
-                            Improve sentence structure: "can access classes from various locations".
-                          </span> </span
-                        >.
-                      </p>
-                    </section>
+                  @if (ocrErrorMessage) {
+                  <div class="w-full bg-white border border-red-200 rounded-xl p-4">
+                    <p class="text-sm text-red-500 font-medium">{{ ocrErrorMessage }}</p>
+                  </div>
+                  }
 
-                    <!-- Paragraph 3 -->
-                    <section class="p-4 rounded-lg bg-yellow-50 border border-yellow-100">
-                      <p>
-                        However, there are
-                        <span
-                          class="correction-highlight border-purple-500"
-                          style="background: rgba(168, 85, 247, 0.15)"
-                        >
-                          big problems
-                          <span class="correction-tooltip">
-                            <strong class="text-purple-400">WF - Word Form</strong><br />
-                            "Significant challenges" would be more appropriate than "big problems".
-                          </span>
-                        </span>
-                        with
-                        <span
-                          class="correction-highlight border-yellow-500"
-                          style="background: rgba(245, 158, 11, 0.15)"
-                        >
-                          tecnology
-                          <span class="correction-tooltip">
-                            <strong class="text-yellow-600">SP - Spelling</strong><br />
-                            Correct spelling is "technology".
-                          </span> </span
-                        >. Not everyone has
-                        <span
-                          class="correction-highlight border-green-500"
-                          style="background: rgba(34, 197, 94, 0.15)"
-                        >
-                          equal access
-                          <span class="correction-tooltip">
-                            <strong class="text-green-400">ART - Article Use</strong><br />
-                            Add specification for clarity: "equal access to digital resources".
-                          </span> </span
-                        >.
-                        <span
-                          class="correction-highlight border-red-500"
-                          style="background: rgba(239, 68, 68, 0.15)"
-                        >
-                          This creates inequality in education
-                          <span class="correction-tooltip">
-                            <strong class="text-red-400">DEV - Idea Development</strong><br />
-                            Develop this idea with concrete examples and data about the digital
-                            divide.
-                          </span> </span
-                        >.
-                      </p>
-                    </section>
-
-                    <!-- Paragraph 4 -->
-                    <section class="p-4 rounded-lg bg-purple-50 border border-purple-100">
-                      <p>
-                        <span
-                          class="correction-highlight border-green-500"
-                          style="background: rgba(34, 197, 94, 0.15)"
-                        >
-                          In the future
-                          <span class="correction-tooltip">
-                            <strong class="text-green-400">T - Tense</strong><br />
-                            For future predictions, "Going forward" or "In the coming years" would
-                            be more appropriate.
-                          </span> </span
-                        >, technology will
-                        <span
-                          class="correction-highlight border-purple-500"
-                          style="background: rgba(168, 85, 247, 0.15)"
-                        >
-                          make bigger changes
-                          <span class="correction-tooltip">
-                            <strong class="text-purple-400">WC - Word Choice</strong><br />
-                            Use more precise language like "bring about transformations" or "have
-                            more significant impacts".
-                          </span> </span
-                        >.
-                        <span
-                          class="correction-highlight border-yellow-500"
-                          style="background: rgba(245, 158, 11, 0.15)"
-                        >
-                          AI and machine learning will help teachers in teaching process
-                          <span class="correction-tooltip">
-                            <strong class="text-yellow-600">P - Punctuation</strong><br />
-                            Add a comma after "AI and machine learning" for better clarity.
-                          </span>
-                        </span>
-                        <span
-                          class="correction-highlight border-red-500"
-                          style="background: rgba(239, 68, 68, 0.15)"
-                        >
-                          and also for other things
-                          <span class="correction-tooltip">
-                            <strong class="text-red-400">CL - Clarity of Ideas</strong><br />
-                            This statement is too vague. Specify what "other things" you are
-                            referring to.
-                          </span> </span
-                        >.
-                      </p>
-                    </section>
-
-                    <!-- Paragraph 5 -->
-                    <section class="p-4 rounded-lg bg-red-50 border border-red-100">
-                      <p>
-                        <span
-                          class="correction-highlight border-blue-500"
-                          style="background: rgba(59, 130, 246, 0.15)"
-                        >
-                          In conclusion, technology have big impact
-                          <span class="correction-tooltip">
-                            <strong class="text-blue-400">COH - Coherence</strong><br />
-                            The connection between this sentence and the previous paragraph is
-                            unclear.
-                          </span> </span
-                        >.
-                        <span
-                          class="correction-highlight border-red-500"
-                          style="background: rgba(239, 68, 68, 0.15)"
-                        >
-                          But we must be careful
-                          <span class="correction-tooltip">
-                            <strong class="text-red-400">SD - Supporting Details</strong><br />
-                            Explain why we must be careful and provide examples of precautions
-                            needed.
-                          </span> </span
-                        >.
-                        <span
-                          class="correction-highlight border-blue-500"
-                          style="background: rgba(59, 130, 246, 0.15)"
-                        >
-                          Hope this is useful
-                          <span class="correction-tooltip">
-                            <strong class="text-blue-400">CONC - Conclusion</strong><br />
-                            The concluding sentence is too weak. Create a stronger conclusion that
-                            summarizes key points.
-                          </span> </span
-                        >.
-                      </p>
-                    </section>
-                  </article>
+                  @if (!ocrErrorMessage && extractedText) {
+                  <div class="w-full bg-white border border-gray-200 rounded-xl p-4">
+                    <div class="max-h-[420px] overflow-y-auto">
+                      <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ extractedText }}</pre>
+                    </div>
+                  </div>
+                  }
                 </div>
 
                 <!-- Feedback and Suggestions -->
@@ -631,7 +433,16 @@
       </div>
 
       @if(activeTab === 'uploaded-file'){
+      @if (uploadedFileUrl && isPdfUpload) {
+      <div class="w-full bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-3">
+        <p class="text-sm text-gray-700 font-medium">PDF uploaded successfully.</p>
+        <a class="btn-info-sm w-fit" [href]="uploadedFileUrl" target="_blank" rel="noopener">
+          Open PDF
+        </a>
+      </div>
+      } @else {
       <img [src]="uploadedFileUrl || 'img/default-img.png'" class="w-full rounded-2xl object-cover" alt="class image" />
+      }
       } @if(activeTab === 'transcribed-text'){
       <div class="container mx-auto overflow-x-hidden">
         <div class="flex flex-col gap-4">
@@ -657,228 +468,26 @@
                 </div>
               </div>
 
-              <!-- Essay Text with Corrections -->
-              <article class="text-gray-700 leading-relaxed text-lg space-y-2">
-                <!-- Paragraph 1 -->
-                <section class="p-4 rounded-lg bg-blue-50 border border-blue-100">
-                  <p class="text-sm">
-                    <span
-                      class="correction-highlight border-blue-500"
-                      style="background: rgba(59, 130, 246, 0.15)"
-                    >
-                      The digital revolution has transformed nearly every aspect of modern life
-                      <span class="correction-tooltip">
-                        <strong class="text-blue-400">TS - Topic Sentence</strong><br />
-                        Good topic sentence that introduces the main theme effectively.
-                      </span> </span
-                    >. Technology has made many things more easier.
-                    <span
-                      class="correction-highlight border-red-500"
-                      style="background: rgba(239, 68, 68, 0.15)"
-                    >
-                      I like using smartphone for learning
-                      <span class="correction-tooltip">
-                        <strong class="text-red-400">DEV - Idea Development</strong><br />
-                        This statement is too general and personal. Provide specific examples of how
-                        technology enhances learning.
-                      </span> </span
-                    >.
-                    <span
-                      class="correction-highlight border-red-500"
-                      style="background: rgba(239, 68, 68, 0.15)"
-                    >
-                      Yesterday I went to the mall and bought new books
-                      <span class="correction-tooltip">
-                        <strong class="text-red-400">REL - Relevance</strong><br />
-                        This idea is not relevant to the topic of technology's impact on education.
-                      </span> </span
-                    >.
-                  </p>
-                </section>
+              @if (isOcrPending || isOcrRefreshing) {
+              <div class="w-full bg-white border border-gray-200 rounded-xl p-3">
+                <p class="text-sm text-gray-600 font-medium">OCR is processing your file...</p>
+                <p class="text-xs text-gray-500 mt-1">Please wait.</p>
+              </div>
+              }
 
-                <!-- Paragraph 2 -->
-                <section class="p-4 rounded-lg bg-green-50 border border-green-100">
-                  <p class="text-sm">
-                    Online learning platforms
-                    <span
-                      class="correction-highlight border-green-500"
-                      style="background: rgba(34, 197, 94, 0.15)"
-                    >
-                      has opened access to education
-                      <span class="correction-tooltip">
-                        <strong class="text-green-400">AGR - Subject-Verb Agreement</strong><br />
-                        The subject "platforms" (plural) requires the plural verb "have opened".
-                      </span>
-                    </span>
-                    <span
-                      class="correction-highlight border-green-500"
-                      style="background: rgba(34, 197, 94, 0.15)"
-                    >
-                      for many student
-                      <span class="correction-tooltip">
-                        <strong class="text-green-400">ART - Article Use</strong><br />
-                        Use the plural form "students" or be more specific: "for students in remote
-                        areas".
-                      </span> </span
-                    >.
-                    <span
-                      class="correction-highlight border-purple-500"
-                      style="background: rgba(168, 85, 247, 0.15)"
-                    >
-                      They can
-                      <span class="correction-tooltip">
-                        <strong class="text-purple-400">WC - Word Choice</strong><br />
-                        The pronoun "they" is unclear. Use "These students" or "Learners" for
-                        clarity.
-                      </span>
-                    </span>
-                    <span
-                      class="correction-highlight border-green-500"
-                      style="background: rgba(34, 197, 94, 0.15)"
-                    >
-                      access class from anywhere
-                      <span class="correction-tooltip">
-                        <strong class="text-green-400">VF - Verb Form</strong><br />
-                        Improve sentence structure: "can access classes from various locations".
-                      </span> </span
-                    >.
-                  </p>
-                </section>
+              @if (ocrErrorMessage) {
+              <div class="w-full bg-white border border-red-200 rounded-xl p-3">
+                <p class="text-sm text-red-500 font-medium">{{ ocrErrorMessage }}</p>
+              </div>
+              }
 
-                <!-- Paragraph 3 -->
-                <section class="p-4 rounded-lg bg-yellow-50 border border-yellow-100">
-                  <p class="text-sm">
-                    However, there are
-                    <span
-                      class="correction-highlight border-purple-500"
-                      style="background: rgba(168, 85, 247, 0.15)"
-                    >
-                      big problems
-                      <span class="correction-tooltip">
-                        <strong class="text-purple-400">WF - Word Form</strong><br />
-                        "Significant challenges" would be more appropriate than "big problems".
-                      </span>
-                    </span>
-                    with
-                    <span
-                      class="correction-highlight border-yellow-500"
-                      style="background: rgba(245, 158, 11, 0.15)"
-                    >
-                      tecnology
-                      <span class="correction-tooltip">
-                        <strong class="text-yellow-600">SP - Spelling</strong><br />
-                        Correct spelling is "technology".
-                      </span> </span
-                    >. Not everyone has
-                    <span
-                      class="correction-highlight border-green-500"
-                      style="background: rgba(34, 197, 94, 0.15)"
-                    >
-                      equal access
-                      <span class="correction-tooltip">
-                        <strong class="text-green-400">ART - Article Use</strong><br />
-                        Add specification for clarity: "equal access to digital resources".
-                      </span> </span
-                    >.
-                    <span
-                      class="correction-highlight border-red-500"
-                      style="background: rgba(239, 68, 68, 0.15)"
-                    >
-                      This creates inequality in education
-                      <span class="correction-tooltip">
-                        <strong class="text-red-400">DEV - Idea Development</strong><br />
-                        Develop this idea with concrete examples and data about the digital divide.
-                      </span> </span
-                    >.
-                  </p>
-                </section>
-
-                <!-- Paragraph 4 -->
-                <section class="p-4 rounded-lg bg-purple-50 border border-purple-100">
-                  <p class="text-sm">
-                    <span
-                      class="correction-highlight border-green-500"
-                      style="background: rgba(34, 197, 94, 0.15)"
-                    >
-                      In the future
-                      <span class="correction-tooltip">
-                        <strong class="text-green-400">T - Tense</strong><br />
-                        For future predictions, "Going forward" or "In the coming years" would be
-                        more appropriate.
-                      </span> </span
-                    >, technology will
-                    <span
-                      class="correction-highlight border-purple-500"
-                      style="background: rgba(168, 85, 247, 0.15)"
-                    >
-                      make bigger changes
-                      <span class="correction-tooltip">
-                        <strong class="text-purple-400">WC - Word Choice</strong><br />
-                        Use more precise language like "bring about transformations" or "have more
-                        significant impacts".
-                      </span> </span
-                    >.
-                    <span
-                      class="correction-highlight border-yellow-500"
-                      style="background: rgba(245, 158, 11, 0.15)"
-                    >
-                      AI and machine learning will help teachers in teaching process
-                      <span class="correction-tooltip">
-                        <strong class="text-yellow-600">P - Punctuation</strong><br />
-                        Add a comma after "AI and machine learning" for better clarity.
-                      </span>
-                    </span>
-                    <span
-                      class="correction-highlight border-red-500"
-                      style="background: rgba(239, 68, 68, 0.15)"
-                    >
-                      and also for other things
-                      <span class="correction-tooltip">
-                        <strong class="text-red-400">CL - Clarity of Ideas</strong><br />
-                        This statement is too vague. Specify what "other things" you are referring
-                        to.
-                      </span> </span
-                    >.
-                  </p>
-                </section>
-
-                <!-- Paragraph 5 -->
-                <section class="p-4 rounded-lg bg-red-50 border border-red-100">
-                  <p class="text-sm">
-                    <span
-                      class="correction-highlight border-blue-500"
-                      style="background: rgba(59, 130, 246, 0.15)"
-                    >
-                      In conclusion, technology have big impact
-                      <span class="correction-tooltip">
-                        <strong class="text-blue-400">COH - Coherence</strong><br />
-                        The connection between this sentence and the previous paragraph is unclear.
-                      </span> </span
-                    >.
-                    <span
-                      class="correction-highlight border-red-500"
-                      style="background: rgba(239, 68, 68, 0.15)"
-                    >
-                      But we must be careful
-                      <span class="correction-tooltip">
-                        <strong class="text-red-400">SD - Supporting Details</strong><br />
-                        Explain why we must be careful and provide examples of precautions needed.
-                      </span> </span
-                    >.
-                    <span
-                      class="correction-highlight border-blue-500"
-                      style="background: rgba(59, 130, 246, 0.15)"
-                    >
-                      Hope this is useful
-                      <span class="correction-tooltip">
-                        <strong class="text-blue-400">CONC - Conclusion</strong><br />
-                        The concluding sentence is too weak. Create a stronger conclusion that
-                        summarizes key points.
-                      </span> </span
-                    >.
-                  </p>
-                </section>
-              </article>
+              @if (!ocrErrorMessage && extractedText) {
+              <div class="w-full bg-white border border-gray-200 rounded-xl p-3">
+                <div class="max-h-[320px] overflow-y-auto">
+                  <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ extractedText }}</pre>
+                </div>
+              </div>
+              }
             </div>
 
             <!-- Feedback and Suggestions -->

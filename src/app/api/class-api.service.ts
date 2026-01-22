@@ -54,6 +54,7 @@ export class ClassApiService {
   ) {}
 
   async getMyTeacherClasses(): Promise<BackendClass[]> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const cacheKey = 'my-teacher-classes';
     const cached = this.cache.get<BackendClass[]>(cacheKey);
     if (cached) {
@@ -61,7 +62,7 @@ export class ClassApiService {
     }
 
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendClass[]>>(`${environment.apiBaseUrl}/api/classes/mine`)
+      this.http.get<BackendResponse<BackendClass[]>>(`${apiBaseUrl}/api/classes/mine`)
     );
     const data = resp?.data || [];
     
@@ -71,8 +72,9 @@ export class ClassApiService {
   }
 
   async createClass(payload: { name: string; description?: string }): Promise<BackendClass> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<BackendClass>>(`${environment.apiBaseUrl}/api/classes`, payload)
+      this.http.post<BackendResponse<BackendClass>>(`${apiBaseUrl}/api/classes`, payload)
     );
     
     // Clear cache after creating new class
@@ -82,6 +84,7 @@ export class ClassApiService {
   }
 
   async getClassStudents(classId: string): Promise<BackendClassStudent[]> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const cacheKey = `class-students-${classId}`;
     const cached = this.cache.get<BackendClassStudent[]>(cacheKey);
     if (cached) {
@@ -90,7 +93,7 @@ export class ClassApiService {
 
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendClassStudent[]>>(
-        `${environment.apiBaseUrl}/api/classes/${encodeURIComponent(classId)}/students`
+        `${apiBaseUrl}/api/classes/${encodeURIComponent(classId)}/students`
       )
     );
     const data = resp?.data || [];
@@ -101,6 +104,7 @@ export class ClassApiService {
   }
 
   async getClassSummary(classId: string): Promise<BackendClassSummary> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const cacheKey = `class-summary-${classId}`;
     const cached = this.cache.get<BackendClassSummary>(cacheKey);
     if (cached) {
@@ -109,7 +113,7 @@ export class ClassApiService {
 
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendClassSummary>>(
-        `${environment.apiBaseUrl}/api/classes/${encodeURIComponent(classId)}/summary`
+        `${apiBaseUrl}/api/classes/${encodeURIComponent(classId)}/summary`
       )
     );
     const data = resp.data;

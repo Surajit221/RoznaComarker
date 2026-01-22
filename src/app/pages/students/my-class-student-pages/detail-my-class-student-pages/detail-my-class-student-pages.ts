@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { HttpEventType } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
 import { UploadEssayForm } from './upload-essay-form/upload-essay-form';
@@ -8,6 +9,7 @@ import { BottomsheetDialog } from '../../../../shared/bottomsheet-dialog/bottoms
 import { AppBarBackButton } from '../../../../shared/app-bar-back-button/app-bar-back-button';
 import { AssignmentApiService, type BackendAssignment } from '../../../../api/assignment-api.service';
 import { SubmissionApiService } from '../../../../api/submission-api.service';
+import { type BackendUploadResponse, UploadApiService } from '../../../../api/upload-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassSummary } from '../../../../api/class-api.service';
 
@@ -25,6 +27,7 @@ export class DetailMyClassStudentPages {
   private route = inject(ActivatedRoute);
   private assignmentApi = inject(AssignmentApiService);
   private submissionApi = inject(SubmissionApiService);
+  private uploadApi = inject(UploadApiService);
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
 
@@ -172,6 +175,11 @@ export class DetailMyClassStudentPages {
 
   selectedFiles: File[] = [];
 
+  uploadProgressPercent: number | null = null;
+  uploadErrorMessage: string | null = null;
+  uploadSuccessMessage: string | null = null;
+  uploadedSubmission: BackendUploadResponse | null = null;
+
   onFilesSelected(files: File[]) {
     this.selectedFiles = files;
   }
@@ -192,10 +200,54 @@ export class DetailMyClassStudentPages {
 
     if (this.isLoading) return;
     this.isLoading = true;
+    this.uploadProgressPercent = 0;
+    this.uploadErrorMessage = null;
+    this.uploadSuccessMessage = null;
+    this.uploadedSubmission = null;
 
     try {
-      const submission = await this.submissionApi.submitToAssignment(assignmentId, file);
+      await new Promise<void>((resolve, reject) => {
+        const subscription = this.uploadApi.uploadFile(file, assignmentId).subscribe({
+          next: (event) => {
+            if (event.type === HttpEventType.UploadProgress) {
+              const total = typeof event.total === 'number' ? event.total : null;
+              const percent = total ? Math.round((100 * event.loaded) / total) : null;
+              this.uploadProgressPercent = typeof percent === 'number' ? Math.min(100, Math.max(0, percent)) : 0;
+              return;
+            }
+
+            if (event.type === HttpEventType.Response) {
+              const body = event.body as BackendUploadResponse | null;
+              if (!body || body.success !== true) {
+                reject(new Error(body?.message || 'Upload failed'));
+                subscription.unsubscribe();
+                return;
+              }
+
+              this.uploadProgressPercent = 100;
+              this.uploadedSubmission = body;
+              this.uploadSuccessMessage = 'Upload successful';
+              resolve();
+              subscription.unsubscribe();
+            }
+          },
+          error: (err) => {
+            subscription.unsubscribe();
+            reject(err);
+          }
+        });
+      });
+
       this.alert.showToast('Upload successful', 'success');
+
+      const idx = this.assignments.findIndex((a) => a.id === assignmentId);
+      if (idx >= 0) {
+        this.assignments[idx] = {
+          ...this.assignments[idx],
+          submitted: 1,
+          status: 'completed'
+        };
+      }
 
       // Close any open dialogs/sheets
       this.showDialog = false;
@@ -207,9 +259,16 @@ export class DetailMyClassStudentPages {
       this.selectedFiles = [];
       this.selectedAssignmentId = null;
 
-      await this.loadAssignments();
+      this.router.navigate(['/student/my-classes/detail/my-submissions', assignmentId], {
+        queryParams: {
+          classId: this.classId || undefined
+        }
+      });
+
     } catch (err: any) {
-      this.alert.showError('Upload failed', err?.error?.message || err?.message || 'Please try again');
+      const message = err?.error?.message || err?.message || 'Please try again';
+      this.uploadErrorMessage = message;
+      this.alert.showError('Upload failed', message);
     } finally {
       this.isLoading = false;
     }
@@ -219,6 +278,10 @@ export class DetailMyClassStudentPages {
     this.showDialog = false;
     this.selectedFiles = [];
     this.selectedAssignmentId = null;
+    this.uploadProgressPercent = null;
+    this.uploadErrorMessage = null;
+    this.uploadSuccessMessage = null;
+    this.uploadedSubmission = null;
   }
 
   onOpenSheet() {
@@ -230,6 +293,11 @@ export class DetailMyClassStudentPages {
     document.body.classList.remove('overflow-hidden');
     this.openSheet = false;
     this.selectedAssignmentId = null;
+    this.selectedFiles = [];
+    this.uploadProgressPercent = null;
+    this.uploadErrorMessage = null;
+    this.uploadSuccessMessage = null;
+    this.uploadedSubmission = null;
   }
 
   handleGoBack() {

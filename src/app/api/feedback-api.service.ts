@@ -32,18 +32,20 @@ export class FeedbackApiService {
   constructor(private http: HttpClient) {}
 
   async getFeedbackBySubmissionForStudent(submissionId: string): Promise<BackendFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendFeedback>>(
-        `${environment.apiBaseUrl}/api/feedback/submission/${encodeURIComponent(submissionId)}`
+        `${apiBaseUrl}/api/feedback/submission/${encodeURIComponent(submissionId)}`
       )
     );
     return resp.data;
   }
 
   async getFeedbackByIdForTeacher(feedbackId: string): Promise<BackendFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendFeedback>>(
-        `${environment.apiBaseUrl}/api/feedback/${encodeURIComponent(feedbackId)}`
+        `${apiBaseUrl}/api/feedback/${encodeURIComponent(feedbackId)}`
       )
     );
     return resp.data;
@@ -57,6 +59,7 @@ export class FeedbackApiService {
     annotations?: any;
     file?: File;
   }): Promise<BackendFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const { submissionId, file, ...rest } = payload;
 
     const form = new FormData();
@@ -75,7 +78,7 @@ export class FeedbackApiService {
 
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendFeedback>>(
-        `${environment.apiBaseUrl}/api/feedback/${encodeURIComponent(submissionId)}`,
+        `${apiBaseUrl}/api/feedback/${encodeURIComponent(submissionId)}`,
         form
       )
     );
@@ -91,6 +94,7 @@ export class FeedbackApiService {
     annotations?: any;
     file?: File;
   }): Promise<BackendFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const { feedbackId, file, ...rest } = payload;
 
     const form = new FormData();
@@ -109,7 +113,7 @@ export class FeedbackApiService {
 
     const resp = await firstValueFrom(
       this.http.put<BackendResponse<BackendFeedback>>(
-        `${environment.apiBaseUrl}/api/feedback/${encodeURIComponent(feedbackId)}`,
+        `${apiBaseUrl}/api/feedback/${encodeURIComponent(feedbackId)}`,
         form
       )
     );

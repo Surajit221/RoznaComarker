@@ -1,6 +1,9 @@
 export const environment = {
     production: true,
-    apiBaseUrl: 'http://82.112.234.151:5000',
+    API_URL: 'http://localhost:5000',
+    UPLOADS_URL: 'http://localhost:5000/uploads',
+    FRONTEND_URL: 'http://localhost:4200',
+    apiBaseUrl: 'http://localhost:5000',
     firebase: {
         apiKey: "AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM",
         authDomain: "rozna-comaker.firebaseapp.com",
