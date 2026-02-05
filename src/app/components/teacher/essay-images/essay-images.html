@@ -12,10 +12,24 @@
 
     <!-- Loop through markers -->
     @for (m of markers; track m.id) {
+    @if (m.bbox) {
+    <div
+      class="absolute z-20 pointer-events-none"
+      [style.left.%]="m.bbox.x0"
+      [style.top.%]="m.bbox.y0"
+      [style.width.%]="m.bbox.x1 - m.bbox.x0"
+      [style.height.%]="m.bbox.y1 - m.bbox.y0"
+      [style.border-color]="m.bgColor || null"
+      [style.background-color]="m.bgColor || null"
+      style="border-width:2px; border-style:solid; opacity: 0.12;"
+    ></div>
+    }
     <!-- Marker button -->
     <button
       class="marker absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center ring-2 ring-white shadow-lg"
       [ngClass]="m.colorClass"
+      [style.background-color]="m.bgColor || null"
+      [style.color]="m.textColor || null"
       [style.left.%]="m.left"
       [style.top.%]="m.top"
       (click)="toggleTooltip(m)"
@@ -38,6 +52,8 @@
           <div
             class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
             [ngClass]="m.colorClass"
+            [style.background-color]="m.bgColor || null"
+            [style.color]="m.textColor || null"
           >
             {{ m.symbol }}
           </div>

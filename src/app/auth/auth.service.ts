@@ -96,7 +96,7 @@ export class AuthService {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.patch<BackendLoginResponse>(
-        `${apiBaseUrl}/api/users/me/role`,
+        `${apiBaseUrl}/users/me/role`,
         { role },
         {
           headers: {
@@ -130,7 +130,7 @@ export class AuthService {
   async getMeProfile(): Promise<BackendMe> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendMe>>(`${apiBaseUrl}/api/users/me`)
+      this.http.get<BackendResponse<BackendMe>>(`${apiBaseUrl}/users/me`)
     );
     return resp.data;
   }
@@ -138,7 +138,7 @@ export class AuthService {
   async getUserById(userId: string): Promise<BackendUser> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendUser>>(`${apiBaseUrl}/api/users/${encodeURIComponent(userId)}`)
+      this.http.get<BackendResponse<BackendUser>>(`${apiBaseUrl}/users/${encodeURIComponent(userId)}`)
     );
     return resp.data;
   }
@@ -153,7 +153,7 @@ export class AuthService {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.post<BackendLoginResponse>(
-        `${apiBaseUrl}/api/auth/login`,
+        `${apiBaseUrl}/auth/login`,
         {},
         {
           headers: {

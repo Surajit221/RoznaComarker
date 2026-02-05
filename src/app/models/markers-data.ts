@@ -11,6 +11,9 @@ export interface Marker {
     description: string;
     colorClass: string; // Tailwind background color class
     visible?: boolean;  // ✅ added to support tooltip visibility
+    bbox?: { x0: number; y0: number; x1: number; y1: number };
+    bgColor?: string;
+    textColor?: string;
 }
 
 export const SAMPLE_MARKERS: Marker[] = [

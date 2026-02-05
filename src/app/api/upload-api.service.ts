@@ -28,12 +28,13 @@ export class UploadApiService {
 
   uploadFile(file: File, assignmentId: string): Observable<HttpEvent<BackendUploadResponse>> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const rootBaseUrl = String(apiBaseUrl).replace(/\/api\/?$/, '');
 
     const formData = new FormData();
     formData.append('file', file);
     formData.append('assignmentId', assignmentId);
 
-    return this.http.post<BackendUploadResponse>(`${apiBaseUrl}/upload`, formData, {
+    return this.http.post<BackendUploadResponse>(`${rootBaseUrl}/upload`, formData, {
       observe: 'events',
       reportProgress: true
     });
@@ -45,7 +46,7 @@ export class UploadApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    return this.http.post<BackendHandwrittenUploadResponse>(`${apiBaseUrl}/api/submissions/upload`, formData, {
+    return this.http.post<BackendHandwrittenUploadResponse>(`${apiBaseUrl}/submissions/upload`, formData, {
       observe: 'events',
       reportProgress: true
     });

@@ -1,0 +1,19 @@
+<div class="tokenized-transcript">
+  @for (t of tokens; track t.trackId) {
+    @if (t.kind === 'word') {
+      <span
+        [ngClass]="getWordAnnotations(t.word.id).length ? 'correction-highlight' : null"
+        [ngStyle]="getHighlightStyle(t.word.id) || null"
+      >
+        {{ t.word.text }}
+        @if (getWordAnnotations(t.word.id).length) {
+          <span class="correction-tooltip" style="white-space: pre-line;">
+            {{ getTooltipText(t.word.id) }}
+          </span>
+        }
+      </span>
+    } @else {
+      <span>{{ t.value }}</span>
+    }
+  }
+</div>

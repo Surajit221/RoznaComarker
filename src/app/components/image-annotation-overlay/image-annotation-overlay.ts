@@ -1,0 +1,250 @@
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  Input,
+  OnChanges,
+  OnDestroy,
+  SimpleChanges,
+  ViewChild,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
+import type { OcrBBox } from '../../models/ocr-token.model';
+
+type WritingCorrectionsImageAnnotation = {
+  page: number;
+  bbox: { x: number; y: number; width: number; height: number };
+  legendKey: string;
+  message: string;
+  suggestion: string;
+  color?: string;
+};
+
+type OverlayBox = {
+  annotationId: string;
+  page?: number;
+  bbox: OcrBBox;
+  color: string | null;
+  symbol: string;
+  group: string;
+  message: string;
+};
+
+@Component({
+  selector: 'app-image-annotation-overlay',
+  imports: [CommonModule],
+  templateUrl: './image-annotation-overlay.html',
+  styleUrl: './image-annotation-overlay.css',
+})
+export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges, OnDestroy {
+  @Input() imageUrl: string | null = null;
+  @Input() annotations: FeedbackAnnotation[] | null = null;
+  @Input() imageAnnotations: WritingCorrectionsImageAnnotation[] | null = null;
+  @Input() page: number | null = null;
+
+  @ViewChild('imgEl', { static: false }) imgEl?: ElementRef<HTMLImageElement>;
+
+  overlayBoxes: OverlayBox[] = [];
+
+  private naturalWidth = 0;
+  private naturalHeight = 0;
+  private renderedWidth = 0;
+  private renderedHeight = 0;
+
+  private resizeObserver: ResizeObserver | null = null;
+
+  ngAfterViewInit(): void {
+    const img = this.imgEl?.nativeElement;
+    if (!img) return;
+
+    this.resizeObserver = new ResizeObserver(() => {
+      this.recomputeRenderedSize();
+    });
+
+    this.resizeObserver.observe(img);
+
+    // If already loaded from cache
+    if (img.complete && img.naturalWidth > 0) {
+      this.naturalWidth = img.naturalWidth;
+      this.naturalHeight = img.naturalHeight;
+      this.recomputeRenderedSize();
+      this.rebuildOverlayBoxes();
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['annotations'] || changes['imageAnnotations'] || changes['page']) {
+      this.rebuildOverlayBoxes();
+    }
+
+    if (changes['imageUrl']) {
+      // Reset until the new image loads
+      this.naturalWidth = 0;
+      this.naturalHeight = 0;
+      this.renderedWidth = 0;
+      this.renderedHeight = 0;
+      this.overlayBoxes = [];
+    }
+  }
+
+  ngOnDestroy(): void {
+    const img = this.imgEl?.nativeElement;
+    if (img && this.resizeObserver) {
+      try {
+        this.resizeObserver.unobserve(img);
+      } catch {
+        // ignore
+      }
+    }
+    this.resizeObserver = null;
+  }
+
+  onImageLoad(): void {
+    const img = this.imgEl?.nativeElement;
+    if (!img) return;
+
+    this.naturalWidth = img.naturalWidth;
+    this.naturalHeight = img.naturalHeight;
+
+    this.recomputeRenderedSize();
+    this.rebuildOverlayBoxes();
+  }
+
+  private recomputeRenderedSize(): void {
+    const img = this.imgEl?.nativeElement;
+    if (!img) return;
+
+    // Use layout size (not natural size)
+    const rect = img.getBoundingClientRect();
+    this.renderedWidth = rect.width;
+    this.renderedHeight = rect.height;
+  }
+
+  private rebuildOverlayBoxes(): void {
+    const anns = Array.isArray(this.annotations) ? this.annotations : [];
+    const writingIssues = Array.isArray(this.imageAnnotations) ? this.imageAnnotations : [];
+    const pageFilter = this.page;
+
+    const out: OverlayBox[] = [];
+
+    for (const a of anns) {
+      if (!a) continue;
+      if (typeof pageFilter === 'number' && a.page !== pageFilter) continue;
+
+      const bboxList = Array.isArray(a.bboxList) ? a.bboxList : [];
+      for (const bbox of bboxList) {
+        if (!bbox) continue;
+        if (![bbox.x, bbox.y, bbox.w, bbox.h].every((v) => typeof v === 'number' && Number.isFinite(v))) continue;
+        if (bbox.w <= 0 || bbox.h <= 0) continue;
+
+        out.push({
+          annotationId: a._id,
+          page: a.page,
+          bbox,
+          color: a.color || null,
+          symbol: a.symbol || '',
+          group: a.group || '',
+          message: a.message || '',
+        });
+      }
+    }
+
+    for (const a of writingIssues) {
+      if (!a) continue;
+      if (typeof pageFilter === 'number' && a.page !== pageFilter) continue;
+
+      const bbox = a.bbox;
+      if (!bbox) continue;
+      if (![bbox.x, bbox.y, bbox.width, bbox.height].every((v) => typeof v === 'number' && Number.isFinite(v))) continue;
+      if (bbox.width <= 0 || bbox.height <= 0) continue;
+
+      out.push({
+        annotationId: `lt_${a.page}_${a.legendKey}_${Math.round(bbox.x * 100)}_${Math.round(bbox.y * 100)}_${Math.round(bbox.width * 100)}_${Math.round(bbox.height * 100)}`,
+        page: a.page,
+        bbox: {
+          x: bbox.x,
+          y: bbox.y,
+          w: bbox.width,
+          h: bbox.height
+        },
+        color: a.color || null,
+        symbol: a.legendKey,
+        group: 'Quick Check',
+        message: a.suggestion ? `${a.message}\nSuggestion: ${a.suggestion}` : a.message
+      });
+    }
+
+    this.overlayBoxes = out;
+  }
+
+  getBoxStyle(box: OverlayBox): Record<string, string> {
+    const bbox = box.bbox;
+
+    // If we can’t compute a reliable scale yet, hide overlays to avoid misalignment.
+    if (!this.naturalWidth || !this.naturalHeight || !this.renderedWidth || !this.renderedHeight) {
+      return { display: 'none' };
+    }
+
+    // Debug logging for coordinate verification
+    console.log('Overlay box coordinates:', {
+      annotationId: box.annotationId,
+      rawBbox: bbox,
+      naturalSize: { width: this.naturalWidth, height: this.naturalHeight },
+      renderedSize: { width: this.renderedWidth, height: this.renderedHeight },
+      wordIds: box.annotationId
+    });
+
+    const left = (bbox.x / 100) * this.renderedWidth;
+    const top = (bbox.y / 100) * this.renderedHeight;
+    const width = (bbox.w / 100) * this.renderedWidth;
+    const height = (bbox.h / 100) * this.renderedHeight;
+
+    const computedStyle = {
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      backgroundColor: this.toRgba(box.color, 0.18),
+      borderColor: box.color || 'rgba(255,0,0,0.6)',
+    };
+
+    console.log('Computed overlay style:', computedStyle);
+    return computedStyle;
+  }
+
+  getTooltipText(box: OverlayBox): string {
+    const parts: string[] = [];
+    if (box.symbol) parts.push(box.symbol);
+    if (box.group) parts.push(`Group: ${box.group}`);
+    if (box.message) parts.push(box.message);
+    return parts.join('\n');
+  }
+
+  private toRgba(color: string | null, alpha: number): string {
+    if (!color) return `rgba(255, 193, 7, ${alpha})`;
+
+    const c = color.trim();
+
+    // #RGB or #RRGGBB
+    if (c.startsWith('#')) {
+      const hex = c.slice(1);
+      const full = hex.length === 3
+        ? hex.split('').map((ch) => ch + ch).join('')
+        : hex;
+
+      if (full.length === 6) {
+        const r = parseInt(full.slice(0, 2), 16);
+        const g = parseInt(full.slice(2, 4), 16);
+        const b = parseInt(full.slice(4, 6), 16);
+        if ([r, g, b].every((v) => Number.isFinite(v))) {
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+      }
+    }
+
+    // fall back to using the provided CSS color as border and a safe highlight bg
+    return `rgba(255, 193, 7, ${alpha})`;
+  }
+}

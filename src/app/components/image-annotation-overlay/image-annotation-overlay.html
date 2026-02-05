@@ -1,0 +1,23 @@
+<div class="overlay-root">
+  <div class="image-container">
+    <img
+      #imgEl
+      [src]="imageUrl || ''"
+      alt="handwritten submission"
+      class="overlay-image"
+      (load)="onImageLoad()"
+      draggable="false"
+    />
+
+    <div class="overlay-layer" aria-hidden="true">
+      @for (box of overlayBoxes; track box.annotationId + '-' + $index) {
+      <div
+        class="overlay-box"
+        [ngStyle]="getBoxStyle(box)"
+      >
+        <span class="overlay-tooltip" style="white-space: pre-line;">{{ getTooltipText(box) }}</span>
+      </div>
+      }
+    </div>
+  </div>
+</div>
