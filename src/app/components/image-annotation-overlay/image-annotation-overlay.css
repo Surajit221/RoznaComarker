@@ -1,0 +1,66 @@
+.overlay-root {
+  width: 100%;
+}
+
+.image-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.overlay-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.overlay-box {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 2px;
+  box-sizing: border-box;
+  cursor: help;
+}
+
+.overlay-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  width: 260px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.overlay-box:hover .overlay-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-12px);
+}
+
+.overlay-tooltip:after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.85);
+}

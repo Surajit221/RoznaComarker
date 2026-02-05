@@ -1,0 +1,41 @@
+<div class="w-full bg-white border border-gray-200 rounded-xl p-4">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-semibold text-gray-700">Quick Check Legend (LanguageTool)</h3>
+  </div>
+
+  @if (!legend || !legend.groups.length) {
+  <div class="text-sm text-gray-500">No legend available.</div>
+  } @else {
+  <div class="space-y-4">
+    @for (g of legend.groups; track g.key) {
+    <div>
+      <div class="flex items-center gap-2 mb-2">
+        <span
+          class="inline-block w-3 h-3 rounded-sm border"
+          [style.background]="toRgba(g.color || null, 0.45)"
+          [style.border-color]="g.color || null"
+        ></span>
+        <div class="text-sm font-medium text-gray-700">{{ g.label }}</div>
+      </div>
+
+      <div class="space-y-1">
+        @for (s of g.symbols; track s.symbol) {
+        <div class="flex items-start gap-2">
+          <span
+            class="inline-flex items-center justify-center px-2 py-0.5 rounded border text-xs font-semibold"
+            [style.border-color]="g.color || null"
+            [style.background]="toRgba(g.color || null, 0.18)"
+          >
+            {{ s.symbol }}
+          </span>
+          <div class="min-w-0">
+            <div class="text-sm text-gray-700">{{ s.label }}</div>
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+    }
+  </div>
+  }
+</div>

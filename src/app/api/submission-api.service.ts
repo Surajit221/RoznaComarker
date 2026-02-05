@@ -60,41 +60,61 @@ export class SubmissionApiService {
     const form = new FormData();
     form.append('file', file);
 
-    const resp = await firstValueFrom(
-      this.http.post<BackendResponse<BackendSubmission>>(
-        `${apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`,
-        form
-      )
-    );
+    try {
+      const resp = await firstValueFrom(
+        this.http.post<BackendResponse<BackendSubmission>>(
+          `${apiBaseUrl}/submissions/${encodeURIComponent(assignmentId)}`,
+          form
+        )
+      );
 
-    return resp.data;
+      return resp.data;
+    } catch (error: any) {
+      console.error('Submit assignment failed:', error?.error || error);
+      throw error;
+    }
   }
 
   async getMySubmissions(): Promise<BackendSubmission[]> {
     const apiBaseUrl = environment.apiBaseUrl;
-    const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendSubmission[]>>(`${apiBaseUrl}/api/submissions/my`)
-    );
-    return resp?.data || [];
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<BackendResponse<BackendSubmission[]>>(`${apiBaseUrl}/submissions/my`)
+      );
+      return resp?.data || [];
+    } catch (error: any) {
+      console.error('Get my submissions failed:', error?.error || error);
+      throw error;
+    }
   }
 
   async getMySubmissionByAssignmentId(assignmentId: string): Promise<BackendSubmission> {
     const apiBaseUrl = environment.apiBaseUrl;
-    const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendSubmission>>(
-        `${apiBaseUrl}/api/submissions/${encodeURIComponent(assignmentId)}`
-      )
-    );
-    return resp.data;
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<BackendResponse<BackendSubmission>>(
+          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}/my`
+        )
+      );
+      return resp.data;
+    } catch (error: any) {
+      console.error('Get my submission failed:', error?.error || error);
+      throw error;
+    }
   }
 
   async getSubmissionsByAssignment(assignmentId: string): Promise<BackendSubmission[]> {
     const apiBaseUrl = environment.apiBaseUrl;
-    const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendSubmission[]>>(
-        `${apiBaseUrl}/api/submissions/assignment/${encodeURIComponent(assignmentId)}`
-      )
-    );
-    return resp?.data || [];
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<BackendResponse<BackendSubmission[]>>(
+          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}`
+        )
+      );
+      return resp?.data || [];
+    } catch (error: any) {
+      console.error('Get submissions by assignment failed:', error?.error || error);
+      throw error;
+    }
   }
 }

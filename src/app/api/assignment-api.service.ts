@@ -34,7 +34,7 @@ export class AssignmentApiService {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendAssignment[]>>(
-        `${apiBaseUrl}/api/assignments/class/${encodeURIComponent(classId)}`
+        `${apiBaseUrl}/assignments/class/${encodeURIComponent(classId)}`
       )
     );
     return resp?.data || [];
@@ -50,7 +50,7 @@ export class AssignmentApiService {
   }): Promise<BackendAssignment> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<BackendAssignment>>(`${apiBaseUrl}/api/assignments`, payload)
+      this.http.post<BackendResponse<BackendAssignment>>(`${apiBaseUrl}/assignments`, payload)
     );
     return resp.data;
   }
@@ -58,7 +58,7 @@ export class AssignmentApiService {
   async getMyAssignments(): Promise<BackendAssignment[]> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendAssignment[]>>(`${apiBaseUrl}/api/assignments/my`)
+      this.http.get<BackendResponse<BackendAssignment[]>>(`${apiBaseUrl}/assignments/my`)
     );
     return resp?.data || [];
   }
@@ -66,7 +66,7 @@ export class AssignmentApiService {
   async getAssignmentById(id: string): Promise<BackendAssignment> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendAssignment>>(`${apiBaseUrl}/api/assignments/${encodeURIComponent(id)}`)
+      this.http.get<BackendResponse<BackendAssignment>>(`${apiBaseUrl}/assignments/${encodeURIComponent(id)}`)
     );
     return resp.data;
   }

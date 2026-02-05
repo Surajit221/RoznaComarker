@@ -1,6 +1,18 @@
-import { Component, HostListener, Input } from '@angular/core';
-import { Marker, SAMPLE_MARKERS } from '../../../models/markers-data';
+import { Component, HostListener, Input, SimpleChanges } from '@angular/core';
+import { Marker, SAMPLE_MARKERS, type Group } from '../../../models/markers-data';
 import { CommonModule } from '@angular/common';
+
+type BackendVisualAnnotation = {
+  id: string;
+  category: string;
+  symbol: string;
+  page: number;
+  color: string;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+  targetText?: string;
+  suggestion?: string;
+  explanation?: string;
+};
 
 @Component({
   selector: 'app-essay-images',
@@ -10,13 +22,60 @@ import { CommonModule } from '@angular/common';
 })
 export class EssayImages {
   @Input() imageUrl: string | null = null;
+  @Input() visualAnnotations: BackendVisualAnnotation[] | null = null;
 
   markers: Marker[] = [];
   editMode = false;
   draggingId: number | null = null;
 
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['visualAnnotations']) {
+      this.applyRemoteAnnotations();
+    }
+  }
+
   constructor() {
     this.loadMarkers();
+  }
+
+  private applyRemoteAnnotations() {
+    const incoming = Array.isArray(this.visualAnnotations) ? this.visualAnnotations : [];
+    if (!incoming.length) {
+      this.loadMarkers();
+      return;
+    }
+
+    const mapped: Marker[] = incoming
+      .filter((a) => a && a.bbox && typeof a.bbox.x0 === 'number' && typeof a.bbox.y0 === 'number')
+      .map((a, idx) => {
+        const width = Math.max(0, a.bbox.x1 - a.bbox.x0);
+        const height = Math.max(0, a.bbox.y1 - a.bbox.y0);
+        const left = a.bbox.x0 + width / 2;
+        const top = a.bbox.y0 + height / 2;
+        const rawGroup = typeof a.category === 'string' ? a.category : 'Content';
+        const group: Group = (rawGroup === 'Organization' || rawGroup === 'Grammar' || rawGroup === 'Vocabulary' || rawGroup === 'Mechanics'
+          ? rawGroup
+          : 'Content');
+        return {
+          id: idx + 1,
+          left,
+          top,
+          symbol: a.symbol,
+          group,
+          short: a.symbol,
+          title: a.symbol,
+          description: a.explanation || a.targetText || '',
+          colorClass: '',
+          visible: false,
+          bbox: a.bbox,
+          bgColor: a.color,
+          textColor: '#111111'
+        };
+      });
+
+    this.markers = mapped;
+    this.editMode = false;
+    this.draggingId = null;
   }
 
   // Load from localStorage or use sample
