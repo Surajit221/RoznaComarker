@@ -1,5 +1,4 @@
 <ng-container>
-  @if(device.isDesktop()) {
   <div class="mb-6 flex flex-row justify-between items-center">
     <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
     <div class="flex flex-row gap-2">
@@ -18,7 +17,7 @@
     </div>
     <button class="btn-primary">Next</button>
   </div>
-  @if(isUploadedFile){
+  @if(isUploadedFile) {
   <div class="w-full mb-4">
     <div class="flex flex-col gap-4">
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
@@ -28,11 +27,17 @@
             View Student Transcribed Text
           </button>
         </div>
-        <img src="img/default-img.png" class="w-full rounded-2xl object-cover" alt="class image" />
+        <div class="w-full rounded-2xl overflow-hidden">
+          <app-image-annotation-overlay
+            [imageUrl]="essayImageUrl || 'img/default-img.png'"
+            [annotations]="annotations"
+            [page]="1"
+          ></app-image-annotation-overlay>
+        </div>
       </div>
     </div>
   </div>
-  } @if(!isUploadedFile){
+  } @else {
   <div class="w-full mb-4">
     <div class="flex flex-col gap-4">
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
@@ -51,7 +56,7 @@
                 <div class="gradient-card p-6 hover-lift">
                   <div class="flex items-center justify-between mb-4">
                     <h3 class="font-semibold text-gray-700">Overall Score</h3>
-                    <span class="text-blue-500 text-xl font-bold">82/100</span>
+                    <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
                   </div>
 
                   <div class="relative w-32 h-32 mx-auto mb-4">
@@ -69,7 +74,7 @@
                         class="progress-ring-circle text-blue-500"
                         stroke-width="10"
                         stroke-dasharray="326.56"
-                        stroke-dashoffset="58.78"
+                        [attr.stroke-dashoffset]="progressRingOffset"
                         stroke-linecap="round"
                         stroke="currentColor"
                         fill="transparent"
@@ -79,7 +84,7 @@
                       />
                     </svg>
                     <div class="absolute inset-0 flex items-center justify-center">
-                      <span class="text-2xl font-bold text-gray-700">B+</span>
+                      <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
                     </div>
                   </div>
 
@@ -96,40 +101,40 @@
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Content Issues</span>
-                        <span class="font-medium">4</span>
+                        <span class="font-medium">{{ contentIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-red-400 rounded-full" style="width: 36%"></div>
+                        <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
                       </div>
                     </div>
 
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Grammar Issues</span>
-                        <span class="font-medium">3</span>
+                        <span class="font-medium">{{ grammarIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-green-400 rounded-full" style="width: 27%"></div>
+                        <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
                       </div>
                     </div>
 
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Organization Issues</span>
-                        <span class="font-medium">2</span>
+                        <span class="font-medium">{{ organizationIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-blue-400 rounded-full" style="width: 18%"></div>
+                        <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
                       </div>
                     </div>
 
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Vocabulary Issues</span>
-                        <span class="font-medium">3</span>
+                        <span class="font-medium">{{ vocabularyIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-400 rounded-full" style="width: 27%"></div>
+                        <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
                       </div>
                     </div>
                   </div>
@@ -205,8 +210,16 @@
 
                   <article class="text-gray-700 leading-relaxed text-lg space-y-6">
                     <section class="p-4 rounded-lg bg-white border border-gray-200">
+                      @if (ocrWords.length) {
+                      <app-tokenized-transcript
+                        class="text-sm leading-relaxed text-gray-700 font-sans"
+                        [ocrWords]="ocrWords"
+                        [annotations]="annotations"
+                      ></app-tokenized-transcript>
+                      } @else {
                       @if (writingCorrectionsHtml) {
                       <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans" [innerHTML]="writingCorrectionsHtml"></pre>
+                      }
                       }
                     </section>
                   </article>
@@ -228,29 +241,12 @@
                       </h4>
 
                       <div class="space-y-4">
-                        <div class="suggestion-item border-red-400">
-                          <h5 class="font-medium text-gray-800">Relevance and Idea Development</h5>
-                          <p class="text-sm text-gray-600 mt-1">
-                            Some ideas are not relevant to the main topic. Develop arguments with
-                            supporting examples and data.
-                          </p>
+                        @for (item of areasForImprovement; track item.title) {
+                        <div class="suggestion-item" [ngClass]="item.borderClass">
+                          <h5 class="font-medium text-gray-800">{{ item.title }}</h5>
+                          <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
                         </div>
-
-                        <div class="suggestion-item border-blue-400">
-                          <h5 class="font-medium text-gray-800">Structure and Coherence</h5>
-                          <p class="text-sm text-gray-600 mt-1">
-                            Improve logical flow between paragraphs and ensure each paragraph has a
-                            clear topic sentence.
-                          </p>
-                        </div>
-
-                        <div class="suggestion-item border-green-400">
-                          <h5 class="font-medium text-gray-800">Grammar and Spelling</h5>
-                          <p class="text-sm text-gray-600 mt-1">
-                            Correct basic grammar mistakes and pay attention to spelling of
-                            technical terms.
-                          </p>
-                        </div>
+                        }
                       </div>
                     </div>
 
@@ -262,35 +258,15 @@
                       </h4>
 
                       <div class="space-y-4">
+                        @for (s of strengths; track s.title) {
                         <div class="flex items-start">
                           <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
                           <div>
-                            <h5 class="font-medium text-gray-800">Relevant Topic</h5>
-                            <p class="text-sm text-gray-600 mt-1">
-                              Topic selection is appropriate to modern context and important.
-                            </p>
+                            <h5 class="font-medium text-gray-800">{{ s.title }}</h5>
+                            <p class="text-sm text-gray-600 mt-1">{{ s.description }}</p>
                           </div>
                         </div>
-
-                        <div class="flex items-start">
-                          <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
-                          <div>
-                            <h5 class="font-medium text-gray-800">Basic Structure</h5>
-                            <p class="text-sm text-gray-600 mt-1">
-                              Essay has clear introduction, body, and conclusion structure.
-                            </p>
-                          </div>
-                        </div>
-
-                        <div class="flex items-start">
-                          <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
-                          <div>
-                            <h5 class="font-medium text-gray-800">Awareness of Issues</h5>
-                            <p class="text-sm text-gray-600 mt-1">
-                              Shows understanding of technology challenges in education.
-                            </p>
-                          </div>
-                        </div>
+                        }
                       </div>
                     </div>
                   </div>
@@ -304,41 +280,15 @@
                       Action Steps for Improvement
                     </h4>
                     <ol class="list-decimal list-inside text-gray-700 space-y-2">
-                      <li>Focus on the main topic - technology's impact on education</li>
-                      <li>Use specific examples and supporting data to strengthen arguments</li>
-                      <li>Improve paragraph structure with clear topic sentences</li>
-                      <li>Review grammar usage and spelling carefully</li>
-                      <li>Develop a stronger conclusion that summarizes key points</li>
+                      @for (step of actionSteps; track step) {
+                      <li>{{ step }}</li>
+                      }
                     </ol>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
-          <script>
-            // Progress ring animation
-            document.addEventListener('DOMContentLoaded', function () {
-              const circle = document.querySelector('.progress-ring-circle');
-              const radius = circle.r.baseVal.value;
-              const circumference = radius * 2 * Math.PI;
-
-              circle.style.strokeDasharray = `${circumference} ${circumference}`;
-              circle.style.strokeDashoffset = circumference;
-
-              // Set progress based on score (82%)
-              const offset = circumference - (82 / 100) * circumference;
-              setTimeout(() => {
-                circle.style.strokeDashoffset = offset;
-              }, 500);
-
-              // Add fade-in animation to elements
-              const fadeElements = document.querySelectorAll('.fade-in');
-              fadeElements.forEach((el, index) => {
-                el.style.animationDelay = `${index * 0.1}s`;
-              });
-            });
-          </script>
         </div>
       </div>
     </div>
@@ -351,7 +301,13 @@
         <p class="text-2xl font-bold">AI Feedback</p>
         <div class="flex flex-row gap-2">
           <button type="button" class="btn-info" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
-          <button type="button" class="btn-primary" (click)="downloadPdfForCurrentSubmission()">Download PDF</button>
+          <button type="button" class="btn-primary" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
+            @if (isPdfDownloading) {
+            Generating...
+            } @else {
+            Download PDF
+            }
+          </button>
           <button type="button" class="btn-warning" (click)="onEditRubric()">View / Edit Rubric</button>
         </div>
       </div>
@@ -395,11 +351,9 @@
   </div>
 
 
-  }
 </ng-container>
 
-<ng-container>
-  @if(device.isMobile() || device.isTablet()) {
+<ng-container *ngIf="device.isMobile() || device.isTablet()">
   <app-app-bar-back-button
     [title]="classTitle"
     (back)="toBack()"
@@ -433,9 +387,10 @@
         </button>
       </div>
 
-      @if(activeTab === 'uploaded-file'){
+      <ng-container *ngIf="activeTab === 'uploaded-file'">
       <img src="img/default-img.png" class="w-full rounded-2xl object-cover" alt="class image" />
-      } @if(activeTab === 'transcribed-text'){
+      </ng-container>
+      <ng-container *ngIf="activeTab === 'transcribed-text'">
       <div class="container mx-auto overflow-x-hidden">
         <div class="flex flex-col gap-4">
           <!-- Main Content Area -->
@@ -702,81 +657,7 @@
           </div>
         </div>
       </div>
-
-      <script>
-        // Progress ring animation
-        document.addEventListener('DOMContentLoaded', function () {
-          const circle = document.querySelector('.progress-ring-circle');
-          const radius = circle.r.baseVal.value;
-          const circumference = radius * 2 * Math.PI;
-
-          circle.style.strokeDasharray = `${circumference} ${circumference}`;
-          circle.style.strokeDashoffset = circumference;
-
-          // Set progress based on score (82%)
-          const offset = circumference - (82 / 100) * circumference;
-          setTimeout(() => {
-            circle.style.strokeDashoffset = offset;
-          }, 500);
-
-          // Add fade-in animation to elements
-          const fadeElements = document.querySelectorAll('.fade-in');
-          fadeElements.forEach((el, index) => {
-            el.style.animationDelay = `${index * 0.1}s`;
-          });
-        });
-      </script>
-      }
-    </div>
-
-    <div class="w-full bg-white p-4 rounded-2xl flex flex-col gap-4">
-      <div class="flex flex-row justify-between items-center">
-        <p class="text-lg font-bold">AI Feedback</p>
-      </div>
-      <div class="">
-        <div class="flex flex-col gap-3">
-          @for (item of feedbacks; track item) {
-          <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
-            <div class="col-span-6">
-              <p class="text-base font-bold">
-                {{ item.category }}
-              </p>
-              <p class="text-sm">
-                {{ item.description }}
-              </p>
-            </div>
-            <div class="col-span-1">
-              <div
-                class="h-8 w-8 mx-auto rounded-full bg-[#008081] flex items-center justify-center"
-              >
-                <p class="text-xs font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
-              </div>
-            </div>
-          </div>
-          }
-          <div class="flex justify-end">
-            <button class="btn-warning-sm w-fit">View / Edit Rubric</button>
-          </div>
-          <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
-            <p class="text-base font-bold">Teacher Comments</p>
-            <div class="flex flex-col gap-1">
-              <div class="w-full">
-                <textarea
-                  formControlName="message"
-                  class="input-text w-full text-sm h-32 resize-none bg-white"
-                  placeholder=""
-                >
-                </textarea>
-                <div class="flex justify-end">
-                  <button class="btn-primary-sm w-fit">Submit</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </ng-container>
     </div>
   </div>
-
-  }
 </ng-container>

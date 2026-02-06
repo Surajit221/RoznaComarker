@@ -180,38 +180,32 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
   }
 
   getBoxStyle(box: OverlayBox): Record<string, string> {
-    const bbox = box.bbox;
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (!normalized) return { display: 'none' };
 
-    // If we can’t compute a reliable scale yet, hide overlays to avoid misalignment.
-    if (!this.naturalWidth || !this.naturalHeight || !this.renderedWidth || !this.renderedHeight) {
-      return { display: 'none' };
-    }
+    const clamped = this.clampBboxPercent(normalized);
 
-    // Debug logging for coordinate verification
-    console.log('Overlay box coordinates:', {
-      annotationId: box.annotationId,
-      rawBbox: bbox,
-      naturalSize: { width: this.naturalWidth, height: this.naturalHeight },
-      renderedSize: { width: this.renderedWidth, height: this.renderedHeight },
-      wordIds: box.annotationId
-    });
-
-    const left = (bbox.x / 100) * this.renderedWidth;
-    const top = (bbox.y / 100) * this.renderedHeight;
-    const width = (bbox.w / 100) * this.renderedWidth;
-    const height = (bbox.h / 100) * this.renderedHeight;
-
-    const computedStyle = {
-      left: `${left}px`,
-      top: `${top}px`,
-      width: `${width}px`,
-      height: `${height}px`,
+    return {
+      left: `${clamped.x}%`,
+      top: `${clamped.y}%`,
+      width: `${clamped.w}%`,
+      height: `${clamped.h}%`,
       backgroundColor: this.toRgba(box.color, 0.18),
-      borderColor: box.color || 'rgba(255,0,0,0.6)',
+      borderColor: box.color || 'rgba(255,0,0,0.6)'
     };
+  }
 
-    console.log('Computed overlay style:', computedStyle);
-    return computedStyle;
+  getBoxEdgeClass(box: OverlayBox): Record<string, boolean> {
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (!normalized) return {};
+
+    const clamped = this.clampBboxPercent(normalized);
+    const xPct = clamped.x / 100;
+
+    return {
+      'edge-left': xPct < 0.15,
+      'edge-right': xPct > 0.85,
+    };
   }
 
   getTooltipText(box: OverlayBox): string {
@@ -246,5 +240,59 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
 
     // fall back to using the provided CSS color as border and a safe highlight bg
     return `rgba(255, 193, 7, ${alpha})`;
+  }
+
+  private normalizeBboxToPercent(bbox: OcrBBox): OcrBBox | null {
+    if (!bbox) return null;
+
+    const x = Number(bbox.x);
+    const y = Number(bbox.y);
+    const w = Number(bbox.w);
+    const h = Number(bbox.h);
+
+    if (![x, y, w, h].every((v) => Number.isFinite(v))) return null;
+    if (w <= 0 || h <= 0) return null;
+
+    // Accept three input formats defensively:
+    // 1) ratio (0..1)
+    // 2) percent (0..100)
+    // 3) pixels (convert via natural image dimensions)
+    const allWithin01 = [x, y, w, h].every((v) => v >= 0 && v <= 1);
+    if (allWithin01) {
+      return { x: x * 100, y: y * 100, w: w * 100, h: h * 100 };
+    }
+
+    const allWithin0100 = [x, y, w, h].every((v) => v >= 0 && v <= 100);
+    if (allWithin0100) {
+      return { x, y, w, h };
+    }
+
+    if (!this.naturalWidth || !this.naturalHeight) return null;
+
+    return {
+      x: (x / this.naturalWidth) * 100,
+      y: (y / this.naturalHeight) * 100,
+      w: (w / this.naturalWidth) * 100,
+      h: (h / this.naturalHeight) * 100,
+    };
+  }
+
+  private clampBboxPercent(bbox: OcrBBox): OcrBBox {
+    const clamp = (n: number) => Math.max(0, Math.min(100, n));
+
+    const x = clamp(bbox.x);
+    const y = clamp(bbox.y);
+    const w = clamp(bbox.w);
+    const h = clamp(bbox.h);
+
+    const maxW = Math.max(0, 100 - x);
+    const maxH = Math.max(0, 100 - y);
+
+    return {
+      x,
+      y,
+      w: Math.min(w, maxW),
+      h: Math.min(h, maxH)
+    };
   }
 }

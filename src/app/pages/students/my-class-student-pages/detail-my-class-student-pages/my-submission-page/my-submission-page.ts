@@ -98,6 +98,8 @@ export class MySubmissionPage {
 
   isLoading = false;
 
+  isPdfDownloading = false;
+
   submission: BackendSubmission | null = null;
 
   feedback: BackendFeedback | null = null;
@@ -147,6 +149,209 @@ export class MySubmissionPage {
   ocrWords: OcrWord[] = [];
 
   annotations: FeedbackAnnotation[] = [];
+
+  private computeIssueStats() {
+    const stats = {
+      spelling: 0,
+      grammar: 0,
+      typography: 0,
+      style: 0,
+      other: 0,
+      total: 0
+    };
+
+    for (const issue of Array.isArray(this.writingCorrectionsIssues) ? this.writingCorrectionsIssues : []) {
+      const key = (issue && typeof (issue as any).groupKey === 'string' ? String((issue as any).groupKey) : 'other').toLowerCase();
+      if (key in stats) {
+        (stats as any)[key] += 1;
+      } else {
+        stats.other += 1;
+      }
+      stats.total += 1;
+    }
+
+    return stats;
+  }
+
+  private computeFallbackScore100() {
+    const s = this.computeIssueStats();
+    const penalty =
+      s.spelling * 1.2 +
+      s.grammar * 1.6 +
+      s.typography * 0.8 +
+      s.style * 0.6 +
+      s.other * 0.4;
+    const score = Math.max(0, Math.min(100, Math.round((100 - penalty) * 10) / 10));
+    return { score, maxScore: 100 };
+  }
+
+  get overallScoreText(): string {
+    const fb: any = this.feedback;
+    const score = Number(fb?.score);
+    const maxScore = Number(fb?.maxScore);
+    if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
+      return `${Math.round(score * 10) / 10}/${Math.round(maxScore * 10) / 10}`;
+    }
+
+    const fallback = this.computeFallbackScore100();
+    return `${fallback.score}/100`;
+  }
+
+  get gradeLabel(): string {
+    const fb: any = this.feedback;
+    let score = Number(fb?.score);
+    let maxScore = Number(fb?.maxScore);
+    if (!Number.isFinite(score) || !Number.isFinite(maxScore) || maxScore <= 0) {
+      const fallback = this.computeFallbackScore100();
+      score = fallback.score;
+      maxScore = fallback.maxScore;
+    }
+
+    const pct = (score / maxScore) * 100;
+    if (pct >= 90) return 'A';
+    if (pct >= 80) return 'B';
+    if (pct >= 70) return 'C';
+    if (pct >= 60) return 'D';
+    return 'F';
+  }
+
+  get issueStats() {
+    return this.computeIssueStats();
+  }
+
+  get contentIssuesCount(): number {
+    return this.issueStats.other;
+  }
+
+  get grammarIssuesCount(): number {
+    return this.issueStats.grammar;
+  }
+
+  get organizationIssuesCount(): number {
+    return this.issueStats.style + this.issueStats.typography;
+  }
+
+  get vocabularyIssuesCount(): number {
+    return this.issueStats.spelling;
+  }
+
+  get correctionStatsTotalForBars(): number {
+    const total = this.contentIssuesCount + this.grammarIssuesCount + this.organizationIssuesCount + this.vocabularyIssuesCount;
+    return total > 0 ? total : 1;
+  }
+
+  private barPct(count: number): number {
+    return Math.max(0, Math.min(100, Math.round((count / this.correctionStatsTotalForBars) * 100)));
+  }
+
+  get contentIssuesBarWidth(): string {
+    return `${this.barPct(this.contentIssuesCount)}%`;
+  }
+
+  get grammarIssuesBarWidth(): string {
+    return `${this.barPct(this.grammarIssuesCount)}%`;
+  }
+
+  get organizationIssuesBarWidth(): string {
+    return `${this.barPct(this.organizationIssuesCount)}%`;
+  }
+
+  get vocabularyIssuesBarWidth(): string {
+    return `${this.barPct(this.vocabularyIssuesCount)}%`;
+  }
+
+  get overallScorePct(): number {
+    const fb: any = this.feedback;
+    const score = Number(fb?.score);
+    const maxScore = Number(fb?.maxScore);
+    if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
+      return Math.max(0, Math.min(100, (score / maxScore) * 100));
+    }
+
+    const fallback = this.computeFallbackScore100();
+    return Math.max(0, Math.min(100, (fallback.score / fallback.maxScore) * 100));
+  }
+
+  get progressRingCircumference(): number {
+    return 326.56;
+  }
+
+  get progressRingOffset(): number {
+    return this.progressRingCircumference - (this.overallScorePct / 100) * this.progressRingCircumference;
+  }
+
+  get actionSteps(): string[] {
+    const s = this.computeIssueStats();
+    const steps: Array<{ key: string; text: string; count: number }> = [
+      { key: 'spelling', text: 'Review spelling mistakes and re-check misspelled words.', count: s.spelling },
+      { key: 'grammar', text: 'Fix grammar issues (tense, agreement, sentence structure).', count: s.grammar },
+      { key: 'typography', text: 'Correct punctuation/typography issues (quotes, commas, spacing).', count: s.typography },
+      { key: 'style', text: 'Improve clarity and conciseness by revising awkward sentences.', count: s.style },
+      { key: 'other', text: 'Review flagged sections and refine the wording.', count: s.other }
+    ]
+      .filter((x) => x.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const top = steps.slice(0, 5).map((x) => x.text);
+    return top.length ? top : ['Keep practicing and re-check your writing for small improvements.'];
+  }
+
+  get areasForImprovement(): Array<{ title: string; description: string; borderClass: string }> {
+    const items: Array<{ key: string; title: string; description: string; borderClass: string; count: number }> = [
+      {
+        key: 'content',
+        title: 'Content & Relevance',
+        description: 'Make sure each paragraph directly supports the task. Add clearer examples to develop your ideas.',
+        borderClass: 'border-red-400',
+        count: this.contentIssuesCount
+      },
+      {
+        key: 'organization',
+        title: 'Structure & Coherence',
+        description: 'Improve paragraph flow and transitions. Use clear topic sentences and a stronger conclusion.',
+        borderClass: 'border-blue-400',
+        count: this.organizationIssuesCount
+      },
+      {
+        key: 'grammar',
+        title: 'Grammar & Mechanics',
+        description: 'Fix sentence-structure and grammar errors. Re-check punctuation and spelling before final submission.',
+        borderClass: 'border-green-400',
+        count: this.grammarIssuesCount + this.vocabularyIssuesCount
+      }
+    ]
+      .filter((x) => x.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const top = items.slice(0, 3).map((x) => ({ title: x.title, description: x.description, borderClass: x.borderClass }));
+    return top.length
+      ? top
+      : [{ title: 'Keep refining', description: 'Your writing looks strong overall. Review for small clarity and polish improvements.', borderClass: 'border-green-400' }];
+  }
+
+  get strengths(): Array<{ title: string; description: string }> {
+    const s = this.computeIssueStats();
+    const strengths: Array<{ title: string; description: string; score: number }> = [
+      {
+        title: 'Clarity & Readability',
+        description: 'The writing is generally understandable and communicates the main idea.',
+        score: Math.max(0, 100 - (s.style + s.typography) * 4)
+      },
+      {
+        title: 'Grammar Control',
+        description: 'Many sentences follow correct grammar patterns with room for minor fixes.',
+        score: Math.max(0, 100 - s.grammar * 6)
+      },
+      {
+        title: 'Word Choice',
+        description: 'Vocabulary is mostly appropriate; keep improving precision and variety.',
+        score: Math.max(0, 100 - s.spelling * 5)
+      }
+    ].sort((a, b) => b.score - a.score);
+
+    const top = strengths.slice(0, 3).map((x) => ({ title: x.title, description: x.description }));
+    return top.length ? top : [{ title: 'Effort', description: 'You have made a good attempt—keep practicing consistently.' }];
+  }
 
 
 
@@ -638,25 +843,24 @@ export class MySubmissionPage {
 
     try {
 
-      const pdfUrl = await this.pdfApi.getPdfUrl(submissionId);
+      const blob = await this.pdfApi.downloadSubmissionPdf(submissionId);
+      const objectUrl = URL.createObjectURL(blob);
+      this.objectUrls.push(objectUrl);
 
-      if (!pdfUrl) {
-
-        this.alert.showError('PDF not available', 'Please try again');
-
-        return;
-
-      }
-
-
-
-      const objectUrl = await this.fetchAsObjectUrl(pdfUrl, false);
-
-      window.open(objectUrl, '_blank', 'noopener');
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'submission-feedback.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
 
     } catch (err: any) {
 
       this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+
+    } finally {
+
+      this.isPdfDownloading = false;
 
     }
 

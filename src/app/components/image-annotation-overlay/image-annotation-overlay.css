@@ -20,7 +20,7 @@
 .overlay-layer {
   position: absolute;
   inset: 0;
-  z-index: 10;
+  z-index: 2000;
 }
 
 .overlay-box {
@@ -29,23 +29,31 @@
   border-radius: 2px;
   box-sizing: border-box;
   cursor: help;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .overlay-tooltip {
   position: absolute;
   bottom: 100%;
-  left: 50%;
+  left: clamp(12px, 50%, calc(100% - 12px));
   transform: translateX(-50%) translateY(-8px);
   background: rgba(0, 0, 0, 0.85);
   color: white;
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-radius: 10px;
   font-size: 0.875rem;
-  width: 260px;
+  width: min(280px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
-  z-index: 20;
+  transition: all 0.3s ease;
+  z-index: 9999;
+  backdrop-filter: blur(10px);
   pointer-events: none;
 }
 
@@ -53,6 +61,25 @@
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(-12px);
+}
+
+.overlay-box.edge-left .overlay-tooltip {
+  left: 0;
+  transform: translateY(-8px);
+}
+
+.overlay-box.edge-right .overlay-tooltip {
+  left: auto;
+  right: 0;
+  transform: translateY(-8px);
+}
+
+.overlay-box.edge-left:hover .overlay-tooltip {
+  transform: translateY(-12px);
+}
+
+.overlay-box.edge-right:hover .overlay-tooltip {
+  transform: translateY(-12px);
 }
 
 .overlay-tooltip:after {
@@ -63,4 +90,24 @@
   transform: translateX(-50%);
   border: 8px solid transparent;
   border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+.overlay-box.edge-left .overlay-tooltip:after {
+  left: 16px;
+  transform: none;
+}
+
+.overlay-box.edge-right .overlay-tooltip:after {
+  left: auto;
+  right: 16px;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  .overlay-tooltip {
+    font-size: 0.75rem;
+    padding: 8px 10px;
+    width: min(240px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+  }
 }

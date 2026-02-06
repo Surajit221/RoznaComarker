@@ -13,6 +13,7 @@
       @for (box of overlayBoxes; track box.annotationId + '-' + $index) {
       <div
         class="overlay-box"
+        [ngClass]="getBoxEdgeClass(box)"
         [ngStyle]="getBoxStyle(box)"
       >
         <span class="overlay-tooltip" style="white-space: pre-line;">{{ getTooltipText(box) }}</span>
