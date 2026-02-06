@@ -14,7 +14,9 @@ import { AlertService } from '../../../../../services/alert.service';
 })
 export class DialogViewSubmissions {
   @Input() assignmentId: string | null = null;
+  @Input() navigateOnSelect = true;
   @Output() closed = new EventEmitter<void>();
+  @Output() selected = new EventEmitter<string>();
   device = inject(DeviceService);
   private submissionApi = inject(SubmissionApiService);
   private alert = inject(AlertService);
@@ -74,6 +76,12 @@ export class DialogViewSubmissions {
 
   toStudentSubmission(student: { submissionId: string }) {
     this.closeDialog();
+
+    if (!this.navigateOnSelect) {
+      this.selected.emit(student.submissionId);
+      return;
+    }
+
     const submission = this.submissions.find((s) => s._id === student.submissionId);
     const studentObj: any = submission && (submission as any).student;
     const studentId = studentObj && (studentObj._id || studentObj.id);

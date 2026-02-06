@@ -21,6 +21,8 @@ import { TokenizedTranscript } from '../../../../../components/submission-detail
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
+import { DialogViewSubmissions } from '../dialog-view-submissions/dialog-view-submissions';
+import { buildDynamicRubricFeedback, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 
 @Component({
   selector: 'app-student-submission-pages',
@@ -30,7 +32,8 @@ import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
     AppBarBackButton,
     ImageAnnotationOverlayComponent,
     TokenizedTranscript,
-    ModalDialog
+    ModalDialog,
+    DialogViewSubmissions
   ],
   templateUrl: './student-submission-pages.html',
   styleUrl: './student-submission-pages.css',
@@ -139,6 +142,8 @@ export class StudentSubmissionPages {
   submissions: BackendSubmission[] = [];
   currentSubmission: BackendSubmission | null = null;
   currentFeedback: BackendFeedback | null = null;
+
+  rubricFeedbackItems: RubricFeedbackItem[] = [];
 
   writingCorrectionsLegend: CorrectionLegend | null = null;
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
@@ -447,6 +452,7 @@ export class StudentSubmissionPages {
         correctionLegend: this.defaultCorrectionLegend
       });
       this.currentFeedback = fb;
+      this.recomputeRubricFeedbackItems();
       this.alert.showToast('AI feedback generated', 'success');
     } catch (err: any) {
       this.alert.showError('Failed to generate AI feedback', err?.error?.message || err?.message || 'Please try again');
@@ -512,6 +518,7 @@ export class StudentSubmissionPages {
       this.writingCorrectionsHtml = null;
       this.writingCorrectionsError = null;
       this.lastWritingCorrectionsText = null;
+      this.recomputeRubricFeedbackItems();
       return;
     }
 
@@ -533,11 +540,13 @@ export class StudentSubmissionPages {
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
       this.writingCorrectionsHtml = this.sanitizer.bypassSecurityTrustHtml(html);
       this.lastWritingCorrectionsText = text;
+      this.recomputeRubricFeedbackItems();
     } catch (err: any) {
       this.writingCorrectionsIssues = [];
       this.writingCorrectionsHtml = null;
       this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to check writing corrections';
       this.lastWritingCorrectionsText = null;
+      this.recomputeRubricFeedbackItems();
     } finally {
       this.isWritingCorrectionsLoading = false;
     }
@@ -545,9 +554,94 @@ export class StudentSubmissionPages {
 
   feedbackForm: FormGroup;
 
-  get feedbacks(): Array<{ category: string; score: number; maxScore: number; description: string }> {
+  private recomputeRubricFeedbackItems() {
     const fb: any = this.currentFeedback;
-    if (!fb) return [];
+
+    const normalize = (items: any): RubricFeedbackItem[] => {
+      const arr = Array.isArray(items) ? items : [];
+      return arr
+        .map((x: any) => ({
+          category: typeof x?.category === 'string' ? x.category : '',
+          score: Number.isFinite(Number(x?.score)) ? Number(x.score) : 0,
+          maxScore: Number.isFinite(Number(x?.maxScore)) ? Number(x.maxScore) : 5,
+          description: typeof x?.description === 'string' ? x.description : ''
+        }))
+        .filter((x) => Boolean(x.category));
+    };
+
+    // Prefer backend-generated AI feedback (OCR-based) if present.
+    const ai = fb && fb.aiFeedback && typeof fb.aiFeedback === 'object' ? fb.aiFeedback : null;
+    const aiScores = ai && ai.rubricScores && typeof ai.rubricScores === 'object' ? ai.rubricScores : null;
+    if (aiScores) {
+      const score = (k: string) => {
+        const n = Number((aiScores as any)[k]);
+        return Number.isFinite(n) ? Math.max(0, Math.min(5, Math.round(n * 10) / 10)) : 0;
+      };
+
+      const anns = Array.isArray(ai.textAnnotations) ? ai.textAnnotations : [];
+      const countBy = (cat: string) => anns.filter((a: any) => String(a?.category).toUpperCase() === cat).length;
+
+      const desc = (cat: string, fallback: string) => {
+        const c = countBy(cat);
+        if (c > 0) return `${c} issue${c === 1 ? '' : 's'} flagged. ${fallback}`;
+        return `No issues flagged. ${fallback}`;
+      };
+
+      const general = typeof ai.generalComments === 'string' ? ai.generalComments : '';
+
+      this.rubricFeedbackItems = normalize([
+        {
+          category: 'Content Relevance',
+          score: score('CONTENT'),
+          maxScore: 5,
+          description: desc('CONTENT', 'Improve idea development and relevance to the prompt.')
+        },
+        {
+          category: 'Structure & Organization',
+          score: score('ORGANIZATION'),
+          maxScore: 5,
+          description: desc('ORGANIZATION', 'Improve paragraph flow and logical sequencing.')
+        },
+        {
+          category: 'Grammar',
+          score: score('GRAMMAR'),
+          maxScore: 5,
+          description: desc('GRAMMAR', 'Fix tense, agreement, and sentence structure problems.')
+        },
+        {
+          category: 'Vocabulary',
+          score: score('VOCABULARY'),
+          maxScore: 5,
+          description: desc('VOCABULARY', 'Reduce repetition and use more precise word choices.')
+        },
+        {
+          category: 'Mechanics',
+          score: score('MECHANICS'),
+          maxScore: 5,
+          description: desc('MECHANICS', 'Fix spelling, punctuation, and typography issues.')
+        },
+        {
+          category: 'Overall Comments',
+          score: Math.round(((score('CONTENT') + score('ORGANIZATION') + score('GRAMMAR') + score('VOCABULARY') + score('MECHANICS')) / 5) * 10) / 10,
+          maxScore: 5,
+          description: general || 'AI feedback generated from OCR text.'
+        }
+      ]);
+      return;
+    }
+
+    // If no AI feedback exists yet, still provide dynamic rubric feedback driven by LanguageTool + stats.
+    if (!fb) {
+      const fallback = this.computeFallbackScore100();
+      this.rubricFeedbackItems = normalize(
+        buildDynamicRubricFeedback({
+          issues: this.writingCorrectionsIssues,
+          overallScore100: fallback.score,
+          language: 'en-US'
+        })
+      );
+      return;
+    }
 
     const toScore5 = (score100: any) => {
       const n = Number(score100);
@@ -559,7 +653,7 @@ export class StudentSubmissionPages {
     const sf = fb?.evaluation?.structuredFeedback;
 
     if (effective && typeof effective === 'object') {
-      return [
+      this.rubricFeedbackItems = normalize([
         {
           category: 'Grammar & Mechanics',
           score: toScore5(effective.grammarScore),
@@ -582,27 +676,32 @@ export class StudentSubmissionPages {
           category: 'Overall Rubric Score',
           score: toScore5(effective.overallScore),
           maxScore: 5,
-          description: String(sf?.grammarFeedback?.summary || '')
+          description: String(sf?.overallFeedback?.summary || '')
         }
-      ];
+      ]);
+      return;
     }
 
-    const scoreRaw = fb.score;
-    const maxScoreRaw = fb.maxScore;
-    const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
-    const maxScore = Number.isFinite(Number(maxScoreRaw)) ? Number(maxScoreRaw) : 0;
-    const description = (fb.textFeedback || '').toString();
+    const evalOverall = Number(fb?.evaluation?.effectiveRubric?.overallScore);
+    const overallScore100 = Number.isFinite(evalOverall)
+      ? evalOverall
+      : (Number.isFinite(Number(fb?.score)) && Number.isFinite(Number(fb?.maxScore)) && Number(fb?.maxScore) > 0)
+        ? (Number(fb.score) / Number(fb.maxScore)) * 100
+        : this.computeFallbackScore100().score;
 
-    return [
-      {
-        category: 'Overall Rubric Score',
-        score,
-        maxScore,
-        description
-      }
-    ];
+    const gradeLetter = typeof fb?.evaluation?.effectiveRubric?.gradeLetter === 'string'
+      ? String(fb.evaluation.effectiveRubric.gradeLetter)
+      : this.gradeLabel;
+
+    this.rubricFeedbackItems = normalize(
+      buildDynamicRubricFeedback({
+        issues: this.writingCorrectionsIssues,
+        overallScore100,
+        gradeLetter,
+        language: 'en-US'
+      })
+    );
   }
-
 
   constructor(private router: Router, fb: FormBuilder) {
     this.feedbackForm = fb.group({
@@ -620,6 +719,7 @@ export class StudentSubmissionPages {
 
     await this.loadSubmissions();
     await this.loadFeedback();
+    this.recomputeRubricFeedbackItems();
   }
 
   private async loadClassTitle() {
@@ -704,32 +804,114 @@ export class StudentSubmissionPages {
       this.submissions = list || [];
 
       const submissionId = this.submissionId;
-      this.currentSubmission = submissionId
+
+      const target = submissionId
         ? this.submissions.find((s) => s._id === submissionId) || null
         : this.submissions[0] || null;
 
-      const url = this.currentSubmission?.fileUrl || null;
-      this.revokeObjectUrls();
-      this.essayImageUrl = null;
-
-      this.ocrWords = [];
-      this.annotations = [];
-      this.correctionsError = null;
-
-      if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
-        const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
-        this.essayImageUrl = await this.fetchAsObjectUrl(previewUrl);
-      } else if (this.isProbablyImageUrl(url) && url) {
-        this.essayImageUrl = await this.fetchAsObjectUrl(url);
-      }
-
-      if (this.currentSubmission?._id) {
-        await this.loadOcrCorrections(this.currentSubmission._id);
-      }
-
-      await this.refreshWritingCorrections();
+      await this.applyCurrentSubmission(target, false);
     } catch (err: any) {
       this.alert.showError('Failed to load submissions', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private get currentSubmissionIndex(): number {
+    const id = this.currentSubmission?._id;
+    if (!id) return -1;
+    return this.submissions.findIndex((s) => s._id === id);
+  }
+
+  get canGoPrev(): boolean {
+    return this.currentSubmissionIndex > 0;
+  }
+
+  get canGoNext(): boolean {
+    const idx = this.currentSubmissionIndex;
+    return idx >= 0 && idx < this.submissions.length - 1;
+  }
+
+  private async applyCurrentSubmission(submission: BackendSubmission | null, updateUrl: boolean) {
+    this.currentSubmission = submission;
+    this.submissionId = submission?._id || null;
+
+    const url = this.currentSubmission?.fileUrl || null;
+    this.revokeObjectUrls();
+    this.essayImageUrl = null;
+
+    this.ocrWords = [];
+    this.annotations = [];
+    this.correctionsError = null;
+
+    this.currentFeedback = null;
+    this.feedbackForm.patchValue({ message: '' });
+    this.recomputeRubricFeedbackItems();
+
+    if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
+      const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
+      this.essayImageUrl = await this.fetchAsObjectUrl(previewUrl);
+    } else if (this.isProbablyImageUrl(url) && url) {
+      this.essayImageUrl = await this.fetchAsObjectUrl(url);
+    }
+
+    if (this.currentSubmission?._id) {
+      await this.loadOcrCorrections(this.currentSubmission._id);
+    }
+
+    await this.refreshWritingCorrections();
+    await this.loadFeedback();
+    this.recomputeRubricFeedbackItems();
+
+    if (updateUrl && this.studentId) {
+      const classId = this.route.snapshot.queryParamMap.get('classId');
+      this.router.navigate(['/teacher/my-classes/detail/student-submissions', this.studentId], {
+        queryParams: {
+          classId: classId || undefined,
+          assignmentId: this.assignmentId || undefined,
+          submissionId: this.submissionId || undefined
+        },
+        replaceUrl: true
+      });
+    }
+  }
+
+  async onPrevSubmission() {
+    if (this.isLoading) return;
+    if (!this.canGoPrev) return;
+    this.isLoading = true;
+    try {
+      const idx = this.currentSubmissionIndex;
+      await this.applyCurrentSubmission(this.submissions[idx - 1] || null, true);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onNextSubmission() {
+    if (this.isLoading) return;
+    if (!this.canGoNext) return;
+    this.isLoading = true;
+    try {
+      const idx = this.currentSubmissionIndex;
+      await this.applyCurrentSubmission(this.submissions[idx + 1] || null, true);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onSubmissionSelected(submissionId: string) {
+    const target = this.submissions.find((s) => s._id === submissionId) || null;
+    if (!target) {
+      this.alert.showWarning('Not found', 'Submission not found.');
+      return;
+    }
+
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      await this.applyCurrentSubmission(target, true);
+      this.openSheetSubmission = false;
     } finally {
       this.isLoading = false;
     }
@@ -745,6 +927,7 @@ export class StudentSubmissionPages {
       this.feedbackForm.patchValue({
         message: (fb as any)?.teacherComments || fb?.textFeedback || ''
       });
+      this.recomputeRubricFeedbackItems();
     } catch (err: any) {
       // ignore if not found
     }
@@ -777,6 +960,8 @@ export class StudentSubmissionPages {
         });
         this.currentFeedback = created;
       }
+
+      this.recomputeRubricFeedbackItems();
 
       this.alert.showToast('Feedback saved', 'success');
     } catch (err: any) {

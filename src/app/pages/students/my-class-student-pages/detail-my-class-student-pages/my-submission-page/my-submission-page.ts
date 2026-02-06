@@ -37,6 +37,7 @@ import type { OcrWord } from '../../../../../models/ocr-token.model';
 import type { CorrectionLegend } from '../../../../../models/correction-legend.model';
 
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
+import { buildDynamicRubricFeedback } from '../../../../../utils/dynamic-ai-feedback.util';
 
 import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
 
@@ -879,7 +880,16 @@ export class MySubmissionPage {
 
   get feedbacks(): Array<{ category: string; score: number; maxScore: number; description: string }> {
     const fb: any = this.feedback;
-    if (!fb) return [];
+
+    // If no AI feedback exists yet, still provide dynamic rubric feedback driven by LanguageTool + stats.
+    if (!fb) {
+      const fallback = this.computeFallbackScore100();
+      return buildDynamicRubricFeedback({
+        issues: this.writingCorrectionsIssues,
+        overallScore100: fallback.score,
+        language: 'en-US'
+      });
+    }
 
     const toScore5 = (score100: any) => {
       const n = Number(score100);
@@ -891,7 +901,7 @@ export class MySubmissionPage {
     const sf = fb?.evaluation?.structuredFeedback;
 
     if (effective && typeof effective === 'object') {
-      return [
+      const built = [
         {
           category: 'Grammar & Mechanics',
           score: toScore5(effective.grammarScore),
@@ -917,16 +927,36 @@ export class MySubmissionPage {
           description: String(sf?.grammarFeedback?.summary || '')
         }
       ];
+
+      const hasMeaningful = built.some((i) => {
+        const catOk = typeof i.category === 'string' && i.category.trim().length > 0;
+        const scoreOk = Number.isFinite(Number(i.score)) && Number.isFinite(Number(i.maxScore));
+        const descOk = typeof i.description === 'string' && i.description.trim().length > 0;
+        return catOk || descOk || scoreOk;
+      });
+
+      if (hasMeaningful) {
+        return built;
+      }
     }
 
-    const scoreRaw = fb.score;
-    const maxScoreRaw = fb.maxScore;
-    const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
-    const maxScore = Number.isFinite(Number(maxScoreRaw)) ? Number(maxScoreRaw) : 0;
-    const description = (fb.textFeedback || '').toString();
+    const evalOverall = Number(fb?.evaluation?.effectiveRubric?.overallScore);
+    const overallScore100 = Number.isFinite(evalOverall)
+      ? evalOverall
+      : (Number.isFinite(Number(fb?.score)) && Number.isFinite(Number(fb?.maxScore)) && Number(fb?.maxScore) > 0)
+        ? (Number(fb.score) / Number(fb.maxScore)) * 100
+        : this.computeFallbackScore100().score;
 
-    return [{ category: 'Overall Rubric Score', score, maxScore, description }];
+    const gradeLetter = typeof fb?.evaluation?.effectiveRubric?.gradeLetter === 'string'
+      ? String(fb.evaluation.effectiveRubric.gradeLetter)
+      : this.gradeLabel;
 
+    return buildDynamicRubricFeedback({
+      issues: this.writingCorrectionsIssues,
+      overallScore100,
+      gradeLetter,
+      language: 'en-US'
+    });
   }
 
   scrollToAiFeedback() {

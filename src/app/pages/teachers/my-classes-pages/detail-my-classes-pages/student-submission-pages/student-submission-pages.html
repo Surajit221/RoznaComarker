@@ -10,12 +10,12 @@
   </div>
 
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
-    <button class="btn-warning">Previous</button>
+    <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
     <div class="flex flex-col justify-center items-center">
       <p class="font-bold text-2xl">{{ studentName }}</p>
       <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
     </div>
-    <button class="btn-primary">Next</button>
+    <button class="btn-primary" [disabled]="!canGoNext" (click)="onNextSubmission()">Next</button>
   </div>
   @if(isUploadedFile) {
   <div class="w-full mb-4">
@@ -317,7 +317,8 @@
       </div>
       <div class="">
         <div class="flex flex-col gap-3">
-          @for (item of feedbacks; track item) {
+          @if (rubricFeedbackItems.length) {
+          @for (item of rubricFeedbackItems; track item.category) {
           <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
             <div class="col-span-5">
               <div class="flex flex-row gap-2 items-center">
@@ -332,6 +333,11 @@
                 {{ item.description }}
               </p>
             </div>
+          </div>
+          }
+          } @else {
+          <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+            <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed text to compute dynamic rubric.</p>
           </div>
           }
           <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
@@ -358,7 +364,8 @@
               </div>
 
               <div class="flex flex-col gap-3">
-                @for (item of feedbacks; track item) {
+                @if (rubricFeedbackItems.length) {
+                @for (item of rubricFeedbackItems; track item.category) {
                 <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
                   <div class="col-span-5">
                     <div class="flex flex-row gap-2 items-center">
@@ -369,6 +376,11 @@
                     </div>
                     <p>{{ item.description }}</p>
                   </div>
+                </div>
+                }
+                } @else {
+                <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+                  <p class="text-gray-600">No rubric feedback available yet.</p>
                 </div>
                 }
               </div>
@@ -382,6 +394,15 @@
 
 </ng-container>
 
+<app-modal-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
+  <app-dialog-view-submissions
+    [assignmentId]="assignmentId"
+    [navigateOnSelect]="false"
+    (selected)="onSubmissionSelected($event)"
+    (closed)="onCloseSubmission()"
+  ></app-dialog-view-submissions>
+</app-modal-dialog>
+
 <ng-container *ngIf="device.isMobile() || device.isTablet()">
   <app-app-bar-back-button
     [title]="classTitle"
@@ -389,12 +410,12 @@
   ></app-app-bar-back-button>
 
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
-    <button class="btn-warning-sm"><i class="bx bx-chevron-left"></i></button>
+    <button class="btn-warning-sm" [disabled]="!canGoPrev" (click)="onPrevSubmission()"><i class="bx bx-chevron-left"></i></button>
     <div class="flex flex-col justify-center items-center">
       <p class="font-bold text-base">{{ studentName }}</p>
       <p class="font-bold text-xs text-gray-500">ID:{{ studentDisplayId }}</p>
     </div>
-    <button class="btn-primary-sm"><i class="bx bx-chevron-right"></i></button>
+    <button class="btn-primary-sm" [disabled]="!canGoNext" (click)="onNextSubmission()"><i class="bx bx-chevron-right"></i></button>
   </div>
 
   <div class="w-full flex flex-col gap-4 mb-24">
