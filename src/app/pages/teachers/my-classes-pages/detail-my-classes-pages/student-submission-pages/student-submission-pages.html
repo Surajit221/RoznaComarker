@@ -304,7 +304,10 @@
           <button type="button" class="btn-info" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
           <button type="button" class="btn-primary" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
             @if (isPdfDownloading) {
-            Generating...
+            <span class="pdf-loading">
+              <span class="pdf-spinner" aria-hidden="true"></span>
+              Generating...
+            </span>
             } @else {
             Download PDF
             }

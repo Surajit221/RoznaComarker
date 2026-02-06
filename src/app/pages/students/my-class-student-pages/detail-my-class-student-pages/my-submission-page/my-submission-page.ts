@@ -845,17 +845,14 @@ export class MySubmissionPage {
     const submissionId = this.submission?._id;
 
     if (!submissionId) {
-
       this.alert.showWarning('No submission', 'Please upload a submission first.');
-
       return;
-
     }
 
-
+    if (this.isPdfDownloading) return;
+    this.isPdfDownloading = true;
 
     try {
-
       const blob = await this.pdfApi.downloadSubmissionPdf(submissionId);
       const objectUrl = URL.createObjectURL(blob);
       this.objectUrls.push(objectUrl);
@@ -866,15 +863,10 @@ export class MySubmissionPage {
       document.body.appendChild(a);
       a.click();
       a.remove();
-
     } catch (err: any) {
-
       this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
-
     } finally {
-
       this.isPdfDownloading = false;
-
     }
 
   }
