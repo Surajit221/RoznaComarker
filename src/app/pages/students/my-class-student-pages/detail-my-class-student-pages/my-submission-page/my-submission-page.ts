@@ -40,6 +40,8 @@ import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-correc
 
 import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
 
+import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
+
 import { environment } from '../../../../../../environments/environment';
 
 
@@ -48,7 +50,7 @@ import { environment } from '../../../../../../environments/environment';
 
   selector: 'app-my-submission-page',
 
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ImageAnnotationOverlayComponent],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ImageAnnotationOverlayComponent, ModalDialog],
 
   templateUrl: './my-submission-page.html',
 
@@ -126,6 +128,8 @@ export class MySubmissionPage {
 
   teacherComment: string | null = null;
 
+  showRubricDialog = false;
+
 
 
   highlightedTranscriptHtml: SafeHtml | null = null;
@@ -187,6 +191,11 @@ export class MySubmissionPage {
 
   get overallScoreText(): string {
     const fb: any = this.feedback;
+    const evalOverall = Number(fb?.evaluation?.effectiveRubric?.overallScore);
+    if (Number.isFinite(evalOverall)) {
+      return `${Math.round(evalOverall * 10) / 10}/100`;
+    }
+
     const score = Number(fb?.score);
     const maxScore = Number(fb?.maxScore);
     if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
@@ -199,6 +208,10 @@ export class MySubmissionPage {
 
   get gradeLabel(): string {
     const fb: any = this.feedback;
+    const fromEval = fb?.evaluation?.effectiveRubric;
+    const letter = typeof fromEval?.gradeLetter === 'string' ? String(fromEval.gradeLetter) : '';
+    if (letter) return letter;
+
     let score = Number(fb?.score);
     let maxScore = Number(fb?.maxScore);
     if (!Number.isFinite(score) || !Number.isFinite(maxScore) || maxScore <= 0) {
@@ -873,41 +886,69 @@ export class MySubmissionPage {
 
 
   get feedbacks(): Array<{ category: string; score: number; maxScore: number; description: string }> {
-
     const fb: any = this.feedback;
-
     if (!fb) return [];
 
+    const toScore5 = (score100: any) => {
+      const n = Number(score100);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(5, Math.round((n / 20) * 10) / 10));
+    };
 
+    const effective = fb?.evaluation?.effectiveRubric;
+    const sf = fb?.evaluation?.structuredFeedback;
+
+    if (effective && typeof effective === 'object') {
+      return [
+        {
+          category: 'Grammar & Mechanics',
+          score: toScore5(effective.grammarScore),
+          maxScore: 5,
+          description: String(sf?.grammarFeedback?.summary || '')
+        },
+        {
+          category: 'Structure & Organization',
+          score: toScore5(effective.structureScore),
+          maxScore: 5,
+          description: String(sf?.structureFeedback?.summary || '')
+        },
+        {
+          category: 'Content Relevance',
+          score: toScore5(effective.contentScore),
+          maxScore: 5,
+          description: String(sf?.contentFeedback?.summary || '')
+        },
+        {
+          category: 'Overall Rubric Score',
+          score: toScore5(effective.overallScore),
+          maxScore: 5,
+          description: String(sf?.grammarFeedback?.summary || '')
+        }
+      ];
+    }
 
     const scoreRaw = fb.score;
-
     const maxScoreRaw = fb.maxScore;
-
     const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
-
     const maxScore = Number.isFinite(Number(maxScoreRaw)) ? Number(maxScoreRaw) : 0;
-
     const description = (fb.textFeedback || '').toString();
 
+    return [{ category: 'Overall Rubric Score', score, maxScore, description }];
 
+  }
 
-    return [
+  scrollToAiFeedback() {
+    const el = document.getElementById('ai-feedback-section');
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-      {
+  openRubricDialog() {
+    this.showRubricDialog = true;
+  }
 
-        category: 'Overall Rubric Score',
-
-        score,
-
-        maxScore,
-
-        description
-
-      }
-
-    ];
-
+  closeRubricDialog() {
+    this.showRubricDialog = false;
   }
 
 
@@ -1090,7 +1131,7 @@ export class MySubmissionPage {
 
         this.feedback = fb;
 
-        this.teacherComment = fb?.textFeedback || null;
+        this.teacherComment = (fb as any)?.teacherComments || fb?.textFeedback || null;
 
 
 

@@ -1,5 +1,5 @@
-<div class="overlay-root">
-  <div class="image-container">
+<div class="overlay-root" [class.teacher]="role === 'teacher'" [class.student]="role === 'student'">
+  <div class="image-container" #containerEl>
     <img
       #imgEl
       [src]="imageUrl || ''"
@@ -15,10 +15,18 @@
         class="overlay-box"
         [ngClass]="getBoxEdgeClass(box)"
         [ngStyle]="getBoxStyle(box)"
+        (mouseenter)="onBoxEnter(box)"
+        (mouseleave)="onBoxLeave(box)"
       >
-        <span class="overlay-tooltip" style="white-space: pre-line;">{{ getTooltipText(box) }}</span>
       </div>
       }
+
+      <div
+        #tooltipEl
+        class="overlay-tooltip"
+        [ngStyle]="tooltipStyle"
+        style="white-space: pre-line;"
+      >{{ tooltipText }}</div>
     </div>
   </div>
 </div>

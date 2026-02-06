@@ -20,6 +20,7 @@ import { ImageAnnotationOverlayComponent } from '../../../../../components/image
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
+import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 
 @Component({
   selector: 'app-student-submission-pages',
@@ -28,7 +29,8 @@ import type { OcrWord } from '../../../../../models/ocr-token.model';
     ReactiveFormsModule,
     AppBarBackButton,
     ImageAnnotationOverlayComponent,
-    TokenizedTranscript
+    TokenizedTranscript,
+    ModalDialog
   ],
   templateUrl: './student-submission-pages.html',
   styleUrl: './student-submission-pages.css',
@@ -547,6 +549,44 @@ export class StudentSubmissionPages {
     const fb: any = this.currentFeedback;
     if (!fb) return [];
 
+    const toScore5 = (score100: any) => {
+      const n = Number(score100);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(5, Math.round((n / 20) * 10) / 10));
+    };
+
+    const effective = fb?.evaluation?.effectiveRubric;
+    const sf = fb?.evaluation?.structuredFeedback;
+
+    if (effective && typeof effective === 'object') {
+      return [
+        {
+          category: 'Grammar & Mechanics',
+          score: toScore5(effective.grammarScore),
+          maxScore: 5,
+          description: String(sf?.grammarFeedback?.summary || '')
+        },
+        {
+          category: 'Structure & Organization',
+          score: toScore5(effective.structureScore),
+          maxScore: 5,
+          description: String(sf?.structureFeedback?.summary || '')
+        },
+        {
+          category: 'Content Relevance',
+          score: toScore5(effective.contentScore),
+          maxScore: 5,
+          description: String(sf?.contentFeedback?.summary || '')
+        },
+        {
+          category: 'Overall Rubric Score',
+          score: toScore5(effective.overallScore),
+          maxScore: 5,
+          description: String(sf?.grammarFeedback?.summary || '')
+        }
+      ];
+    }
+
     const scoreRaw = fb.score;
     const maxScoreRaw = fb.maxScore;
     const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
@@ -703,7 +743,7 @@ export class StudentSubmissionPages {
       const fb = await this.feedbackApi.getFeedbackByIdForTeacher(feedbackId);
       this.currentFeedback = fb;
       this.feedbackForm.patchValue({
-        message: fb?.textFeedback || ''
+        message: (fb as any)?.teacherComments || fb?.textFeedback || ''
       });
     } catch (err: any) {
       // ignore if not found
@@ -718,19 +758,22 @@ export class StudentSubmissionPages {
     }
 
     const textFeedback = this.feedbackForm.value.message;
+    const teacherComments = typeof textFeedback === 'string' ? textFeedback : (textFeedback == null ? undefined : String(textFeedback));
 
     try {
       const existingFeedbackId = submission && (submission as any).feedback;
       if (existingFeedbackId && typeof existingFeedbackId === 'string') {
         const updated = await this.feedbackApi.updateFeedback({
           feedbackId: existingFeedbackId,
-          textFeedback
+          textFeedback,
+          teacherComments
         });
         this.currentFeedback = updated;
       } else {
         const created = await this.feedbackApi.createFeedback({
           submissionId: submission._id,
-          textFeedback
+          textFeedback,
+          teacherComments
         });
         this.currentFeedback = created;
       }

@@ -1,9 +1,11 @@
 .tokenized-transcript {
+  position: relative;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
   max-width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .correction-highlight {
@@ -22,38 +24,22 @@
   transform: translateY(-1px);
 }
 
-.correction-tooltip {
+.transcript-tooltip {
   position: absolute;
-  bottom: 100%;
-  left: clamp(12px, 50%, calc(100% - 12px));
-  transform: translateX(-50%) translateY(-8px);
   background: rgba(0, 0, 0, 0.85);
   color: white;
   padding: 12px 16px;
   border-radius: 10px;
   font-size: 0.875rem;
-  width: min(280px, calc(100vw - 24px));
-  max-width: calc(100vw - 24px);
+  width: max-content;
+  max-width: 60%;
+  max-height: 55%;
+  overflow: auto;
   box-sizing: border-box;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
   z-index: 9999;
   backdrop-filter: blur(10px);
-}
-
-.correction-highlight:hover .correction-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(-12px);
-}
-
-.correction-tooltip:after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 8px solid transparent;
-  border-top-color: rgba(0, 0, 0, 0.85);
+  pointer-events: none;
 }

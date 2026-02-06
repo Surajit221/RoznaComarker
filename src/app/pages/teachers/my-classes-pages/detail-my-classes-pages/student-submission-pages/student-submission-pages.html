@@ -32,6 +32,7 @@
             [imageUrl]="essayImageUrl || 'img/default-img.png'"
             [annotations]="annotations"
             [page]="1"
+            role="teacher"
           ></app-image-annotation-overlay>
         </div>
       </div>
@@ -345,6 +346,31 @@
               <button type="button" class="btn-primary" (click)="submitFeedback()">Submit</button>
             </div>
           </div>
+
+          <app-modal-dialog [open]="showDialog" (closed)="closeDialog()">
+            <div class="flex flex-col gap-4">
+              <div class="flex flex-row justify-between items-center">
+                <p class="text-2xl font-bold">Rubric</p>
+                <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
+              </div>
+
+              <div class="flex flex-col gap-3">
+                @for (item of feedbacks; track item) {
+                <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+                  <div class="col-span-5">
+                    <div class="flex flex-row gap-2 items-center">
+                      <p class="text-xl font-bold mb-1">{{ item.category }}</p>
+                      <div class="h-10 w-10 rounded-full bg-[#008081] flex items-center justify-center">
+                        <p class="text-sm font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
+                      </div>
+                    </div>
+                    <p>{{ item.description }}</p>
+                  </div>
+                </div>
+                }
+              </div>
+            </div>
+          </app-modal-dialog>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, type SimpleChanges } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, type SimpleChanges, ViewChild } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
@@ -19,9 +19,16 @@ export class TokenizedTranscript {
   @Input() ocrWords: OcrWord[] | null = null;
   @Input() annotations: FeedbackAnnotation[] | null = null;
 
+  @ViewChild('containerEl', { static: false }) containerEl?: ElementRef<HTMLElement>;
+  @ViewChild('tooltipEl', { static: false }) tooltipEl?: ElementRef<HTMLElement>;
+
   tokens: TranscriptToken[] = [];
 
   private annotationsByWordId = new Map<string, FeedbackAnnotation[]>();
+
+  activeWordId: string | null = null;
+  tooltipText = '';
+  tooltipStyle: Record<string, string> = { display: 'none' };
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['ocrWords']) {
@@ -31,6 +38,187 @@ export class TokenizedTranscript {
     if (changes['annotations']) {
       this.annotationsByWordId = this.buildAnnotationIndex(Array.isArray(this.annotations) ? this.annotations : []);
     }
+
+    if (changes['ocrWords'] || changes['annotations']) {
+      this.activeWordId = null;
+      this.tooltipText = '';
+      this.tooltipStyle = { display: 'none' };
+    }
+  }
+
+  onWordPointerEnter(wordId: string, event: PointerEvent): void {
+    // Hover only for mouse pointers.
+    if ((event as any).pointerType && (event as any).pointerType !== 'mouse') return;
+    this.openTooltip(wordId, event);
+  }
+
+  onWordPointerLeave(wordId: string, event: PointerEvent): void {
+    if ((event as any).pointerType && (event as any).pointerType !== 'mouse') return;
+    if (this.activeWordId !== wordId) return;
+    this.closeTooltip();
+  }
+
+  onWordPointerDown(wordId: string, event: PointerEvent): void {
+    // Tap/pen support. Also works with mouse click if user prefers.
+    if (this.activeWordId === wordId) {
+      this.closeTooltip();
+      return;
+    }
+
+    this.openTooltip(wordId, event);
+
+    // Avoid selecting text on touch/pen taps.
+    try {
+      event.preventDefault();
+      (event as any).stopPropagation?.();
+    } catch {
+      // ignore
+    }
+  }
+
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: PointerEvent): void {
+    if (!this.activeWordId) return;
+    const container = this.containerEl?.nativeElement;
+    const tooltip = this.tooltipEl?.nativeElement;
+    const target = event.target as Node | null;
+    if (!container || !target) return;
+
+    // If tapping inside transcript or on tooltip, do not close.
+    if (container.contains(target)) return;
+    if (tooltip && tooltip.contains(target)) return;
+
+    this.closeTooltip();
+  }
+
+  private openTooltip(wordId: string, event: MouseEvent | PointerEvent): void {
+    const text = this.getTooltipText(wordId);
+    if (!text) return;
+
+    const container = this.containerEl?.nativeElement;
+    const tooltip = this.tooltipEl?.nativeElement;
+    const target = event.currentTarget as HTMLElement | null;
+    if (!container || !tooltip || !target) return;
+
+    this.activeWordId = wordId;
+    this.tooltipText = text;
+    // Set an initial anchored position immediately so the tooltip never flashes at (0,0)
+    // if measurement isn't available until a later frame.
+    this.tooltipStyle = { display: 'block', left: '0%', top: '0%' };
+
+    // Anchor near the word immediately; refined positioning happens after measurement.
+    try {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const containerW = containerRect.width || 1;
+      const containerH = containerRect.height || 1;
+      const x = (targetRect.left - containerRect.left + targetRect.width / 2) / containerW;
+      const y = (targetRect.top - containerRect.top) / containerH;
+      this.tooltipStyle = { display: 'block', left: `${Math.max(0, Math.min(100, x * 100))}%`, top: `${Math.max(0, Math.min(100, y * 100))}%` };
+    } catch {
+      // ignore
+    }
+
+    requestAnimationFrame(() => this.repositionTooltip(target, 0));
+  }
+
+  private closeTooltip(): void {
+    this.activeWordId = null;
+    this.tooltipText = '';
+    this.tooltipStyle = { display: 'none' };
+  }
+
+  private repositionTooltip(targetEl: HTMLElement, attempt: number): void {
+    const container = this.containerEl?.nativeElement;
+    const tooltip = this.tooltipEl?.nativeElement;
+    if (!container || !tooltip) return;
+    if (this.tooltipStyle?.['display'] === 'none') return;
+
+    const cRect = container.getBoundingClientRect();
+    const tRect = targetEl.getBoundingClientRect();
+
+    const containerW = cRect.width;
+    const containerH = cRect.height;
+    if (!containerW || !containerH) return;
+
+    const bboxPx = {
+      x: tRect.left - cRect.left,
+      y: tRect.top - cRect.top,
+      w: tRect.width,
+      h: tRect.height
+    };
+
+    const padding = Math.max(6, Math.min(14, Math.round(containerW * 0.02)));
+    const gap = Math.max(6, Math.min(14, Math.round(containerW * 0.015)));
+
+    const maxTooltipWidthPx = Math.max(180, Math.floor(containerW * 0.6));
+    const hardMaxW = Math.max(0, Math.floor(containerW - padding * 2));
+    const effectiveMaxW = Math.max(120, Math.min(maxTooltipWidthPx, hardMaxW));
+    tooltip.style.maxWidth = `${effectiveMaxW}px`;
+
+    // Force measurement after maxWidth is applied.
+    const tW = Math.min(tooltip.offsetWidth || 0, effectiveMaxW);
+    const tH = tooltip.offsetHeight || 0;
+    if (!tW || !tH) {
+      if (attempt < 3) {
+        requestAnimationFrame(() => this.repositionTooltip(targetEl, attempt + 1));
+      }
+      return;
+    }
+
+    const candidates: Array<{ placement: 'top' | 'bottom' | 'left' | 'right'; x: number; y: number }>= [
+      {
+        placement: 'top',
+        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
+        y: bboxPx.y - gap - tH,
+      },
+      {
+        placement: 'bottom',
+        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
+        y: bboxPx.y + bboxPx.h + gap,
+      },
+      {
+        placement: 'right',
+        x: bboxPx.x + bboxPx.w + gap,
+        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+      },
+      {
+        placement: 'left',
+        x: bboxPx.x - gap - tW,
+        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+      },
+    ];
+
+    const within = (x: number, y: number) => {
+      const x0 = x;
+      const y0 = y;
+      const x1 = x + tW;
+      const y1 = y + tH;
+      const fitsX = x0 >= padding && x1 <= containerW - padding;
+      const fitsY = y0 >= padding && y1 <= containerH - padding;
+      return { fitsX, fitsY, fits: fitsX && fitsY };
+    };
+
+    const preferredOrder: Array<'top' | 'bottom' | 'right' | 'left'> = ['top', 'bottom', 'right', 'left'];
+    let chosen = candidates[0];
+    for (const p of preferredOrder) {
+      const c = candidates.find((x) => x.placement === p)!;
+      if (within(c.x, c.y).fits) {
+        chosen = c;
+        break;
+      }
+    }
+
+    const clampPx = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+    const x = clampPx(chosen.x, padding, containerW - padding - tW);
+    const y = clampPx(chosen.y, padding, containerH - padding - tH);
+
+    this.tooltipStyle = {
+      display: 'block',
+      left: `${(x / containerW) * 100}%`,
+      top: `${(y / containerH) * 100}%`,
+      '--tooltip-placement': chosen.placement,
+    } as Record<string, string>;
   }
 
   getWordAnnotations(wordId: string): FeedbackAnnotation[] {

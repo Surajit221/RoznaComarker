@@ -19,11 +19,24 @@ export type BackendFeedback = {
   assignment: any;
   submission: any;
   textFeedback?: string;
+  teacherComments?: string;
+  overriddenScores?: {
+    grammarScore?: number;
+    structureScore?: number;
+    contentScore?: number;
+    vocabularyScore?: number;
+    taskAchievementScore?: number;
+    overallScore?: number;
+  };
+  overrideReason?: string;
+  overriddenBy?: any;
+  overriddenAt?: string;
   score?: number;
   maxScore?: number;
   annotations?: Array<{ page: number; comment: string; x: number; y: number }>;
   ocrText?: string;
   aiFeedback?: any;
+  evaluation?: any;
   visualAnnotations?: Array<{
     id: string;
     category: string;
@@ -69,6 +82,9 @@ export class FeedbackApiService {
   async createFeedback(payload: {
     submissionId: string;
     textFeedback?: string;
+    teacherComments?: string;
+    overriddenScores?: any;
+    overrideReason?: string;
     score?: number;
     maxScore?: number;
     annotations?: any;
@@ -104,6 +120,9 @@ export class FeedbackApiService {
   async updateFeedback(payload: {
     feedbackId: string;
     textFeedback?: string;
+    teacherComments?: string;
+    overriddenScores?: any;
+    overrideReason?: string;
     score?: number;
     maxScore?: number;
     annotations?: any;
