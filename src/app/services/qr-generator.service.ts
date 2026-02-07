@@ -8,9 +8,7 @@ export class QrGeneratorService {
   
   generateClassJoinUrl(joinCode: string): string {
     // Generate a proper URL format for QR codes
-    const baseUrl = environment.production
-      ? (environment as any).FRONTEND_URL || ''
-      : 'http://localhost:4200';
+    const baseUrl = (environment as any).FRONTEND_URL || '';
     
     return `${baseUrl}/student/join-class?joinCode=${encodeURIComponent(joinCode)}`;
   }
