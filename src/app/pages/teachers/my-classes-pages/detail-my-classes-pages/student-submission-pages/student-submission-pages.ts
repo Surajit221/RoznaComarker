@@ -16,13 +16,24 @@ import { environment } from '../../../../../../environments/environment';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { CorrectionLegend } from '../../../../../models/correction-legend.model';
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
+import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
+import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
+import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
+import type { OcrWord } from '../../../../../models/ocr-token.model';
+import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
+import { DialogViewSubmissions } from '../dialog-view-submissions/dialog-view-submissions';
+import { buildDynamicRubricFeedback, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 
 @Component({
   selector: 'app-student-submission-pages',
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    AppBarBackButton
+    AppBarBackButton,
+    ImageAnnotationOverlayComponent,
+    TokenizedTranscript,
+    ModalDialog,
+    DialogViewSubmissions
   ],
   templateUrl: './student-submission-pages.html',
   styleUrl: './student-submission-pages.css',
@@ -126,9 +137,13 @@ export class StudentSubmissionPages {
 
   isLoading = false;
 
+  isPdfDownloading = false;
+
   submissions: BackendSubmission[] = [];
   currentSubmission: BackendSubmission | null = null;
   currentFeedback: BackendFeedback | null = null;
+
+  rubricFeedbackItems: RubricFeedbackItem[] = [];
 
   writingCorrectionsLegend: CorrectionLegend | null = null;
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
@@ -137,8 +152,285 @@ export class StudentSubmissionPages {
   isWritingCorrectionsLoading = false;
   private lastWritingCorrectionsText: string | null = null;
 
+  ocrWords: OcrWord[] = [];
+  annotations: FeedbackAnnotation[] = [];
+  correctionsError: string | null = null;
+  isCorrectionsLoading = false;
+
+  private computeIssueStats() {
+    const stats = {
+      spelling: 0,
+      grammar: 0,
+      typography: 0,
+      style: 0,
+      other: 0,
+      total: 0
+    };
+
+    for (const issue of Array.isArray(this.writingCorrectionsIssues) ? this.writingCorrectionsIssues : []) {
+      const key = (issue && typeof (issue as any).groupKey === 'string' ? String((issue as any).groupKey) : 'other').toLowerCase();
+      if (key in stats) {
+        (stats as any)[key] += 1;
+      } else {
+        stats.other += 1;
+      }
+      stats.total += 1;
+    }
+
+    return stats;
+  }
+
+  private computeFallbackScore100() {
+    const s = this.computeIssueStats();
+    const penalty =
+      s.spelling * 1.2 +
+      s.grammar * 1.6 +
+      s.typography * 0.8 +
+      s.style * 0.6 +
+      s.other * 0.4;
+    const score = Math.max(0, Math.min(100, Math.round((100 - penalty) * 10) / 10));
+    return { score, maxScore: 100 };
+  }
+
+  get overallScoreText(): string {
+    const fb: any = this.currentFeedback;
+    const score = Number(fb?.score);
+    const maxScore = Number(fb?.maxScore);
+    if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
+      return `${Math.round(score * 10) / 10}/${Math.round(maxScore * 10) / 10}`;
+    }
+
+    const fallback = this.computeFallbackScore100();
+    return `${fallback.score}/100`;
+  }
+
+  get gradeLabel(): string {
+    const fb: any = this.currentFeedback;
+    let score = Number(fb?.score);
+    let maxScore = Number(fb?.maxScore);
+    if (!Number.isFinite(score) || !Number.isFinite(maxScore) || maxScore <= 0) {
+      const fallback = this.computeFallbackScore100();
+      score = fallback.score;
+      maxScore = fallback.maxScore;
+    }
+
+    const pct = (score / maxScore) * 100;
+    if (pct >= 90) return 'A';
+    if (pct >= 80) return 'B';
+    if (pct >= 70) return 'C';
+    if (pct >= 60) return 'D';
+    return 'F';
+  }
+
+  get issueStats() {
+    return this.computeIssueStats();
+  }
+
+  get contentIssuesCount(): number {
+    return this.issueStats.other;
+  }
+
+  get grammarIssuesCount(): number {
+    return this.issueStats.grammar;
+  }
+
+  get organizationIssuesCount(): number {
+    return this.issueStats.style + this.issueStats.typography;
+  }
+
+  get vocabularyIssuesCount(): number {
+    return this.issueStats.spelling;
+  }
+
+  get correctionStatsTotalForBars(): number {
+    const total = this.contentIssuesCount + this.grammarIssuesCount + this.organizationIssuesCount + this.vocabularyIssuesCount;
+    return total > 0 ? total : 1;
+  }
+
+  private barPct(count: number): number {
+    return Math.max(0, Math.min(100, Math.round((count / this.correctionStatsTotalForBars) * 100)));
+  }
+
+  get contentIssuesBarWidth(): string {
+    return `${this.barPct(this.contentIssuesCount)}%`;
+  }
+
+  get grammarIssuesBarWidth(): string {
+    return `${this.barPct(this.grammarIssuesCount)}%`;
+  }
+
+  get organizationIssuesBarWidth(): string {
+    return `${this.barPct(this.organizationIssuesCount)}%`;
+  }
+
+  get vocabularyIssuesBarWidth(): string {
+    return `${this.barPct(this.vocabularyIssuesCount)}%`;
+  }
+
+  get overallScorePct(): number {
+    const fb: any = this.currentFeedback;
+    const score = Number(fb?.score);
+    const maxScore = Number(fb?.maxScore);
+    if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
+      return Math.max(0, Math.min(100, (score / maxScore) * 100));
+    }
+
+    const fallback = this.computeFallbackScore100();
+    return Math.max(0, Math.min(100, (fallback.score / fallback.maxScore) * 100));
+  }
+
+  get progressRingCircumference(): number {
+    return 326.56;
+  }
+
+  get progressRingOffset(): number {
+    return this.progressRingCircumference - (this.overallScorePct / 100) * this.progressRingCircumference;
+  }
+
+  get actionSteps(): string[] {
+    const s = this.computeIssueStats();
+    const steps: Array<{ key: string; text: string; count: number }> = [
+      { key: 'spelling', text: 'Review spelling mistakes and re-check misspelled words.', count: s.spelling },
+      { key: 'grammar', text: 'Fix grammar issues (tense, agreement, sentence structure).', count: s.grammar },
+      { key: 'typography', text: 'Correct punctuation/typography issues (quotes, commas, spacing).', count: s.typography },
+      { key: 'style', text: 'Improve clarity and conciseness by revising awkward sentences.', count: s.style },
+      { key: 'other', text: 'Review flagged sections and refine the wording.', count: s.other }
+    ]
+      .filter((x) => x.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const top = steps.slice(0, 5).map((x) => x.text);
+    return top.length ? top : ['Keep practicing and re-check your writing for small improvements.'];
+  }
+
+  get areasForImprovement(): Array<{ title: string; description: string; borderClass: string }> {
+    const items: Array<{ key: string; title: string; description: string; borderClass: string; count: number }> = [
+      {
+        key: 'content',
+        title: 'Content & Relevance',
+        description: 'Make sure each paragraph directly supports the task. Add clearer examples to develop your ideas.',
+        borderClass: 'border-red-400',
+        count: this.contentIssuesCount
+      },
+      {
+        key: 'organization',
+        title: 'Structure & Coherence',
+        description: 'Improve paragraph flow and transitions. Use clear topic sentences and a stronger conclusion.',
+        borderClass: 'border-blue-400',
+        count: this.organizationIssuesCount
+      },
+      {
+        key: 'grammar',
+        title: 'Grammar & Mechanics',
+        description: 'Fix sentence-structure and grammar errors. Re-check punctuation and spelling before final submission.',
+        borderClass: 'border-green-400',
+        count: this.grammarIssuesCount + this.vocabularyIssuesCount
+      }
+    ]
+      .filter((x) => x.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const top = items.slice(0, 3).map((x) => ({ title: x.title, description: x.description, borderClass: x.borderClass }));
+    return top.length
+      ? top
+      : [{ title: 'Keep refining', description: 'Your writing looks strong overall. Review for small clarity and polish improvements.', borderClass: 'border-green-400' }];
+  }
+
+  get strengths(): Array<{ title: string; description: string }> {
+    const s = this.computeIssueStats();
+    const strengths: Array<{ title: string; description: string; score: number }> = [
+      {
+        title: 'Clarity & Readability',
+        description: 'The writing is generally understandable and communicates the main idea.',
+        score: Math.max(0, 100 - (s.style + s.typography) * 4)
+      },
+      {
+        title: 'Grammar Control',
+        description: 'Many sentences follow correct grammar patterns with room for minor fixes.',
+        score: Math.max(0, 100 - s.grammar * 6)
+      },
+      {
+        title: 'Word Choice',
+        description: 'Vocabulary is mostly appropriate; keep improving precision and variety.',
+        score: Math.max(0, 100 - s.spelling * 5)
+      }
+    ].sort((a, b) => b.score - a.score);
+
+    const top = strengths.slice(0, 3).map((x) => ({ title: x.title, description: x.description }));
+    return top.length ? top : [{ title: 'Effort', description: 'You have made a good attempt—keep practicing consistently.' }];
+  }
+
   essayImageUrl: string | null = null;
   private objectUrls: string[] = [];
+
+  private async loadOcrCorrections(submissionId: string): Promise<boolean> {
+    if (this.isCorrectionsLoading) return false;
+    this.isCorrectionsLoading = true;
+    this.correctionsError = null;
+
+    try {
+      const apiBaseUrl = (environment as any).API_URL || (environment as any).apiBaseUrl;
+      const resp = await firstValueFrom(
+        this.http.post<any>(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, {})
+      );
+
+      const success = Boolean(resp && (resp as any).success);
+      const data = resp && typeof resp === 'object' ? (resp as any).data : null;
+      if (!success || !data) {
+        this.ocrWords = [];
+        this.annotations = [];
+        return false;
+      }
+
+      const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
+      const ocrPages: any[] = Array.isArray((data as any).ocr) ? (data as any).ocr : [];
+
+      const words: OcrWord[] = [];
+      for (const p of ocrPages) {
+        const pageWords = p && Array.isArray(p.words) ? p.words : [];
+        for (const w of pageWords) {
+          const id = typeof w?.id === 'string' ? w.id : '';
+          const text = typeof w?.text === 'string' ? w.text : '';
+          const bbox = w?.bbox && typeof w.bbox === 'object'
+            ? { x: Number(w.bbox.x), y: Number(w.bbox.y), w: Number(w.bbox.w), h: Number(w.bbox.h) }
+            : null;
+          if (!id || !text) continue;
+          if (bbox && ![bbox.x, bbox.y, bbox.w, bbox.h].every((v) => Number.isFinite(v))) {
+            words.push({ id, text, bbox: null });
+          } else {
+            words.push({ id, text, bbox });
+          }
+        }
+      }
+
+      this.ocrWords = words;
+      this.annotations = corrections.map((c: any) => ({
+        _id: c && c.id ? String(c.id) : '',
+        submissionId,
+        page: typeof c?.page === 'number' && Number.isFinite(c.page) ? c.page : 1,
+        wordIds: Array.isArray(c?.wordIds) ? c.wordIds : [],
+        bboxList: Array.isArray(c?.bboxList) ? c.bboxList : [],
+        group: typeof c?.category === 'string' ? c.category : (typeof c?.group === 'string' ? c.group : ''),
+        symbol: typeof c?.symbol === 'string' ? c.symbol : '',
+        color: typeof c?.color === 'string' ? c.color : '#FF0000',
+        message: typeof c?.message === 'string' ? c.message : '',
+        suggestedText: typeof c?.suggestedText === 'string' ? c.suggestedText : '',
+        startChar: typeof c?.startChar === 'number' ? c.startChar : undefined,
+        endChar: typeof c?.endChar === 'number' ? c.endChar : undefined,
+        source: 'AI' as const,
+        editable: Boolean(c?.editable)
+      }));
+
+      return true;
+    } catch (err: any) {
+      this.ocrWords = [];
+      this.annotations = [];
+      this.correctionsError = err?.error?.message || err?.message || 'Failed to load AI corrections';
+      return false;
+    } finally {
+      this.isCorrectionsLoading = false;
+    }
+  }
 
   get studentName(): string {
     const s: any = this.currentSubmission && (this.currentSubmission as any).student;
@@ -160,6 +452,7 @@ export class StudentSubmissionPages {
         correctionLegend: this.defaultCorrectionLegend
       });
       this.currentFeedback = fb;
+      this.recomputeRubricFeedbackItems();
       this.alert.showToast('AI feedback generated', 'success');
     } catch (err: any) {
       this.alert.showError('Failed to generate AI feedback', err?.error?.message || err?.message || 'Please try again');
@@ -173,16 +466,24 @@ export class StudentSubmissionPages {
       return;
     }
 
+    if (this.isPdfDownloading) return;
+    this.isPdfDownloading = true;
+
     try {
-      const pdfUrl = await this.pdfApi.getPdfUrl(submission._id);
-      if (!pdfUrl) {
-        this.alert.showError('PDF not available', 'Please try again');
-        return;
-      }
-      const objectUrl = await this.fetchAsEphemeralObjectUrl(pdfUrl);
-      window.open(objectUrl, '_blank', 'noopener');
+      const blob = await this.pdfApi.downloadSubmissionPdf(submission._id);
+      const objectUrl = URL.createObjectURL(blob);
+      this.objectUrls.push(objectUrl);
+
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'submission-feedback.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err: any) {
       this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isPdfDownloading = false;
     }
   }
 
@@ -217,6 +518,7 @@ export class StudentSubmissionPages {
       this.writingCorrectionsHtml = null;
       this.writingCorrectionsError = null;
       this.lastWritingCorrectionsText = null;
+      this.recomputeRubricFeedbackItems();
       return;
     }
 
@@ -238,11 +540,13 @@ export class StudentSubmissionPages {
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
       this.writingCorrectionsHtml = this.sanitizer.bypassSecurityTrustHtml(html);
       this.lastWritingCorrectionsText = text;
+      this.recomputeRubricFeedbackItems();
     } catch (err: any) {
       this.writingCorrectionsIssues = [];
       this.writingCorrectionsHtml = null;
       this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to check writing corrections';
       this.lastWritingCorrectionsText = null;
+      this.recomputeRubricFeedbackItems();
     } finally {
       this.isWritingCorrectionsLoading = false;
     }
@@ -250,26 +554,154 @@ export class StudentSubmissionPages {
 
   feedbackForm: FormGroup;
 
-  get feedbacks(): Array<{ category: string; score: number; maxScore: number; description: string }> {
+  private recomputeRubricFeedbackItems() {
     const fb: any = this.currentFeedback;
-    if (!fb) return [];
 
-    const scoreRaw = fb.score;
-    const maxScoreRaw = fb.maxScore;
-    const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
-    const maxScore = Number.isFinite(Number(maxScoreRaw)) ? Number(maxScoreRaw) : 0;
-    const description = (fb.textFeedback || '').toString();
+    const normalize = (items: any): RubricFeedbackItem[] => {
+      const arr = Array.isArray(items) ? items : [];
+      return arr
+        .map((x: any) => ({
+          category: typeof x?.category === 'string' ? x.category : '',
+          score: Number.isFinite(Number(x?.score)) ? Number(x.score) : 0,
+          maxScore: Number.isFinite(Number(x?.maxScore)) ? Number(x.maxScore) : 5,
+          description: typeof x?.description === 'string' ? x.description : ''
+        }))
+        .filter((x) => Boolean(x.category));
+    };
 
-    return [
-      {
-        category: 'Overall Rubric Score',
-        score,
-        maxScore,
-        description
-      }
-    ];
+    // Prefer backend-generated AI feedback (OCR-based) if present.
+    const ai = fb && fb.aiFeedback && typeof fb.aiFeedback === 'object' ? fb.aiFeedback : null;
+    const aiScores = ai && ai.rubricScores && typeof ai.rubricScores === 'object' ? ai.rubricScores : null;
+    if (aiScores) {
+      const score = (k: string) => {
+        const n = Number((aiScores as any)[k]);
+        return Number.isFinite(n) ? Math.max(0, Math.min(5, Math.round(n * 10) / 10)) : 0;
+      };
+
+      const anns = Array.isArray(ai.textAnnotations) ? ai.textAnnotations : [];
+      const countBy = (cat: string) => anns.filter((a: any) => String(a?.category).toUpperCase() === cat).length;
+
+      const desc = (cat: string, fallback: string) => {
+        const c = countBy(cat);
+        if (c > 0) return `${c} issue${c === 1 ? '' : 's'} flagged. ${fallback}`;
+        return `No issues flagged. ${fallback}`;
+      };
+
+      const general = typeof ai.generalComments === 'string' ? ai.generalComments : '';
+
+      this.rubricFeedbackItems = normalize([
+        {
+          category: 'Content Relevance',
+          score: score('CONTENT'),
+          maxScore: 5,
+          description: desc('CONTENT', 'Improve idea development and relevance to the prompt.')
+        },
+        {
+          category: 'Structure & Organization',
+          score: score('ORGANIZATION'),
+          maxScore: 5,
+          description: desc('ORGANIZATION', 'Improve paragraph flow and logical sequencing.')
+        },
+        {
+          category: 'Grammar',
+          score: score('GRAMMAR'),
+          maxScore: 5,
+          description: desc('GRAMMAR', 'Fix tense, agreement, and sentence structure problems.')
+        },
+        {
+          category: 'Vocabulary',
+          score: score('VOCABULARY'),
+          maxScore: 5,
+          description: desc('VOCABULARY', 'Reduce repetition and use more precise word choices.')
+        },
+        {
+          category: 'Mechanics',
+          score: score('MECHANICS'),
+          maxScore: 5,
+          description: desc('MECHANICS', 'Fix spelling, punctuation, and typography issues.')
+        },
+        {
+          category: 'Overall Comments',
+          score: Math.round(((score('CONTENT') + score('ORGANIZATION') + score('GRAMMAR') + score('VOCABULARY') + score('MECHANICS')) / 5) * 10) / 10,
+          maxScore: 5,
+          description: general || 'AI feedback generated from OCR text.'
+        }
+      ]);
+      return;
+    }
+
+    // If no AI feedback exists yet, still provide dynamic rubric feedback driven by LanguageTool + stats.
+    if (!fb) {
+      const fallback = this.computeFallbackScore100();
+      this.rubricFeedbackItems = normalize(
+        buildDynamicRubricFeedback({
+          issues: this.writingCorrectionsIssues,
+          overallScore100: fallback.score,
+          language: 'en-US'
+        })
+      );
+      return;
+    }
+
+    const toScore5 = (score100: any) => {
+      const n = Number(score100);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(5, Math.round((n / 20) * 10) / 10));
+    };
+
+    const effective = fb?.evaluation?.effectiveRubric;
+    const sf = fb?.evaluation?.structuredFeedback;
+
+    if (effective && typeof effective === 'object') {
+      this.rubricFeedbackItems = normalize([
+        {
+          category: 'Grammar & Mechanics',
+          score: toScore5(effective.grammarScore),
+          maxScore: 5,
+          description: String(sf?.grammarFeedback?.summary || '')
+        },
+        {
+          category: 'Structure & Organization',
+          score: toScore5(effective.structureScore),
+          maxScore: 5,
+          description: String(sf?.structureFeedback?.summary || '')
+        },
+        {
+          category: 'Content Relevance',
+          score: toScore5(effective.contentScore),
+          maxScore: 5,
+          description: String(sf?.contentFeedback?.summary || '')
+        },
+        {
+          category: 'Overall Rubric Score',
+          score: toScore5(effective.overallScore),
+          maxScore: 5,
+          description: String(sf?.overallFeedback?.summary || '')
+        }
+      ]);
+      return;
+    }
+
+    const evalOverall = Number(fb?.evaluation?.effectiveRubric?.overallScore);
+    const overallScore100 = Number.isFinite(evalOverall)
+      ? evalOverall
+      : (Number.isFinite(Number(fb?.score)) && Number.isFinite(Number(fb?.maxScore)) && Number(fb?.maxScore) > 0)
+        ? (Number(fb.score) / Number(fb.maxScore)) * 100
+        : this.computeFallbackScore100().score;
+
+    const gradeLetter = typeof fb?.evaluation?.effectiveRubric?.gradeLetter === 'string'
+      ? String(fb.evaluation.effectiveRubric.gradeLetter)
+      : this.gradeLabel;
+
+    this.rubricFeedbackItems = normalize(
+      buildDynamicRubricFeedback({
+        issues: this.writingCorrectionsIssues,
+        overallScore100,
+        gradeLetter,
+        language: 'en-US'
+      })
+    );
   }
-
 
   constructor(private router: Router, fb: FormBuilder) {
     this.feedbackForm = fb.group({
@@ -287,6 +719,7 @@ export class StudentSubmissionPages {
 
     await this.loadSubmissions();
     await this.loadFeedback();
+    this.recomputeRubricFeedbackItems();
   }
 
   private async loadClassTitle() {
@@ -371,24 +804,114 @@ export class StudentSubmissionPages {
       this.submissions = list || [];
 
       const submissionId = this.submissionId;
-      this.currentSubmission = submissionId
+
+      const target = submissionId
         ? this.submissions.find((s) => s._id === submissionId) || null
         : this.submissions[0] || null;
 
-      const url = this.currentSubmission?.fileUrl || null;
-      this.revokeObjectUrls();
-      this.essayImageUrl = null;
-
-      if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
-        const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
-        this.essayImageUrl = await this.fetchAsObjectUrl(previewUrl);
-      } else if (this.isProbablyImageUrl(url) && url) {
-        this.essayImageUrl = await this.fetchAsObjectUrl(url);
-      }
-
-      await this.refreshWritingCorrections();
+      await this.applyCurrentSubmission(target, false);
     } catch (err: any) {
       this.alert.showError('Failed to load submissions', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private get currentSubmissionIndex(): number {
+    const id = this.currentSubmission?._id;
+    if (!id) return -1;
+    return this.submissions.findIndex((s) => s._id === id);
+  }
+
+  get canGoPrev(): boolean {
+    return this.currentSubmissionIndex > 0;
+  }
+
+  get canGoNext(): boolean {
+    const idx = this.currentSubmissionIndex;
+    return idx >= 0 && idx < this.submissions.length - 1;
+  }
+
+  private async applyCurrentSubmission(submission: BackendSubmission | null, updateUrl: boolean) {
+    this.currentSubmission = submission;
+    this.submissionId = submission?._id || null;
+
+    const url = this.currentSubmission?.fileUrl || null;
+    this.revokeObjectUrls();
+    this.essayImageUrl = null;
+
+    this.ocrWords = [];
+    this.annotations = [];
+    this.correctionsError = null;
+
+    this.currentFeedback = null;
+    this.feedbackForm.patchValue({ message: '' });
+    this.recomputeRubricFeedbackItems();
+
+    if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
+      const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
+      this.essayImageUrl = await this.fetchAsObjectUrl(previewUrl);
+    } else if (this.isProbablyImageUrl(url) && url) {
+      this.essayImageUrl = await this.fetchAsObjectUrl(url);
+    }
+
+    if (this.currentSubmission?._id) {
+      await this.loadOcrCorrections(this.currentSubmission._id);
+    }
+
+    await this.refreshWritingCorrections();
+    await this.loadFeedback();
+    this.recomputeRubricFeedbackItems();
+
+    if (updateUrl && this.studentId) {
+      const classId = this.route.snapshot.queryParamMap.get('classId');
+      this.router.navigate(['/teacher/my-classes/detail/student-submissions', this.studentId], {
+        queryParams: {
+          classId: classId || undefined,
+          assignmentId: this.assignmentId || undefined,
+          submissionId: this.submissionId || undefined
+        },
+        replaceUrl: true
+      });
+    }
+  }
+
+  async onPrevSubmission() {
+    if (this.isLoading) return;
+    if (!this.canGoPrev) return;
+    this.isLoading = true;
+    try {
+      const idx = this.currentSubmissionIndex;
+      await this.applyCurrentSubmission(this.submissions[idx - 1] || null, true);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onNextSubmission() {
+    if (this.isLoading) return;
+    if (!this.canGoNext) return;
+    this.isLoading = true;
+    try {
+      const idx = this.currentSubmissionIndex;
+      await this.applyCurrentSubmission(this.submissions[idx + 1] || null, true);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onSubmissionSelected(submissionId: string) {
+    const target = this.submissions.find((s) => s._id === submissionId) || null;
+    if (!target) {
+      this.alert.showWarning('Not found', 'Submission not found.');
+      return;
+    }
+
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      await this.applyCurrentSubmission(target, true);
+      this.openSheetSubmission = false;
     } finally {
       this.isLoading = false;
     }
@@ -402,8 +925,9 @@ export class StudentSubmissionPages {
       const fb = await this.feedbackApi.getFeedbackByIdForTeacher(feedbackId);
       this.currentFeedback = fb;
       this.feedbackForm.patchValue({
-        message: fb?.textFeedback || ''
+        message: (fb as any)?.teacherComments || fb?.textFeedback || ''
       });
+      this.recomputeRubricFeedbackItems();
     } catch (err: any) {
       // ignore if not found
     }
@@ -417,22 +941,27 @@ export class StudentSubmissionPages {
     }
 
     const textFeedback = this.feedbackForm.value.message;
+    const teacherComments = typeof textFeedback === 'string' ? textFeedback : (textFeedback == null ? undefined : String(textFeedback));
 
     try {
       const existingFeedbackId = submission && (submission as any).feedback;
       if (existingFeedbackId && typeof existingFeedbackId === 'string') {
         const updated = await this.feedbackApi.updateFeedback({
           feedbackId: existingFeedbackId,
-          textFeedback
+          textFeedback,
+          teacherComments
         });
         this.currentFeedback = updated;
       } else {
         const created = await this.feedbackApi.createFeedback({
           submissionId: submission._id,
-          textFeedback
+          textFeedback,
+          teacherComments
         });
         this.currentFeedback = created;
       }
+
+      this.recomputeRubricFeedbackItems();
 
       this.alert.showToast('Feedback saved', 'success');
     } catch (err: any) {

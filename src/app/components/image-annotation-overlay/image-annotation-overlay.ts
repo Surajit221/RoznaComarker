@@ -43,8 +43,11 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
   @Input() annotations: FeedbackAnnotation[] | null = null;
   @Input() imageAnnotations: WritingCorrectionsImageAnnotation[] | null = null;
   @Input() page: number | null = null;
+  @Input() role: 'student' | 'teacher' = 'student';
 
   @ViewChild('imgEl', { static: false }) imgEl?: ElementRef<HTMLImageElement>;
+  @ViewChild('containerEl', { static: false }) containerEl?: ElementRef<HTMLElement>;
+  @ViewChild('tooltipEl', { static: false }) tooltipEl?: ElementRef<HTMLElement>;
 
   overlayBoxes: OverlayBox[] = [];
 
@@ -55,12 +58,17 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
 
   private resizeObserver: ResizeObserver | null = null;
 
+  activeBox: OverlayBox | null = null;
+  tooltipText = '';
+  tooltipStyle: Record<string, string> = { display: 'none' };
+
   ngAfterViewInit(): void {
     const img = this.imgEl?.nativeElement;
     if (!img) return;
 
     this.resizeObserver = new ResizeObserver(() => {
       this.recomputeRenderedSize();
+      this.repositionTooltip(0);
     });
 
     this.resizeObserver.observe(img);
@@ -71,6 +79,7 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
       this.naturalHeight = img.naturalHeight;
       this.recomputeRenderedSize();
       this.rebuildOverlayBoxes();
+      this.repositionTooltip(0);
     }
   }
 
@@ -86,6 +95,9 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
       this.renderedWidth = 0;
       this.renderedHeight = 0;
       this.overlayBoxes = [];
+      this.activeBox = null;
+      this.tooltipText = '';
+      this.tooltipStyle = { display: 'none' };
     }
   }
 
@@ -110,6 +122,7 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
 
     this.recomputeRenderedSize();
     this.rebuildOverlayBoxes();
+    this.repositionTooltip(0);
   }
 
   private recomputeRenderedSize(): void {
@@ -120,6 +133,124 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
     const rect = img.getBoundingClientRect();
     this.renderedWidth = rect.width;
     this.renderedHeight = rect.height;
+  }
+
+  onBoxEnter(box: OverlayBox): void {
+    this.activeBox = box;
+    this.tooltipText = this.getTooltipText(box);
+    // Set an initial anchored position immediately so the tooltip never flashes at (0,0)
+    // if measurement isn't available until a later frame.
+    this.tooltipStyle = { display: 'block', left: '0%', top: '0%' };
+
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (normalized) {
+      const clamped = this.clampBboxPercent(normalized);
+      const anchorX = Math.max(0, Math.min(100, clamped.x + clamped.w / 2));
+      const anchorY = Math.max(0, Math.min(100, clamped.y));
+      this.tooltipStyle = { display: 'block', left: `${anchorX}%`, top: `${anchorY}%` };
+    }
+
+    // Wait for tooltip to render so we can measure and clamp precisely.
+    requestAnimationFrame(() => this.repositionTooltip(0));
+  }
+
+  onBoxLeave(box: OverlayBox): void {
+    if (this.activeBox?.annotationId !== box.annotationId) return;
+    this.activeBox = null;
+    this.tooltipText = '';
+    this.tooltipStyle = { display: 'none' };
+  }
+
+  private repositionTooltip(attempt: number): void {
+    const box = this.activeBox;
+    const container = this.containerEl?.nativeElement;
+    const tooltip = this.tooltipEl?.nativeElement;
+    if (!box || !container || !tooltip) return;
+    if (!this.renderedWidth || !this.renderedHeight) return;
+
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (!normalized) return;
+    const clamped = this.clampBboxPercent(normalized);
+
+    const bboxPx = {
+      x: (clamped.x / 100) * this.renderedWidth,
+      y: (clamped.y / 100) * this.renderedHeight,
+      w: (clamped.w / 100) * this.renderedWidth,
+      h: (clamped.h / 100) * this.renderedHeight,
+    };
+
+    const padding = Math.max(6, Math.min(14, Math.round(this.renderedWidth * 0.012)));
+    const gap = Math.max(6, Math.min(14, Math.round(this.renderedWidth * 0.01)));
+
+    const maxTooltipWidthPx = Math.max(160, Math.floor(this.renderedWidth * 0.4));
+    const hardMaxW = Math.max(0, Math.floor(this.renderedWidth - padding * 2));
+    const effectiveMaxW = Math.max(120, Math.min(maxTooltipWidthPx, hardMaxW));
+    tooltip.style.maxWidth = `${effectiveMaxW}px`;
+
+    // Force measurement after maxWidth is applied.
+    const tW = Math.min(tooltip.offsetWidth || 0, effectiveMaxW);
+    const tH = tooltip.offsetHeight || 0;
+    if (!tW || !tH) {
+      if (attempt < 3) {
+        requestAnimationFrame(() => this.repositionTooltip(attempt + 1));
+      }
+      return;
+    }
+
+    const candidates: Array<{ placement: 'top' | 'bottom' | 'left' | 'right'; x: number; y: number }>= [
+      {
+        placement: 'top',
+        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
+        y: bboxPx.y - gap - tH,
+      },
+      {
+        placement: 'bottom',
+        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
+        y: bboxPx.y + bboxPx.h + gap,
+      },
+      {
+        placement: 'right',
+        x: bboxPx.x + bboxPx.w + gap,
+        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+      },
+      {
+        placement: 'left',
+        x: bboxPx.x - gap - tW,
+        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+      },
+    ];
+
+    const within = (x: number, y: number) => {
+      const x0 = x;
+      const y0 = y;
+      const x1 = x + tW;
+      const y1 = y + tH;
+      const fitsX = x0 >= padding && x1 <= this.renderedWidth - padding;
+      const fitsY = y0 >= padding && y1 <= this.renderedHeight - padding;
+      return { fitsX, fitsY, fits: fitsX && fitsY };
+    };
+
+    const preferredOrder: Array<'top' | 'bottom' | 'right' | 'left'> = ['top', 'bottom', 'right', 'left'];
+    let chosen = candidates[0];
+    for (const p of preferredOrder) {
+      const c = candidates.find((x) => x.placement === p)!;
+      if (within(c.x, c.y).fits) {
+        chosen = c;
+        break;
+      }
+    }
+
+    // Clamp inside container (strict boundary enforcement)
+    const clampPx = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+    const x = clampPx(chosen.x, padding, this.renderedWidth - padding - tW);
+    const y = clampPx(chosen.y, padding, this.renderedHeight - padding - tH);
+
+    this.tooltipStyle = {
+      display: 'block',
+      left: `${(x / this.renderedWidth) * 100}%`,
+      top: `${(y / this.renderedHeight) * 100}%`,
+      '--tooltip-placement': chosen.placement,
+    } as Record<string, string>;
   }
 
   private rebuildOverlayBoxes(): void {
@@ -180,38 +311,47 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
   }
 
   getBoxStyle(box: OverlayBox): Record<string, string> {
-    const bbox = box.bbox;
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (!normalized) return { display: 'none' };
 
-    // If we can’t compute a reliable scale yet, hide overlays to avoid misalignment.
-    if (!this.naturalWidth || !this.naturalHeight || !this.renderedWidth || !this.renderedHeight) {
-      return { display: 'none' };
-    }
+    const clamped = this.clampBboxPercent(normalized);
 
-    // Debug logging for coordinate verification
-    console.log('Overlay box coordinates:', {
-      annotationId: box.annotationId,
-      rawBbox: bbox,
-      naturalSize: { width: this.naturalWidth, height: this.naturalHeight },
-      renderedSize: { width: this.renderedWidth, height: this.renderedHeight },
-      wordIds: box.annotationId
-    });
+    const fontPx = this.computeBoxFontPx(clamped);
 
-    const left = (bbox.x / 100) * this.renderedWidth;
-    const top = (bbox.y / 100) * this.renderedHeight;
-    const width = (bbox.w / 100) * this.renderedWidth;
-    const height = (bbox.h / 100) * this.renderedHeight;
-
-    const computedStyle = {
-      left: `${left}px`,
-      top: `${top}px`,
-      width: `${width}px`,
-      height: `${height}px`,
+    return {
+      left: `${clamped.x}%`,
+      top: `${clamped.y}%`,
+      width: `${clamped.w}%`,
+      height: `${clamped.h}%`,
       backgroundColor: this.toRgba(box.color, 0.18),
       borderColor: box.color || 'rgba(255,0,0,0.6)',
+      '--box-font-size': `${fontPx}px`
     };
+  }
 
-    console.log('Computed overlay style:', computedStyle);
-    return computedStyle;
+  private computeBoxFontPx(clampedPercentBbox: OcrBBox): number {
+    if (!this.renderedWidth || !this.renderedHeight) return 11;
+
+    const hPx = (clampedPercentBbox.h / 100) * this.renderedHeight;
+    const wPx = (clampedPercentBbox.w / 100) * this.renderedWidth;
+
+    // Keep readable but never oversized for small boxes.
+    const base = Math.min(hPx * 0.45, wPx * 0.12);
+    const size = Math.max(9, Math.min(14, Math.floor(base)));
+    return Number.isFinite(size) ? size : 11;
+  }
+
+  getBoxEdgeClass(box: OverlayBox): Record<string, boolean> {
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (!normalized) return {};
+
+    const clamped = this.clampBboxPercent(normalized);
+    const xPct = clamped.x / 100;
+
+    return {
+      'edge-left': xPct < 0.15,
+      'edge-right': xPct > 0.85,
+    };
   }
 
   getTooltipText(box: OverlayBox): string {
@@ -246,5 +386,59 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
 
     // fall back to using the provided CSS color as border and a safe highlight bg
     return `rgba(255, 193, 7, ${alpha})`;
+  }
+
+  private normalizeBboxToPercent(bbox: OcrBBox): OcrBBox | null {
+    if (!bbox) return null;
+
+    const x = Number(bbox.x);
+    const y = Number(bbox.y);
+    const w = Number(bbox.w);
+    const h = Number(bbox.h);
+
+    if (![x, y, w, h].every((v) => Number.isFinite(v))) return null;
+    if (w <= 0 || h <= 0) return null;
+
+    // Accept three input formats defensively:
+    // 1) ratio (0..1)
+    // 2) percent (0..100)
+    // 3) pixels (convert via natural image dimensions)
+    const allWithin01 = [x, y, w, h].every((v) => v >= 0 && v <= 1);
+    if (allWithin01) {
+      return { x: x * 100, y: y * 100, w: w * 100, h: h * 100 };
+    }
+
+    const allWithin0100 = [x, y, w, h].every((v) => v >= 0 && v <= 100);
+    if (allWithin0100) {
+      return { x, y, w, h };
+    }
+
+    if (!this.naturalWidth || !this.naturalHeight) return null;
+
+    return {
+      x: (x / this.naturalWidth) * 100,
+      y: (y / this.naturalHeight) * 100,
+      w: (w / this.naturalWidth) * 100,
+      h: (h / this.naturalHeight) * 100,
+    };
+  }
+
+  private clampBboxPercent(bbox: OcrBBox): OcrBBox {
+    const clamp = (n: number) => Math.max(0, Math.min(100, n));
+
+    const x = clamp(bbox.x);
+    const y = clamp(bbox.y);
+    const w = clamp(bbox.w);
+    const h = clamp(bbox.h);
+
+    const maxW = Math.max(0, 100 - x);
+    const maxH = Math.max(0, 100 - y);
+
+    return {
+      x,
+      y,
+      w: Math.min(w, maxW),
+      h: Math.min(h, maxH)
+    };
   }
 }

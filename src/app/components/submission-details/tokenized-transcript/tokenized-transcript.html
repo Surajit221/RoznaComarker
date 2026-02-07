@@ -1,19 +1,24 @@
-<div class="tokenized-transcript">
+<div class="tokenized-transcript" #containerEl>
   @for (t of tokens; track t.trackId) {
     @if (t.kind === 'word') {
       <span
         [ngClass]="getWordAnnotations(t.word.id).length ? 'correction-highlight' : null"
         [ngStyle]="getHighlightStyle(t.word.id) || null"
+        (pointerenter)="getWordAnnotations(t.word.id).length ? onWordPointerEnter(t.word.id, $event) : null"
+        (pointerleave)="getWordAnnotations(t.word.id).length ? onWordPointerLeave(t.word.id, $event) : null"
+        (pointerdown)="getWordAnnotations(t.word.id).length ? onWordPointerDown(t.word.id, $event) : null"
       >
         {{ t.word.text }}
-        @if (getWordAnnotations(t.word.id).length) {
-          <span class="correction-tooltip" style="white-space: pre-line;">
-            {{ getTooltipText(t.word.id) }}
-          </span>
-        }
       </span>
     } @else {
       <span>{{ t.value }}</span>
     }
   }
+
+  <div
+    #tooltipEl
+    class="transcript-tooltip"
+    [ngStyle]="tooltipStyle"
+    style="white-space: pre-line;"
+  >{{ tooltipText }}</div>
 </div>
