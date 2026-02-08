@@ -22,7 +22,8 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 import type { OcrWord } from '../../../../../models/ocr-token.model';
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { DialogViewSubmissions } from '../dialog-view-submissions/dialog-view-submissions';
-import { buildDynamicRubricFeedback, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
+import type { RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
+import type { SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 
 @Component({
   selector: 'app-student-submission-pages',
@@ -138,10 +139,39 @@ export class StudentSubmissionPages {
   isLoading = false;
 
   isPdfDownloading = false;
+  isRubricSaving = false;
 
   submissions: BackendSubmission[] = [];
   currentSubmission: BackendSubmission | null = null;
-  currentFeedback: BackendFeedback | null = null;
+  currentFeedback: SubmissionFeedback | null = null;
+
+  get submissionTitle(): string {
+    const a: any = this.currentSubmission && (this.currentSubmission as any).assignment;
+    const title = a && typeof a === 'object' ? (a.title || a.name) : '';
+    return typeof title === 'string' && title.trim().length ? title : 'Submission';
+  }
+
+  get submissionAuthor(): string {
+    const a: any = this.currentSubmission && (this.currentSubmission as any).assignment;
+    const teacher: any = a && typeof a === 'object' ? (a.teacher || a.createdBy) : null;
+    const teacherEmail = teacher && typeof teacher === 'object' ? (teacher.email || teacher.userEmail) : '';
+    if (typeof teacherEmail === 'string' && teacherEmail.trim().length) return teacherEmail.trim();
+
+    const s: any = this.currentSubmission && (this.currentSubmission as any).student;
+    if (!s) return '';
+    if (typeof s === 'string') return '';
+    return s.displayName || s.email || '';
+  }
+
+  get submissionDateText(): string {
+    const a: any = this.currentSubmission && (this.currentSubmission as any).assignment;
+    const assignmentDateRaw: any = a && typeof a === 'object' ? (a.publishedAt || a.createdAt) : null;
+
+    const raw: any = assignmentDateRaw || (this.currentSubmission && (this.currentSubmission as any).submittedAt);
+    const d = raw ? new Date(raw) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
 
   rubricFeedbackItems: RubricFeedbackItem[] = [];
 
@@ -157,89 +187,92 @@ export class StudentSubmissionPages {
   correctionsError: string | null = null;
   isCorrectionsLoading = false;
 
-  private computeIssueStats() {
-    const stats = {
-      spelling: 0,
-      grammar: 0,
-      typography: 0,
-      style: 0,
-      other: 0,
-      total: 0
-    };
-
-    for (const issue of Array.isArray(this.writingCorrectionsIssues) ? this.writingCorrectionsIssues : []) {
-      const key = (issue && typeof (issue as any).groupKey === 'string' ? String((issue as any).groupKey) : 'other').toLowerCase();
-      if (key in stats) {
-        (stats as any)[key] += 1;
-      } else {
-        stats.other += 1;
-      }
-      stats.total += 1;
-    }
-
-    return stats;
+  private defaultRubricItem(): RubricItem {
+    return { score: 0, maxScore: 5, comment: '' };
   }
 
-  private computeFallbackScore100() {
-    const s = this.computeIssueStats();
-    const penalty =
-      s.spelling * 1.2 +
-      s.grammar * 1.6 +
-      s.typography * 0.8 +
-      s.style * 0.6 +
-      s.other * 0.4;
-    const score = Math.max(0, Math.min(100, Math.round((100 - penalty) * 10) / 10));
-    return { score, maxScore: 100 };
+  private buildEmptyFeedback(submissionId: string): SubmissionFeedback {
+    return {
+      submissionId,
+      rubricScores: {
+        CONTENT: this.defaultRubricItem(),
+        ORGANIZATION: this.defaultRubricItem(),
+        GRAMMAR: this.defaultRubricItem(),
+        VOCABULARY: this.defaultRubricItem(),
+        MECHANICS: this.defaultRubricItem()
+      },
+      overallScore: 0,
+      grade: 'F',
+      correctionStats: {
+        content: 0,
+        grammar: 0,
+        organization: 0,
+        vocabulary: 0,
+        mechanics: 0
+      },
+      detailedFeedback: {
+        strengths: [],
+        areasForImprovement: [],
+        actionSteps: []
+      },
+      aiFeedback: {
+        perCategory: [],
+        overallComments: ''
+      },
+      overriddenByTeacher: false
+    };
+  }
+
+  private toRubricItemVm(category: string, item: RubricItem): RubricFeedbackItem {
+    const labelMap: Record<string, string> = {
+      CONTENT: 'Content Relevance',
+      ORGANIZATION: 'Structure & Organization',
+      GRAMMAR: 'Grammar',
+      VOCABULARY: 'Vocabulary',
+      MECHANICS: 'Mechanics'
+    };
+
+    return {
+      category: labelMap[category] || category,
+      score: Number.isFinite(Number(item?.score)) ? Number(item.score) : 0,
+      maxScore: 5,
+      description: typeof item?.comment === 'string' ? item.comment : ''
+    };
   }
 
   get overallScoreText(): string {
-    const fb: any = this.currentFeedback;
-    const score = Number(fb?.score);
-    const maxScore = Number(fb?.maxScore);
-    if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
-      return `${Math.round(score * 10) / 10}/${Math.round(maxScore * 10) / 10}`;
-    }
-
-    const fallback = this.computeFallbackScore100();
-    return `${fallback.score}/100`;
+    const score = Number(this.currentFeedback?.overallScore);
+    if (!Number.isFinite(score)) return '0/100';
+    return `${Math.round(score * 10) / 10}/100`;
   }
 
   get gradeLabel(): string {
-    const fb: any = this.currentFeedback;
-    let score = Number(fb?.score);
-    let maxScore = Number(fb?.maxScore);
-    if (!Number.isFinite(score) || !Number.isFinite(maxScore) || maxScore <= 0) {
-      const fallback = this.computeFallbackScore100();
-      score = fallback.score;
-      maxScore = fallback.maxScore;
-    }
-
-    const pct = (score / maxScore) * 100;
-    if (pct >= 90) return 'A';
-    if (pct >= 80) return 'B';
-    if (pct >= 70) return 'C';
-    if (pct >= 60) return 'D';
-    return 'F';
+    const g = typeof this.currentFeedback?.grade === 'string' ? this.currentFeedback.grade : '';
+    return g || 'F';
   }
 
   get issueStats() {
-    return this.computeIssueStats();
+    return { spelling: 0, grammar: 0, typography: 0, style: 0, other: 0, total: 0 };
   }
 
   get contentIssuesCount(): number {
-    return this.issueStats.other;
+    const n = Number(this.currentFeedback?.correctionStats?.content);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get grammarIssuesCount(): number {
-    return this.issueStats.grammar;
+    const n = Number(this.currentFeedback?.correctionStats?.grammar);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get organizationIssuesCount(): number {
-    return this.issueStats.style + this.issueStats.typography;
+    const n = Number(this.currentFeedback?.correctionStats?.organization);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get vocabularyIssuesCount(): number {
-    return this.issueStats.spelling;
+    const n = Number(this.currentFeedback?.correctionStats?.vocabulary);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get correctionStatsTotalForBars(): number {
@@ -268,15 +301,9 @@ export class StudentSubmissionPages {
   }
 
   get overallScorePct(): number {
-    const fb: any = this.currentFeedback;
-    const score = Number(fb?.score);
-    const maxScore = Number(fb?.maxScore);
-    if (Number.isFinite(score) && Number.isFinite(maxScore) && maxScore > 0) {
-      return Math.max(0, Math.min(100, (score / maxScore) * 100));
-    }
-
-    const fallback = this.computeFallbackScore100();
-    return Math.max(0, Math.min(100, (fallback.score / fallback.maxScore) * 100));
+    const score100 = Number(this.currentFeedback?.overallScore);
+    if (!Number.isFinite(score100)) return 0;
+    return Math.max(0, Math.min(100, score100));
   }
 
   get progressRingCircumference(): number {
@@ -288,76 +315,26 @@ export class StudentSubmissionPages {
   }
 
   get actionSteps(): string[] {
-    const s = this.computeIssueStats();
-    const steps: Array<{ key: string; text: string; count: number }> = [
-      { key: 'spelling', text: 'Review spelling mistakes and re-check misspelled words.', count: s.spelling },
-      { key: 'grammar', text: 'Fix grammar issues (tense, agreement, sentence structure).', count: s.grammar },
-      { key: 'typography', text: 'Correct punctuation/typography issues (quotes, commas, spacing).', count: s.typography },
-      { key: 'style', text: 'Improve clarity and conciseness by revising awkward sentences.', count: s.style },
-      { key: 'other', text: 'Review flagged sections and refine the wording.', count: s.other }
-    ]
-      .filter((x) => x.count > 0)
-      .sort((a, b) => b.count - a.count);
-
-    const top = steps.slice(0, 5).map((x) => x.text);
-    return top.length ? top : ['Keep practicing and re-check your writing for small improvements.'];
+    const arr = Array.isArray(this.currentFeedback?.detailedFeedback?.actionSteps)
+      ? this.currentFeedback?.detailedFeedback?.actionSteps
+      : [];
+    return arr.length ? arr.slice(0, 5) : [''];
   }
 
   get areasForImprovement(): Array<{ title: string; description: string; borderClass: string }> {
-    const items: Array<{ key: string; title: string; description: string; borderClass: string; count: number }> = [
-      {
-        key: 'content',
-        title: 'Content & Relevance',
-        description: 'Make sure each paragraph directly supports the task. Add clearer examples to develop your ideas.',
-        borderClass: 'border-red-400',
-        count: this.contentIssuesCount
-      },
-      {
-        key: 'organization',
-        title: 'Structure & Coherence',
-        description: 'Improve paragraph flow and transitions. Use clear topic sentences and a stronger conclusion.',
-        borderClass: 'border-blue-400',
-        count: this.organizationIssuesCount
-      },
-      {
-        key: 'grammar',
-        title: 'Grammar & Mechanics',
-        description: 'Fix sentence-structure and grammar errors. Re-check punctuation and spelling before final submission.',
-        borderClass: 'border-green-400',
-        count: this.grammarIssuesCount + this.vocabularyIssuesCount
-      }
-    ]
-      .filter((x) => x.count > 0)
-      .sort((a, b) => b.count - a.count);
-
-    const top = items.slice(0, 3).map((x) => ({ title: x.title, description: x.description, borderClass: x.borderClass }));
-    return top.length
-      ? top
-      : [{ title: 'Keep refining', description: 'Your writing looks strong overall. Review for small clarity and polish improvements.', borderClass: 'border-green-400' }];
+    const arr = Array.isArray(this.currentFeedback?.detailedFeedback?.areasForImprovement)
+      ? this.currentFeedback?.detailedFeedback?.areasForImprovement
+      : [];
+    const top = arr.slice(0, 3);
+    return top.map((t) => ({ title: t, description: '', borderClass: 'border-blue-400' }));
   }
 
   get strengths(): Array<{ title: string; description: string }> {
-    const s = this.computeIssueStats();
-    const strengths: Array<{ title: string; description: string; score: number }> = [
-      {
-        title: 'Clarity & Readability',
-        description: 'The writing is generally understandable and communicates the main idea.',
-        score: Math.max(0, 100 - (s.style + s.typography) * 4)
-      },
-      {
-        title: 'Grammar Control',
-        description: 'Many sentences follow correct grammar patterns with room for minor fixes.',
-        score: Math.max(0, 100 - s.grammar * 6)
-      },
-      {
-        title: 'Word Choice',
-        description: 'Vocabulary is mostly appropriate; keep improving precision and variety.',
-        score: Math.max(0, 100 - s.spelling * 5)
-      }
-    ].sort((a, b) => b.score - a.score);
-
-    const top = strengths.slice(0, 3).map((x) => ({ title: x.title, description: x.description }));
-    return top.length ? top : [{ title: 'Effort', description: 'You have made a good attempt—keep practicing consistently.' }];
+    const arr = Array.isArray(this.currentFeedback?.detailedFeedback?.strengths)
+      ? this.currentFeedback?.detailedFeedback?.strengths
+      : [];
+    const top = arr.slice(0, 3);
+    return top.map((t) => ({ title: t, description: '' }));
   }
 
   essayImageUrl: string | null = null;
@@ -446,16 +423,23 @@ export class StudentSubmissionPages {
       return;
     }
 
+    if (this.isLoading) return;
+
+    console.log('Generate AI clicked for', submission._id);
+    console.log('Generating dynamic AI Feedback for submission', submission._id);
+    this.isLoading = true;
     try {
-      const fb = await this.feedbackApi.generateAiFeedback({
-        submissionId: submission._id,
-        correctionLegend: this.defaultCorrectionLegend
-      });
-      this.currentFeedback = fb;
+      const updated = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
+      this.currentFeedback = updated;
+      console.log('TEACHER FEEDBACK LOADED:', updated);
+      this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
+      this.hydrateRubricEditFormFromFeedback();
       this.recomputeRubricFeedbackItems();
       this.alert.showToast('AI feedback generated', 'success');
     } catch (err: any) {
-      this.alert.showError('Failed to generate AI feedback', err?.error?.message || err?.message || 'Please try again');
+      this.alert.showError('Generate AI Feedback failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isLoading = false;
     }
   }
 
@@ -506,6 +490,37 @@ export class StudentSubmissionPages {
     return fromOcr || null;
   }
 
+  private safeWordCount(text: string | null): number {
+    const t = typeof text === 'string' ? text.trim() : '';
+    if (!t) return 0;
+    return t.split(/\s+/).filter(Boolean).length;
+  }
+
+  private correctionStatsToCounts(): Record<string, number> {
+    const cs: any = this.currentFeedback && (this.currentFeedback as any).correctionStats;
+    return {
+      CONTENT: Number(cs?.content) || 0,
+      ORGANIZATION: Number(cs?.organization) || 0,
+      GRAMMAR: Number(cs?.grammar) || 0,
+      VOCABULARY: Number(cs?.vocabulary) || 0,
+      MECHANICS: Number(cs?.mechanics) || 0
+    };
+  }
+
+  get ocrSummaryText(): string {
+    const wordCount = this.safeWordCount(this.extractedText);
+    const counts = this.correctionStatsToCounts();
+    const issuesDetected = Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0);
+    const focusAreas = Object.entries(counts)
+      .filter(([, v]) => (Number(v) || 0) > 0)
+      .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+      .slice(0, 3)
+      .map(([k]) => k);
+
+    const focus = focusAreas.length ? focusAreas.join(', ') : 'N/A';
+    return `wordCount: ${wordCount} • issuesDetected: ${issuesDetected} • focusAreas: ${focus}`;
+  }
+
   private async ensureWritingCorrectionsLegendLoaded() {
     if (this.writingCorrectionsLegend) return;
     this.writingCorrectionsLegend = await this.writingCorrectionsApi.getLegend();
@@ -553,160 +568,161 @@ export class StudentSubmissionPages {
   }
 
   feedbackForm: FormGroup;
+  rubricEditForm: FormGroup;
 
   private recomputeRubricFeedbackItems() {
-    const fb: any = this.currentFeedback;
-
-    const normalize = (items: any): RubricFeedbackItem[] => {
-      const arr = Array.isArray(items) ? items : [];
-      return arr
-        .map((x: any) => ({
-          category: typeof x?.category === 'string' ? x.category : '',
-          score: Number.isFinite(Number(x?.score)) ? Number(x.score) : 0,
-          maxScore: Number.isFinite(Number(x?.maxScore)) ? Number(x.maxScore) : 5,
-          description: typeof x?.description === 'string' ? x.description : ''
-        }))
-        .filter((x) => Boolean(x.category));
-    };
-
-    // Prefer backend-generated AI feedback (OCR-based) if present.
-    const ai = fb && fb.aiFeedback && typeof fb.aiFeedback === 'object' ? fb.aiFeedback : null;
-    const aiScores = ai && ai.rubricScores && typeof ai.rubricScores === 'object' ? ai.rubricScores : null;
-    if (aiScores) {
-      const score = (k: string) => {
-        const n = Number((aiScores as any)[k]);
-        return Number.isFinite(n) ? Math.max(0, Math.min(5, Math.round(n * 10) / 10)) : 0;
-      };
-
-      const anns = Array.isArray(ai.textAnnotations) ? ai.textAnnotations : [];
-      const countBy = (cat: string) => anns.filter((a: any) => String(a?.category).toUpperCase() === cat).length;
-
-      const desc = (cat: string, fallback: string) => {
-        const c = countBy(cat);
-        if (c > 0) return `${c} issue${c === 1 ? '' : 's'} flagged. ${fallback}`;
-        return `No issues flagged. ${fallback}`;
-      };
-
-      const general = typeof ai.generalComments === 'string' ? ai.generalComments : '';
-
-      this.rubricFeedbackItems = normalize([
-        {
-          category: 'Content Relevance',
-          score: score('CONTENT'),
-          maxScore: 5,
-          description: desc('CONTENT', 'Improve idea development and relevance to the prompt.')
-        },
-        {
-          category: 'Structure & Organization',
-          score: score('ORGANIZATION'),
-          maxScore: 5,
-          description: desc('ORGANIZATION', 'Improve paragraph flow and logical sequencing.')
-        },
-        {
-          category: 'Grammar',
-          score: score('GRAMMAR'),
-          maxScore: 5,
-          description: desc('GRAMMAR', 'Fix tense, agreement, and sentence structure problems.')
-        },
-        {
-          category: 'Vocabulary',
-          score: score('VOCABULARY'),
-          maxScore: 5,
-          description: desc('VOCABULARY', 'Reduce repetition and use more precise word choices.')
-        },
-        {
-          category: 'Mechanics',
-          score: score('MECHANICS'),
-          maxScore: 5,
-          description: desc('MECHANICS', 'Fix spelling, punctuation, and typography issues.')
-        },
-        {
-          category: 'Overall Comments',
-          score: Math.round(((score('CONTENT') + score('ORGANIZATION') + score('GRAMMAR') + score('VOCABULARY') + score('MECHANICS')) / 5) * 10) / 10,
-          maxScore: 5,
-          description: general || 'AI feedback generated from OCR text.'
-        }
-      ]);
-      return;
-    }
-
-    // If no AI feedback exists yet, still provide dynamic rubric feedback driven by LanguageTool + stats.
+    const fb = this.currentFeedback;
     if (!fb) {
-      const fallback = this.computeFallbackScore100();
-      this.rubricFeedbackItems = normalize(
-        buildDynamicRubricFeedback({
-          issues: this.writingCorrectionsIssues,
-          overallScore100: fallback.score,
-          language: 'en-US'
-        })
-      );
+      this.rubricFeedbackItems = [];
       return;
     }
 
-    const toScore5 = (score100: any) => {
-      const n = Number(score100);
-      if (!Number.isFinite(n)) return 0;
-      return Math.max(0, Math.min(5, Math.round((n / 20) * 10) / 10));
-    };
+    const rs = fb.rubricScores;
+    console.log('Dynamic AI rubric generated for submission', this.currentSubmission?._id);
 
-    const effective = fb?.evaluation?.effectiveRubric;
-    const sf = fb?.evaluation?.structuredFeedback;
+    const items: RubricFeedbackItem[] = [
+      {
+        category: 'Grammar & Mechanics',
+        score: Number(rs?.GRAMMAR?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
+      },
+      {
+        category: 'Structure & Organization',
+        score: Number(rs?.ORGANIZATION?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
+      },
+      {
+        category: 'Content Relevance',
+        score: Number(rs?.CONTENT?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
+      },
+      {
+        category: 'Overall Rubric Score',
+        score: Number(rs?.MECHANICS?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
+      }
+    ];
 
-    if (effective && typeof effective === 'object') {
-      this.rubricFeedbackItems = normalize([
-        {
-          category: 'Grammar & Mechanics',
-          score: toScore5(effective.grammarScore),
-          maxScore: 5,
-          description: String(sf?.grammarFeedback?.summary || '')
-        },
-        {
-          category: 'Structure & Organization',
-          score: toScore5(effective.structureScore),
-          maxScore: 5,
-          description: String(sf?.structureFeedback?.summary || '')
-        },
-        {
-          category: 'Content Relevance',
-          score: toScore5(effective.contentScore),
-          maxScore: 5,
-          description: String(sf?.contentFeedback?.summary || '')
-        },
-        {
-          category: 'Overall Rubric Score',
-          score: toScore5(effective.overallScore),
-          maxScore: 5,
-          description: String(sf?.overallFeedback?.summary || '')
-        }
-      ]);
-      return;
-    }
-
-    const evalOverall = Number(fb?.evaluation?.effectiveRubric?.overallScore);
-    const overallScore100 = Number.isFinite(evalOverall)
-      ? evalOverall
-      : (Number.isFinite(Number(fb?.score)) && Number.isFinite(Number(fb?.maxScore)) && Number(fb?.maxScore) > 0)
-        ? (Number(fb.score) / Number(fb.maxScore)) * 100
-        : this.computeFallbackScore100().score;
-
-    const gradeLetter = typeof fb?.evaluation?.effectiveRubric?.gradeLetter === 'string'
-      ? String(fb.evaluation.effectiveRubric.gradeLetter)
-      : this.gradeLabel;
-
-    this.rubricFeedbackItems = normalize(
-      buildDynamicRubricFeedback({
-        issues: this.writingCorrectionsIssues,
-        overallScore100,
-        gradeLetter,
-        language: 'en-US'
-      })
-    );
+    this.rubricFeedbackItems = items.filter((x) => Boolean(x.category));
   }
 
   constructor(private router: Router, fb: FormBuilder) {
     this.feedbackForm = fb.group({
       message: ['']
     });
+
+    // Teachers can optionally override rubric scores and add an override reason.
+    // These are persisted on the Feedback document and used by the backend evaluation engine.
+    this.rubricEditForm = fb.group({
+      grammarScore: [null],
+      structureScore: [null],
+      contentScore: [null],
+      vocabularyScore: [null],
+      taskAchievementScore: [null],
+      overallScore: [null],
+      overrideReason: [''],
+      teacherComments: ['']
+    });
+  }
+
+  private hydrateRubricEditFormFromFeedback() {
+    const fb = this.currentFeedback;
+    if (!fb) return;
+
+    this.rubricEditForm.patchValue({
+      grammarScore: fb?.rubricScores?.GRAMMAR?.score ?? 0,
+      structureScore: fb?.rubricScores?.ORGANIZATION?.score ?? 0,
+      contentScore: fb?.rubricScores?.CONTENT?.score ?? 0,
+      vocabularyScore: fb?.rubricScores?.VOCABULARY?.score ?? 0,
+      taskAchievementScore: fb?.rubricScores?.MECHANICS?.score ?? 0,
+      overallScore: fb?.overallScore ?? 0,
+      overrideReason: '',
+      teacherComments: typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : ''
+    });
+
+    if (!fb?.aiFeedback?.overallComments) {
+      console.log('Teacher comment initialized as empty');
+    }
+  }
+
+  private buildSubmissionFeedbackPayload(submissionId: string): SubmissionFeedback {
+    const v: any = this.rubricEditForm.value || {};
+
+    const base = this.currentFeedback || this.buildEmptyFeedback(submissionId);
+
+    const teacherCommentsRaw = (this.rubricEditForm.value as any)?.teacherComments;
+    const teacherComments = typeof teacherCommentsRaw === 'string' ? teacherCommentsRaw : (teacherCommentsRaw == null ? '' : String(teacherCommentsRaw));
+
+    const overallCommentsRaw = (this.rubricEditForm.value as any)?.overrideReason;
+    const overallComments = typeof overallCommentsRaw === 'string' ? overallCommentsRaw : (overallCommentsRaw == null ? '' : String(overallCommentsRaw));
+
+    const coerceScore = (x: any) => {
+      const n = Number(x);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(5, n));
+    };
+
+    const coerceScore100 = (x: any) => {
+      const n = Number(x);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.min(100, n));
+    };
+
+    return {
+      ...base,
+      submissionId,
+      rubricScores: {
+        // Store the required rubric fields using existing schema keys.
+        // GRAMMAR -> Grammar & Mechanics
+        // ORGANIZATION -> Structure & Organization
+        // CONTENT -> Content Relevance
+        // MECHANICS -> Overall Rubric Score
+        CONTENT: { ...base.rubricScores.CONTENT, score: coerceScore(v.contentScore), maxScore: 5 },
+        ORGANIZATION: { ...base.rubricScores.ORGANIZATION, score: coerceScore(v.structureScore), maxScore: 5 },
+        GRAMMAR: { ...base.rubricScores.GRAMMAR, score: coerceScore(v.grammarScore), maxScore: 5 },
+        VOCABULARY: { ...base.rubricScores.VOCABULARY, score: coerceScore(v.vocabularyScore), maxScore: 5 },
+        MECHANICS: { ...base.rubricScores.MECHANICS, score: coerceScore(v.taskAchievementScore), maxScore: 5 }
+      },
+      overallScore: coerceScore100(v.overallScore),
+      detailedFeedback: {
+        strengths: Array.isArray(base?.detailedFeedback?.strengths) ? base.detailedFeedback.strengths : [],
+        areasForImprovement: Array.isArray(base?.detailedFeedback?.areasForImprovement)
+          ? base.detailedFeedback.areasForImprovement
+          : [],
+        actionSteps: Array.isArray(base?.detailedFeedback?.actionSteps) ? base.detailedFeedback.actionSteps : []
+      },
+      aiFeedback: {
+        perCategory: Array.isArray(base?.aiFeedback?.perCategory) ? base.aiFeedback.perCategory : [],
+        overallComments: teacherComments
+      },
+      overriddenByTeacher: true
+    };
+  }
+
+  async saveRubricOverrides() {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) return;
+
+    if (this.isRubricSaving) return;
+    this.isRubricSaving = true;
+    try {
+      const payload = this.buildSubmissionFeedbackPayload(submissionId);
+      const updated = await this.feedbackApi.upsertSubmissionFeedback(submissionId, payload);
+      this.currentFeedback = updated;
+      this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
+      this.hydrateRubricEditFormFromFeedback();
+      this.recomputeRubricFeedbackItems();
+      this.alert.showToast('Rubric updated', 'success');
+      this.showDialog = false;
+    } catch (err: any) {
+      this.alert.showError('Failed to update rubric', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricSaving = false;
+    }
   }
 
   async ngOnInit() {
@@ -836,6 +852,13 @@ export class StudentSubmissionPages {
     this.currentSubmission = submission;
     this.submissionId = submission?._id || null;
 
+    try {
+      const a: any = submission && (submission as any).assignment;
+      console.log('[SUBMISSION META] assignment.teacher', a && typeof a === 'object' ? (a.teacher || null) : null, 'assignment.createdAt', a && typeof a === 'object' ? a.createdAt : null);
+    } catch {
+      // ignore
+    }
+
     const url = this.currentSubmission?.fileUrl || null;
     this.revokeObjectUrls();
     this.essayImageUrl = null;
@@ -859,7 +882,6 @@ export class StudentSubmissionPages {
       await this.loadOcrCorrections(this.currentSubmission._id);
     }
 
-    await this.refreshWritingCorrections();
     await this.loadFeedback();
     this.recomputeRubricFeedbackItems();
 
@@ -918,18 +940,24 @@ export class StudentSubmissionPages {
   }
 
   private async loadFeedback() {
-    const feedbackId = this.currentSubmission && (this.currentSubmission as any).feedback;
-    if (!feedbackId || typeof feedbackId !== 'string') return;
+    const submissionId = this.currentSubmission && this.currentSubmission._id;
+    if (!submissionId) return;
 
     try {
-      const fb = await this.feedbackApi.getFeedbackByIdForTeacher(feedbackId);
+      const fb = await this.feedbackApi.getSubmissionFeedback(submissionId);
       this.currentFeedback = fb;
-      this.feedbackForm.patchValue({
-        message: (fb as any)?.teacherComments || fb?.textFeedback || ''
-      });
+      console.log('TEACHER FEEDBACK LOADED:', fb);
+      this.feedbackForm.patchValue({ message: fb?.aiFeedback?.overallComments || '' });
+      this.hydrateRubricEditFormFromFeedback();
       this.recomputeRubricFeedbackItems();
     } catch (err: any) {
-      // ignore if not found
+      const empty = this.buildEmptyFeedback(submissionId);
+      this.currentFeedback = empty;
+      console.log('TEACHER FEEDBACK LOADED:', empty);
+      this.feedbackForm.patchValue({ message: '' });
+      console.log('Teacher comment initialized as empty');
+      this.hydrateRubricEditFormFromFeedback();
+      this.recomputeRubricFeedbackItems();
     }
   }
 
@@ -941,26 +969,19 @@ export class StudentSubmissionPages {
     }
 
     const textFeedback = this.feedbackForm.value.message;
-    const teacherComments = typeof textFeedback === 'string' ? textFeedback : (textFeedback == null ? undefined : String(textFeedback));
+    const teacherComments = typeof textFeedback === 'string' ? textFeedback : (textFeedback == null ? '' : String(textFeedback));
 
     try {
-      const existingFeedbackId = submission && (submission as any).feedback;
-      if (existingFeedbackId && typeof existingFeedbackId === 'string') {
-        const updated = await this.feedbackApi.updateFeedback({
-          feedbackId: existingFeedbackId,
-          textFeedback,
-          teacherComments
-        });
-        this.currentFeedback = updated;
-      } else {
-        const created = await this.feedbackApi.createFeedback({
-          submissionId: submission._id,
-          textFeedback,
-          teacherComments
-        });
-        this.currentFeedback = created;
-      }
+      const base = this.currentFeedback || this.buildEmptyFeedback(submission._id);
+      const payload: SubmissionFeedback = {
+        ...base,
+        submissionId: submission._id,
+        teacherComments
+      };
 
+      const updated = await this.feedbackApi.upsertSubmissionFeedback(submission._id, payload);
+      this.currentFeedback = updated;
+      this.hydrateRubricEditFormFromFeedback();
       this.recomputeRubricFeedbackItems();
 
       this.alert.showToast('Feedback saved', 'success');
@@ -989,6 +1010,7 @@ export class StudentSubmissionPages {
 
   onEditRubric() {
     this.showDialog = true;
+    this.hydrateRubricEditFormFromFeedback();
   }
 
   closeDialog() {
