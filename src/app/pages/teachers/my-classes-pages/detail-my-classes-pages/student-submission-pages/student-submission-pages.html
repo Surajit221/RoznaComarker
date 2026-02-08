@@ -1,4 +1,5 @@
 <ng-container>
+  @if(device.isDesktop()) {
   <div class="mb-6 flex flex-row justify-between items-center">
     <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
     <div class="flex flex-row gap-2">
@@ -330,7 +331,7 @@
                   [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
                 >
                   <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                    {{ item.score }}/{{ item.maxScore }}
+                    {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
                   </p>
                 </div>
               </div>
@@ -380,7 +381,7 @@
                         [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
                       >
                         <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                          {{ item.score }}/{{ item.maxScore }}
+                          {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
                         </p>
                       </div>
                     </div>
@@ -449,7 +450,7 @@
   </div>
 
 
-</ng-container>
+  }
 
 <app-modal-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
   <app-dialog-view-submissions
@@ -465,6 +466,10 @@
     [title]="classTitle"
     (back)="toBack()"
   ></app-app-bar-back-button>
+
+  <div class="w-full flex justify-end mb-3">
+    <button type="button" class="btn-primary-sm" (click)="openSheetSubmission = true">View All Submission</button>
+  </div>
 
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
     <button class="btn-warning-sm" [disabled]="!canGoPrev" (click)="onPrevSubmission()"><i class="bx bx-chevron-left"></i></button>
@@ -495,7 +500,14 @@
       </div>
 
       <ng-container *ngIf="activeTab === 'uploaded-file'">
-      <img src="img/default-img.png" class="w-full rounded-2xl object-cover" alt="class image" />
+      <div class="w-full rounded-2xl overflow-hidden">
+        <app-image-annotation-overlay
+          [imageUrl]="essayImageUrl || 'img/default-img.png'"
+          [annotations]="annotations"
+          [page]="1"
+          role="teacher"
+        ></app-image-annotation-overlay>
+      </div>
       </ng-container>
       <ng-container *ngIf="activeTab === 'transcribed-text'">
       <div class="container mx-auto overflow-x-hidden">
@@ -523,8 +535,16 @@
               </div>
 
               <!-- Essay Text with Corrections -->
+              @if (ocrWords.length) {
+              <app-tokenized-transcript
+                class="text-sm leading-relaxed text-gray-700 font-sans"
+                [ocrWords]="ocrWords"
+                [annotations]="annotations"
+              ></app-tokenized-transcript>
+              } @else {
               @if (writingCorrectionsHtml) {
               <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans" [innerHTML]="writingCorrectionsHtml"></pre>
+              }
               }
             </div>
 
@@ -767,4 +787,6 @@
       </ng-container>
     </div>
   </div>
+</ng-container>
+
 </ng-container>

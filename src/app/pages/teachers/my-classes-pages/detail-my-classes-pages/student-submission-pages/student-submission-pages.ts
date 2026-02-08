@@ -426,6 +426,7 @@ export class StudentSubmissionPages {
     if (this.isLoading) return;
 
     console.log('Generate AI clicked for', submission._id);
+    console.log('Generating dynamic AI Feedback for submission', submission._id);
     this.isLoading = true;
     try {
       const updated = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
@@ -489,6 +490,37 @@ export class StudentSubmissionPages {
     return fromOcr || null;
   }
 
+  private safeWordCount(text: string | null): number {
+    const t = typeof text === 'string' ? text.trim() : '';
+    if (!t) return 0;
+    return t.split(/\s+/).filter(Boolean).length;
+  }
+
+  private correctionStatsToCounts(): Record<string, number> {
+    const cs: any = this.currentFeedback && (this.currentFeedback as any).correctionStats;
+    return {
+      CONTENT: Number(cs?.content) || 0,
+      ORGANIZATION: Number(cs?.organization) || 0,
+      GRAMMAR: Number(cs?.grammar) || 0,
+      VOCABULARY: Number(cs?.vocabulary) || 0,
+      MECHANICS: Number(cs?.mechanics) || 0
+    };
+  }
+
+  get ocrSummaryText(): string {
+    const wordCount = this.safeWordCount(this.extractedText);
+    const counts = this.correctionStatsToCounts();
+    const issuesDetected = Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0);
+    const focusAreas = Object.entries(counts)
+      .filter(([, v]) => (Number(v) || 0) > 0)
+      .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+      .slice(0, 3)
+      .map(([k]) => k);
+
+    const focus = focusAreas.length ? focusAreas.join(', ') : 'N/A';
+    return `wordCount: ${wordCount} • issuesDetected: ${issuesDetected} • focusAreas: ${focus}`;
+  }
+
   private async ensureWritingCorrectionsLegendLoaded() {
     if (this.writingCorrectionsLegend) return;
     this.writingCorrectionsLegend = await this.writingCorrectionsApi.getLegend();
@@ -546,17 +578,32 @@ export class StudentSubmissionPages {
     }
 
     const rs = fb.rubricScores;
+    console.log('Dynamic AI rubric generated for submission', this.currentSubmission?._id);
+
     const items: RubricFeedbackItem[] = [
-      this.toRubricItemVm('CONTENT', rs?.CONTENT),
-      this.toRubricItemVm('ORGANIZATION', rs?.ORGANIZATION),
-      this.toRubricItemVm('GRAMMAR', rs?.GRAMMAR),
-      this.toRubricItemVm('VOCABULARY', rs?.VOCABULARY),
-      this.toRubricItemVm('MECHANICS', rs?.MECHANICS),
       {
-        category: 'Overall Comments',
-        score: Number.isFinite(Number(fb.overallScore)) ? Number(fb.overallScore) : 0,
-        maxScore: 100,
-        description: typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : ''
+        category: 'Grammar & Mechanics',
+        score: Number(rs?.GRAMMAR?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
+      },
+      {
+        category: 'Structure & Organization',
+        score: Number(rs?.ORGANIZATION?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
+      },
+      {
+        category: 'Content Relevance',
+        score: Number(rs?.CONTENT?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
+      },
+      {
+        category: 'Overall Rubric Score',
+        score: Number(rs?.MECHANICS?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
       }
     ];
 
@@ -596,6 +643,10 @@ export class StudentSubmissionPages {
       overrideReason: '',
       teacherComments: typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : ''
     });
+
+    if (!fb?.aiFeedback?.overallComments) {
+      console.log('Teacher comment initialized as empty');
+    }
   }
 
   private buildSubmissionFeedbackPayload(submissionId: string): SubmissionFeedback {
@@ -625,6 +676,11 @@ export class StudentSubmissionPages {
       ...base,
       submissionId,
       rubricScores: {
+        // Store the required rubric fields using existing schema keys.
+        // GRAMMAR -> Grammar & Mechanics
+        // ORGANIZATION -> Structure & Organization
+        // CONTENT -> Content Relevance
+        // MECHANICS -> Overall Rubric Score
         CONTENT: { ...base.rubricScores.CONTENT, score: coerceScore(v.contentScore), maxScore: 5 },
         ORGANIZATION: { ...base.rubricScores.ORGANIZATION, score: coerceScore(v.structureScore), maxScore: 5 },
         GRAMMAR: { ...base.rubricScores.GRAMMAR, score: coerceScore(v.grammarScore), maxScore: 5 },
@@ -641,7 +697,7 @@ export class StudentSubmissionPages {
       },
       aiFeedback: {
         perCategory: Array.isArray(base?.aiFeedback?.perCategory) ? base.aiFeedback.perCategory : [],
-        overallComments: (teacherComments || (base?.aiFeedback?.overallComments || overallComments || ''))
+        overallComments: teacherComments
       },
       overriddenByTeacher: true
     };
@@ -899,6 +955,7 @@ export class StudentSubmissionPages {
       this.currentFeedback = empty;
       console.log('TEACHER FEEDBACK LOADED:', empty);
       this.feedbackForm.patchValue({ message: '' });
+      console.log('Teacher comment initialized as empty');
       this.hydrateRubricEditFormFromFeedback();
       this.recomputeRubricFeedbackItems();
     }

@@ -657,7 +657,7 @@
                >
 
                  <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                   {{ item.score }}/{{ item.maxScore }}
+                   {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
                  </p>
 
                </div>
@@ -726,7 +726,7 @@
                          [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
                        >
                          <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                           {{ item.score }}/{{ item.maxScore }}
+                           {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
                          </p>
                        </div>
                     </div>
@@ -1516,7 +1516,7 @@
 
               >
 
-                <p class="text-xs font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
+                <p class="text-xs font-bold text-white">{{ item.score | number:'1.1-1' }}/{{ item.maxScore }}</p>
 
               </div>
 

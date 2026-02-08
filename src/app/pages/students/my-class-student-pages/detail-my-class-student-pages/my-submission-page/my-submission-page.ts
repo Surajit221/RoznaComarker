@@ -967,17 +967,33 @@ export class MySubmissionPage {
     const fb = this.feedback;
     if (!fb) return [];
     const rs = fb.rubricScores;
+
+    console.log('Dynamic AI rubric generated for submission', (this.submission as any)?._id);
+
     return [
-      this.toRubricVm('CONTENT', rs?.CONTENT),
-      this.toRubricVm('ORGANIZATION', rs?.ORGANIZATION),
-      this.toRubricVm('GRAMMAR', rs?.GRAMMAR),
-      this.toRubricVm('VOCABULARY', rs?.VOCABULARY),
-      this.toRubricVm('MECHANICS', rs?.MECHANICS),
       {
-        category: 'Overall Comments',
-        score: Number.isFinite(Number(fb?.overallScore)) ? Number(fb.overallScore) : 0,
-        maxScore: 100,
-        description: typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : ''
+        category: 'Grammar & Mechanics',
+        score: Number(rs?.GRAMMAR?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
+      },
+      {
+        category: 'Structure & Organization',
+        score: Number(rs?.ORGANIZATION?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
+      },
+      {
+        category: 'Content Relevance',
+        score: Number(rs?.CONTENT?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
+      },
+      {
+        category: 'Overall Rubric Score',
+        score: Number(rs?.MECHANICS?.score) || 0,
+        maxScore: 5,
+        description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
       }
     ];
   }
