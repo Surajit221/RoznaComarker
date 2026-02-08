@@ -4,6 +4,7 @@ import { catchError, firstValueFrom, map, type Observable, throwError } from 'rx
 
 import { environment } from '../../environments/environment';
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
+import type { SubmissionFeedback } from '../models/submission-feedback.model';
 
 type BackendResponse<T> = {
   success: boolean;
@@ -59,6 +60,38 @@ export type BackendFeedback = {
 export class FeedbackApiService {
   constructor(private http: HttpClient) {}
 
+  async getSubmissionFeedback(submissionId: string): Promise<SubmissionFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}`
+      )
+    );
+    return resp.data;
+  }
+
+  async upsertSubmissionFeedback(submissionId: string, payload: SubmissionFeedback): Promise<SubmissionFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const resp = await firstValueFrom(
+      this.http.put<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}`,
+        payload
+      )
+    );
+    return resp.data;
+  }
+
+  async generateAiSubmissionFeedback(submissionId: string): Promise<SubmissionFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-ai`,
+        {}
+      )
+    );
+    return resp.data;
+  }
+
   async getFeedbackBySubmissionForStudent(submissionId: string): Promise<BackendFeedback> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
@@ -69,11 +102,21 @@ export class FeedbackApiService {
     return resp.data;
   }
 
+  async getFeedbackBySubmissionForTeacher(submissionId: string): Promise<BackendFeedback> {
+    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<BackendFeedback>>(
+        `${apiBaseUrl}/feedback/submission/teacher/${encodeURIComponent(submissionId)}`
+      )
+    );
+    return resp.data;
+  }
+
   async getFeedbackByIdForTeacher(feedbackId: string): Promise<BackendFeedback> {
     const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendFeedback>>(
-        `${apiBaseUrl}/feedback/${encodeURIComponent(feedbackId)}`
+        `${apiBaseUrl}/feedback/by-id/${encodeURIComponent(feedbackId)}`
       )
     );
     return resp.data;
@@ -96,7 +139,7 @@ export class FeedbackApiService {
     const form = new FormData();
     Object.entries(rest).forEach(([k, v]) => {
       if (typeof v === 'undefined' || v === null) return;
-      if (k === 'annotations') {
+      if (k === 'annotations' || k === 'overriddenScores') {
         form.append(k, typeof v === 'string' ? v : JSON.stringify(v));
         return;
       }
@@ -134,7 +177,7 @@ export class FeedbackApiService {
     const form = new FormData();
     Object.entries(rest).forEach(([k, v]) => {
       if (typeof v === 'undefined' || v === null) return;
-      if (k === 'annotations') {
+      if (k === 'annotations' || k === 'overriddenScores') {
         form.append(k, typeof v === 'string' ? v : JSON.stringify(v));
         return;
       }

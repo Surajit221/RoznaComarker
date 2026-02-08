@@ -49,7 +49,7 @@
           </button>
         </div>
         <div class="bg-[#F3F3F3] p-4 rounded-2xl">
-          <div class="container mx-auto px-4 max-w-6xl">
+          <div class="container mx-auto px-4">
             <div class="grid lg:grid-cols-4 gap-4">
               <!-- Sidebar with Statistics -->
               <div class="lg:col-span-1 space-y-4">
@@ -193,9 +193,9 @@
                   <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
                     <div>
                       <h2 class="text-2xl font-bold text-gray-800">
-                        The Impact of Digital Technology on Modern Education
+                        {{ submissionTitle }}
                       </h2>
-                      <p class="text-gray-500 mt-1">By: Sarah Johnson • May 15, 2023</p>
+                      <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
                     </div>
                     <div class="flex space-x-2">
                       <span
@@ -325,8 +325,13 @@
                 <p class="text-xl font-bold mb-1">
                   {{ item.category }}
                 </p>
-                <div class="h-10 w-10 rounded-full bg-[#008081] flex items-center justify-center">
-                  <p class="text-sm font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
+                <div
+                  class="rounded-full bg-[#008081] flex items-center justify-center"
+                  [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+                >
+                  <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                    {{ item.score }}/{{ item.maxScore }}
+                  </p>
                 </div>
               </div>
               <p>
@@ -370,8 +375,13 @@
                   <div class="col-span-5">
                     <div class="flex flex-row gap-2 items-center">
                       <p class="text-xl font-bold mb-1">{{ item.category }}</p>
-                      <div class="h-10 w-10 rounded-full bg-[#008081] flex items-center justify-center">
-                        <p class="text-sm font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
+                      <div
+                        class="rounded-full bg-[#008081] flex items-center justify-center"
+                        [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+                      >
+                        <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                          {{ item.score }}/{{ item.maxScore }}
+                        </p>
                       </div>
                     </div>
                     <p>{{ item.description }}</p>
@@ -383,6 +393,53 @@
                   <p class="text-gray-600">No rubric feedback available yet.</p>
                 </div>
                 }
+              </div>
+
+              <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="rubricEditForm">
+                <p class="text-xl font-bold mb-3">Teacher Overrides</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-semibold">Grammar Score (0-5)</p>
+                    <input type="number" class="input-text bg-white" formControlName="grammarScore" min="0" max="5" step="0.1" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-semibold">Structure Score (0-5)</p>
+                    <input type="number" class="input-text bg-white" formControlName="structureScore" min="0" max="5" step="0.1" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-semibold">Content Score (0-5)</p>
+                    <input type="number" class="input-text bg-white" formControlName="contentScore" min="0" max="5" step="0.1" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-semibold">Vocabulary Score (0-5)</p>
+                    <input type="number" class="input-text bg-white" formControlName="vocabularyScore" min="0" max="5" step="0.1" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-semibold">Task Achievement (0-5)</p>
+                    <input type="number" class="input-text bg-white" formControlName="taskAchievementScore" min="0" max="5" step="0.1" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-semibold">Overall Score (0-100)</p>
+                    <input type="number" class="input-text bg-white" formControlName="overallScore" min="0" max="100" step="1" />
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1 mt-4">
+                  <p class="text-sm font-semibold">Override Reason</p>
+                  <textarea class="input-text w-full h-20 resize-none bg-white" formControlName="overrideReason" placeholder="Reason for overriding AI rubric..."></textarea>
+                </div>
+
+                <div class="flex flex-col gap-1 mt-4">
+                  <p class="text-sm font-semibold">Teacher Comments</p>
+                  <textarea class="input-text w-full h-24 resize-none bg-white" formControlName="teacherComments" placeholder="Teacher comments..." ></textarea>
+                </div>
+
+                <div class="w-full flex justify-end mt-4">
+                  <button type="button" class="btn-primary" [disabled]="isRubricSaving" (click)="saveRubricOverrides()">
+                    @if (isRubricSaving) { Saving... } @else { Save }
+                  </button>
+                </div>
               </div>
             </div>
           </app-modal-dialog>
@@ -450,9 +507,9 @@
               <div class="flex flex-col mb-6 pb-4 border-b border-gray-200">
                 <div>
                   <h2 class="text-lg font-bold text-gray-800">
-                    The Impact of Digital Technology on Modern Education
+                    {{ submissionTitle }}
                   </h2>
-                  <p class="text-gray-500 mt-1">By: Sarah Johnson • May 15, 2023</p>
+                  <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
                 </div>
                 <div class="flex space-x-2 mt-2">
                   <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
@@ -577,7 +634,7 @@
             <div class="gradient-card p-6 hover-lift">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-semibold text-gray-700">Overall Score</h3>
-                <span class="text-blue-500 text-xl font-bold">82/100</span>
+                <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
               </div>
 
               <div class="relative w-32 h-32 mx-auto mb-4">
@@ -605,7 +662,7 @@
                   />
                 </svg>
                 <div class="absolute inset-0 flex items-center justify-center">
-                  <span class="text-2xl font-bold text-gray-700">B+</span>
+                  <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
                 </div>
               </div>
 

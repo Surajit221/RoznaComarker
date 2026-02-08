@@ -111,7 +111,7 @@
 
         <div class="bg-[#F3F3F3] p-4 rounded-2xl">
 
-          <div class="container mx-auto px-4 max-w-6xl">
+          <div class="container mx-auto px-4">
 
             <div class="grid lg:grid-cols-4 gap-4">
 
@@ -399,11 +399,11 @@
 
                       <h2 class="text-2xl font-bold text-gray-800">
 
-                        The Impact of Digital Technology on Modern Education
+                        {{ submissionTitle }}
 
                       </h2>
 
-                      <p class="text-gray-500 mt-1">By: Sarah Johnson • May 15, 2023</p>
+                      <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
 
                     </div>
 
@@ -637,7 +637,7 @@
 
         <div class="flex flex-col gap-3">
 
-          @for (item of feedbacks; track item) {
+          @for (item of feedbacks; track item.category) {
 
           <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
 
@@ -651,11 +651,16 @@
 
                 </p>
 
-                <div class="h-10 w-10 rounded-full bg-[#008081] flex items-center justify-center">
+                <div
+                 class="rounded-full bg-[#008081] flex items-center justify-center"
+                 [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+               >
 
-                  <p class="text-sm font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
+                 <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                   {{ item.score }}/{{ item.maxScore }}
+                 </p>
 
-                </div>
+               </div>
 
               </div>
 
@@ -711,14 +716,19 @@
               </div>
 
               <div class="flex flex-col gap-3">
-                @for (item of feedbacks; track item) {
+                @for (item of feedbacks; track item.category) {
                 <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
                   <div class="col-span-5">
                     <div class="flex flex-row gap-2 items-center">
                       <p class="text-xl font-bold mb-1">{{ item.category }}</p>
-                      <div class="h-10 w-10 rounded-full bg-[#008081] flex items-center justify-center">
-                        <p class="text-sm font-bold text-white">{{ item.score }}/{{ item.maxScore }}</p>
-                      </div>
+                       <div
+                         class="rounded-full bg-[#008081] flex items-center justify-center"
+                         [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+                       >
+                         <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                           {{ item.score }}/{{ item.maxScore }}
+                         </p>
+                       </div>
                     </div>
                     <p>{{ item.description }}</p>
                   </div>
@@ -842,11 +852,11 @@
 
                   <h2 class="text-lg font-bold text-gray-800">
 
-                    The Impact of Digital Technology on Modern Education
+                    {{ submissionTitle }}
 
                   </h2>
 
-                  <p class="text-gray-500 mt-1">By: Sarah Johnson • May 15, 2023</p>
+                  <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
 
                 </div>
 
@@ -1152,7 +1162,7 @@
 
                 <h3 class="font-semibold text-gray-700">Overall Score</h3>
 
-                <span class="text-blue-500 text-xl font-bold">82/100</span>
+                <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
 
               </div>
 
@@ -1208,7 +1218,7 @@
 
                 <div class="absolute inset-0 flex items-center justify-center">
 
-                  <span class="text-2xl font-bold text-gray-700">B+</span>
+                  <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
 
                 </div>
 
@@ -1478,7 +1488,7 @@
 
         <div class="flex flex-col gap-3">
 
-          @for (item of feedbacks; track item) {
+          @for (item of feedbacks; track item.category) {
 
           <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
 
@@ -1534,6 +1544,8 @@
 
                   formControlName="message"
 
+                  readonly
+
                   class="input-text w-full text-sm h-32 resize-none bg-white"
 
                   placeholder=""
@@ -1541,13 +1553,6 @@
                 >
 
                 </textarea>
-
-                <div class="flex justify-end">
-
-                  <button class="btn-primary-sm w-fit">Submit</button>
-
-                </div>
-
               </div>
 
             </div>
