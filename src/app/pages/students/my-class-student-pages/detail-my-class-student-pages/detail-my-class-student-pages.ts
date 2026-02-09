@@ -67,7 +67,7 @@ export class DetailMyClassStudentPages {
   constructor(private router: Router) {}
 
   async ngOnInit() {
-    this.classId = this.route.snapshot.paramMap.get('slug');
+    this.classId = this.route.snapshot.paramMap.get('slug') || this.route.snapshot.paramMap.get('classId');
     await this.loadClassSummary();
     await this.loadAssignments();
   }
