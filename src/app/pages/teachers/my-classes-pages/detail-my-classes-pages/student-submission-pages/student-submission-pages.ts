@@ -464,6 +464,12 @@ export class StudentSubmissionPages {
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      const ua = navigator.userAgent || '';
+      const isIos = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+      if (isIos) {
+        window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      }
     } catch (err: any) {
       this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
     } finally {
