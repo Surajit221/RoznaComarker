@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AlertService } from '../../../services/alert.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DeviceService } from '../../../services/device.service';
 import { AuthService } from '../../../auth/auth.service';
 
@@ -22,6 +22,7 @@ export class LoginPages {
     private fb: FormBuilder,
     private alert: AlertService,
     private router: Router,
+    private route: ActivatedRoute,
     private auth: AuthService
   ) {
     this.loginForm = this.fb.group({
@@ -50,6 +51,47 @@ export class LoginPages {
     }
   }
 
+  private getPostLoginRedirect(): string | null {
+    const fromQuery = this.route.snapshot.queryParamMap.get('redirect');
+    const fromStorage = (() => {
+      try {
+        return localStorage.getItem('post_login_redirect');
+      } catch {
+        return null;
+      }
+    })();
+
+    const redirect = (fromQuery || fromStorage || '').trim();
+    if (!redirect) return null;
+
+    // Only allow internal absolute paths. Prevent open redirects and accidental loops.
+    if (!redirect.startsWith('/')) return null;
+    if (redirect.startsWith('//')) return null;
+    if (redirect.startsWith('/login') || redirect.startsWith('/register')) return null;
+
+    return redirect;
+  }
+
+  private clearPostLoginRedirect() {
+    try {
+      localStorage.removeItem('post_login_redirect');
+    } catch {
+      // ignore
+    }
+  }
+
+  private navigateAfterLogin(role: 'teacher' | 'student') {
+    const redirect = this.getPostLoginRedirect();
+    this.clearPostLoginRedirect();
+
+    if (redirect) {
+      this.router.navigateByUrl(redirect);
+      return;
+    }
+
+    this.navigateByRole(role);
+  }
+
   async onSubmit() {
     if (this.isLoading) return;
     if (this.loginForm.invalid) return;
@@ -67,7 +109,7 @@ export class LoginPages {
       if (backendRole !== role) {
         await this.auth.setMyRole(role);
       }
-      this.navigateByRole(role);
+      this.navigateAfterLogin(role);
     } catch (err: any) {
       this.alert.showError('Login failed', err?.message || 'Please check your credentials and try again');
     } finally {
@@ -92,7 +134,7 @@ export class LoginPages {
       if (backendRole !== role) {
         await this.auth.setMyRole(role);
       }
-      this.navigateByRole(role);
+      this.navigateAfterLogin(role);
     } catch (err: any) {
       this.alert.showError('Signup failed', err?.message || 'Please try again');
     } finally {
@@ -116,7 +158,7 @@ export class LoginPages {
       if (backendRole !== role) {
         await this.auth.setMyRole(role);
       }
-      this.navigateByRole(role);
+      this.navigateAfterLogin(role);
     } catch (err: any) {
       this.alert.showError('Google login failed', err?.message || 'Please try again');
     } finally {

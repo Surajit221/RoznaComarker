@@ -31,11 +31,35 @@ export class AuthErrorInterceptor implements HttpInterceptor {
 
         if ((err.status === 401 || err.status === 403) && !this.isHandlingAuthError) {
           this.isHandlingAuthError = true;
+
+          const attemptedUrl = (() => {
+            try {
+              return (this.router.url || '').trim();
+            } catch {
+              return '';
+            }
+          })();
+
+          if (attemptedUrl && attemptedUrl.startsWith('/') && !attemptedUrl.startsWith('/login') && !attemptedUrl.startsWith('/register')) {
+            try {
+              if (!localStorage.getItem('post_login_redirect')) {
+                localStorage.setItem('post_login_redirect', attemptedUrl);
+              }
+            } catch {
+              // ignore storage errors
+            }
+          }
+
           Promise.resolve()
             .then(() => this.auth.logout())
             .finally(() => {
               this.isHandlingAuthError = false;
-              this.router.navigate(['/login']);
+              this.router.navigate(['/login'], {
+                queryParams:
+                  attemptedUrl && attemptedUrl.startsWith('/') && !attemptedUrl.startsWith('/login') && !attemptedUrl.startsWith('/register')
+                    ? { redirect: attemptedUrl }
+                    : undefined
+              });
             });
         }
 
