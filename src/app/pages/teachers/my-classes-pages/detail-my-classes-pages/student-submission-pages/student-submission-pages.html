@@ -471,6 +471,21 @@
     <button type="button" class="btn-primary-sm" (click)="openSheetSubmission = true">View All Submission</button>
   </div>
 
+  <div class="w-full flex flex-wrap justify-end gap-2 mb-3">
+    <button type="button" class="btn-info-sm" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
+    <button type="button" class="btn-primary-sm" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
+      @if (isPdfDownloading) {
+      <span class="pdf-loading">
+        <span class="pdf-spinner" aria-hidden="true"></span>
+        Generating...
+      </span>
+      } @else {
+      Download PDF
+      }
+    </button>
+    <button type="button" class="btn-warning-sm" (click)="onEditRubric()">View / Edit Rubric</button>
+  </div>
+
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
     <button class="btn-warning-sm" [disabled]="!canGoPrev" (click)="onPrevSubmission()"><i class="bx bx-chevron-left"></i></button>
     <div class="flex flex-col justify-center items-center">
@@ -564,29 +579,12 @@
                   </h4>
 
                   <div class="space-y-4">
-                    <div class="suggestion-item border-red-400">
-                      <h5 class="font-medium text-gray-800">Relevance and Idea Development</h5>
-                      <p class="text-sm text-gray-600 mt-1">
-                        Some ideas are not relevant to the main topic. Develop arguments with
-                        supporting examples and data.
-                      </p>
+                    @for (item of areasForImprovement; track item.title) {
+                    <div class="suggestion-item" [ngClass]="item.borderClass">
+                      <h5 class="font-medium text-gray-800">{{ item.title }}</h5>
+                      <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
                     </div>
-
-                    <div class="suggestion-item border-blue-400">
-                      <h5 class="font-medium text-gray-800">Structure and Coherence</h5>
-                      <p class="text-sm text-gray-600 mt-1">
-                        Improve logical flow between paragraphs and ensure each paragraph has a
-                        clear topic sentence.
-                      </p>
-                    </div>
-
-                    <div class="suggestion-item border-green-400">
-                      <h5 class="font-medium text-gray-800">Grammar and Spelling</h5>
-                      <p class="text-sm text-gray-600 mt-1">
-                        Correct basic grammar mistakes and pay attention to spelling of technical
-                        terms.
-                      </p>
-                    </div>
+                    }
                   </div>
                 </div>
 
@@ -598,35 +596,15 @@
                   </h4>
 
                   <div class="space-y-4">
+                    @for (s of strengths; track s.title) {
                     <div class="flex items-start">
                       <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
                       <div>
-                        <h5 class="font-medium text-gray-800">Relevant Topic</h5>
-                        <p class="text-sm text-gray-600 mt-1">
-                          Topic selection is appropriate to modern context and important.
-                        </p>
+                        <h5 class="font-medium text-gray-800">{{ s.title }}</h5>
+                        <p class="text-sm text-gray-600 mt-1">{{ s.description }}</p>
                       </div>
                     </div>
-
-                    <div class="flex items-start">
-                      <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
-                      <div>
-                        <h5 class="font-medium text-gray-800">Basic Structure</h5>
-                        <p class="text-sm text-gray-600 mt-1">
-                          Essay has clear introduction, body, and conclusion structure.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div class="flex items-start">
-                      <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
-                      <div>
-                        <h5 class="font-medium text-gray-800">Awareness of Issues</h5>
-                        <p class="text-sm text-gray-600 mt-1">
-                          Shows understanding of technology challenges in education.
-                        </p>
-                      </div>
-                    </div>
+                    }
                   </div>
                 </div>
               </div>
@@ -640,11 +618,9 @@
                   Action Steps for Improvement
                 </h4>
                 <ol class="list-decimal list-inside text-gray-700 space-y-2">
-                  <li>Focus on the main topic - technology's impact on education</li>
-                  <li>Use specific examples and supporting data to strengthen arguments</li>
-                  <li>Improve paragraph structure with clear topic sentences</li>
-                  <li>Review grammar usage and spelling carefully</li>
-                  <li>Develop a stronger conclusion that summarizes key points</li>
+                  @for (step of actionSteps; track step) {
+                  <li>{{ step }}</li>
+                  }
                 </ol>
               </div>
             </div>
