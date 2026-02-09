@@ -7,7 +7,9 @@ import { MySubmissionPage } from './my-class-student-pages/detail-my-class-stude
 import { MyNotificationStudentPages } from './my-notification-student-pages/my-notification-student-pages';
 import { MyProfileStudentPages } from './my-profile-student-pages/my-profile-student-pages';
 import { HandwrittenOcrPage } from './handwritten-ocr-page/handwritten-ocr-page';
+import { JoinClassLinkPages } from './join-class-link-pages/join-class-link-pages';
 import { StudentGuard } from '../../auth/student.guard';
+
 export const STUDENT_ROUTE: Routes = [
   {
     path: 'student',
@@ -20,6 +22,8 @@ export const STUDENT_ROUTE: Routes = [
       { path: 'my-classes', component: MyClassStudentPages },
       { path: 'my-classes/detail/:slug', component: DetailMyClassStudentPages },
       { path: 'my-classes/detail/my-submissions/:slug', component: MySubmissionPage },
+      { path: 'join-class', component: JoinClassLinkPages },
+      { path: 'classroom/:classId', component: DetailMyClassStudentPages },
       { path: 'handwritten-ocr', component: HandwrittenOcrPage },
     ],
   },

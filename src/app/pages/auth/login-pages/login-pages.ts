@@ -5,6 +5,7 @@ import { AlertService } from '../../../services/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DeviceService } from '../../../services/device.service';
 import { AuthService } from '../../../auth/auth.service';
+import { JoinIntentService } from '../../../services/join-intent.service';
 
 @Component({
   selector: 'app-login-pages',
@@ -23,7 +24,8 @@ export class LoginPages {
     private alert: AlertService,
     private router: Router,
     private route: ActivatedRoute,
-    private auth: AuthService
+    private auth: AuthService,
+    private joinIntent: JoinIntentService
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -81,6 +83,21 @@ export class LoginPages {
   }
 
   private navigateAfterLogin(role: 'teacher' | 'student') {
+    const intent = this.joinIntent.consume();
+    if (intent && intent.type === 'JOIN_CLASS') {
+      // Ensure we never try to join as teacher.
+      if (role !== 'student') {
+        this.alert.showWarning('Student access required', 'Please log in as a Student to join a class.');
+        this.navigateByRole(role);
+        return;
+      }
+
+      this.router.navigate(['/student/join-class'], {
+        queryParams: { joinCode: intent.joinCode },
+      });
+      return;
+    }
+
     const redirect = this.getPostLoginRedirect();
     this.clearPostLoginRedirect();
 
