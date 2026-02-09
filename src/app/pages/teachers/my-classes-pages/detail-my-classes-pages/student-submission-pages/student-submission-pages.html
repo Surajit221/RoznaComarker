@@ -1,903 +1,1708 @@
 <ng-container>
+
   @if(device.isDesktop()) {
+
   <div class="mb-6 flex flex-row justify-between items-center">
+
     <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
+
     <div class="flex flex-row gap-2">
+
       <button type="button" class="btn-primary" (click)="openSheetSubmission = true">
+
         View All Submission
+
       </button>
+
       <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button>
+
     </div>
+
   </div>
 
+
+
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
+
     <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
+
     <div class="flex flex-col justify-center items-center">
+
       <p class="font-bold text-2xl">{{ studentName }}</p>
+
       <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
+
     </div>
+
     <button class="btn-primary" [disabled]="!canGoNext" (click)="onNextSubmission()">Next</button>
+
   </div>
+
   @if(isUploadedFile) {
+
   <div class="w-full mb-4">
+
     <div class="flex flex-col gap-4">
+
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
+
         <div class="flex flex-row justify-between items-center">
+
           <p class="text-2xl font-bold">Student's Uploaded File</p>
+
           <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
+
             View Student Transcribed Text
+
           </button>
+
         </div>
+
         <div class="w-full rounded-2xl overflow-hidden">
+
           <app-image-annotation-overlay
+
             [imageUrl]="essayImageUrl || 'img/default-img.png'"
+
             [annotations]="annotations"
+
             [page]="1"
+
             role="teacher"
+
           ></app-image-annotation-overlay>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
   } @else {
+
   <div class="w-full mb-4">
+
     <div class="flex flex-col gap-4">
+
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
+
         <div class="flex flex-row justify-between items-center">
+
           <p class="text-2xl font-bold">Student's Transcribed Text</p>
+
           <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
+
             View Student Uploaded File
+
           </button>
+
         </div>
+
         <div class="bg-[#F3F3F3] p-4 rounded-2xl">
+
           <div class="container mx-auto px-4">
+
             <div class="grid lg:grid-cols-4 gap-4">
+
               <!-- Sidebar with Statistics -->
+
               <div class="lg:col-span-1 space-y-4">
+
                 <!-- Score Card -->
+
                 <div class="gradient-card p-6 hover-lift">
+
                   <div class="flex items-center justify-between mb-4">
+
                     <h3 class="font-semibold text-gray-700">Overall Score</h3>
+
                     <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
+
                   </div>
+
+
 
                   <div class="relative w-32 h-32 mx-auto mb-4">
+
                     <svg class="progress-ring w-32 h-32" width="120" height="120">
+
                       <circle
+
                         class="text-gray-200"
+
                         stroke-width="10"
+
                         stroke="currentColor"
+
                         fill="transparent"
+
                         r="52"
+
                         cx="60"
+
                         cy="60"
+
                       />
+
                       <circle
+
                         class="progress-ring-circle text-blue-500"
+
                         stroke-width="10"
+
                         stroke-dasharray="326.56"
+
                         [attr.stroke-dashoffset]="progressRingOffset"
+
                         stroke-linecap="round"
+
                         stroke="currentColor"
+
                         fill="transparent"
+
                         r="52"
+
                         cx="60"
+
                         cy="60"
+
                       />
+
                     </svg>
+
                     <div class="absolute inset-0 flex items-center justify-center">
+
                       <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
+
                     </div>
+
                   </div>
+
+
 
                   <div class="text-center text-sm text-gray-600">
+
                     <p>Strong effort with some areas for refinement</p>
+
                   </div>
+
                 </div>
+
+
 
                 <!-- Correction Stats -->
+
                 <div class="gradient-card p-6 hover-lift">
+
                   <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
 
+
+
                   <div class="space-y-4">
+
                     <div>
+
                       <div class="flex justify-between text-sm mb-1">
+
                         <span class="text-gray-600">Content Issues</span>
+
                         <span class="font-medium">{{ contentIssuesCount }}</span>
+
                       </div>
+
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                         <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
+
                       </div>
+
                     </div>
 
+
+
                     <div>
+
                       <div class="flex justify-between text-sm mb-1">
+
                         <span class="text-gray-600">Grammar Issues</span>
+
                         <span class="font-medium">{{ grammarIssuesCount }}</span>
+
                       </div>
+
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                         <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
+
                       </div>
+
                     </div>
 
+
+
                     <div>
+
                       <div class="flex justify-between text-sm mb-1">
+
                         <span class="text-gray-600">Organization Issues</span>
+
                         <span class="font-medium">{{ organizationIssuesCount }}</span>
+
                       </div>
+
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                         <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
+
                       </div>
+
                     </div>
 
+
+
                     <div>
+
                       <div class="flex justify-between text-sm mb-1">
+
                         <span class="text-gray-600">Vocabulary Issues</span>
+
                         <span class="font-medium">{{ vocabularyIssuesCount }}</span>
+
                       </div>
+
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                         <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
+
                       </div>
+
                     </div>
+
                   </div>
+
                 </div>
+
+
 
                 <!-- Correction Legend -->
+
                 <div class="gradient-card p-6 hover-lift">
+
                   <h3 class="font-semibold text-gray-700 mb-4">Correction Legend</h3>
 
+
+
                   <div class="space-y-3">
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-red-100 text-red-800">REL</span>
+
                       <span class="text-sm text-gray-600 ml-2">Relevance</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-red-100 text-red-800">DEV</span>
+
                       <span class="text-sm text-gray-600 ml-2">Idea Development</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-red-100 text-red-800">TA</span>
+
                       <span class="text-sm text-gray-600 ml-2">Task Achievement</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-blue-100 text-blue-800">COH</span>
+
                       <span class="text-sm text-gray-600 ml-2">Coherence</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-blue-100 text-blue-800">TS</span>
+
                       <span class="text-sm text-gray-600 ml-2">Topic Sentence</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-green-100 text-green-800">T</span>
+
                       <span class="text-sm text-gray-600 ml-2">Tense</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-green-100 text-green-800">AGR</span>
+
                       <span class="text-sm text-gray-600 ml-2">Agreement</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-purple-100 text-purple-800">WC</span>
+
                       <span class="text-sm text-gray-600 ml-2">Word Choice</span>
+
                     </div>
+
                     <div class="flex items-center">
+
                       <span class="correction-badge bg-yellow-100 text-yellow-800">SP</span>
+
                       <span class="text-sm text-gray-600 ml-2">Spelling</span>
+
                     </div>
+
                   </div>
+
                 </div>
+
               </div>
+
+
 
               <!-- Main Content Area -->
+
               <div class="lg:col-span-3 space-y-8">
+
                 <!-- Essay with Corrections -->
+
                 <div class="gradient-card hover-lift fade-in p-4">
+
                   <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+
                     <div>
+
                       <h2 class="text-2xl font-bold text-gray-800">
+
                         {{ submissionTitle }}
+
                       </h2>
+
                       <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
+
                     </div>
+
                     <div class="flex space-x-2">
+
                       <span
+
                         class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+
                         >Education</span
+
                       >
+
                       <span
+
                         class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
+
                         >Technology</span
+
                       >
+
                     </div>
+
                   </div>
+
+
 
                   <article class="text-gray-700 leading-relaxed text-lg space-y-6">
+
                     <section class="p-4 rounded-lg bg-white border border-gray-200">
+
                       @if (ocrWords.length) {
+
                       <app-tokenized-transcript
+
                         class="text-sm leading-relaxed text-gray-700 font-sans"
+
                         [ocrWords]="ocrWords"
+
                         [annotations]="annotations"
+
                       ></app-tokenized-transcript>
+
                       } @else {
+
                       @if (writingCorrectionsHtml) {
+
                       <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans" [innerHTML]="writingCorrectionsHtml"></pre>
+
                       }
+
                       }
+
                     </section>
+
                   </article>
+
                 </div>
+
+
 
                 <!-- Feedback and Suggestions -->
+
                 <div class="gradient-card hover-lift fade-in p-4">
+
                   <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+
                     <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
+
                     Detailed Feedback & Suggestions
+
                   </h3>
 
+
+
                   <div class="grid md:grid-cols-2 gap-6">
+
                     <!-- Areas for Improvement -->
+
                     <div>
+
                       <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+
                         <i class="fas fa-tools text-red-500 mr-2"></i>
+
                         Areas for Improvement
+
                       </h4>
 
+
+
                       <div class="space-y-4">
+
                         @for (item of areasForImprovement; track item.title) {
+
                         <div class="suggestion-item" [ngClass]="item.borderClass">
+
                           <h5 class="font-medium text-gray-800">{{ item.title }}</h5>
+
                           <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
+
                         </div>
+
                         }
+
                       </div>
+
                     </div>
+
+
 
                     <!-- Strengths -->
+
                     <div>
+
                       <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+
                         <i class="fas fa-star text-yellow-500 mr-2"></i>
+
                         Strengths
+
                       </h4>
 
+
+
                       <div class="space-y-4">
+
                         @for (s of strengths; track s.title) {
+
                         <div class="flex items-start">
+
                           <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
+
                           <div>
+
                             <h5 class="font-medium text-gray-800">{{ s.title }}</h5>
+
                             <p class="text-sm text-gray-600 mt-1">{{ s.description }}</p>
+
                           </div>
+
                         </div>
+
                         }
+
                       </div>
+
                     </div>
+
                   </div>
+
+
 
                   <!-- Action Steps -->
+
                   <div
+
                     class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200"
+
                   >
+
                     <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
+
                       <i class="fas fa-road text-blue-500 mr-2"></i>
+
                       Action Steps for Improvement
+
                     </h4>
+
                     <ol class="list-decimal list-inside text-gray-700 space-y-2">
+
                       @for (step of actionSteps; track step) {
+
                       <li>{{ step }}</li>
+
                       }
+
                     </ol>
+
                   </div>
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
   }
+
+
 
   <div class="flex flex-col gap-4">
+
     <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
+
       <div class="flex flex-row justify-between items-center">
+
         <p class="text-2xl font-bold">AI Feedback</p>
+
         <div class="flex flex-row gap-2">
+
           <button type="button" class="btn-info" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
+
           <button type="button" class="btn-primary" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
+
             @if (isPdfDownloading) {
+
             <span class="pdf-loading">
+
               <span class="pdf-spinner" aria-hidden="true"></span>
+
               Generating...
+
             </span>
+
             } @else {
+
             Download PDF
+
             }
+
           </button>
+
           <button type="button" class="btn-warning" (click)="onEditRubric()">View / Edit Rubric</button>
+
         </div>
+
       </div>
+
       <div class="">
+
         <div class="flex flex-col gap-3">
+
           @if (rubricFeedbackItems.length) {
+
           @for (item of rubricFeedbackItems; track item.category) {
+
           <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+
             <div class="col-span-5">
+
               <div class="flex flex-row gap-2 items-center">
+
                 <p class="text-xl font-bold mb-1">
+
                   {{ item.category }}
+
                 </p>
+
                 <div
+
                   class="rounded-full bg-[#008081] flex items-center justify-center"
+
                   [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+
                 >
+
                   <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+
                     {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+
                   </p>
+
                 </div>
+
               </div>
+
               <p>
+
                 {{ item.description }}
+
               </p>
+
             </div>
+
           </div>
+
           }
+
           } @else {
+
           <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+
             <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed text to compute dynamic rubric.</p>
+
           </div>
+
           }
+
           <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
+
             <p class="text-xl font-bold mb-1">Teacher Comments</p>
+
             <div class="flex flex-col gap-1">
+
               <div class="w-full">
+
                 <textarea
+
                   formControlName="message"
+
                   class="input-text w-full h-32 resize-none bg-white"
+
                   placeholder="Type your message..."
+
                 ></textarea>
+
               </div>
+
             </div>
+
             <div class="w-full flex justify-end mt-4">
+
               <button type="button" class="btn-primary" (click)="submitFeedback()">Submit</button>
+
             </div>
+
           </div>
+
+
 
           <app-modal-dialog [open]="showDialog" (closed)="closeDialog()">
+
             <div class="flex flex-col gap-4">
+
               <div class="flex flex-row justify-between items-center">
+
                 <p class="text-2xl font-bold">Rubric</p>
+
                 <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
+
               </div>
+
+
 
               <div class="flex flex-col gap-3">
+
                 @if (rubricFeedbackItems.length) {
+
                 @for (item of rubricFeedbackItems; track item.category) {
+
                 <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+
                   <div class="col-span-5">
+
                     <div class="flex flex-row gap-2 items-center">
+
                       <p class="text-xl font-bold mb-1">{{ item.category }}</p>
+
                       <div
+
                         class="rounded-full bg-[#008081] flex items-center justify-center"
+
                         [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+
                       >
+
                         <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+
                           {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+
                         </p>
+
                       </div>
+
                     </div>
+
                     <p>{{ item.description }}</p>
+
                   </div>
+
                 </div>
+
                 }
+
                 } @else {
+
                 <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+
                   <p class="text-gray-600">No rubric feedback available yet.</p>
+
                 </div>
+
                 }
+
               </div>
+
+
 
               <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="rubricEditForm">
+
                 <p class="text-xl font-bold mb-3">Teacher Overrides</p>
 
+
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
                   <div class="flex flex-col gap-1">
+
                     <p class="text-sm font-semibold">Grammar Score (0-5)</p>
+
                     <input type="number" class="input-text bg-white" formControlName="grammarScore" min="0" max="5" step="0.1" />
+
                   </div>
+
                   <div class="flex flex-col gap-1">
+
                     <p class="text-sm font-semibold">Structure Score (0-5)</p>
+
                     <input type="number" class="input-text bg-white" formControlName="structureScore" min="0" max="5" step="0.1" />
+
                   </div>
+
                   <div class="flex flex-col gap-1">
+
                     <p class="text-sm font-semibold">Content Score (0-5)</p>
+
                     <input type="number" class="input-text bg-white" formControlName="contentScore" min="0" max="5" step="0.1" />
+
                   </div>
+
                   <div class="flex flex-col gap-1">
+
                     <p class="text-sm font-semibold">Vocabulary Score (0-5)</p>
+
                     <input type="number" class="input-text bg-white" formControlName="vocabularyScore" min="0" max="5" step="0.1" />
+
                   </div>
+
                   <div class="flex flex-col gap-1">
+
                     <p class="text-sm font-semibold">Task Achievement (0-5)</p>
+
                     <input type="number" class="input-text bg-white" formControlName="taskAchievementScore" min="0" max="5" step="0.1" />
+
                   </div>
+
                   <div class="flex flex-col gap-1">
+
                     <p class="text-sm font-semibold">Overall Score (0-100)</p>
+
                     <input type="number" class="input-text bg-white" formControlName="overallScore" min="0" max="100" step="1" />
+
                   </div>
+
                 </div>
 
+
+
                 <div class="flex flex-col gap-1 mt-4">
+
                   <p class="text-sm font-semibold">Override Reason</p>
+
                   <textarea class="input-text w-full h-20 resize-none bg-white" formControlName="overrideReason" placeholder="Reason for overriding AI rubric..."></textarea>
+
                 </div>
 
+
+
                 <div class="flex flex-col gap-1 mt-4">
+
                   <p class="text-sm font-semibold">Teacher Comments</p>
+
                   <textarea class="input-text w-full h-24 resize-none bg-white" formControlName="teacherComments" placeholder="Teacher comments..." ></textarea>
+
                 </div>
+
+
 
                 <div class="w-full flex justify-end mt-4">
+
                   <button type="button" class="btn-primary" [disabled]="isRubricSaving" (click)="saveRubricOverrides()">
+
                     @if (isRubricSaving) { Saving... } @else { Save }
+
                   </button>
+
                 </div>
+
               </div>
+
             </div>
+
           </app-modal-dialog>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
+
+
 
 
   }
 
+
+
 <app-modal-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
+
   <app-dialog-view-submissions
+
     [assignmentId]="assignmentId"
+
     [navigateOnSelect]="false"
+
     (selected)="onSubmissionSelected($event)"
+
     (closed)="onCloseSubmission()"
+
   ></app-dialog-view-submissions>
+
 </app-modal-dialog>
 
+
+
 <ng-container *ngIf="device.isMobile() || device.isTablet()">
+
   <app-app-bar-back-button
+
     [title]="classTitle"
+
     (back)="toBack()"
+
   ></app-app-bar-back-button>
 
+
+
   <div class="w-full grid grid-cols-2 gap-2 mb-3 items-start">
+
     <button type="button" class="btn-info-sm w-full" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
 
+
+
     <div class="w-full flex flex-col gap-2">
+
       <button type="button" class="btn-primary-sm w-full" (click)="openSheetSubmission = true">View All Submission</button>
 
+
+
       <button type="button" class="btn-primary-sm w-full" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
+
         @if (isPdfDownloading) {
+
         <span class="pdf-loading">
+
           <span class="pdf-spinner" aria-hidden="true"></span>
+
           Generating...
+
         </span>
+
         } @else {
+
         Download PDF
+
         }
+
       </button>
 
+
+
       <button type="button" class="btn-warning-sm w-full" (click)="onEditRubric()">View / Edit Rubric</button>
+
     </div>
+
   </div>
+
+
 
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
+
     <button class="btn-warning-sm" [disabled]="!canGoPrev" (click)="onPrevSubmission()"><i class="bx bx-chevron-left"></i></button>
+
     <div class="flex flex-col justify-center items-center">
+
       <p class="font-bold text-base">{{ studentName }}</p>
+
       <p class="font-bold text-xs text-gray-500">ID:{{ studentDisplayId }}</p>
+
     </div>
+
     <button class="btn-primary-sm" [disabled]="!canGoNext" (click)="onNextSubmission()"><i class="bx bx-chevron-right"></i></button>
+
   </div>
+
+
 
   <div class="w-full flex flex-col gap-4 mb-24">
+
     <div class="w-full bg-white p-4 rounded-2xl flex flex-col gap-4">
+
       <div class="grid grid-cols-2 gap-2 justify-center items-center">
+
         <button
+
           class=""
+
           [ngClass]="{ 'btn-warning-sm': activeTab === 'uploaded-file' }"
+
           (click)="onTabSelected('uploaded-file')"
+
         >
+
           Uploaded File
+
         </button>
+
         <button
+
           class=""
+
           [ngClass]="{ 'btn-warning-sm': activeTab === 'transcribed-text' }"
+
           (click)="onTabSelected('transcribed-text')"
+
         >
+
           Transcribed Text
+
         </button>
+
       </div>
+
+
 
       <ng-container *ngIf="activeTab === 'uploaded-file'">
+
       <div class="w-full rounded-2xl overflow-hidden">
+
         <app-image-annotation-overlay
+
           [imageUrl]="essayImageUrl || 'img/default-img.png'"
+
           [annotations]="annotations"
+
           [page]="1"
+
           role="teacher"
+
         ></app-image-annotation-overlay>
+
       </div>
+
       </ng-container>
+
       <ng-container *ngIf="activeTab === 'transcribed-text'">
+
       <div class="container mx-auto overflow-x-hidden">
+
         <div class="flex flex-col gap-4">
+
           <!-- Main Content Area -->
+
           <div class="space-y-8">
+
             <!-- Essay with Corrections -->
+
             <div class="gradient-card p-2 hover-lift fade-in">
+
               <div class="flex flex-col mb-6 pb-4 border-b border-gray-200">
+
                 <div>
+
                   <h2 class="text-lg font-bold text-gray-800">
+
                     {{ submissionTitle }}
+
                   </h2>
+
                   <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
+
                 </div>
+
                 <div class="flex space-x-2 mt-2">
+
                   <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+
                     >Education</span
+
                   >
+
                   <span
+
                     class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
+
                     >Technology</span
+
                   >
+
                 </div>
+
               </div>
+
+
 
               <!-- Essay Text with Corrections -->
+
               @if (ocrWords.length) {
+
               <app-tokenized-transcript
+
                 class="text-sm leading-relaxed text-gray-700 font-sans"
+
                 [ocrWords]="ocrWords"
+
                 [annotations]="annotations"
+
               ></app-tokenized-transcript>
+
               } @else {
+
               @if (writingCorrectionsHtml) {
+
               <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans" [innerHTML]="writingCorrectionsHtml"></pre>
+
               }
+
               }
+
             </div>
+
+
 
             <!-- Feedback and Suggestions -->
+
             <div class="gradient-card hover-lift fade-in">
+
               <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+
                 <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
+
                 Detailed Feedback & Suggestions
+
               </h3>
 
+
+
               <div class="grid md:grid-cols-2 gap-6">
+
                 <!-- Areas for Improvement -->
+
                 <div>
+
                   <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+
                     <i class="fas fa-tools text-red-500 mr-2"></i>
+
                     Areas for Improvement
+
                   </h4>
 
+
+
                   <div class="space-y-4">
+
                     @for (item of areasForImprovement; track item.title) {
+
                     <div class="suggestion-item" [ngClass]="item.borderClass">
+
                       <h5 class="font-medium text-gray-800">{{ item.title }}</h5>
+
                       <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
+
                     </div>
+
                     }
+
                   </div>
+
                 </div>
+
+
 
                 <!-- Strengths -->
+
                 <div>
+
                   <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
+
                     <i class="fas fa-star text-yellow-500 mr-2"></i>
+
                     Strengths
+
                   </h4>
 
+
+
                   <div class="space-y-4">
+
                     @for (s of strengths; track s.title) {
+
                     <div class="flex items-start">
+
                       <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
+
                       <div>
+
                         <h5 class="font-medium text-gray-800">{{ s.title }}</h5>
+
                         <p class="text-sm text-gray-600 mt-1">{{ s.description }}</p>
+
                       </div>
+
                     </div>
+
                     }
+
                   </div>
+
                 </div>
+
               </div>
+
+
 
               <!-- Action Steps -->
+
               <div
+
                 class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200"
+
               >
+
                 <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
+
                   <i class="fas fa-road text-blue-500 mr-2"></i>
+
                   Action Steps for Improvement
+
                 </h4>
+
                 <ol class="list-decimal list-inside text-gray-700 space-y-2">
+
                   @for (step of actionSteps; track step) {
+
                   <li>{{ step }}</li>
+
                   }
+
                 </ol>
+
               </div>
+
             </div>
+
           </div>
+
+
 
           <div class="lg:col-span-1 space-y-6">
+
             <div class="gradient-card p-6 hover-lift">
+
               <div class="flex items-center justify-between mb-4">
+
                 <h3 class="font-semibold text-gray-700">Overall Score</h3>
+
                 <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
+
               </div>
+
+
 
               <div class="relative w-32 h-32 mx-auto mb-4">
+
                 <svg class="progress-ring w-32 h-32" width="120" height="120">
+
                   <circle
+
                     class="text-gray-200"
+
                     stroke-width="10"
+
                     stroke="currentColor"
+
                     fill="transparent"
+
                     r="52"
+
                     cx="60"
+
                     cy="60"
+
                   />
+
                   <circle
+
                     class="progress-ring-circle text-blue-500"
+
                     stroke-width="10"
+
                     stroke-dasharray="326.56"
+
                     stroke-dashoffset="58.78"
+
                     stroke-linecap="round"
+
                     stroke="currentColor"
+
                     fill="transparent"
+
                     r="52"
+
                     cx="60"
+
                     cy="60"
+
                   />
+
                 </svg>
+
                 <div class="absolute inset-0 flex items-center justify-center">
+
                   <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
+
                 </div>
+
               </div>
+
+
 
               <div class="text-center text-sm text-gray-600">
+
                 <p>Strong effort with some areas for refinement</p>
+
               </div>
+
             </div>
+
+
 
             <!-- Correction Stats -->
+
             <div class="gradient-card p-6 hover-lift">
+
               <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
 
+
+
               <div class="space-y-4">
+
                 <div>
+
                   <div class="flex justify-between text-sm mb-1">
+
                     <span class="text-gray-600">Content Issues</span>
+
                     <span class="font-medium">4</span>
+
                   </div>
+
                   <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                     <div class="h-full bg-red-400 rounded-full" style="width: 36%"></div>
+
                   </div>
+
                 </div>
 
+
+
                 <div>
+
                   <div class="flex justify-between text-sm mb-1">
+
                     <span class="text-gray-600">Grammar Issues</span>
+
                     <span class="font-medium">3</span>
+
                   </div>
+
                   <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                     <div class="h-full bg-green-400 rounded-full" style="width: 27%"></div>
+
                   </div>
+
                 </div>
 
+
+
                 <div>
+
                   <div class="flex justify-between text-sm mb-1">
+
                     <span class="text-gray-600">Organization Issues</span>
+
                     <span class="font-medium">2</span>
+
                   </div>
+
                   <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                     <div class="h-full bg-blue-400 rounded-full" style="width: 18%"></div>
+
                   </div>
+
                 </div>
 
+
+
                 <div>
+
                   <div class="flex justify-between text-sm mb-1">
+
                     <span class="text-gray-600">Vocabulary Issues</span>
+
                     <span class="font-medium">3</span>
+
                   </div>
+
                   <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+
                     <div class="h-full bg-purple-400 rounded-full" style="width: 27%"></div>
+
                   </div>
+
                 </div>
+
               </div>
+
             </div>
+
+
 
             <!-- Correction Legend -->
+
             <div class="gradient-card p-6 hover-lift">
+
               <h3 class="font-semibold text-gray-700 mb-4">Correction Legend</h3>
 
+
+
               <div class="space-y-3">
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-red-100 text-red-800">REL</span>
+
                   <span class="text-sm text-gray-600 ml-2">Relevance</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-red-100 text-red-800">DEV</span>
+
                   <span class="text-sm text-gray-600 ml-2">Idea Development</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-red-100 text-red-800">TA</span>
+
                   <span class="text-sm text-gray-600 ml-2">Task Achievement</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-blue-100 text-blue-800">COH</span>
+
                   <span class="text-sm text-gray-600 ml-2">Coherence</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-blue-100 text-blue-800">TS</span>
+
                   <span class="text-sm text-gray-600 ml-2">Topic Sentence</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-green-100 text-green-800">T</span>
+
                   <span class="text-sm text-gray-600 ml-2">Tense</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-green-100 text-green-800">AGR</span>
+
                   <span class="text-sm text-gray-600 ml-2">Agreement</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-purple-100 text-purple-800">WC</span>
+
                   <span class="text-sm text-gray-600 ml-2">Word Choice</span>
+
                 </div>
+
                 <div class="flex items-center">
+
                   <span class="correction-badge bg-yellow-100 text-yellow-800">SP</span>
+
                   <span class="text-sm text-gray-600 ml-2">Spelling</span>
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </div>
+
       </div>
+
       </ng-container>
+
     </div>
+
   </div>
 
-  <div class="flex flex-col gap-4 mb-24">
-    <div class="w-full bg-white p-4 rounded-2xl flex flex-col gap-4">
-      <div class="flex flex-row justify-between items-center">
-        <p class="text-lg font-bold">AI Feedback</p>
-      </div>
 
-      <div class="flex flex-col gap-3">
-        @if (rubricFeedbackItems.length) {
-        @for (item of rubricFeedbackItems; track item.category) {
-        <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
-          <div class="col-span-6">
-            <div class="flex flex-row gap-2 items-center">
-              <p class="text-base font-bold mb-1">{{ item.category }}</p>
-              <div
-                class="rounded-full bg-[#008081] flex items-center justify-center"
-                [ngClass]="item.maxScore === 100 ? 'h-10 w-14' : 'h-9 w-9'"
-              >
-                <p class="font-bold text-white text-xs">{{ item.score | number:'1.1-1' }}/{{ item.maxScore }}</p>
-              </div>
-            </div>
-            <p class="text-sm">{{ item.description }}</p>
-          </div>
-        </div>
-        }
-        } @else {
-        <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
-          <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed text to compute dynamic rubric.</p>
-        </div>
-        }
-
-        <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
-          <p class="text-base font-bold mb-1">Teacher Comments</p>
-          <div class="flex flex-col gap-1">
-            <div class="w-full">
-              <textarea
-                formControlName="message"
-                class="input-text w-full h-32 resize-none bg-white"
-                placeholder="Type your message..."
-              ></textarea>
-            </div>
-          </div>
-          <div class="w-full flex justify-end mt-4">
-            <button type="button" class="btn-primary-sm" (click)="submitFeedback()">Submit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <app-modal-dialog [open]="showDialog" (closed)="closeDialog()">
+
     <div class="flex flex-col gap-4">
+
       <div class="flex flex-row justify-between items-center">
+
         <p class="text-xl font-bold">Rubric</p>
+
         <button type="button" class="btn-danger-sm" (click)="closeDialog()">Close</button>
+
       </div>
+
+
 
       <div class="flex flex-col gap-3">
+
         @if (rubricFeedbackItems.length) {
+
         @for (item of rubricFeedbackItems; track item.category) {
+
         <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
+
           <div class="col-span-6">
+
             <div class="flex flex-row gap-2 items-center">
+
               <p class="text-base font-bold mb-1">{{ item.category }}</p>
+
               <div
+
                 class="rounded-full bg-[#008081] flex items-center justify-center"
+
                 [ngClass]="item.maxScore === 100 ? 'h-10 w-14' : 'h-9 w-9'"
+
               >
+
                 <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-xs'">
+
                   {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+
                 </p>
+
               </div>
+
             </div>
+
             <p class="text-sm">{{ item.description }}</p>
+
           </div>
+
         </div>
+
         }
+
         } @else {
+
         <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
+
           <p class="text-gray-600">No rubric feedback available yet.</p>
+
         </div>
+
         }
+
       </div>
+
+
 
       <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl" [formGroup]="rubricEditForm">
+
         <p class="text-xl font-bold mb-3">Teacher Overrides</p>
 
+
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
           <div class="flex flex-col gap-1">
+
             <p class="text-sm font-semibold">Grammar Score (0-5)</p>
+
             <input type="number" class="input-text bg-white" formControlName="grammarScore" min="0" max="5" step="0.1" />
+
           </div>
+
           <div class="flex flex-col gap-1">
+
             <p class="text-sm font-semibold">Structure Score (0-5)</p>
+
             <input type="number" class="input-text bg-white" formControlName="structureScore" min="0" max="5" step="0.1" />
+
           </div>
+
           <div class="flex flex-col gap-1">
+
             <p class="text-sm font-semibold">Content Score (0-5)</p>
+
             <input type="number" class="input-text bg-white" formControlName="contentScore" min="0" max="5" step="0.1" />
+
           </div>
+
           <div class="flex flex-col gap-1">
+
             <p class="text-sm font-semibold">Vocabulary Score (0-5)</p>
+
             <input type="number" class="input-text bg-white" formControlName="vocabularyScore" min="0" max="5" step="0.1" />
+
           </div>
+
           <div class="flex flex-col gap-1">
+
             <p class="text-sm font-semibold">Task Achievement (0-5)</p>
+
             <input type="number" class="input-text bg-white" formControlName="taskAchievementScore" min="0" max="5" step="0.1" />
+
           </div>
+
           <div class="flex flex-col gap-1">
+
             <p class="text-sm font-semibold">Overall Score (0-100)</p>
+
             <input type="number" class="input-text bg-white" formControlName="overallScore" min="0" max="100" step="1" />
+
           </div>
+
         </div>
 
+
+
         <div class="flex flex-col gap-1 mt-4">
+
           <p class="text-sm font-semibold">Override Reason</p>
+
           <textarea class="input-text w-full h-20 resize-none bg-white" formControlName="overrideReason" placeholder="Reason for overriding AI rubric..."></textarea>
+
         </div>
 
+
+
         <div class="flex flex-col gap-1 mt-4">
+
           <p class="text-sm font-semibold">Teacher Comments</p>
+
           <textarea class="input-text w-full h-24 resize-none bg-white" formControlName="teacherComments" placeholder="Teacher comments..."></textarea>
+
         </div>
+
+
 
         <div class="w-full flex justify-end mt-4">
+
           <button type="button" class="btn-primary-sm" [disabled]="isRubricSaving" (click)="saveRubricOverrides()">
+
             @if (isRubricSaving) { Saving... } @else { Save }
+
           </button>
+
         </div>
+
       </div>
+
     </div>
+
   </app-modal-dialog>
 
-</ng-container>
+
 
 </ng-container>
+
+
+
+</ng-container>
+
