@@ -467,23 +467,25 @@
     (back)="toBack()"
   ></app-app-bar-back-button>
 
-  <div class="w-full flex justify-end mb-3">
-    <button type="button" class="btn-primary-sm" (click)="openSheetSubmission = true">View All Submission</button>
-  </div>
+  <div class="w-full grid grid-cols-2 gap-2 mb-3 items-start">
+    <button type="button" class="btn-info-sm w-full" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
 
-  <div class="w-full flex flex-wrap justify-end gap-2 mb-3">
-    <button type="button" class="btn-info-sm" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
-    <button type="button" class="btn-primary-sm" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
-      @if (isPdfDownloading) {
-      <span class="pdf-loading">
-        <span class="pdf-spinner" aria-hidden="true"></span>
-        Generating...
-      </span>
-      } @else {
-      Download PDF
-      }
-    </button>
-    <button type="button" class="btn-warning-sm" (click)="onEditRubric()">View / Edit Rubric</button>
+    <div class="w-full flex flex-col gap-2">
+      <button type="button" class="btn-primary-sm w-full" (click)="openSheetSubmission = true">View All Submission</button>
+
+      <button type="button" class="btn-primary-sm w-full" [disabled]="isPdfDownloading" (click)="downloadPdfForCurrentSubmission()">
+        @if (isPdfDownloading) {
+        <span class="pdf-loading">
+          <span class="pdf-spinner" aria-hidden="true"></span>
+          Generating...
+        </span>
+        } @else {
+        Download PDF
+        }
+      </button>
+
+      <button type="button" class="btn-warning-sm w-full" (click)="onEditRubric()">View / Edit Rubric</button>
+    </div>
   </div>
 
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
@@ -763,6 +765,90 @@
       </ng-container>
     </div>
   </div>
+
+  <app-modal-dialog [open]="showDialog" (closed)="closeDialog()">
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-row justify-between items-center">
+        <p class="text-xl font-bold">Rubric</p>
+        <button type="button" class="btn-danger-sm" (click)="closeDialog()">Close</button>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        @if (rubricFeedbackItems.length) {
+        @for (item of rubricFeedbackItems; track item.category) {
+        <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
+          <div class="col-span-6">
+            <div class="flex flex-row gap-2 items-center">
+              <p class="text-base font-bold mb-1">{{ item.category }}</p>
+              <div
+                class="rounded-full bg-[#008081] flex items-center justify-center"
+                [ngClass]="item.maxScore === 100 ? 'h-10 w-14' : 'h-9 w-9'"
+              >
+                <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-xs'">
+                  {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+                </p>
+              </div>
+            </div>
+            <p class="text-sm">{{ item.description }}</p>
+          </div>
+        </div>
+        }
+        } @else {
+        <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
+          <p class="text-gray-600">No rubric feedback available yet.</p>
+        </div>
+        }
+      </div>
+
+      <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl" [formGroup]="rubricEditForm">
+        <p class="text-xl font-bold mb-3">Teacher Overrides</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <p class="text-sm font-semibold">Grammar Score (0-5)</p>
+            <input type="number" class="input-text bg-white" formControlName="grammarScore" min="0" max="5" step="0.1" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <p class="text-sm font-semibold">Structure Score (0-5)</p>
+            <input type="number" class="input-text bg-white" formControlName="structureScore" min="0" max="5" step="0.1" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <p class="text-sm font-semibold">Content Score (0-5)</p>
+            <input type="number" class="input-text bg-white" formControlName="contentScore" min="0" max="5" step="0.1" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <p class="text-sm font-semibold">Vocabulary Score (0-5)</p>
+            <input type="number" class="input-text bg-white" formControlName="vocabularyScore" min="0" max="5" step="0.1" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <p class="text-sm font-semibold">Task Achievement (0-5)</p>
+            <input type="number" class="input-text bg-white" formControlName="taskAchievementScore" min="0" max="5" step="0.1" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <p class="text-sm font-semibold">Overall Score (0-100)</p>
+            <input type="number" class="input-text bg-white" formControlName="overallScore" min="0" max="100" step="1" />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 mt-4">
+          <p class="text-sm font-semibold">Override Reason</p>
+          <textarea class="input-text w-full h-20 resize-none bg-white" formControlName="overrideReason" placeholder="Reason for overriding AI rubric..."></textarea>
+        </div>
+
+        <div class="flex flex-col gap-1 mt-4">
+          <p class="text-sm font-semibold">Teacher Comments</p>
+          <textarea class="input-text w-full h-24 resize-none bg-white" formControlName="teacherComments" placeholder="Teacher comments..."></textarea>
+        </div>
+
+        <div class="w-full flex justify-end mt-4">
+          <button type="button" class="btn-primary-sm" [disabled]="isRubricSaving" (click)="saveRubricOverrides()">
+            @if (isRubricSaving) { Saving... } @else { Save }
+          </button>
+        </div>
+      </div>
+    </div>
+  </app-modal-dialog>
+
 </ng-container>
 
 </ng-container>

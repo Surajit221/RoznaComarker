@@ -930,6 +930,12 @@ export class MySubmissionPage {
       a.click();
       a.remove();
 
+      const ua = navigator.userAgent || '';
+      const isIos = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+      if (isIos) {
+        window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      }
+
       // Revoke after download starts to prevent long-lived object URLs.
 
       setTimeout(() => {
