@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { CanActivate, Router, UrlTree } from '@angular/router';
+import { CanActivate, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -20,17 +20,35 @@ function decodeJwtPayload(token: string): any | null {
 export class StudentGuard implements CanActivate {
   constructor(private router: Router) {}
 
-  canActivate(): boolean | UrlTree {
+  canActivate(_route: unknown, state: RouterStateSnapshot): boolean | UrlTree {
     const token = localStorage.getItem('backend_jwt');
-    if (!token) return this.router.parseUrl('/login');
+    if (!token) {
+      return this.buildLoginRedirectTree(state.url);
+    }
 
     const payload = decodeJwtPayload(token);
     const role = payload && payload.role;
 
     if (role !== 'student') {
-      return this.router.parseUrl('/login');
+      return this.buildLoginRedirectTree(state.url);
     }
 
     return true;
+  }
+
+  private buildLoginRedirectTree(attemptedUrl: string): UrlTree {
+    const safeAttemptedUrl = typeof attemptedUrl === 'string' ? attemptedUrl : '';
+
+    if (safeAttemptedUrl && !safeAttemptedUrl.startsWith('/login') && !safeAttemptedUrl.startsWith('/register')) {
+      try {
+        localStorage.setItem('post_login_redirect', safeAttemptedUrl);
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    return this.router.createUrlTree(['/login'], {
+      queryParams: safeAttemptedUrl ? { redirect: safeAttemptedUrl } : undefined,
+    });
   }
 }
