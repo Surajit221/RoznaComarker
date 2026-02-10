@@ -982,11 +982,21 @@ export class StudentSubmissionPages {
       const payload: SubmissionFeedback = {
         ...base,
         submissionId: submission._id,
-        teacherComments
+        aiFeedback: {
+          perCategory: Array.isArray(base?.aiFeedback?.perCategory) ? base.aiFeedback.perCategory : [],
+          overallComments: teacherComments
+        },
+        overriddenByTeacher: true
       };
 
       const updated = await this.feedbackApi.upsertSubmissionFeedback(submission._id, payload);
       this.currentFeedback = updated;
+      console.log('[TEACHER FEEDBACK SAVED]', {
+        submissionId: submission._id,
+        overallComments: updated?.aiFeedback?.overallComments,
+        length: typeof updated?.aiFeedback?.overallComments === 'string' ? updated.aiFeedback.overallComments.length : null,
+        overriddenByTeacher: (updated as any)?.overriddenByTeacher
+      });
       this.hydrateRubricEditFormFromFeedback();
       this.recomputeRubricFeedbackItems();
 
