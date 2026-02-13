@@ -15,12 +15,18 @@
         </a>
       </div>
 
-      <div class="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
+      <div class="hidden lg:flex absolute left-1/2 transform -translate-x-1/2">
         <div class="flex items-center gap-8">
           <a
             (click)="scrollTo('home')"
             class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors cursor-pointer whitespace-nowrap"
             >Home</a
+          >
+          <a
+            routerLink="/pricing"
+            (click)="closeMenu()"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+            >Pricing</a
           >
           <a
             (click)="scrollTo('about-us')"
@@ -43,14 +49,14 @@
       <div class="w-40 md:w-[180px] shrink-0 flex items-center justify-end gap-3">
         <button
           routerLink="/login"
-          class="hidden md:inline-flex btn-3d-style text-white w-full justify-center"
+          class="hidden lg:inline-flex btn-3d-style text-white w-full justify-center"
         >
           Get Started
         </button>
 
         <button
           (click)="toggleMenu()"
-          class="md:hidden p-2.5 rounded-xl text-gray-700 hover:bg-gray-100/50 transition-all active:scale-90"
+          class="lg:hidden p-2.5 rounded-xl text-gray-700 hover:bg-gray-100/50 transition-all active:scale-90"
           aria-label="Toggle Menu"
         >
           <div class="w-6 h-6 flex flex-col justify-center items-center relative">
@@ -79,7 +85,7 @@
     </div>
 
     <div
-      class="md:hidden overflow-hidden transition-all duration-500 ease-in-out"
+      class="lg:hidden overflow-hidden transition-all duration-500 ease-in-out"
       [style.max-height]="isMobileMenuOpen ? '400px' : '0px'"
       [style.opacity]="isMobileMenuOpen ? '1' : '0'"
     >
@@ -89,6 +95,12 @@
           (click)="closeMenu()"
           class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
           >Home</a
+        >
+        <a
+          routerLink="/pricing"
+          (click)="closeMenu()"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Pricing</a
         >
         <a
           (click)="scrollTo('features'); closeMenu()"

@@ -1,0 +1,173 @@
+<section class="pt-10 pb-16 md:pb-24">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="text-center flex flex-col gap-3">
+      <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Pricing</h1>
+      <p class="text-gray-500 text-lg md:text-xl max-w-3xl mx-auto">
+        Choose a plan that fits your classroom workflow.
+      </p>
+    </div>
+
+    @if (isLoading) {
+    <div class="mt-10 text-center text-gray-500">Loading plans...</div>
+    } @else {
+      @if (errorMessage) {
+      <div class="mt-10 text-center text-red-600">{{ errorMessage }}</div>
+      }
+
+      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Free -->
+        <article
+          class="relative bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300"
+        >
+          @if (freePlan?.isPopular) {
+          <div class="absolute -top-3 left-6">
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
+            >
+              {{ freePlan?.badgeText || 'Popular' }}
+            </span>
+          </div>
+          }
+
+          <div class="flex flex-col gap-3">
+            <h2 class="text-2xl font-bold text-gray-800">Free</h2>
+            <p class="text-gray-500">{{ freePlan?.description || 'Perfect to try the workflow.' }}</p>
+
+            <div class="flex items-end gap-2 mt-2">
+              <span class="text-4xl font-extrabold text-gray-800">{{ formatPrice(freePlan) }}</span>
+              <span class="text-gray-500 font-semibold">{{ formatPeriod(freePlan) }}</span>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-col gap-3">
+            <ul class="flex flex-col gap-2">
+              @for (lim of limitsList(freePlan); track lim.label) {
+              <li class="flex items-start gap-2 text-gray-600">
+                <span
+                  class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
+                >
+                  <i class="bx bx-check text-[#008081]"></i>
+                </span>
+                <span>{{ lim.label }}: {{ formatLimitValue(lim.label, lim.value) }}</span>
+              </li>
+              }
+            </ul>
+
+            <button type="button" class="btn-info w-full justify-center inline-flex">Get Started</button>
+          </div>
+        </article>
+
+        <!-- Starter (toggle monthly/yearly) -->
+        <article
+          class="relative bg-white border-2 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300"
+          [ngClass]="starterPlan?.isPopular ? 'border-[#FFC300]' : 'border-[#E7E7E7]'"
+        >
+          @if (starterPlan?.isPopular) {
+          <div class="absolute -top-3 left-6">
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
+            >
+              {{ starterPlan?.badgeText || 'Popular' }}
+            </span>
+          </div>
+          }
+
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-800">Starter</h2>
+                <p class="text-gray-500">{{ starterPlan?.description || 'Great for growing classrooms.' }}</p>
+              </div>
+
+              <div class="flex items-center bg-[#F3F4F6] rounded-full p-1 shrink-0 w-fit">
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-full text-sm font-semibold"
+                  [class.bg-white]="starterBilling === 'monthly'"
+                  [class.text-gray-800]="starterBilling === 'monthly'"
+                  [class.text-gray-500]="starterBilling !== 'monthly'"
+                  (click)="setStarterBilling('monthly')"
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-full text-sm font-semibold"
+                  [class.bg-white]="starterBilling === 'yearly'"
+                  [class.text-gray-800]="starterBilling === 'yearly'"
+                  [class.text-gray-500]="starterBilling !== 'yearly'"
+                  (click)="setStarterBilling('yearly')"
+                >
+                  Yearly
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-end gap-2 mt-2">
+              <span class="text-4xl font-extrabold text-gray-800">{{ formatPrice(starterPlan) }}</span>
+              <span class="text-gray-500 font-semibold">{{ formatPeriod(starterPlan) }}</span>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-col gap-3">
+            <ul class="flex flex-col gap-2">
+              @for (lim of limitsList(starterPlan); track lim.label) {
+              <li class="flex items-start gap-2 text-gray-600">
+                <span
+                  class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
+                >
+                  <i class="bx bx-check text-[#008081]"></i>
+                </span>
+                <span>{{ lim.label }}: {{ formatLimitValue(lim.label, lim.value) }}</span>
+              </li>
+              }
+            </ul>
+
+            <button type="button" class="btn-primary w-full justify-center inline-flex">Upgrade Now</button>
+          </div>
+        </article>
+
+        <!-- Custom -->
+        <article
+          class="relative bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 md:col-span-2 lg:col-span-1"
+        >
+          @if (customPlan?.isPopular) {
+          <div class="absolute -top-3 left-6">
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
+            >
+              {{ customPlan?.badgeText || 'Popular' }}
+            </span>
+          </div>
+          }
+
+          <div class="flex flex-col gap-3">
+            <h2 class="text-2xl font-bold text-gray-800">Custom</h2>
+            <p class="text-gray-500">{{ customPlan?.description || 'Tailored for schools and organizations.' }}</p>
+
+            <div class="flex items-end gap-2 mt-2">
+              <span class="text-3xl md:text-4xl font-extrabold text-gray-800">{{ formatPrice(customPlan) }}</span>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-col gap-3">
+            <ul class="flex flex-col gap-2">
+              @for (lim of limitsList(customPlan); track lim.label) {
+              <li class="flex items-start gap-2 text-gray-600">
+                <span
+                  class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
+                >
+                  <i class="bx bx-check text-[#008081]"></i>
+                </span>
+                <span>{{ lim.label }}: {{ formatLimitValue(lim.label, lim.value) }}</span>
+              </li>
+              }
+            </ul>
+
+            <button type="button" class="btn-warning w-full justify-center inline-flex">Contact Us</button>
+          </div>
+        </article>
+      </div>
+    }
+  </div>
+</section>

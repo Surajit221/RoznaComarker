@@ -1,284 +1,141 @@
 <ng-container>
-  @if(device.isTablet() || device.isMobile()){
-  <div class="flex flex-col gap-6">
-    <div class="w-full flex flex-col gap-2">
-      <div class="w-36 h-36 mx-auto bg-[#008081] border-4 border-[#008081] rounded-full">
-        <img
-          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-          alt=""
-          class="rounded-full"
-        />
-      </div>
-      <div class="w-full flex flex-col">
-        <h1 class="text-center text-2xl font-bold mb-0">{{ meName }}</h1>
-        <p class="text-center text-sm text-gray-600">ID: {{ meId }}</p>
-      </div>
-      <div class="bg-white rounded-2xl p-4">
-        <p class="text-sm">
-          Lorem ipsum dolor sit amet consectetur adipisicing elit. Earum deserunt obcaecati
-          explicabo distinctio expedita sint fugit aliquid voluptatibus atque ut quis velit,
-          suscipit consequatur ipsam nobis omnis tenetur? Esse, optio!
-        </p>
-      </div>
-      <p class="text-xl mt-5 font-bold">Last Activity</p>
-      <div class="w-full flex flex-col gap-2">
-        @for (item of notifications; track item.title) {
-        <div
-          class="w-full bg-white p-3 border-[1.5px] lg:border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747] items-center"
-        >
-          <div
-            class="w-16 h-16 flex justify-center items-center rounded-xl"
-            [ngClass]="item.iconBg"
-          >
-            <i [ngClass]="['bx', item.icon, item.iconColor]" class="text-3xl"></i>
-          </div>
-          <div class="flex flex-col w-80">
-            <h1 class="block w-full text-base font-bold truncate cursor-pointer">
-              {{ item.title | truncate : 20 }}
-            </h1>
-            <p class="text-sm line-clamp-2">
-              {{ item.description }}
-            </p>
-          </div>
+  @if(device.isDesktop()){
+  <div class="w-full min-h-screen font-sans text-[#474747]">
 
-          <div class="w-full flex flex-col gap-2 bg-[#FAFAFA] p-4 rounded-xl border-2 border-[#E7E7E7]">
-            <div class="flex justify-between items-end">
-              <div class="flex items-center gap-1">
-                <i class='bx bxs-medal text-[#FFC300]'></i>
-                <span class="text-sm font-bold text-[#203864]">Level 5 Writer</span>
-              </div>
-              <span class="text-xs font-bold text-[#008081]">450 / 800 XP</span>
+    <div class="flex flex-col gap-1 mb-8 animate-fade-in-down">
+      <h1 class="text-4xl font-bold text-[#203864]">My Profile</h1>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-8 items-start">
+
+      <div class="w-full lg:w-1/3 flex flex-col gap-6">
+        <div class="bg-white p-6 rounded-3xl flex flex-col items-center text-center gap-5">
+          <div class="relative group cursor-pointer">
+            <div class="w-32 h-32 rounded-full border-4 border-[#008081] p-1 bg-white">
+              <img src="https://i.pravatar.cc/300?u=student_id_1" class="w-full h-full rounded-full object-cover"
+                alt="Student Avatar">
             </div>
-            <div class="progress-bar-container">
-              <div class="progress-bar-fill" style="width: 60%"></div>
+            <div
+              class="absolute bottom-1 right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
+              <i class='bx bxs-camera'></i>
             </div>
           </div>
 
-          <div class="grid grid-cols-3 gap-3 w-full">
-
-            <div class="stat-card hover:border-[#203864]">
-              <i class='bx bxs-school text-[#203864] text-xl mb-1'></i>
-              <span class="text-xl font-bold text-[#203864]">5</span>
-              <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Classes</span>
-            </div>
-
-            <div class="stat-card hover:border-[#008081]">
-              <i class='bx bxs-file-doc text-[#008081] text-xl mb-1'></i>
-              <span class="text-xl font-bold text-[#008081]">12</span>
-              <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Essays</span>
-            </div>
-
-            <div class="stat-card hover:border-[#FFC300]">
-              <i class='bx bxs-star text-[#FFC300] text-xl mb-1'></i>
-              <span class="text-xl font-bold text-[#FFC300]">88</span>
-              <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Avg Score</span>
-            </div>
+          <div>
+            <h2 class="text-2xl font-bold text-[#203864]">{{ meName }}</h2>
+            <span
+              class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold text-xs rounded-lg border border-[#136C6D] mt-2 inline-block">
+              STUDENT
+            </span>
           </div>
-
-          <div class="w-full text-left pt-2 border-t-2 border-[#F0F0F0]">
-            <p class="text-xs font-bold text-[#7A7A7A] uppercase mb-2">Active Classes</p>
-            <div class="flex flex-wrap gap-2">
-              <span
-                class="px-2 py-1 bg-[#E6F2F2] text-[#008081] text-xs font-semibold rounded border border-[#136C6D]">Bahasa
-                Indonesia</span>
-              <span
-                class="px-2 py-1 bg-[#E6F2F2] text-[#008081] text-xs font-semibold rounded border border-[#136C6D]">English
-                101</span>
-              <span
-                class="px-2 py-1 bg-[#F5F5F5] text-[#7A7A7A] text-xs font-semibold rounded border border-[#E7E7E7]">+3
-                Others</span>
-            </div>
-          </div>
-
         </div>
-        }
-        <div class="bg-white p-3 rounded-3xl flex flex-col gap-2">
-          <button class="cursor-pointer" (click)="activeTab = 'profile'"
-            [class]="activeTab === 'profile' ? 'active-menu' : 'nav-link'">
-            Personal Info
+
+        <div class="bg-white p-3  rounded-3xl flex flex-col gap-2">
+          <button (click)="activeTab = 'general'" [class]="activeTab === 'general' ? 'active-menu' : 'nav-link'">
+            <i class='bx bxs-id-card'></i> General Profile
           </button>
-          <button class="cursor-pointer" (click)="activeTab = 'goals'"
-            [class]="activeTab === 'goals' ? 'active-menu' : 'nav-link'">
-            Learning Goals
-          </button>
-          <button class="cursor-pointer" (click)="activeTab = 'security'"
-            [class]="activeTab === 'security' ? 'active-menu' : 'nav-link'">
-            Security
+
+          <button (click)="activeTab = 'security'" [class]="activeTab === 'security' ? 'active-menu' : 'nav-link'">
+            <i class='bx bxs-lock-alt'></i> Security
           </button>
         </div>
       </div>
 
       <div class="w-full lg:w-2/3">
-        <div class="bg-white p-8 rounded-3xl min-h-[500px] relative">
+        <div class="bg-white p-8  rounded-3xl min-h-[600px] relative">
 
-          @if(activeTab === 'profile'){
-          <div class="flex flex-col gap-6 animate-fade-in">
-            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2 flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-[#E6F2F2] flex items-center justify-center text-[#008081]">
-                <i class='bx bxs-user'></i>
-              </div>
-              <h3 class="text-xl font-bold text-[#203864]">Personal Information</h3>
+          @if(activeTab === 'general'){
+          <form class="flex flex-col gap-6 animate-fade-in" [formGroup]="profileForm" (ngSubmit)="onSaveProfile()">
+            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
+              <h3 class="text-xl font-bold text-[#203864]">Profile Information</h3>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Full Name</label>
-                <input type="text" class="input-text" value="Rizky Hasan">
+                <input type="text" class="input-text" formControlName="fullName" />
+                @if(profileForm.controls.fullName.touched && profileForm.controls.fullName.invalid){
+                <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Full name is required.</p>
+                }
               </div>
+
               <div class="flex flex-col gap-2">
-                <label class="font-semibold text-sm ml-1 text-gray-500">Student ID</label>
-                <input type="text" class="input-text bg-[#F9F9F9] text-gray-400 cursor-not-allowed" value="2024001"
-                  readonly>
-              </div>
-              <div class="flex flex-col gap-2 md:col-span-2">
                 <label class="font-semibold text-sm ml-1">Email Address</label>
-                <input type="email" class="input-text" value="rizky@student.sch.id">
+                <input type="email" class="input-text" formControlName="email" />
+                @if(profileForm.controls.email.touched && profileForm.controls.email.invalid){
+                <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Enter a valid email address.</p>
+                }
+              </div>
+
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label class="font-semibold text-sm ml-1">Institution / School</label>
+                <div class="relative">
+                  <i class='bx bxs-building-house absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400'></i>
+                  <input type="text" class="input-text pl-12" formControlName="institution" />
+                </div>
+                @if(profileForm.controls.institution.touched && profileForm.controls.institution.invalid){
+                <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Institution is required.</p>
+                }
+              </div>
+
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label class="font-semibold text-sm ml-1">Bio</label>
+                <textarea class="input-text h-32 resize-none pt-3" formControlName="bio"
+                  placeholder="Tell us about yourself..."></textarea>
               </div>
             </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="font-semibold text-sm ml-1">Bio / About Me</label>
-              <textarea class="input-text h-32 resize-none pt-3"
-                placeholder="Ceritakan sedikit tentang dirimu..."></textarea>
-            </div>
-
-            <div class="mt-6 flex justify-end">
-              <button class="btn-primary flex items-center gap-2">Save Changes
+            <div class="mt-4 flex justify-end">
+              <button class="btn-primary" type="submit" [disabled]="isSavingProfile">
+                {{ isSavingProfile ? 'Saving...' : 'Save Profile' }}
               </button>
             </div>
-          </div>
-          }
-
-          @if(activeTab === 'goals'){
-          <div class="flex flex-col gap-6 animate-fade-in">
-            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2 flex justify-between items-center">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-[#FFF4E5] flex items-center justify-center text-[#FFC300]">
-                  <i class='bx bxs-bullseye'></i>
-                </div>
-                <h3 class="text-xl font-bold text-[#203864]">Learning Goals</h3>
-              </div>
-            </div>
-
-            <div class="bg-[#E6F2F2] p-4 rounded-xl border border-[#136C6D] flex gap-3 items-start">
-              <i class='bx bxs-info-circle text-[#008081] text-xl mt-0.5'></i>
-              <p class="text-sm text-[#008081] font-medium">
-                Choose your main focus. The AI will adjust its correction suggestions based on this choice so you can
-                learn more effectively.
-              </p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-
-              <!-- OPTION 1 -->
-              <label class="relative">
-                <input type="radio" name="focus" class="focus-card-input sr-only" checked>
-
-                <div class="focus-card-label">
-                  <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-                    <i class='bx bx-text text-2xl'></i>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="font-bold text-[#203864]">Grammar & Syntax</span>
-                    <span class="text-xs text-[#7A7A7A]">Fokus perbaiki struktur kalimat & ejaan.</span>
-                  </div>
-                </div>
-              </label>
-
-              <!-- OPTION 2 -->
-              <label class="relative">
-                <input type="radio" name="focus" class="focus-card-input sr-only">
-
-                <div class="focus-card-label">
-                  <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
-                    <i class='bx bx-bulb text-2xl'></i>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="font-bold text-[#203864]">Creative Writing</span>
-                    <span class="text-xs text-[#7A7A7A]">Tingkatkan variasi kata & gaya bahasa.</span>
-                  </div>
-                </div>
-              </label>
-
-              <!-- OPTION 3 -->
-              <label class="relative">
-                <input type="radio" name="focus" class="focus-card-input sr-only">
-
-                <div class="focus-card-label">
-                  <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
-                    <i class='bx bxs-graduation text-2xl'></i>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="font-bold text-[#203864]">Academic Structure</span>
-                    <span class="text-xs text-[#7A7A7A]">Formal, logis, dan argumentatif.</span>
-                  </div>
-                </div>
-              </label>
-
-              <!-- OPTION 4 -->
-              <label class="relative">
-                <input type="radio" name="focus" class="focus-card-input sr-only">
-
-                <div class="focus-card-label">
-                  <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-green-600">
-                    <i class='bx bx-check-double text-2xl'></i>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="font-bold text-[#203864]">Balanced Review</span>
-                    <span class="text-xs text-[#7A7A7A]">Keseimbangan antara semua aspek.</span>
-                  </div>
-                </div>
-              </label>
-
-            </div>
-
-
-            <div class="mt-6 flex justify-end">
-              <button class="btn-primary"><i class='bx bx-check mr-2'></i> Update Preference</button>
-            </div>
-          </div>
+          </form>
           }
 
           @if(activeTab === 'security'){
-          <div class="flex flex-col gap-6 animate-fade-in">
-            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2 flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-[#FFE5E5] flex items-center justify-center text-[#EE4E4E]">
-                <i class='bx bxs-lock-alt'></i>
-              </div>
-              <h3 class="text-xl font-bold text-[#203864]">Security</h3>
+          <form class="flex flex-col gap-6 animate-fade-in" [formGroup]="securityForm"
+            (ngSubmit)="onUpdatePassword()">
+            <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
+              <h3 class="text-xl font-bold text-[#203864]">Account Security</h3>
             </div>
 
             <div class="flex flex-col gap-4 max-w-md">
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Current Password</label>
-                <input type="password" class="input-text" placeholder="••••••••">
+                <input type="password" class="input-text" placeholder="••••••••" formControlName="currentPassword">
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">New Password</label>
-                <input type="password" class="input-text" placeholder="••••••••">
+                <input type="password" class="input-text" placeholder="••••••••" formControlName="newPassword">
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Confirm Password</label>
-                <input type="password" class="input-text" placeholder="••••••••">
+                <input type="password" class="input-text" placeholder="••••••••" formControlName="confirmPassword">
+                @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
+                <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
+                }
               </div>
+              <button class="btn-info w-fit mt-2" type="submit" [disabled]="isUpdatingPassword">
+                {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+              </button>
             </div>
 
-            <div
-              class="mt-8 flex flex-col md:flex-row justify-between items-center border-t-2 border-[#E7E7E7] pt-6 gap-4">
-              <button
-                class="text-[#EE4E4E] font-bold text-sm hover:underline hover:text-red-600 transition-colors flex items-center gap-1">
-                <i class='bx bxs-trash'></i> Deactivate Account
-              </button>
-              <button class="btn-info w-full md:w-auto">
-                <i class='bx bx-key mr-2'></i> Update Password
-              </button>
+            <div class="border-t-2 border-[#E7E7E7] pt-6 mt-4">
+              <div class="bg-[#FFE5E5] p-5 rounded-2xl border border-[#EE4E4E] flex flex-col gap-3">
+                <h4 class="font-bold text-[#EE4E4E] flex items-center gap-2"><i class='bx bxs-error'></i> Danger Zone
+                </h4>
+                <p class="text-sm text-[#EE4E4E]">Deleting your account is permanent and cannot be undone.</p>
+                <button type="button"
+                  class="bg-white text-[#EE4E4E] border border-[#EE4E4E] px-4 py-2 rounded-lg font-bold w-fit hover:bg-red-50">
+                  Delete Account
+                </button>
+              </div>
             </div>
-          </div>
+          </form>
           }
 
         </div>
       </div>
-
     </div>
   </div>
   }
@@ -286,14 +143,12 @@
 
 <ng-container>
   @if(device.isTablet() || device.isMobile()){
-  <div class="w-full min-h-screen bg-[#FAFAFA] pb-24 font-sans text-[#474747]">
-
-    <div class="bg-white px-5 pt-6 pb-6 rounded-b-[2.5rem] border-b-[3px] border-[#E7E7E7] shadow-sm mb-6">
-
+  <div class="w-full min-h-screen pb-10 font-sans text-[#474747]">
+    <div class="pt-6 pb-6 rounded-xl mb-6">
       <div class="flex flex-col items-center gap-4">
         <div class="relative group">
           <div class="w-28 h-28 rounded-full border-4 border-[#008081] p-1 bg-white">
-            <img src="https://i.pravatar.cc/300?u=student123" class="w-full h-full rounded-full object-cover"
+            <img src="https://i.pravatar.cc/300?u=student_id_1" class="w-full h-full rounded-full object-cover"
               alt="Avatar">
           </div>
           <div
@@ -303,158 +158,89 @@
         </div>
 
         <div class="text-center">
-          <h1 class="text-2xl font-bold text-[#203864]">Rizky Hasan</h1>
+          <h1 class="text-2xl font-bold text-[#203864]">{{ meName }}</h1>
           <p
-            class="text-xs font-bold text-[#7A7A7A] bg-[#F5F5F5] px-3 py-1 rounded-lg inline-block mt-1 border border-[#E7E7E7]">
-            ID: 2024001
+            class="text-sm font-bold text-[#008081] bg-[#E6F2F2] px-3 py-1 rounded-lg border border-[#136C6D] inline-block mt-1">
+            Student
           </p>
         </div>
-
-        <div class="w-full bg-[#FAFAFA] p-3 rounded-xl border-2 border-[#E7E7E7] flex flex-col gap-2">
-          <div class="flex justify-between items-center text-xs">
-            <div class="flex items-center gap-1 font-bold text-[#203864]">
-              <i class='bx bxs-medal text-[#FFC300]'></i> Level 5 Writer
-            </div>
-            <span class="font-bold text-[#008081]">450 XP</span>
-          </div>
-          <div class="w-full bg-[#E7E7E7] rounded-full h-2 overflow-hidden">
-            <div class="bg-[#FFC300] h-full rounded-full" style="width: 60%"></div>
-          </div>
-        </div>
+      </div>
+      <div class="w-full flex flex-col">
+        <h1 class="text-center text-2xl font-bold mb-0">{{ meName }}</h1>
+        <p class="text-center text-sm text-gray-600">ID: {{ meId }}</p>
       </div>
 
-    </div>
-
-    <div class="px-5 flex flex-col gap-6">
-
-      <div class="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide snap-x">
-        <div
-          class="min-w-[120px] snap-center bg-white p-3 rounded-xl border-[2px] border-[#E7E7E7] flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-[#203864]">5</span>
-          <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Classes</span>
-        </div>
-        <div
-          class="min-w-[120px] snap-center bg-white p-3 rounded-xl border-[2px] border-[#E7E7E7] flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-[#008081]">12</span>
-          <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Essays</span>
-        </div>
-        <div
-          class="min-w-[120px] snap-center bg-white p-3 rounded-xl border-[2px] border-[#E7E7E7] flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-[#FFC300]">88</span>
-          <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Avg Score</span>
-        </div>
-      </div>
-
-      <div class="flex p-1 bg-white rounded-xl border-2 border-[#E7E7E7]">
-        <button (click)="activeTab = 'profile'"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
-          [ngClass]="activeTab === 'profile' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
-          Profile
+      <div class="flex p-1 bg-white rounded-xl border-2 border-[#E7E7E7] mt-6">
+        <button (click)="activeTab = 'general'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
+          [ngClass]="activeTab === 'general' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
+          General
         </button>
-        <button (click)="activeTab = 'goals'"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
-          [ngClass]="activeTab === 'goals' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
-          Goals
-        </button>
-        <button (click)="activeTab = 'security'"
-          class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
+        <button (click)="activeTab = 'security'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
           [ngClass]="activeTab === 'security' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
           Security
         </button>
       </div>
+    </div>
 
-      @if(activeTab === 'profile'){
-      <div class="flex flex-col gap-4 animate-fade-in">
+    <div class="px-5 flex flex-col gap-6">
+
+      @if(activeTab === 'general'){
+      <form class="flex flex-col gap-4 animate-fade-in" [formGroup]="profileForm" (ngSubmit)="onSaveProfile()">
         <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
-          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Personal Info</h3>
+          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Profile Information</h3>
 
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Full Name</label>
-            <input type="text" class="input-text py-2" value="Rizky Hasan">
+            <input type="text" class="input-text py-2" formControlName="fullName">
           </div>
+
           <div class="flex flex-col gap-1">
-            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Email</label>
-            <input type="email" class="input-text py-2" value="rizky@student.sch.id">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Email Address</label>
+            <input type="email" class="input-text py-2" formControlName="email">
           </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Institution / School</label>
+            <input type="text" class="input-text py-2" formControlName="institution">
+          </div>
+
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Bio</label>
-            <textarea class="input-text py-2 h-24 resize-none" placeholder="About you..."></textarea>
+            <textarea class="input-text py-2 h-24 resize-none" formControlName="bio"
+              placeholder="Tell us about yourself..."></textarea>
           </div>
-          <button class="btn-primary w-full mt-2">Save Changes</button>
+          <button class="btn-primary w-full mt-2" type="submit" [disabled]="isSavingProfile">
+            {{ isSavingProfile ? 'Saving...' : 'Save Profile' }}
+          </button>
         </div>
-      </div>
-      }
-
-      @if(activeTab === 'goals'){
-      <div class="flex flex-col gap-4 animate-fade-in">
-        <div class="bg-[#E6F2F2] p-3 rounded-xl border border-[#136C6D] flex gap-3 items-start">
-          <i class='bx bxs-info-circle text-[#008081] text-xl mt-0.5'></i>
-          <p class="text-xs text-[#008081] font-medium leading-relaxed">
-            Choose your main focus. AI suggestions will adapt to help you learn faster.
-          </p>
-        </div>
-
-        <div class="flex flex-col gap-3">
-          <label class="relative group cursor-pointer">
-            <input type="radio" name="focus_mobile" class="focus-card-input sr-only" checked>
-            <div
-              class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
-              <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                <i class='bx bx-text text-xl'></i>
-              </div>
-              <div class="flex flex-col">
-                <span class="font-bold text-[#203864] text-sm">Grammar & Syntax</span>
-                <span class="text-[10px] text-[#7A7A7A]">Fix structure & spelling.</span>
-              </div>
-            </div>
-          </label>
-
-          <label class="relative group cursor-pointer">
-            <input type="radio" name="focus_mobile" class="focus-card-input sr-only">
-            <div
-              class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
-              <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 shrink-0">
-                <i class='bx bx-bulb text-xl'></i>
-              </div>
-              <div class="flex flex-col">
-                <span class="font-bold text-[#203864] text-sm">Creative Writing</span>
-                <span class="text-[10px] text-[#7A7A7A]">Enhance style & vocab.</span>
-              </div>
-            </div>
-          </label>
-
-          <label class="relative group cursor-pointer">
-            <input type="radio" name="focus_mobile" class="focus-card-input sr-only">
-            <div
-              class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
-              <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                <i class='bx bxs-graduation text-xl'></i>
-              </div>
-              <div class="flex flex-col">
-                <span class="font-bold text-[#203864] text-sm">Academic</span>
-                <span class="text-[10px] text-[#7A7A7A]">Formal & logical flow.</span>
-              </div>
-            </div>
-          </label>
-        </div>
-        <button class="btn-primary w-full mt-2">Update Goals</button>
-      </div>
+      </form>
       }
 
       @if(activeTab === 'security'){
-      <div class="flex flex-col gap-4 animate-fade-in">
+      <form class="flex flex-col gap-4 animate-fade-in" [formGroup]="securityForm" (ngSubmit)="onUpdatePassword()">
         <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
           <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Change Password</h3>
 
           <div class="flex flex-col gap-1">
-            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">New Password</label>
-            <input type="password" class="input-text py-2" placeholder="••••••••">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Current Password</label>
+            <input type="password" class="input-text py-2" placeholder="••••••••" formControlName="currentPassword">
           </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">New Password</label>
+            <input type="password" class="input-text py-2" placeholder="••••••••" formControlName="newPassword">
+          </div>
+
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Confirm Password</label>
-            <input type="password" class="input-text py-2" placeholder="••••••••">
+            <input type="password" class="input-text py-2" placeholder="••••••••" formControlName="confirmPassword">
+            @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
+            <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
+            }
           </div>
-          <button class="btn-info w-full mt-2">Update Password</button>
+          <button class="btn-info w-full mt-2" type="submit" [disabled]="isUpdatingPassword">
+            {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+          </button>
         </div>
 
         <div class="bg-[#FFE5E5] p-4 rounded-xl border border-[#EE4E4E] flex flex-col gap-2">
@@ -462,13 +248,14 @@
             <i class='bx bxs-trash'></i> Danger Zone
           </h4>
           <p class="text-xs text-[#EE4E4E]">
-            Deactivating will hide your profile and disable access.
+            Deleting your account is permanent.
           </p>
-          <button class="w-full bg-white border border-[#EE4E4E] text-[#EE4E4E] font-bold py-2 rounded-lg text-sm">
-            Deactivate Account
+          <button type="button"
+            class="w-full bg-white border border-[#EE4E4E] text-[#EE4E4E] font-bold py-2 rounded-lg text-sm">
+            Delete Account
           </button>
         </div>
-      </div>
+      </form>
       }
 
     </div>
