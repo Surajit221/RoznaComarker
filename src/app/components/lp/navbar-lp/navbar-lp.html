@@ -23,6 +23,12 @@
             >Home</a
           >
           <a
+            routerLink="/pricing"
+            (click)="closeMenu()"
+            class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+            >Pricing</a
+          >
+          <a
             (click)="scrollTo('about-us')"
             class="text-gray-600 hover:text-[#377E80] font-semibold transition-colors cursor-pointer whitespace-nowrap"
             >About Us</a
@@ -89,6 +95,12 @@
           (click)="closeMenu()"
           class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
           >Home</a
+        >
+        <a
+          routerLink="/pricing"
+          (click)="closeMenu()"
+          class="px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold"
+          >Pricing</a
         >
         <a
           (click)="scrollTo('features'); closeMenu()"

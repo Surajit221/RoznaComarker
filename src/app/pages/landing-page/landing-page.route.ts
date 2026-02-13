@@ -8,7 +8,13 @@ export const LANDINGPAGE_ROUTE: Routes = [
   {
     path: '',
     component: LandingPageLayout,
-    children: [{ path: '', component: LandingPage }],
+    children: [
+      { path: '', component: LandingPage },
+      {
+        path: 'pricing',
+        loadComponent: () => import('../pricing/pricing').then((m) => m.PricingComponent),
+      },
+    ],
   },
 
   {
