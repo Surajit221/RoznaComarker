@@ -65,7 +65,7 @@ export class DashboardLayout {
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
     { name: 'Notification', icon: 'bx bxs-bell', path: '/student/notifications' },
-    { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
+    { name: 'Profile', icon: 'bx bxs-user', path: '/student/my-profile' },
   ];
 
   // Array Menu Aktif
