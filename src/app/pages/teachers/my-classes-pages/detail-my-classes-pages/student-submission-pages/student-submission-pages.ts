@@ -3,7 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DeviceService } from '../../../../../services/device.service';
 import { AppBarBackButton } from '../../../../../shared/app-bar-back-button/app-bar-back-button';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { SubmissionApiService, type BackendSubmission } from '../../../../../api/submission-api.service';
 import { FeedbackApiService, type BackendFeedback } from '../../../../../api/feedback-api.service';
@@ -23,12 +23,13 @@ import type { OcrWord } from '../../../../../models/ocr-token.model';
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { DialogViewSubmissions } from '../dialog-view-submissions/dialog-view-submissions';
 import type { RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
-import type { SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
+import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 
 @Component({
   selector: 'app-student-submission-pages',
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     AppBarBackButton,
     ImageAnnotationOverlayComponent,
@@ -125,8 +126,59 @@ export class StudentSubmissionPages {
           { symbol: 'FMT', label: 'Formatting', description: 'Inconsistent formatting, alignment, or spacing.' }
         ]
       }
+
     ]
   };
+
+  private hydrateRubricDesignerFromFeedback() {
+    const d = this.currentFeedback?.rubricDesigner;
+    if (!d) {
+      this.resetRubricDesigner();
+      return;
+    }
+
+    this.rubricDesignerTitle = typeof d.title === 'string' ? d.title : `Rubric: ${this.submissionTitle}`;
+    const levels = Array.isArray(d.levels) ? d.levels : [];
+    const criteria = Array.isArray(d.criteria) ? d.criteria : [];
+
+    this.rubricLevels = levels.length
+      ? levels.map((l) => ({ title: String((l as any)?.title || ''), maxPoints: this.coercePointsInput((l as any)?.maxPoints) ?? 0 }))
+      : Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: 10 }));
+
+    this.rubricCriteriaRows = criteria.length
+      ? criteria.map((c: any) => ({
+          title: String(c?.title || ''),
+          cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
+        }))
+      : [{ title: '', cells: this.rubricLevels.map(() => '') }];
+  }
+
+  private buildDefaultRubricDesignerFromFeedback(fb: SubmissionFeedback): RubricDesigner {
+    const title = `Rubric: ${this.submissionTitle}`;
+    const levels = [
+      { title: 'Excellent', maxPoints: 10 },
+      { title: 'Good', maxPoints: 8 },
+      { title: 'Fair', maxPoints: 6 },
+      { title: 'Needs Improvement', maxPoints: 4 }
+    ];
+
+    const fromAi = Array.isArray(fb?.aiFeedback?.perCategory) ? fb.aiFeedback.perCategory : [];
+    const criteria = (fromAi.length ? fromAi : [
+      { category: 'Content Relevance', message: '', scoreOutOf5: 0 },
+      { category: 'Structure & Organization', message: '', scoreOutOf5: 0 },
+      { category: 'Grammar & Mechanics', message: '', scoreOutOf5: 0 },
+      { category: 'Vocabulary', message: '', scoreOutOf5: 0 }
+    ]).slice(0, 6).map((x: any) => {
+      const msg = typeof x?.message === 'string' ? x.message : '';
+      const cat = typeof x?.category === 'string' ? x.category : 'Criteria';
+      return {
+        title: cat,
+        cells: levels.map((_, i) => (i === 0 ? msg : ''))
+      };
+    });
+
+    return { title, levels, criteria };
+  }
 
   assignmentId: string | null = null;
   submissionId: string | null = null;
@@ -435,6 +487,15 @@ export class StudentSubmissionPages {
       this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
       this.hydrateRubricEditFormFromFeedback();
       this.recomputeRubricFeedbackItems();
+
+      if (!updated?.rubricDesigner) {
+        const d = this.buildDefaultRubricDesignerFromFeedback(updated);
+        this.currentFeedback = { ...updated, rubricDesigner: d };
+        this.hydrateRubricDesignerFromFeedback();
+      } else {
+        this.hydrateRubricDesignerFromFeedback();
+      }
+
       this.alert.showToast('AI feedback generated', 'success');
     } catch (err: any) {
       this.alert.showError('Generate AI Feedback failed', err?.error?.message || err?.message || 'Please try again');
@@ -576,6 +637,25 @@ export class StudentSubmissionPages {
   feedbackForm: FormGroup;
   rubricEditForm: FormGroup;
 
+  rubricDesignerTitle = '';
+  rubricLevels: Array<{ title: string; maxPoints: number | null }> = [];
+  rubricCriteriaRows: Array<{ title: string; cells: string[] }> = [];
+  private rubricAttachInput: HTMLInputElement | null = null;
+
+  private get rubricDesignerFromState(): RubricDesigner {
+    return {
+      title: this.rubricDesignerTitle,
+      levels: this.rubricLevels.map((l) => ({
+        title: String(l.title || ''),
+        maxPoints: Number(l.maxPoints) || 0
+      })),
+      criteria: this.rubricCriteriaRows.map((r) => ({
+        title: String(r.title || ''),
+        cells: Array.isArray(r.cells) ? r.cells.map((x) => String(x || '')) : []
+      }))
+    };
+  }
+
   private recomputeRubricFeedbackItems() {
     const fb = this.currentFeedback;
     if (!fb) {
@@ -633,6 +713,107 @@ export class StudentSubmissionPages {
       overrideReason: [''],
       teacherComments: ['']
     });
+
+    this.resetRubricDesigner();
+  }
+
+  private resetRubricDesigner() {
+    this.rubricDesignerTitle = `Rubric: ${this.submissionTitle}`;
+
+    this.rubricLevels = Array.from({ length: 4 }).map(() => ({
+      title: '',
+      maxPoints: 10
+    }));
+
+    this.rubricCriteriaRows = [
+      {
+        title: '',
+        cells: this.rubricLevels.map(() => '')
+      }
+    ];
+  }
+
+  addRubricLevelColumn() {
+    if (this.rubricLevels.length >= 5) return;
+    this.rubricLevels = [...this.rubricLevels, { title: '', maxPoints: 10 }];
+    this.rubricCriteriaRows = this.rubricCriteriaRows.map((r) => ({ ...r, cells: [...r.cells, ''] }));
+  }
+
+  addRubricCriteriaRow() {
+    this.rubricCriteriaRows = [
+      ...this.rubricCriteriaRows,
+      {
+        title: '',
+        cells: this.rubricLevels.map(() => '')
+      }
+    ];
+  }
+
+  removeRubricCriteriaRow(index: number) {
+    if (this.rubricCriteriaRows.length <= 1) return;
+    this.rubricCriteriaRows = this.rubricCriteriaRows.filter((_, i) => i !== index);
+  }
+
+  get rubricCriteriaPreview(): Array<{ title: string; maxPoints: number }> {
+    const d = this.currentFeedback?.rubricDesigner;
+    const levels = d?.levels && Array.isArray(d.levels) && d.levels.length ? d.levels : null;
+    const perRowMax = levels
+      ? levels.reduce((acc, x: any) => acc + (Number(x?.maxPoints) || 0), 0)
+      : this.rubricLevels.reduce((acc, x) => acc + (Number(x.maxPoints) || 0), 0);
+
+    return this.rubricCriteriaRows
+      .map((r) => ({ title: String(r.title || '').trim(), maxPoints: perRowMax }))
+      .filter((r) => r.title.length > 0);
+  }
+
+  onRubricAttachRequested(inputEl: HTMLInputElement) {
+    this.rubricAttachInput = inputEl;
+    inputEl.click();
+  }
+
+  onRubricFileSelected(ev: Event) {
+    const el = ev.target as HTMLInputElement | null;
+    if (!el?.files?.length) return;
+    // TODO: wire to backend when rubric file upload API is available.
+    el.value = '';
+  }
+
+  coercePointsInput(value: any): number | null {
+    if (value === '' || value == null) return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.floor(n));
+  }
+
+  async generateRubricUsingAi() {
+    await this.generateAiForCurrentSubmission();
+  }
+
+  async attachRubricDesigner() {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) return;
+    if (this.isRubricSaving) return;
+
+    this.isRubricSaving = true;
+    try {
+      const base = this.currentFeedback || this.buildEmptyFeedback(submissionId);
+      const payload: SubmissionFeedback = {
+        ...base,
+        submissionId,
+        rubricDesigner: this.rubricDesignerFromState,
+        overriddenByTeacher: true
+      };
+      const updated = await this.feedbackApi.upsertSubmissionFeedback(submissionId, payload);
+      this.currentFeedback = updated;
+      this.hydrateRubricDesignerFromFeedback();
+      this.recomputeRubricFeedbackItems();
+      this.alert.showToast('Rubric attached', 'success');
+      this.showDialog = false;
+    } catch (err: any) {
+      this.alert.showError('Failed to attach rubric', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricSaving = false;
+    }
   }
 
   private hydrateRubricEditFormFromFeedback() {
@@ -955,6 +1136,7 @@ export class StudentSubmissionPages {
       console.log('TEACHER FEEDBACK LOADED:', fb);
       this.feedbackForm.patchValue({ message: fb?.aiFeedback?.overallComments || '' });
       this.hydrateRubricEditFormFromFeedback();
+      this.hydrateRubricDesignerFromFeedback();
       this.recomputeRubricFeedbackItems();
     } catch (err: any) {
       const empty = this.buildEmptyFeedback(submissionId);
@@ -963,6 +1145,7 @@ export class StudentSubmissionPages {
       this.feedbackForm.patchValue({ message: '' });
       console.log('Teacher comment initialized as empty');
       this.hydrateRubricEditFormFromFeedback();
+      this.hydrateRubricDesignerFromFeedback();
       this.recomputeRubricFeedbackItems();
     }
   }
@@ -1026,6 +1209,7 @@ export class StudentSubmissionPages {
 
   onEditRubric() {
     this.showDialog = true;
+    this.hydrateRubricDesignerFromFeedback();
     this.hydrateRubricEditFormFromFeedback();
   }
 

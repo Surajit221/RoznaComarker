@@ -29,6 +29,22 @@ export interface AiFeedback {
   overallComments: string;
 }
 
+export interface RubricDesignerLevel {
+  title: string;
+  maxPoints: number;
+}
+
+export interface RubricDesignerCriteriaRow {
+  title: string;
+  cells: string[];
+}
+
+export interface RubricDesigner {
+  title: string;
+  levels: RubricDesignerLevel[];
+  criteria: RubricDesignerCriteriaRow[];
+}
+
 export interface SubmissionFeedback {
   submissionId: string;
   classId?: string;
@@ -52,6 +68,8 @@ export interface SubmissionFeedback {
   correctionStats: CorrectionStats;
   detailedFeedback: DetailedFeedback;
   aiFeedback: AiFeedback;
+
+  rubricDesigner?: RubricDesigner;
 
   overriddenByTeacher: boolean;
 

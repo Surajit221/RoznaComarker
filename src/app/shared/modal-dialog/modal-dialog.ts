@@ -11,6 +11,10 @@ export class ModalDialog {
   /** Apakah dialog sedang terbuka */
   @Input() open = false;
 
+  @Input() panelClass = '';
+
+  @Input() maxWidthClass = 'max-w-[650px]';
+
   /** Apakah backdrop bisa di-klik untuk menutup dialog */
   @Input() dismissible = true;
 

@@ -44,7 +44,7 @@ import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 
 import { environment } from '../../../../../../environments/environment';
 
-import type { SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
+import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 
 
 
@@ -256,6 +256,81 @@ export class MySubmissionPage {
     const score5 = Number(this.feedback?.overallScore);
     if (!Number.isFinite(score5)) return '0/100';
     return `${Math.round(score5 * 10) / 10}/100`;
+  }
+
+  private buildFallbackRubricDesignerFromFeedback(fb: SubmissionFeedback): RubricDesigner | null {
+    const fromAi = Array.isArray(fb?.aiFeedback?.perCategory) ? fb.aiFeedback.perCategory : [];
+    const criteriaSeed = (fromAi.length
+      ? fromAi
+      : [
+          { category: 'Content Relevance', message: '' },
+          { category: 'Structure & Organization', message: '' },
+          { category: 'Grammar & Mechanics', message: '' },
+          { category: 'Vocabulary', message: '' }
+        ])
+      .slice(0, 10);
+
+    const levels = [
+      { title: 'Excellent', maxPoints: 10 },
+      { title: 'Good', maxPoints: 8 },
+      { title: 'Fair', maxPoints: 6 },
+      { title: 'Needs Improvement', maxPoints: 4 }
+    ];
+
+    const criteria = criteriaSeed.map((x: any) => {
+      const cat = typeof x?.category === 'string' ? x.category : 'Criteria';
+      const msg = typeof x?.message === 'string' ? x.message : '';
+      return {
+        title: cat,
+        cells: levels.map((_, i) => (i === 0 ? msg : ''))
+      };
+    });
+
+    return {
+      title: `Rubric: ${this.submissionTitle}`,
+      levels,
+      criteria
+    };
+  }
+
+  get rubricDesigner(): RubricDesigner | null {
+    const fb = this.feedback;
+    if (!fb) return null;
+
+    const d: any = (fb as any)?.rubricDesigner;
+    if (!d || typeof d !== 'object') {
+      return this.buildFallbackRubricDesignerFromFeedback(fb);
+    }
+
+    const levelsRaw = Array.isArray(d.levels) ? d.levels : [];
+    const criteriaRaw = Array.isArray(d.criteria) ? d.criteria : [];
+
+    const levels = levelsRaw
+      .slice(0, 5)
+      .map((l: any) => ({ title: String(l?.title || ''), maxPoints: Number(l?.maxPoints) || 0 }))
+      .filter((l: { title: string; maxPoints: number }) => l.title.trim().length || l.maxPoints > 0);
+
+    const criteria = criteriaRaw
+      .slice(0, 12)
+      .map((c: any) => ({
+        title: String(c?.title || ''),
+        cells: levels.map((_lvl: { title: string; maxPoints: number }, i: number) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
+      }))
+      .filter((c: { title: string; cells: string[] }) => c.title.trim().length || c.cells.some((x) => String(x).trim().length));
+
+    if (!levels.length || !criteria.length) {
+      return this.buildFallbackRubricDesignerFromFeedback(fb);
+    }
+
+    return {
+      title: typeof d.title === 'string' ? d.title : `Rubric: ${this.submissionTitle}`,
+      levels,
+      criteria
+    };
+  }
+
+  get rubricDesignerTitle(): string {
+    return this.rubricDesigner?.title || `Rubric: ${this.submissionTitle}`;
   }
 
   get gradeLabel(): string {

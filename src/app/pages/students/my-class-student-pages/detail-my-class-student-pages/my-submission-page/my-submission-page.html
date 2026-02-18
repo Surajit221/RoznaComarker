@@ -708,33 +708,75 @@
 
           </div>
 
-          <app-modal-dialog [open]="showRubricDialog" (closed)="closeRubricDialog()">
+          <app-modal-dialog
+            [open]="showRubricDialog"
+            [maxWidthClass]="'max-w-none'"
+            [panelClass]="'lg:w-[90vw]'"
+            (closed)="closeRubricDialog()"
+          >
             <div class="flex flex-col gap-4">
               <div class="flex flex-row justify-between items-center">
                 <p class="text-2xl font-bold">Rubric</p>
                 <button type="button" class="btn-danger" (click)="closeRubricDialog()">Close</button>
               </div>
 
+              @if (rubricDesigner) {
+              <div class="w-full flex flex-col gap-4">
+                <p class="text-lg font-bold text-center text-gray-700">{{ rubricDesignerTitle }}</p>
+
+                <div class="w-full overflow-x-auto">
+                  <div class="min-w-[980px] w-full">
+                    <div
+                      class="w-full grid gap-3 items-start"
+                      [style.gridTemplateColumns]="'minmax(200px, 1fr) repeat(' + rubricDesigner.levels.length + ', minmax(180px, 1fr))'"
+                    >
+                      <div class="font-semibold text-gray-700">Grading Criteria</div>
+                      @for (lvl of rubricDesigner.levels; track $index) {
+                      <div class="w-full flex flex-col gap-2">
+                        <div class="input-text bg-white">{{ lvl.title }}</div>
+                        <div class="input-text bg-white text-center max-w-[90px]">{{ lvl.maxPoints }}</div>
+                      </div>
+                      }
+
+                      @for (row of rubricDesigner.criteria; track $index) {
+                      <div class="w-full flex flex-col gap-2">
+                        <div class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 text-base font-normal bg-white">
+                          {{ row.title }}
+                        </div>
+                      </div>
+
+                      @for (cell of row.cells; track $index) {
+                      <div class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 text-base font-normal bg-white whitespace-pre-wrap">
+                        {{ row.cells[$index] }}
+                      </div>
+                      }
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+              } @else {
               <div class="flex flex-col gap-3">
                 @for (item of feedbacks; track item.category) {
                 <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
                   <div class="col-span-5">
                     <div class="flex flex-row gap-2 items-center">
                       <p class="text-xl font-bold mb-1">{{ item.category }}</p>
-                       <div
-                         class="rounded-full bg-[#008081] flex items-center justify-center"
-                         [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
-                       >
-                         <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                           {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                         </p>
-                       </div>
+                      <div
+                        class="rounded-full bg-[#008081] flex items-center justify-center"
+                        [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+                      >
+                        <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                          {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+                        </p>
+                      </div>
                     </div>
                     <p>{{ item.description }}</p>
                   </div>
                 </div>
                 }
               </div>
+              }
             </div>
           </app-modal-dialog>
 
@@ -1492,13 +1534,54 @@
 
           </div>
 
-          <app-modal-dialog [open]="showRubricDialog" (closed)="closeRubricDialog()">
+          <app-modal-dialog
+            [open]="showRubricDialog"
+            [maxWidthClass]="'max-w-none'"
+            [panelClass]="'lg:w-[90vw]'"
+            (closed)="closeRubricDialog()"
+          >
             <div class="flex flex-col gap-4">
               <div class="flex flex-row justify-between items-center">
                 <p class="text-lg font-bold">Rubric</p>
                 <button type="button" class="btn-danger-sm" (click)="closeRubricDialog()">Close</button>
               </div>
 
+              @if (rubricDesigner) {
+              <div class="w-full flex flex-col gap-4">
+                <p class="text-base font-bold text-center text-gray-700">{{ rubricDesignerTitle }}</p>
+
+                <div class="w-full overflow-x-auto">
+                  <div class="min-w-[980px] w-full">
+                    <div
+                      class="w-full grid gap-3 items-start"
+                      [style.gridTemplateColumns]="'minmax(200px, 1fr) repeat(' + rubricDesigner.levels.length + ', minmax(180px, 1fr))'"
+                    >
+                      <div class="font-semibold text-gray-700">Grading Criteria</div>
+                      @for (lvl of rubricDesigner.levels; track $index) {
+                      <div class="w-full flex flex-col gap-2">
+                        <div class="input-text bg-white">{{ lvl.title }}</div>
+                        <div class="input-text bg-white text-center max-w-[90px]">{{ lvl.maxPoints }}</div>
+                      </div>
+                      }
+
+                      @for (row of rubricDesigner.criteria; track $index) {
+                      <div class="w-full flex flex-col gap-2">
+                        <div class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 text-sm font-normal bg-white">
+                          {{ row.title }}
+                        </div>
+                      </div>
+
+                      @for (cell of row.cells; track $index) {
+                      <div class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 text-sm font-normal bg-white whitespace-pre-wrap">
+                        {{ row.cells[$index] }}
+                      </div>
+                      }
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+              } @else {
               <div class="flex flex-col gap-3">
                 @for (item of feedbacks; track item.category) {
                 <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
@@ -1514,6 +1597,7 @@
                 </div>
                 }
               </div>
+              }
             </div>
           </app-modal-dialog>
 
