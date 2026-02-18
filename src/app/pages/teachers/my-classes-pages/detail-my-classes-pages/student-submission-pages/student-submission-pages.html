@@ -638,6 +638,23 @@
 
         <div class="flex flex-col gap-3">
 
+          @if (rubricCriteriaPreview.length) {
+
+          <div class="w-full flex flex-col gap-3">
+            @for (r of rubricCriteriaPreview; track r.title) {
+            <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+              <div class="flex flex-row gap-2 items-center">
+                <p class="text-xl font-bold mb-1">{{ r.title }}</p>
+                <div class="rounded-full bg-[#008081] flex items-center justify-center h-10 w-10">
+                  <p class="font-bold text-white text-sm">{{ r.maxPoints }}</p>
+                </div>
+              </div>
+            </div>
+            }
+          </div>
+
+          }
+
           @if (rubricFeedbackItems.length) {
 
           @for (item of rubricFeedbackItems; track item.category) {
@@ -726,164 +743,101 @@
 
 
 
-          <app-modal-dialog [open]="showDialog" (closed)="closeDialog()">
+          <app-modal-dialog
+            [open]="showDialog"
+            [maxWidthClass]="'max-w-none'"
+            [panelClass]="'lg:w-[90vw]'"
+            (closed)="closeDialog()"
+          >
 
-            <div class="flex flex-col gap-4">
+            <div class="w-full flex flex-col gap-6">
 
-              <div class="flex flex-row justify-between items-center">
-
-                <p class="text-2xl font-bold">Rubric</p>
-
-                <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
-
+              <div class="w-full flex flex-col items-center justify-center">
+                <p class="text-2xl sm:text-3xl font-bold text-center text-gray-700">{{ rubricDesignerTitle }}</p>
               </div>
 
+              <div class="w-full overflow-x-auto">
+                <div class="min-w-[980px] w-full">
+                  <div
+                    class="w-full grid gap-3 items-start"
+                    [style.gridTemplateColumns]="'minmax(200px, 1fr) repeat(' + rubricLevels.length + ', minmax(180px, 1fr)) minmax(120px, 120px)'"
+                  >
 
+                    <div class="font-semibold text-gray-700">Grading Criteria</div>
 
-              <div class="flex flex-col gap-3">
+                    @for (lvl of rubricLevels; track $index) {
+                    <div class="w-full flex flex-col gap-2">
+                      <input type="text" class="input-text bg-white" [(ngModel)]="lvl.title" placeholder="Add text here..." />
+                      <input
+                        type="number"
+                        class="input-text bg-white text-center max-w-[90px]"
+                        [ngModel]="lvl.maxPoints"
+                        (ngModelChange)="lvl.maxPoints = coercePointsInput($event)"
+                        min="0"
+                        step="1"
+                        placeholder="10"
+                      />
+                    </div>
+                    }
 
-                @if (rubricFeedbackItems.length) {
-
-                @for (item of rubricFeedbackItems; track item.category) {
-
-                <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
-
-                  <div class="col-span-5">
-
-                    <div class="flex flex-row gap-2 items-center">
-
-                      <p class="text-xl font-bold mb-1">{{ item.category }}</p>
-
-                      <div
-
-                        class="rounded-full bg-[#008081] flex items-center justify-center"
-
-                        [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
-
+                    <div class="w-full flex justify-end pt-1">
+                      <button
+                        type="button"
+                        class="btn-primary w-full"
+                        (click)="addRubricLevelColumn()"
+                        [disabled]="rubricLevels.length >= 5"
                       >
-
-                        <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-
-                          {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-
-                        </p>
-
-                      </div>
-
+                        + Add
+                      </button>
                     </div>
 
-                    <p>{{ item.description }}</p>
+                    @for (row of rubricCriteriaRows; track $index) {
+                    <div class="w-full flex flex-col gap-2">
+                      <textarea
+                        class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
+                        [(ngModel)]="row.title"
+                        placeholder="Add text here..."
+                      ></textarea>
+                    </div>
+
+                    @for (cell of row.cells; track $index) {
+                    <textarea
+                      class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
+                      [(ngModel)]="row.cells[$index]"
+                      placeholder="Add text here..."
+                    ></textarea>
+                    }
+
+                    <div class="w-full flex items-center justify-end pt-2">
+                      <button
+                        type="button"
+                        class="btn-danger-sm"
+                        (click)="removeRubricCriteriaRow($index)"
+                        [disabled]="rubricCriteriaRows.length <= 1"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    }
 
                   </div>
-
                 </div>
-
-                }
-
-                } @else {
-
-                <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
-
-                  <p class="text-gray-600">No rubric feedback available yet.</p>
-
-                </div>
-
-                }
-
               </div>
 
-
-
-              <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="rubricEditForm">
-
-                <p class="text-xl font-bold mb-3">Teacher Overrides</p>
-
-
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                  <div class="flex flex-col gap-1">
-
-                    <p class="text-sm font-semibold">Grammar Score (0-5)</p>
-
-                    <input type="number" class="input-text bg-white" formControlName="grammarScore" min="0" max="5" step="0.1" />
-
+              <div class="sticky bottom-0 -mx-6 sm:-mx-8 px-6 sm:px-8 pt-4 pb-2 bg-white border-t border-gray-100">
+                <div class="w-full flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+                  <div class="w-full sm:w-auto flex justify-start">
+                    <button type="button" class="btn-primary w-full sm:w-auto" (click)="addRubricCriteriaRow()">+ Add</button>
                   </div>
 
-                  <div class="flex flex-col gap-1">
+                  <button type="button" class="btn-danger w-full sm:w-auto" (click)="closeDialog()">Cancel</button>
 
-                    <p class="text-sm font-semibold">Structure Score (0-5)</p>
-
-                    <input type="number" class="input-text bg-white" formControlName="structureScore" min="0" max="5" step="0.1" />
-
-                  </div>
-
-                  <div class="flex flex-col gap-1">
-
-                    <p class="text-sm font-semibold">Content Score (0-5)</p>
-
-                    <input type="number" class="input-text bg-white" formControlName="contentScore" min="0" max="5" step="0.1" />
-
-                  </div>
-
-                  <div class="flex flex-col gap-1">
-
-                    <p class="text-sm font-semibold">Vocabulary Score (0-5)</p>
-
-                    <input type="number" class="input-text bg-white" formControlName="vocabularyScore" min="0" max="5" step="0.1" />
-
-                  </div>
-
-                  <div class="flex flex-col gap-1">
-
-                    <p class="text-sm font-semibold">Task Achievement (0-5)</p>
-
-                    <input type="number" class="input-text bg-white" formControlName="taskAchievementScore" min="0" max="5" step="0.1" />
-
-                  </div>
-
-                  <div class="flex flex-col gap-1">
-
-                    <p class="text-sm font-semibold">Overall Score (0-100)</p>
-
-                    <input type="number" class="input-text bg-white" formControlName="overallScore" min="0" max="100" step="1" />
-
-                  </div>
-
-                </div>
-
-
-
-                <div class="flex flex-col gap-1 mt-4">
-
-                  <p class="text-sm font-semibold">Override Reason</p>
-
-                  <textarea class="input-text w-full h-20 resize-none bg-white" formControlName="overrideReason" placeholder="Reason for overriding AI rubric..."></textarea>
-
-                </div>
-
-
-
-                <div class="flex flex-col gap-1 mt-4">
-
-                  <p class="text-sm font-semibold">Teacher Comments</p>
-
-                  <textarea class="input-text w-full h-24 resize-none bg-white" formControlName="teacherComments" placeholder="Teacher comments..." ></textarea>
-
-                </div>
-
-
-
-                <div class="w-full flex justify-end mt-4">
-
-                  <button type="button" class="btn-primary" [disabled]="isRubricSaving" (click)="saveRubricOverrides()">
-
-                    @if (isRubricSaving) { Saving... } @else { Save }
-
+                  <button type="button" class="btn-primary w-full sm:w-auto" [disabled]="isRubricSaving" (click)="attachRubricDesigner()">
+                    @if (isRubricSaving) { Attaching... } @else { Attach }
                   </button>
 
+                  <button type="button" class="btn-info w-full sm:w-auto" (click)="generateRubricUsingAi()">Generate Rubric Using AI</button>
                 </div>
-
               </div>
 
             </div>
