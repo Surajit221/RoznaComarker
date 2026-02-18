@@ -9,15 +9,16 @@
       draggable="false"
     />
 
-    <div class="overlay-layer" aria-hidden="true">
+    <div class="overlay-layer" aria-hidden="true" (click)="clearActive()">
       @for (box of overlayBoxes; track box.annotationId + '-' + $index) {
       <div
-        class="overlay-box"
-        [ngClass]="getBoxEdgeClass(box)"
-        [ngStyle]="getBoxStyle(box)"
+        class="overlay-marker"
+        [ngStyle]="getMarkerStyle(box)"
         (mouseenter)="onBoxEnter(box)"
         (mouseleave)="onBoxLeave(box)"
+        (click)="onMarkerClick(box, $event)"
       >
+        {{ box.symbol }}
       </div>
       }
 
