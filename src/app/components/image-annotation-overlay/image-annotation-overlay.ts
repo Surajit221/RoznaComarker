@@ -62,6 +62,29 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
 
+  onMarkerClick(box: OverlayBox, ev: MouseEvent): void {
+    try {
+      ev.stopPropagation();
+      ev.preventDefault();
+    } catch {
+      // ignore
+    }
+
+    if (this.activeBox?.annotationId === box.annotationId) {
+      this.onBoxLeave(box);
+      return;
+    }
+
+    this.onBoxEnter(box);
+  }
+
+  clearActive(): void {
+    if (!this.activeBox) return;
+    this.activeBox = null;
+    this.tooltipText = '';
+    this.tooltipStyle = { display: 'none' };
+  }
+
   ngAfterViewInit(): void {
     const img = this.imgEl?.nativeElement;
     if (!img) return;
@@ -146,7 +169,7 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
     if (normalized) {
       const clamped = this.clampBboxPercent(normalized);
       const anchorX = Math.max(0, Math.min(100, clamped.x + clamped.w / 2));
-      const anchorY = Math.max(0, Math.min(100, clamped.y));
+      const anchorY = Math.max(0, Math.min(100, clamped.y + clamped.h / 2));
       this.tooltipStyle = { display: 'block', left: `${anchorX}%`, top: `${anchorY}%` };
     }
 
@@ -179,8 +202,14 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
       h: (clamped.h / 100) * this.renderedHeight,
     };
 
+    // Anchor tooltip to marker center so it stays close even when bbox is large/small.
+    const anchorPx = {
+      x: bboxPx.x + bboxPx.w / 2,
+      y: bboxPx.y + bboxPx.h / 2,
+    };
+
     const padding = Math.max(6, Math.min(14, Math.round(this.renderedWidth * 0.012)));
-    const gap = Math.max(6, Math.min(14, Math.round(this.renderedWidth * 0.01)));
+    const gap = Math.max(3, Math.min(10, Math.round(this.renderedWidth * 0.006)));
 
     const maxTooltipWidthPx = Math.max(160, Math.floor(this.renderedWidth * 0.4));
     const hardMaxW = Math.max(0, Math.floor(this.renderedWidth - padding * 2));
@@ -200,23 +229,23 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
     const candidates: Array<{ placement: 'top' | 'bottom' | 'left' | 'right'; x: number; y: number }>= [
       {
         placement: 'top',
-        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
-        y: bboxPx.y - gap - tH,
+        x: anchorPx.x - tW / 2,
+        y: anchorPx.y - gap - tH,
       },
       {
         placement: 'bottom',
-        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
-        y: bboxPx.y + bboxPx.h + gap,
+        x: anchorPx.x - tW / 2,
+        y: anchorPx.y + gap,
       },
       {
         placement: 'right',
-        x: bboxPx.x + bboxPx.w + gap,
-        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+        x: anchorPx.x + gap,
+        y: anchorPx.y - tH / 2,
       },
       {
         placement: 'left',
-        x: bboxPx.x - gap - tW,
-        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+        x: anchorPx.x - gap - tW,
+        y: anchorPx.y - tH / 2,
       },
     ];
 
@@ -230,7 +259,15 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
       return { fitsX, fitsY, fits: fitsX && fitsY };
     };
 
-    const preferredOrder: Array<'top' | 'bottom' | 'right' | 'left'> = ['top', 'bottom', 'right', 'left'];
+    const anchorXPct = this.renderedWidth ? anchorPx.x / this.renderedWidth : 0.5;
+
+    let preferredOrder: Array<'top' | 'bottom' | 'right' | 'left'> = ['top', 'bottom', 'right', 'left'];
+    // Be proactive near edges so the tooltip rarely needs clamping.
+    if (anchorXPct > 0.66) {
+      preferredOrder = ['left', 'top', 'bottom', 'right'];
+    } else if (anchorXPct < 0.34) {
+      preferredOrder = ['right', 'top', 'bottom', 'left'];
+    }
     let chosen = candidates[0];
     for (const p of preferredOrder) {
       const c = candidates.find((x) => x.placement === p)!;
@@ -308,6 +345,35 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
     }
 
     this.overlayBoxes = out;
+  }
+
+  getMarkerStyle(box: OverlayBox): Record<string, string> {
+    const normalized = this.normalizeBboxToPercent(box.bbox);
+    if (!normalized) return { display: 'none' };
+
+    const clamped = this.clampBboxPercent(normalized);
+
+    const markerPx = this.computeMarkerSizePx();
+    const fontPx = Math.max(10, Math.min(13, Math.round(markerPx * 0.42)));
+
+    const left = Math.max(0, Math.min(100, clamped.x + clamped.w / 2));
+    const top = Math.max(0, Math.min(100, clamped.y + clamped.h / 2));
+
+    return {
+      left: `${left}%`,
+      top: `${top}%`,
+      '--marker-size': `${markerPx}px`,
+      '--marker-font-size': `${fontPx}px`,
+      backgroundColor: box.color || '#e53935',
+    } as Record<string, string>;
+  }
+
+  private computeMarkerSizePx(): number {
+    if (!this.renderedWidth) return 22;
+    // Size should be consistent and never tiny; scale gently with image size.
+    const scaled = Math.round(this.renderedWidth * 0.03);
+    const base = Math.max(18, Math.min(28, scaled));
+    return Number.isFinite(base) ? base : 22;
   }
 
   getBoxStyle(box: OverlayBox): Record<string, string> {

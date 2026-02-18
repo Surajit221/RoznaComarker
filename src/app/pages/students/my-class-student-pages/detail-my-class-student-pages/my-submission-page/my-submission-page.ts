@@ -37,6 +37,8 @@ import type { OcrWord } from '../../../../../models/ocr-token.model';
 import type { CorrectionLegend } from '../../../../../models/correction-legend.model';
 
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
+import { applyLegendToIssues } from '../../../../../utils/correction-legend-mapping.util';
+import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 
 import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
 
@@ -112,6 +114,14 @@ export class MySubmissionPage {
     const a: any = this.submission && (this.submission as any).assignment;
     const title = a && typeof a === 'object' ? (a.title || a.name) : '';
     return typeof title === 'string' && title.trim().length ? title : 'Submission';
+  }
+
+  private recomputeLegendAligned(): void {
+    this.legendAligned = buildLegendAlignedFeedback({
+      legend: this.writingCorrectionsLegend,
+      writingIssues: this.writingCorrectionsIssues,
+      annotations: this.annotations
+    });
   }
 
   get submissionAuthor(): string {
@@ -214,21 +224,14 @@ export class MySubmissionPage {
 
   highlightedTranscriptHtml: SafeHtml | null = null;
 
-
-
   writingCorrectionsLegend: CorrectionLegend | null = null;
-
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
-
   writingCorrectionsHtml: SafeHtml | null = null;
-
   writingCorrectionsError: string | null = null;
-
   isWritingCorrectionsLoading = false;
-
   private lastWritingCorrectionsText: string | null = null;
 
-
+  private legendAligned: LegendAlignedFeedback | null = null;
 
   ocrWords: OcrWord[] = [];
 
@@ -238,9 +241,9 @@ export class MySubmissionPage {
     const labelMap: Record<string, string> = {
       CONTENT: 'Content Relevance',
       ORGANIZATION: 'Structure & Organization',
-      GRAMMAR: 'Grammar',
+      GRAMMAR: 'Grammar & Mechanics',
       VOCABULARY: 'Vocabulary',
-      MECHANICS: 'Mechanics'
+      MECHANICS: 'Overall Rubric Score'
     };
 
     const score = Number(item?.score);
@@ -253,9 +256,9 @@ export class MySubmissionPage {
   }
 
   get overallScoreText(): string {
-    const score5 = Number(this.feedback?.overallScore);
-    if (!Number.isFinite(score5)) return '0/100';
-    return `${Math.round(score5 * 10) / 10}/100`;
+    const score = Number(this.legendAligned?.overallScore100 ?? this.feedback?.overallScore);
+    if (!Number.isFinite(score)) return '0/100';
+    return `${Math.round(score * 10) / 10}/100`;
   }
 
   private buildFallbackRubricDesignerFromFeedback(fb: SubmissionFeedback): RubricDesigner | null {
@@ -266,7 +269,7 @@ export class MySubmissionPage {
           { category: 'Content Relevance', message: '' },
           { category: 'Structure & Organization', message: '' },
           { category: 'Grammar & Mechanics', message: '' },
-          { category: 'Vocabulary', message: '' }
+          { category: 'Overall Rubric Score', message: '' }
         ])
       .slice(0, 10);
 
@@ -297,6 +300,20 @@ export class MySubmissionPage {
     const fb = this.feedback;
     if (!fb) return null;
 
+    const normalizeCriteriaTitle = (t: any): string => {
+      const raw = String(t || '').trim();
+      if (!raw) return '';
+      const key = raw.toUpperCase().replace(/\s+/g, '_');
+      const labelMap: Record<string, string> = {
+        CONTENT: 'Content Relevance',
+        ORGANIZATION: 'Structure & Organization',
+        GRAMMAR: 'Grammar & Mechanics',
+        VOCABULARY: 'Vocabulary',
+        MECHANICS: 'Overall Rubric Score'
+      };
+      return labelMap[key] || raw;
+    };
+
     const d: any = (fb as any)?.rubricDesigner;
     if (!d || typeof d !== 'object') {
       return this.buildFallbackRubricDesignerFromFeedback(fb);
@@ -313,7 +330,7 @@ export class MySubmissionPage {
     const criteria = criteriaRaw
       .slice(0, 12)
       .map((c: any) => ({
-        title: String(c?.title || ''),
+        title: normalizeCriteriaTitle(c?.title),
         cells: levels.map((_lvl: { title: string; maxPoints: number }, i: number) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
       }))
       .filter((c: { title: string; cells: string[] }) => c.title.trim().length || c.cells.some((x) => String(x).trim().length));
@@ -333,33 +350,71 @@ export class MySubmissionPage {
     return this.rubricDesigner?.title || `Rubric: ${this.submissionTitle}`;
   }
 
+  get rubricCriteriaPreview(): Array<{ title: string; maxPoints: number }> {
+    if (!this.feedback?.overriddenByTeacher) return [];
+    const d = this.rubricDesigner;
+    if (!d) return [];
+
+    const normalizeCriteriaTitle = (t: any): string => {
+      const raw = String(t || '').trim();
+      if (!raw) return '';
+      const key = raw.toUpperCase().replace(/\s+/g, '_');
+      const labelMap: Record<string, string> = {
+        CONTENT: 'Content Relevance',
+        ORGANIZATION: 'Structure & Organization',
+        GRAMMAR: 'Grammar & Mechanics',
+        VOCABULARY: 'Vocabulary',
+        MECHANICS: 'Overall Rubric Score'
+      };
+      return labelMap[key] || raw;
+    };
+
+    const levels = Array.isArray((d as any).levels) ? (d as any).levels : [];
+    const perRowMax = levels.reduce((acc: number, x: any) => acc + (Number(x?.maxPoints) || 0), 0);
+
+    const criteria = Array.isArray((d as any).criteria) ? (d as any).criteria : [];
+    return criteria
+      .map((r: any) => ({ title: normalizeCriteriaTitle(r?.title), maxPoints: perRowMax }))
+      .filter((r: { title: string; maxPoints: number }) => r.title.length > 0);
+  }
+
   get gradeLabel(): string {
-    const g = typeof this.feedback?.grade === 'string' ? this.feedback.grade : '';
+    const g = typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : (typeof this.feedback?.grade === 'string' ? this.feedback.grade : '');
     return g || 'F';
   }
 
   get contentIssuesCount(): number {
-    const n = Number(this.feedback?.correctionStats?.content);
+    const n = Number(this.legendAligned?.counts?.CONTENT ?? this.feedback?.correctionStats?.content);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get grammarIssuesCount(): number {
-    const n = Number(this.feedback?.correctionStats?.grammar);
+    const n = Number(this.legendAligned?.counts?.GRAMMAR ?? this.feedback?.correctionStats?.grammar);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get organizationIssuesCount(): number {
-    const n = Number(this.feedback?.correctionStats?.organization);
+    const n = Number(this.legendAligned?.counts?.ORGANIZATION ?? this.feedback?.correctionStats?.organization);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get vocabularyIssuesCount(): number {
-    const n = Number(this.feedback?.correctionStats?.vocabulary);
+    const n = Number(this.legendAligned?.counts?.VOCABULARY ?? this.feedback?.correctionStats?.vocabulary);
+    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+  }
+
+  get mechanicsIssuesCount(): number {
+    const n = Number(this.legendAligned?.counts?.MECHANICS ?? this.feedback?.correctionStats?.mechanics);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get correctionStatsTotalForBars(): number {
-    const total = this.contentIssuesCount + this.grammarIssuesCount + this.organizationIssuesCount + this.vocabularyIssuesCount;
+    const total =
+      this.contentIssuesCount +
+      this.grammarIssuesCount +
+      this.organizationIssuesCount +
+      this.vocabularyIssuesCount +
+      this.mechanicsIssuesCount;
     return total > 0 ? total : 1;
   }
 
@@ -383,8 +438,12 @@ export class MySubmissionPage {
     return `${this.barPct(this.vocabularyIssuesCount)}%`;
   }
 
+  get mechanicsIssuesBarWidth(): string {
+    return `${this.barPct(this.mechanicsIssuesCount)}%`;
+  }
+
   get overallScorePct(): number {
-    const score100 = Number(this.feedback?.overallScore);
+    const score100 = Number(this.legendAligned?.overallScore100 ?? this.feedback?.overallScore);
     if (!Number.isFinite(score100)) return 0;
     return Math.max(0, Math.min(100, score100));
   }
@@ -398,26 +457,32 @@ export class MySubmissionPage {
   }
 
   get actionSteps(): string[] {
+    const computed = Array.isArray(this.legendAligned?.actionSteps) ? this.legendAligned!.actionSteps : [];
+    if (computed.length) return computed.slice(0, 5);
     const arr = Array.isArray(this.feedback?.detailedFeedback?.actionSteps) ? this.feedback?.detailedFeedback?.actionSteps : [];
     const top = arr.filter((x) => typeof x === 'string' && x.trim().length).slice(0, 5);
     return top.length ? top : [''];
   }
 
   get areasForImprovement(): Array<{ title: string; description: string; borderClass: string }> {
-    const arr = Array.isArray(this.feedback?.detailedFeedback?.areasForImprovement)
-      ? this.feedback?.detailedFeedback?.areasForImprovement
-      : [];
+    const computed = Array.isArray(this.legendAligned?.areasForImprovement) ? this.legendAligned!.areasForImprovement : [];
+    const arr = computed.length
+      ? computed
+      : (Array.isArray(this.feedback?.detailedFeedback?.areasForImprovement)
+          ? this.feedback?.detailedFeedback?.areasForImprovement
+          : []);
     const top = arr.filter((x) => typeof x === 'string' && x.trim().length).slice(0, 3);
     return top.map((t) => ({ title: t, description: '', borderClass: 'border-blue-400' }));
   }
 
   get strengths(): Array<{ title: string; description: string }> {
-    const arr = Array.isArray(this.feedback?.detailedFeedback?.strengths) ? this.feedback?.detailedFeedback?.strengths : [];
+    const computed = Array.isArray(this.legendAligned?.strengths) ? this.legendAligned!.strengths : [];
+    const arr = computed.length
+      ? computed
+      : (Array.isArray(this.feedback?.detailedFeedback?.strengths) ? this.feedback?.detailedFeedback?.strengths : []);
     const top = arr.filter((x) => typeof x === 'string' && x.trim().length).slice(0, 3);
     return top.map((t) => ({ title: t, description: '' }));
   }
-
-
 
   get isPdfUpload(): boolean {
 
@@ -728,7 +793,10 @@ export class MySubmissionPage {
 
       const resp = await this.writingCorrectionsApi.check({ text, language: 'en-US' });
 
-      this.writingCorrectionsIssues = Array.isArray(resp?.issues) ? resp.issues : [];
+      const rawIssues = Array.isArray(resp?.issues) ? resp.issues : [];
+      this.writingCorrectionsIssues = applyLegendToIssues(rawIssues, this.writingCorrectionsLegend);
+
+      this.recomputeLegendAligned();
 
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
 
@@ -945,7 +1013,7 @@ export class MySubmissionPage {
 
               bboxList,
 
-              group: c?.category,
+              group: typeof c?.category === 'string' ? c.category : (typeof c?.group === 'string' ? c.group : ''),
 
               symbol: c?.symbol,
 
@@ -968,13 +1036,19 @@ export class MySubmissionPage {
           })
 
           .filter(Boolean) as FeedbackAnnotation[];
+
+        this.recomputeLegendAligned();
       } else {
 
         this.annotations = [];
 
+        this.recomputeLegendAligned();
+
       }
     } catch (err) {
       this.annotations = [];
+
+      this.recomputeLegendAligned();
 
       this.alert.showWarning('OCR corrections unavailable', 'Word highlights may be limited.');
 
