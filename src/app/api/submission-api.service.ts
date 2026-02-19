@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
@@ -55,8 +55,27 @@ export type BackendSubmission = {
 export class SubmissionApiService {
   constructor(private http: HttpClient) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
+  private logHttpError(context: string, err: unknown) {
+    if (err instanceof HttpErrorResponse) {
+      console.error(`[${context}] HTTP error`, {
+        url: err.url,
+        status: err.status,
+        statusText: err.statusText,
+        message: err.message,
+        error: err.error
+      });
+      return;
+    }
+
+    console.error(`[${context}] Unknown error`, err);
+  }
+
   async submitToAssignment(assignmentId: string, file: File): Promise<BackendSubmission> {
-    const apiBaseUrl = environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const form = new FormData();
     form.append('file', file);
 
@@ -69,27 +88,27 @@ export class SubmissionApiService {
       );
 
       return resp.data;
-    } catch (error: any) {
-      console.error('Submit assignment failed:', error?.error || error);
-      throw error;
+    } catch (err: unknown) {
+      this.logHttpError('submitToAssignment', err);
+      throw err;
     }
   }
 
   async getMySubmissions(): Promise<BackendSubmission[]> {
-    const apiBaseUrl = environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission[]>>(`${apiBaseUrl}/submissions/my`)
       );
       return resp?.data || [];
-    } catch (error: any) {
-      console.error('Get my submissions failed:', error?.error || error);
-      throw error;
+    } catch (err: unknown) {
+      this.logHttpError('getMySubmissions', err);
+      throw err;
     }
   }
 
   async getMySubmissionByAssignmentId(assignmentId: string): Promise<BackendSubmission> {
-    const apiBaseUrl = environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission>>(
@@ -97,14 +116,14 @@ export class SubmissionApiService {
         )
       );
       return resp.data;
-    } catch (error: any) {
-      console.error('Get my submission failed:', error?.error || error);
-      throw error;
+    } catch (err: unknown) {
+      this.logHttpError('getMySubmissionByAssignmentId', err);
+      throw err;
     }
   }
 
   async getSubmissionsByAssignment(assignmentId: string): Promise<BackendSubmission[]> {
-    const apiBaseUrl = environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission[]>>(
@@ -112,9 +131,9 @@ export class SubmissionApiService {
         )
       );
       return resp?.data || [];
-    } catch (error: any) {
-      console.error('Get submissions by assignment failed:', error?.error || error);
-      throw error;
+    } catch (err: unknown) {
+      this.logHttpError('getSubmissionsByAssignment', err);
+      throw err;
     }
   }
 }

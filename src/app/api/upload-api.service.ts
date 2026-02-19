@@ -26,9 +26,16 @@ export type BackendHandwrittenUploadResponse = {
 export class UploadApiService {
   constructor(private http: HttpClient) {}
 
+  private getRootBaseUrl(): string {
+    return `${environment.apiUrl}`;
+  }
+
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
   uploadFile(file: File, assignmentId: string): Observable<HttpEvent<BackendUploadResponse>> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
-    const rootBaseUrl = String(apiBaseUrl).replace(/\/api\/?$/, '');
+    const rootBaseUrl = this.getRootBaseUrl();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -41,7 +48,7 @@ export class UploadApiService {
   }
 
   uploadHandwrittenForOcr(file: File): Observable<HttpEvent<BackendHandwrittenUploadResponse>> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
 
     const formData = new FormData();
     formData.append('file', file);

@@ -39,8 +39,12 @@ export class MembershipApiService {
     private cache: CacheService
   ) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
   async getMyMemberships(): Promise<BackendMembership[]> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = 'my-memberships';
     const cached = this.cache.get<BackendMembership[]>(cacheKey);
     if (cached) {
@@ -58,7 +62,7 @@ export class MembershipApiService {
   }
 
   async joinClassByCode(joinCode: string): Promise<JoinClassResponse> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<JoinClassResponse>>(`${apiBaseUrl}/memberships/join`, { joinCode })
     );

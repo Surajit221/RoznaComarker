@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signOut } from '@angular/fire/auth';
 
@@ -58,6 +58,25 @@ export class AuthService {
 
   constructor(private auth: Auth, private http: HttpClient) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
+  private logHttpError(context: string, err: unknown) {
+    if (err instanceof HttpErrorResponse) {
+      console.error(`[${context}] HTTP error`, {
+        url: err.url,
+        status: err.status,
+        statusText: err.statusText,
+        message: err.message,
+        error: err.error
+      });
+      return;
+    }
+
+    console.error(`[${context}] Unknown error`, err);
+  }
+
   async loginWithEmail(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(this.auth, email, password);
     const token = await cred.user.getIdToken();
@@ -93,7 +112,7 @@ export class AuthService {
   }
 
   async setMyRole(role: 'teacher' | 'student') {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.patch<BackendLoginResponse>(
         `${apiBaseUrl}/users/me/role`,
@@ -128,19 +147,29 @@ export class AuthService {
   }
 
   async getMeProfile(): Promise<BackendMe> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
-    const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendMe>>(`${apiBaseUrl}/users/me`)
-    );
-    return resp.data;
+    const apiBaseUrl = this.getApiBaseUrl();
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<BackendResponse<BackendMe>>(`${apiBaseUrl}/users/me`)
+      );
+      return resp.data;
+    } catch (err: unknown) {
+      this.logHttpError('getMeProfile', err);
+      throw err;
+    }
   }
 
   async getUserById(userId: string): Promise<BackendUser> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
-    const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendUser>>(`${apiBaseUrl}/users/${encodeURIComponent(userId)}`)
-    );
-    return resp.data;
+    const apiBaseUrl = this.getApiBaseUrl();
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<BackendResponse<BackendUser>>(`${apiBaseUrl}/users/${encodeURIComponent(userId)}`)
+      );
+      return resp.data;
+    } catch (err: unknown) {
+      this.logHttpError('getUserById', err);
+      throw err;
+    }
   }
 
   private persistBackendSession(resp: BackendLoginResponse | null | undefined) {
@@ -150,18 +179,23 @@ export class AuthService {
   }
 
   private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
-    const resp = await firstValueFrom(
-      this.http.post<BackendLoginResponse>(
-        `${apiBaseUrl}/auth/login`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${firebaseToken}`
+    const apiBaseUrl = this.getApiBaseUrl();
+    try {
+      const resp = await firstValueFrom(
+        this.http.post<BackendLoginResponse>(
+          `${apiBaseUrl}/auth/login`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${firebaseToken}`
+            }
           }
-        }
-      )
-    );
-    return resp;
+        )
+      );
+      return resp;
+    } catch (err: unknown) {
+      this.logHttpError('exchangeWithBackend', err);
+      throw err;
+    }
   }
 }

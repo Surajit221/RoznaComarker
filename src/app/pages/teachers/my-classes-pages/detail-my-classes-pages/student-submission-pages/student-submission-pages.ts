@@ -498,7 +498,7 @@ export class StudentSubmissionPages {
     this.correctionsError = null;
 
     try {
-      const apiBaseUrl = (environment as any).API_URL || (environment as any).apiBaseUrl;
+      const apiBaseUrl = `${environment.apiUrl}/api`;
       const resp = await firstValueFrom(
         this.http.post<any>(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, {})
       );
@@ -1249,9 +1249,7 @@ export class StudentSubmissionPages {
   }
 
   private buildSubmissionPreviewUrl(submissionId: string): string {
-    const apiBaseUrl = (environment as any).API_URL || (environment as any).apiBaseUrl;
-    const rootBaseUrl = String(apiBaseUrl).replace(/\/api\/?$/, '');
-    return `${rootBaseUrl}/files/submission-preview/${encodeURIComponent(submissionId)}`;
+    return `${environment.apiUrl}/api/pdf/download/${encodeURIComponent(submissionId)}`;
   }
 
   private async loadSubmissions() {
