@@ -7,6 +7,13 @@ export type RubricFeedbackItem = {
   description: string;
 };
 
+export type PersistedRubricScores = Partial<
+  Record<
+    'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS',
+    { score?: number; maxScore?: number; comment?: string }
+  >
+>;
+
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
@@ -119,5 +126,42 @@ export function buildDynamicRubricFeedback(params: {
     { category: 'Structure & Organization', score: structureScore, maxScore: 5, description: structureDesc },
     { category: 'Content Relevance', score: contentScore, maxScore: 5, description: contentDesc },
     { category: 'Overall Rubric Score', score: overallScore5, maxScore: 5, description: overallSuffix }
+  ];
+}
+
+export function rubricScoresToFeedbackItems(rubricScores: PersistedRubricScores | null | undefined): RubricFeedbackItem[] {
+  const rs: any = rubricScores && typeof rubricScores === 'object' ? rubricScores : {};
+
+  const clamp5 = (n: any): number => {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return 0;
+    return clamp(round1(x), 0, 5);
+  };
+
+  return [
+    {
+      category: 'Grammar & Mechanics',
+      score: clamp5(rs?.GRAMMAR?.score),
+      maxScore: 5,
+      description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
+    },
+    {
+      category: 'Structure & Organization',
+      score: clamp5(rs?.ORGANIZATION?.score),
+      maxScore: 5,
+      description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
+    },
+    {
+      category: 'Content Relevance',
+      score: clamp5(rs?.CONTENT?.score),
+      maxScore: 5,
+      description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
+    },
+    {
+      category: 'Overall Rubric Score',
+      score: clamp5(rs?.MECHANICS?.score),
+      maxScore: 5,
+      description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
+    }
   ];
 }
