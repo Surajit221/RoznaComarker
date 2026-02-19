@@ -1488,11 +1488,11 @@
 
 
 
-    <div class="w-full bg-white p-4 rounded-2xl flex flex-col gap-4" id="ai-feedback-section">
+    <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6" id="ai-feedback-section">
 
       <div class="flex flex-row justify-between items-center">
 
-        <p class="text-lg font-bold">AI Feedback</p>
+        <p class="text-2xl font-bold">AI Feedback</p>
 
       </div>
 
@@ -1500,37 +1500,55 @@
 
         <div class="flex flex-col gap-3">
 
+          @if (rubricCriteriaPreview.length) {
+
+          <div class="w-full flex flex-col gap-3">
+            @for (r of rubricCriteriaPreview; track r.title) {
+            <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+              <div class="flex flex-row gap-2 items-center flex-wrap">
+                <p class="text-xl font-bold mb-1">{{ r.title }}</p>
+                <div class="rounded-full bg-[#008081] flex items-center justify-center h-10 w-10">
+                  <p class="font-bold text-white text-sm">{{ r.maxPoints }}</p>
+                </div>
+              </div>
+            </div>
+            }
+          </div>
+
+          }
+
           @for (item of feedbacks; track item.category) {
 
-          <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
+          <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
 
-            <div class="col-span-6">
+            <div class="col-span-5">
 
-              <p class="text-base font-bold">
+              <div class="flex flex-row gap-2 items-center">
 
-                {{ item.category }}
+                <p class="text-xl font-bold mb-1">
 
-              </p>
+                  {{ item.category }}
 
-              <p class="text-sm">
+                </p>
+
+                <div
+                 class="rounded-full bg-[#008081] flex items-center justify-center"
+                 [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+               >
+
+                 <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                   {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+                 </p>
+
+               </div>
+
+              </div>
+
+              <p>
 
                 {{ item.description }}
 
               </p>
-
-            </div>
-
-            <div class="col-span-1">
-
-              <div
-
-                class="h-8 w-8 mx-auto rounded-full bg-[#008081] flex items-center justify-center"
-
-              >
-
-                <p class="text-xs font-bold text-white">{{ item.score | number:'1.1-1' }}/{{ item.maxScore }}</p>
-
-              </div>
 
             </div>
 
@@ -1540,13 +1558,13 @@
 
           <div class="flex justify-end">
 
-            <button class="btn-warning-sm w-fit" (click)="openRubricDialog()">View Rubric</button>
+            <button class="btn-warning w-fit" (click)="openRubricDialog()">View Rubric</button>
 
           </div>
 
-          <div class="w-full items-center py-4 px-4 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
+          <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
 
-            <p class="text-base font-bold">Teacher Comments</p>
+            <p class="text-xl font-bold mb-1">Teacher Comments</p>
 
             <div class="flex flex-col gap-1">
 
@@ -1558,13 +1576,14 @@
 
                   readonly
 
-                  class="input-text w-full text-sm h-32 resize-none bg-white"
+                  class="input-text w-full h-32 resize-none bg-white"
 
-                  placeholder=""
+                  placeholder="Type your message..."
 
                 >
 
                 </textarea>
+
               </div>
 
             </div>
