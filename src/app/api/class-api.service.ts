@@ -53,8 +53,12 @@ export class ClassApiService {
     private cache: CacheService
   ) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
   async getMyTeacherClasses(): Promise<BackendClass[]> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = 'my-teacher-classes';
     const cached = this.cache.get<BackendClass[]>(cacheKey);
     if (cached) {
@@ -72,7 +76,7 @@ export class ClassApiService {
   }
 
   async createClass(payload: { name: string; description?: string }): Promise<BackendClass> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendClass>>(`${apiBaseUrl}/classes`, payload)
     );
@@ -84,7 +88,7 @@ export class ClassApiService {
   }
 
   async getClassStudents(classId: string): Promise<BackendClassStudent[]> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = `class-students-${classId}`;
     const cached = this.cache.get<BackendClassStudent[]>(cacheKey);
     if (cached) {
@@ -104,7 +108,7 @@ export class ClassApiService {
   }
 
   async getClassSummary(classId: string): Promise<BackendClassSummary> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = `class-summary-${classId}`;
     const cached = this.cache.get<BackendClassSummary>(cacheKey);
     if (cached) {

@@ -933,7 +933,7 @@ export class MySubmissionPage {
 
   private async loadOcrCorrections(submissionId: string) {
     try {
-      const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+      const apiBaseUrl = `${environment.apiUrl}/api`;
       const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, {}));
 
       const success = Boolean(resp && (resp as any).success);
@@ -1385,17 +1385,10 @@ export class MySubmissionPage {
       if (this.destroyed || seq !== this.loadSeq) return;
 
       this.rebuildHighlightedTranscript();
-
       await this.refreshWritingCorrections();
-
     } catch (err: any) {
-
-      this.alert.showError('Failed to load submission', err?.error?.message || err?.message || 'Please try again');
-
-    } finally {
-
-      this.isLoading = false;
-
+      console.error('Failed to load OCR corrections:', err?.error || err);
+      throw err;
     }
 
   }

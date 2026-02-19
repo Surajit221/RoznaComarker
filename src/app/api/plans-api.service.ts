@@ -35,8 +35,12 @@ export type BackendPlan = {
 export class PlansApiService {
   constructor(private http: HttpClient) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
   async getActivePlans(): Promise<BackendPlan[]> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendPlan[]>>(`${apiBaseUrl}/plans`)
     );

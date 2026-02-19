@@ -37,13 +37,17 @@ export type WritingCorrectionsResponse = {
 export class WritingCorrectionsApiService {
   constructor(private http: HttpClient) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
   async getLegend(): Promise<CorrectionLegend> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     return firstValueFrom(this.http.get<CorrectionLegend>(`${apiBaseUrl}/writing-corrections/legend`));
   }
 
   async check(payload: { text: string; language?: string; submissionId?: string }): Promise<WritingCorrectionsResponse> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
     return firstValueFrom(
       this.http.post<WritingCorrectionsResponse>(`${apiBaseUrl}/writing-corrections/check`, payload)
     );

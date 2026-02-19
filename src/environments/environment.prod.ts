@@ -1,5 +1,6 @@
 export const environment = {
     production: true,
+    apiUrl: 'http://82.112.234.151:5000',
     API_URL: 'http://82.112.234.151:5000/api',
     UPLOADS_URL: 'http://82.112.234.151:5000/uploads',
     FRONTEND_URL: 'http://82.112.234.151:4200',

@@ -8,8 +8,12 @@ import { environment } from '../../environments/environment';
 export class PdfApiService {
   constructor(private http: HttpClient) {}
 
+  private getApiBaseUrl(): string {
+    return `${environment.apiUrl}/api`;
+  }
+
   async downloadSubmissionPdf(submissionId: string): Promise<Blob> {
-    const apiBaseUrl = (environment as any).API_URL || environment.apiBaseUrl;
+    const apiBaseUrl = this.getApiBaseUrl();
 
     return firstValueFrom(
       this.http.get(`${apiBaseUrl}/pdf/download/${encodeURIComponent(submissionId)}`, {
