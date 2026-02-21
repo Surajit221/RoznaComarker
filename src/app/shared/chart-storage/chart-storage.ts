@@ -1,8 +1,9 @@
 import { Component, Input, SimpleChanges } from '@angular/core';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-chart-storage',
-  imports: [],
+  imports: [RouterModule],
   templateUrl: './chart-storage.html',
   styleUrl: './chart-storage.css',
 })

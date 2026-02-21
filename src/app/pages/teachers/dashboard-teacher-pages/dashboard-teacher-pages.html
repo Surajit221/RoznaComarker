@@ -11,7 +11,8 @@
 
       <div class="flex gap-3">
         <button
-          class="btn-primary flex items-center gap-2 shadow-[0px_6px_0_#136C6D] hover:-translate-y-1 transition-all">
+          class="btn-primary flex items-center gap-2 shadow-[0px_6px_0_#136C6D] hover:-translate-y-1 transition-all"
+          (click)="onCreateClass()">
           <i class='bx bx-plus text-xl'></i>
           <span>Create Class</span>
         </button>
@@ -30,8 +31,8 @@
           <i class='bx bx-time-five text-2xl text-[#FFC300]'></i>
         </div>
         <div class="z-10 flex items-baseline gap-2">
-          <span class="text-4xl font-bold text-[#203864]">8</span>
-          <span class="text-xs text-[#EE4E4E] font-bold">+2 today</span>
+          <span class="text-4xl font-bold text-[#203864]">{{ (pendingCount$ | async) ?? 0 }}</span>
+          <span class="text-xs text-[#EE4E4E] font-bold">+{{ (pendingTodayCount$ | async) ?? 0 }} today</span>
         </div>
       </div>
 
@@ -41,7 +42,7 @@
           <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Total Students</span>
           <i class='bx bxs-user-detail text-2xl text-[#203864]'></i>
         </div>
-        <span class="text-4xl font-bold text-[#203864]">142</span>
+        <span class="text-4xl font-bold text-[#203864]">{{ (dashboardStats$ | async)?.totalStudents ?? 0 }}</span>
       </div>
 
       <div
@@ -51,7 +52,7 @@
           <i class='bx bxs-bar-chart-alt-2 text-2xl text-[#008081]'></i>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="text-4xl font-bold text-[#008081]">76.5</span>
+          <span class="text-4xl font-bold text-[#008081]">{{ (dashboardStats$ | async)?.avgScore ?? 0 }}</span>
           <i class='bx bxs-up-arrow text-xs text-green-500'></i>
         </div>
       </div>
@@ -62,7 +63,7 @@
           <span class="text-[#7A7A7A] font-bold text-xs uppercase tracking-wider">Active Classes</span>
           <i class='bx bxs-school text-2xl text-[#7A7A7A]'></i>
         </div>
-        <span class="text-4xl font-bold text-[#203864]">6</span>
+        <span class="text-4xl font-bold text-[#203864]">{{ (dashboardStats$ | async)?.activeClasses ?? 0 }}</span>
       </div>
     </div>
 
@@ -89,48 +90,21 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-[#E7E7E7]">
+                @for (item of (pendingSubmissions$ | async) ?? []; track item.id) {
                 <tr class="hover:bg-[#E6F2F2] transition-colors group">
                   <td class="p-4 flex items-center gap-3">
-                    <img src="https://i.pravatar.cc/150?u=1" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
-                    <span class="font-bold text-[#203864]">Budi Santoso</span>
+                    <img [src]="item.student.image" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+                    <span class="font-bold text-[#203864]">{{ item.student.name }}</span>
                   </td>
-                  <td class="p-4 text-sm font-medium">Global Warming Effects</td>
+                  <td class="p-4 text-sm font-medium">{{ item.assignment.title }}</td>
                   <td class="p-4">
-                    <span
-                      class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold rounded-lg text-sm border border-[#136C6D]">88</span>
+                    <span [class]="scoreBadgeClass(item.score)">{{ item.score }}</span>
                   </td>
                   <td class="p-4 text-right">
-                    <button class="btn-primary-sm">Review</button>
+                    <button class="btn-primary-sm" (click)="onReview(item)">Review</button>
                   </td>
                 </tr>
-                <tr class="hover:bg-[#E6F2F2] transition-colors group">
-                  <td class="p-4 flex items-center gap-3">
-                    <img src="https://i.pravatar.cc/150?u=2" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
-                    <span class="font-bold text-[#203864]">Sarah Jenkins</span>
-                  </td>
-                  <td class="p-4 text-sm font-medium">History of AI</td>
-                  <td class="p-4">
-                    <span
-                      class="px-3 py-1 bg-[#FFF4E5] text-[#FFC300] font-bold rounded-lg text-sm border border-[#DBB12A]">65</span>
-                  </td>
-                  <td class="p-4 text-right">
-                    <button class="btn-primary-sm">Review</button>
-                  </td>
-                </tr>
-                <tr class="hover:bg-[#E6F2F2] transition-colors group">
-                  <td class="p-4 flex items-center gap-3">
-                    <img src="https://i.pravatar.cc/150?u=3" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
-                    <span class="font-bold text-[#203864]">Michael Chen</span>
-                  </td>
-                  <td class="p-4 text-sm font-medium">Future of Tech</td>
-                  <td class="p-4">
-                    <span
-                      class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold rounded-lg text-sm border border-[#136C6D]">92</span>
-                  </td>
-                  <td class="p-4 text-right">
-                    <button class="btn-primary-sm">Review</button>
-                  </td>
-                </tr>
+                }
               </tbody>
             </table>
           </div>
@@ -140,23 +114,31 @@
           <h3 class="text-xl font-bold text-[#203864]">Your Classes</h3>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              class="bg-white p-5 rounded-3xl border-[3px] border-[#E7E7E7] hover:border-[#203864] hover:shadow-[0px_6px_0_#203864] transition-all cursor-pointer flex flex-col gap-4 relative overflow-hidden">
+            @for (card of (classCards$ | async) ?? []; track card.id; let i = $index) {
+            <div [class]="classCardContainerClass(i)" (click)="onOpenClass(card)">
               <div class="flex justify-between items-start z-10">
                 <div class="flex flex-col">
-                  <h4 class="text-lg font-bold text-[#203864]">English 101 - A</h4>
-                  <span class="text-xs text-[#7A7A7A]">32 Students</span>
+                  <h4 class="text-lg font-bold text-[#203864]">{{ card.title }}</h4>
+                  <span class="text-xs text-[#7A7A7A]">{{ card.studentsCount }} Students</span>
                 </div>
                 <div class="bg-[#E6F2F2] p-2 rounded-lg text-[#008081]">
-                  <i class='bx bxs-book-open text-xl'></i>
+                  <i [class]="classCardIconClass(i)"></i>
                 </div>
               </div>
 
               <div class="flex gap-2 z-10">
+                @if (card.deadlinesTodayCount > 0) {
                 <span
                   class="bg-[#FFE5E5] text-[#EE4E4E] text-[10px] font-bold px-2 py-1 rounded-md border border-[#EE4E4E]">
-                  3 Deadline Today
+                  {{ card.deadlinesTodayCount }} Deadline Today
                 </span>
+                }
+                @if (card.deadlinesTodayCount === 0) {
+                <span
+                  class="bg-[#E6F2F2] text-[#008081] text-[10px] font-bold px-2 py-1 rounded-md border border-[#136C6D]">
+                  All Graded
+                </span>
+                }
                 <span
                   class="bg-[#F0F0F0] text-[#7A7A7A] text-[10px] font-bold px-2 py-1 rounded-md border border-[#D4D4D4]">
                   Term 2
@@ -164,26 +146,7 @@
               </div>
               <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#F0F4F8] rounded-full z-0"></div>
             </div>
-
-            <div
-              class="bg-white p-5 rounded-3xl border-[3px] border-[#E7E7E7] hover:border-[#008081] hover:shadow-[0px_6px_0_#008081] transition-all cursor-pointer flex flex-col gap-4 relative overflow-hidden">
-              <div class="flex justify-between items-start z-10">
-                <div class="flex flex-col">
-                  <h4 class="text-lg font-bold text-[#203864]">Creative Writing</h4>
-                  <span class="text-xs text-[#7A7A7A]">18 Students</span>
-                </div>
-                <div class="bg-[#E6F2F2] p-2 rounded-lg text-[#008081]">
-                  <i class='bx bxs-pencil text-xl'></i>
-                </div>
-              </div>
-
-              <div class="flex gap-2 z-10">
-                <span
-                  class="bg-[#E6F2F2] text-[#008081] text-[10px] font-bold px-2 py-1 rounded-md border border-[#136C6D]">
-                  All Graded
-                </span>
-              </div>
-            </div>
+            }
           </div>
         </div>
 
@@ -199,31 +162,20 @@
           </div>
 
           <div class="flex flex-col gap-3 relative z-10">
+            @for (item of (needsAttention$ | async) ?? []; track item.studentId) {
             <div class="flex items-center justify-between bg-white border border-[#EE4E4E] p-3 rounded-xl shadow-sm">
               <div class="flex items-center gap-2">
                 <div
                   class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-[#EE4E4E] font-bold text-xs">
-                  A</div>
+                  {{ item.studentInitial }}</div>
                 <div class="flex flex-col">
-                  <span class="text-sm font-bold text-[#203864]">Alex Doe</span>
-                  <span class="text-[10px] text-[#7A7A7A]">Avg. Score: 45</span>
+                  <span class="text-sm font-bold text-[#203864]">{{ item.studentName }}</span>
+                  <span class="text-[10px] text-[#7A7A7A]">Avg. Score: {{ item.avgScore }}</span>
                 </div>
               </div>
               <button class="text-xs font-bold text-[#008081] hover:underline">Message</button>
             </div>
-
-            <div class="flex items-center justify-between bg-white border border-[#EE4E4E] p-3 rounded-xl shadow-sm">
-              <div class="flex items-center gap-2">
-                <div
-                  class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-[#EE4E4E] font-bold text-xs">
-                  J</div>
-                <div class="flex flex-col">
-                  <span class="text-sm font-bold text-[#203864]">John S.</span>
-                  <span class="text-[10px] text-[#7A7A7A]">Missed 2 Tasks</span>
-                </div>
-              </div>
-              <button class="text-xs font-bold text-[#008081] hover:underline">Message</button>
-            </div>
+            }
           </div>
           <div class="absolute -right-5 -top-5 w-32 h-32 bg-[#FFE5E5] rounded-full opacity-50 z-0"></div>
         </div>
@@ -316,8 +268,9 @@
           <div class="absolute -right-4 -top-4 w-16 h-16 bg-[#FFE082] rounded-full opacity-50"></div>
           <div class="z-10 flex justify-between items-start">
             <i class='bx bx-time-five text-2xl text-[#FF8F00]'></i>
-            <span class="text-3xl font-bold text-[#203864]">8</span>
+            <span class="text-3xl font-bold text-[#203864]">{{ (pendingCount$ | async) ?? 0 }}</span>
           </div>
+
           <div class="z-10">
             <p class="text-xs font-bold text-[#FF8F00] uppercase tracking-wide">Pending</p>
             <p class="text-[10px] text-[#203864] font-semibold mt-1">Review needed</p>
@@ -327,7 +280,7 @@
         <div class="bg-white p-4 rounded-2xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-36">
           <div class="flex justify-between items-start">
             <i class='bx bxs-user text-2xl text-[#008081]'></i>
-            <span class="text-3xl font-bold text-[#203864]">142</span>
+            <span class="text-3xl font-bold text-[#203864]">{{ (dashboardStats$ | async)?.totalStudents ?? 0 }}</span>
           </div>
           <p class="text-xs font-bold text-[#7A7A7A] uppercase tracking-wide">Students</p>
         </div>
@@ -335,7 +288,7 @@
         <div class="bg-white p-4 rounded-2xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-36">
           <div class="flex justify-between items-start">
             <i class='bx bxs-bar-chart-alt-2 text-2xl text-[#203864]'></i>
-            <span class="text-3xl font-bold text-[#008081]">76.5</span>
+            <span class="text-3xl font-bold text-[#008081]">{{ (dashboardStats$ | async)?.avgScore ?? 0 }}</span>
           </div>
           <p class="text-xs font-bold text-[#7A7A7A] uppercase tracking-wide">Avg Score</p>
         </div>
@@ -343,7 +296,7 @@
         <div class="bg-white p-4 rounded-2xl border-[3px] border-[#E7E7E7] flex flex-col justify-between h-36">
           <div class="flex justify-between items-start">
             <i class='bx bxs-school text-2xl text-[#EE4E4E]'></i>
-            <span class="text-3xl font-bold text-[#203864]">6</span>
+            <span class="text-3xl font-bold text-[#203864]">{{ (dashboardStats$ | async)?.activeClasses ?? 0 }}</span>
           </div>
           <p class="text-xs font-bold text-[#7A7A7A] uppercase tracking-wide">Classes</p>
         </div>
@@ -358,95 +311,70 @@
         </div>
 
         <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          @for (item of (needsAttention$ | async) ?? []; track item.studentId) {
           <div class="min-w-[140px] bg-[#FAFAFA] border-2 border-[#E7E7E7] p-3 rounded-xl flex flex-col gap-2">
             <div class="flex items-center gap-2">
               <div class="w-6 h-6 rounded-full bg-gray-300"></div>
-              <span class="text-xs font-bold truncate">Alex Doe</span>
+              <span class="text-xs font-bold truncate">{{ item.studentName }}</span>
             </div>
-            <span class="text-[10px] text-[#EE4E4E] font-bold bg-[#FFE5E5] px-2 py-1 rounded-md w-fit">Score: 45</span>
+            <span class="text-[10px] text-[#EE4E4E] font-bold bg-[#FFE5E5] px-2 py-1 rounded-md w-fit">Score: {{ item.avgScore }}</span>
           </div>
-          <div class="min-w-[140px] bg-[#FAFAFA] border-2 border-[#E7E7E7] p-3 rounded-xl flex flex-col gap-2">
-            <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded-full bg-gray-300"></div>
-              <span class="text-xs font-bold truncate">John Smith</span>
-            </div>
-            <span class="text-[10px] text-[#EE4E4E] font-bold bg-[#FFE5E5] px-2 py-1 rounded-md w-fit">2 Missed</span>
-          </div>
+          }
         </div>
       </div>
 
       <div class="flex flex-col gap-3">
         <div class="flex justify-between items-center">
           <h3 class="font-bold text-[#203864] text-lg">Waiting Approval</h3>
-          <span class="text-xs font-bold text-[#008081] bg-[#E6F2F2] px-2 py-1 rounded-lg">8 Pending</span>
+          <span class="text-xs font-bold text-[#008081] bg-[#E6F2F2] px-2 py-1 rounded-lg">{{ (pendingCount$ | async) ?? 0 }} Pending</span>
         </div>
 
+        @for (item of (pendingSubmissions$ | async) ?? []; track item.id) {
         <div class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-3 shadow-sm">
           <div class="flex justify-between items-start">
             <div class="flex gap-3 items-center">
-              <img src="https://i.pravatar.cc/150?u=1" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
+              <img [src]="item.student.image" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
               <div class="flex flex-col">
-                <span class="font-bold text-[#203864] text-sm">Budi Santoso</span>
-                <span class="text-xs text-[#7A7A7A]">Global Warming Effects</span>
+                <span class="font-bold text-[#203864] text-sm">{{ item.student.name }}</span>
+                <span class="text-xs text-[#7A7A7A]">{{ item.assignment.title }}</span>
               </div>
             </div>
-            <span
-              class="text-sm font-bold text-[#008081] bg-[#E6F2F2] px-2 py-1 rounded-lg border border-[#136C6D]">88</span>
+            <span [class]="scoreBadgeClass(item.score)">{{ item.score }}</span>
           </div>
           <button
-            class="w-full py-2 bg-[#203864] text-white text-sm font-bold rounded-xl active:scale-95 transition-transform">
+            class="w-full py-2 bg-[#203864] text-white text-sm font-bold rounded-xl active:scale-95 transition-transform"
+            (click)="onReview(item)"
+          >
             Review Essay
           </button>
         </div>
-
-        <div class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-3 shadow-sm">
-          <div class="flex justify-between items-start">
-            <div class="flex gap-3 items-center">
-              <img src="https://i.pravatar.cc/150?u=2" class="w-10 h-10 rounded-full border-2 border-[#E7E7E7]">
-              <div class="flex flex-col">
-                <span class="font-bold text-[#203864] text-sm">Sarah Jenkins</span>
-                <span class="text-xs text-[#7A7A7A]">History of AI</span>
-              </div>
-            </div>
-            <span
-              class="text-sm font-bold text-[#FFC300] bg-[#FFF4E5] px-2 py-1 rounded-lg border border-[#DBB12A]">65</span>
-          </div>
-          <button
-            class="w-full py-2 bg-[#203864] text-white text-sm font-bold rounded-xl active:scale-95 transition-transform">
-            Review Essay
-          </button>
-        </div>
+        }
       </div>
 
       <div class="flex flex-col gap-3">
         <h3 class="font-bold text-[#203864] text-lg">My Classes</h3>
 
+        @for (card of (classCards$ | async) ?? []; track card.id) {
         <div
-          class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row justify-between items-center relative overflow-hidden">
+          class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row justify-between items-center relative overflow-hidden"
+          (click)="onOpenClass(card)"
+        >
           <div class="flex flex-col gap-1 z-10">
-            <span class="font-bold text-[#203864]">English 101 - A</span>
-            <span class="text-xs text-[#7A7A7A]">32 Students • Term 2</span>
+            <span class="font-bold text-[#203864]">{{ card.title }}</span>
+            <span class="text-xs text-[#7A7A7A]">{{ card.studentsCount }} Students • Term 2</span>
+            @if (card.deadlinesTodayCount > 0) {
             <div class="mt-2 flex gap-1">
               <span
-                class="px-2 py-0.5 bg-[#FFE5E5] text-[#EE4E4E] text-[10px] font-bold rounded border border-[#EE4E4E]">3
+                class="px-2 py-0.5 bg-[#FFE5E5] text-[#EE4E4E] text-[10px] font-bold rounded border border-[#EE4E4E]">{{ card.deadlinesTodayCount }}
                 Deadline</span>
             </div>
+            }
           </div>
           <div class="h-10 w-10 bg-[#E6F2F2] rounded-full flex items-center justify-center text-[#008081] z-10">
             <i class='bx bxs-chevron-right text-2xl'></i>
           </div>
         </div>
-
-        <div
-          class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row justify-between items-center relative overflow-hidden">
-          <div class="flex flex-col gap-1 z-10">
-            <span class="font-bold text-[#203864]">Creative Writing</span>
-            <span class="text-xs text-[#7A7A7A]">18 Students • Term 2</span>
-          </div>
-          <div class="h-10 w-10 bg-[#E6F2F2] rounded-full flex items-center justify-center text-[#008081] z-10">
-            <i class='bx bxs-chevron-right text-2xl'></i>
-          </div>
-        </div>
+        }
       </div>
 
     </div>

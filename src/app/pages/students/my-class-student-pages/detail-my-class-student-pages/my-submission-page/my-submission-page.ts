@@ -516,7 +516,7 @@ export class MySubmissionPage {
 
   get overallScoreText(): string {
 
-    const score = Number(this.legendAligned?.overallScore100 ?? this.feedback?.overallScore);
+    const score = Number(this.feedback?.overallScore ?? this.legendAligned?.overallScore100);
 
     if (!Number.isFinite(score)) return '0/100';
 
@@ -528,25 +528,14 @@ export class MySubmissionPage {
 
   private buildFallbackRubricDesignerFromFeedback(fb: SubmissionFeedback): RubricDesigner | null {
 
-    const fromAi = Array.isArray(fb?.aiFeedback?.perCategory) ? fb.aiFeedback.perCategory : [];
+    const rs: any = fb && (fb as any).rubricScores ? (fb as any).rubricScores : {};
 
-    const criteriaSeed = (fromAi.length
-
-      ? fromAi
-
-      : [
-
-          { category: 'Content Relevance', message: '' },
-
-          { category: 'Structure & Organization', message: '' },
-
-          { category: 'Grammar & Mechanics', message: '' },
-
-          { category: 'Overall Rubric Score', message: '' }
-
-        ])
-
-      .slice(0, 10);
+    const criteriaSeed = [
+      { category: 'Grammar & Mechanics', message: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : '' },
+      { category: 'Structure & Organization', message: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : '' },
+      { category: 'Content Relevance', message: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : '' },
+      { category: 'Overall Rubric Score', message: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : '' }
+    ];
 
 
 
@@ -759,7 +748,9 @@ export class MySubmissionPage {
 
   get gradeLabel(): string {
 
-    const g = typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : (typeof this.feedback?.grade === 'string' ? this.feedback.grade : '');
+    const g = typeof this.feedback?.grade === 'string'
+      ? this.feedback.grade
+      : (typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : '');
 
     return g || 'F';
 
@@ -887,7 +878,7 @@ export class MySubmissionPage {
 
   get overallScorePct(): number {
 
-    const score100 = Number(this.legendAligned?.overallScore100 ?? this.feedback?.overallScore);
+    const score100 = Number(this.feedback?.overallScore ?? this.legendAligned?.overallScore100);
 
     if (!Number.isFinite(score100)) return 0;
 

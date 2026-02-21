@@ -138,6 +138,14 @@ export class AuthService {
     return localStorage.getItem(this.backendJwtKey);
   }
 
+  private buildBackendAuthHeaders(): { Authorization: string } | undefined {
+    const token = this.getBackendJwt();
+    if (!token) return undefined;
+    return {
+      Authorization: `Bearer ${token}`
+    };
+  }
+
   getBackendRole(): string | null {
     const token = this.getBackendJwt();
     if (!token) return null;
@@ -150,7 +158,9 @@ export class AuthService {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
-        this.http.get<BackendResponse<BackendMe>>(`${apiBaseUrl}/users/me`)
+        this.http.get<BackendResponse<BackendMe>>(`${apiBaseUrl}/users/me`, {
+          headers: this.buildBackendAuthHeaders()
+        })
       );
       return resp.data;
     } catch (err: unknown) {
@@ -163,7 +173,9 @@ export class AuthService {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
-        this.http.get<BackendResponse<BackendUser>>(`${apiBaseUrl}/users/${encodeURIComponent(userId)}`)
+        this.http.get<BackendResponse<BackendUser>>(`${apiBaseUrl}/users/${encodeURIComponent(userId)}`, {
+          headers: this.buildBackendAuthHeaders()
+        })
       );
       return resp.data;
     } catch (err: unknown) {

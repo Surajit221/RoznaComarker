@@ -42,6 +42,8 @@ import { ImageAnnotationOverlayComponent } from '../../../../../components/image
 
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 
+import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
+
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -121,6 +123,8 @@ export class StudentSubmissionPages {
   private sanitizer = inject(DomSanitizer);
 
   private writingCorrectionsApi = inject(WritingCorrectionsApiService);
+
+  private teacherDashboardState = inject(TeacherDashboardStateService);
 
 
 
@@ -744,7 +748,7 @@ export class StudentSubmissionPages {
 
   get overallScoreText(): string {
 
-    const score = Number(this.legendAligned?.overallScore100 ?? this.currentFeedback?.overallScore);
+    const score = Number(this.currentFeedback?.overallScore ?? this.legendAligned?.overallScore100);
 
     if (!Number.isFinite(score)) return '0/100';
 
@@ -756,7 +760,9 @@ export class StudentSubmissionPages {
 
   get gradeLabel(): string {
 
-    const g = typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : (typeof this.currentFeedback?.grade === 'string' ? this.currentFeedback.grade : '');
+    const g = typeof this.currentFeedback?.grade === 'string'
+      ? this.currentFeedback.grade
+      : (typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : '');
 
     return g || 'F';
 
@@ -892,7 +898,7 @@ export class StudentSubmissionPages {
 
   get overallScorePct(): number {
 
-    const score100 = Number(this.legendAligned?.overallScore100 ?? this.currentFeedback?.overallScore);
+    const score100 = Number(this.currentFeedback?.overallScore ?? this.legendAligned?.overallScore100);
 
     if (!Number.isFinite(score100)) return 0;
 
@@ -2917,6 +2923,13 @@ export class StudentSubmissionPages {
 
       this.currentFeedback = updated;
 
+      // Reflect review instantly in dashboard pending list/count within the same session.
+      try {
+        this.teacherDashboardState.markReviewed(submission._id, updated);
+      } catch {
+        // ignore
+      }
+
       console.log('[TEACHER FEEDBACK SAVED]', {
 
         submissionId: submission._id,
@@ -2936,6 +2949,10 @@ export class StudentSubmissionPages {
 
 
       this.alert.showToast('Feedback saved', 'success');
+
+      // Ensure backend remains the source of truth if user later returns to dashboard.
+      // (Marking reviewed above avoids flicker; refresh keeps state consistent.)
+      this.teacherDashboardState.refresh();
 
     } catch (err: any) {
 

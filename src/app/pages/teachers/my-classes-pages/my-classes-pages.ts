@@ -9,6 +9,7 @@ import { ClassApiService, type BackendClass } from '../../../api/class-api.servi
 import { AlertService } from '../../../services/alert.service';
 import { DebounceService } from '../../../services/debounce.service';
 import { Subject, takeUntil } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-my-classes-pages',
@@ -24,6 +25,8 @@ export class MyClassesPages {
   private classApi = inject(ClassApiService);
   private alert = inject(AlertService);
   private debounceService = inject(DebounceService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   private destroy$ = new Subject<void>();
   private readonly searchDebounce = this.debounceService.createDebounce(300);
@@ -55,6 +58,16 @@ export class MyClassesPages {
   async ngOnInit() {
     await this.loadClasses();
     this.setupSearchDebounce();
+
+    const shouldOpenCreate = this.route.snapshot.queryParamMap.get('create') === '1';
+    if (shouldOpenCreate) {
+      this.onAddClasses();
+      this.router.navigate([], {
+        queryParams: { create: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
   }
 
   ngOnDestroy() {

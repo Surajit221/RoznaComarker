@@ -676,32 +676,37 @@
 
           @for (item of feedbacks; track item.category) {
 
-          <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+          <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
 
-            <div class="col-span-5">
+            <div class="min-w-0 flex-1">
 
-              <div class="flex flex-row gap-2 items-center">
+              <div class="flex flex-row gap-2 items-center flex-wrap">
 
-                <p class="text-xl font-bold mb-1">
+                <p class="text-xl font-bold mb-1 break-words">
 
                   {{ item.category }}
 
                 </p>
 
                 <div
-                 class="rounded-full bg-[#008081] flex items-center justify-center"
-                 [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
-               >
 
-                 <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                   {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                 </p>
+                  class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
 
-               </div>
+                  [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+
+                >
+
+                  <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+
+                    {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+
+                  </p>
+
+                </div>
 
               </div>
 
-              <p>
+              <p class="break-words">
 
                 {{ item.description }}
 
@@ -795,12 +800,12 @@
               } @else {
               <div class="flex flex-col gap-3">
                 @for (item of feedbacks; track item.category) {
-                <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
-                  <div class="col-span-5">
-                    <div class="flex flex-row gap-2 items-center">
-                      <p class="text-xl font-bold mb-1">{{ item.category }}</p>
+                <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-row gap-2 items-center flex-wrap">
+                      <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
                       <div
-                        class="rounded-full bg-[#008081] flex items-center justify-center"
+                        class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
                         [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
                       >
                         <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
@@ -808,7 +813,7 @@
                         </p>
                       </div>
                     </div>
-                    <p>{{ item.description }}</p>
+                    <p class="break-words">{{ item.description }}</p>
                   </div>
                 </div>
                 }
@@ -1210,7 +1215,7 @@
 
                     stroke-dasharray="326.56"
 
-                    stroke-dashoffset="58.78"
+                    [attr.stroke-dashoffset]="progressRingOffset"
 
                     stroke-linecap="round"
 
@@ -1519,35 +1524,31 @@
 
           @for (item of feedbacks; track item.category) {
 
-          <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+          <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
 
-            <div class="col-span-5">
+            <div class="min-w-0 flex-1">
 
-              <div class="flex flex-row gap-2 items-center">
+              <div class="flex flex-row gap-2 items-center flex-wrap">
 
-                <p class="text-xl font-bold mb-1">
+                <p class="text-xl font-bold mb-1 break-words">
 
                   {{ item.category }}
 
                 </p>
 
                 <div
-                 class="rounded-full bg-[#008081] flex items-center justify-center"
-                 [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
-               >
-
-                 <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                   {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                 </p>
-
-               </div>
+                  class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
+                  [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+                >
+                  <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+                    {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+                  </p>
+                </div>
 
               </div>
 
-              <p>
-
+              <p class="break-words">
                 {{ item.description }}
-
               </p>
 
             </div>
@@ -1640,15 +1641,15 @@
               } @else {
               <div class="flex flex-col gap-3">
                 @for (item of feedbacks; track item.category) {
-                <div class="w-full grid grid-cols-7 items-center py-4 px-4 bg-[#F3F3F3] rounded-xl">
-                  <div class="col-span-6">
-                    <p class="text-base font-bold">{{ item.category }}</p>
-                    <p class="text-sm">{{ item.description }}</p>
-                  </div>
-                  <div class="col-span-1">
-                    <div class="h-8 w-8 mx-auto rounded-full bg-[#008081] flex items-center justify-center">
-                      <p class="text-xs font-bold text-white">{{ item.score | number:'1.1-1' }}/{{ item.maxScore }}</p>
+                <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-4 bg-[#F3F3F3] rounded-xl">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-row gap-2 items-center flex-wrap">
+                      <p class="text-base font-bold mb-1 break-words">{{ item.category }}</p>
+                      <div class="h-8 w-8 rounded-full bg-[#008081] flex items-center justify-center shrink-0">
+                        <p class="text-xs font-bold text-white">{{ item.score | number:'1.1-1' }}/{{ item.maxScore }}</p>
+                      </div>
                     </div>
+                    <p class="text-sm break-words">{{ item.description }}</p>
                   </div>
                 </div>
                 }
