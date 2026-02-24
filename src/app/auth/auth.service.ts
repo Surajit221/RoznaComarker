@@ -26,6 +26,8 @@ export type BackendMe = {
   email: string;
   displayName?: string;
   photoURL?: string;
+  institution?: string;
+  bio?: string;
   role: string;
 };
 
@@ -165,6 +167,43 @@ export class AuthService {
       return resp.data;
     } catch (err: unknown) {
       this.logHttpError('getMeProfile', err);
+      throw err;
+    }
+  }
+
+  async updateMeProfile(payload: {
+    displayName?: string;
+    institution?: string;
+    bio?: string;
+  }): Promise<BackendMe> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    try {
+      const resp = await firstValueFrom(
+        this.http.patch<BackendResponse<BackendMe>>(`${apiBaseUrl}/users/me`, payload, {
+          headers: this.buildBackendAuthHeaders()
+        })
+      );
+      return resp.data;
+    } catch (err: unknown) {
+      this.logHttpError('updateMeProfile', err);
+      throw err;
+    }
+  }
+
+  async uploadMyAvatar(file: File): Promise<{ photoURL: string }> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const resp = await firstValueFrom(
+        this.http.post<BackendResponse<{ photoURL: string }>>(`${apiBaseUrl}/users/me/avatar`, formData, {
+          headers: this.buildBackendAuthHeaders()
+        })
+      );
+      return resp.data;
+    } catch (err: unknown) {
+      this.logHttpError('uploadMyAvatar', err);
       throw err;
     }
   }
