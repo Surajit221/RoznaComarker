@@ -181,15 +181,21 @@ export class LoginPages {
       const resp = await this.auth.loginWithGoogle();
       const backendRole = resp?.user?.role;
       if (backendRole !== role) {
-        await this.auth.logout();
-        if (backendRole === 'teacher' || backendRole === 'student') {
-          this.loginForm.patchValue({ role: backendRole });
+        try {
+          await this.auth.setMyRole(role);
+          this.navigateAfterLogin(role);
+          return;
+        } catch {
+          await this.auth.logout();
+          if (backendRole === 'teacher' || backendRole === 'student') {
+            this.loginForm.patchValue({ role: backendRole });
+          }
+          this.alert.showError(
+            'Role mismatch',
+            `This account is registered as ${backendRole || 'a different role'}. Please select the correct role and try again.`
+          );
+          return;
         }
-        this.alert.showError(
-          'Role mismatch',
-          `This account is registered as ${backendRole || 'a different role'}. Please select the correct role and try again.`
-        );
-        return;
       }
       this.navigateAfterLogin(role);
     } catch (err: any) {
