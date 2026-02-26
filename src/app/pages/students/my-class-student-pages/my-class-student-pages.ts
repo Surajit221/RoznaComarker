@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MyClassesCardStudent } from '../../../components/student/my-classes-card-student/my-classes-card-student';
 import { ModalDialog } from '../../../shared/modal-dialog/modal-dialog';
 import { JoinClassForm } from './join-class-form/join-class-form';
@@ -21,6 +22,9 @@ export class MyClassStudentPages {
   showDialog = false;
   openSheet = false;
   device = inject(DeviceService);
+
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   private membershipApi = inject(MembershipApiService);
   private classApi = inject(ClassApiService);
@@ -59,6 +63,23 @@ export class MyClassStudentPages {
   async ngOnInit() {
     await this.loadClasses();
     this.setupSearchDebounce();
+
+    const shouldOpenJoin = (this.route.snapshot.queryParamMap.get('join') || '').trim() === '1';
+    if (shouldOpenJoin) {
+      if (this.device.isDesktop()) {
+        this.showDialog = true;
+      } else {
+        this.onOpenSheetAddClasses();
+      }
+
+      // Clear the query param so a reload/back doesn't keep re-opening the dialog.
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { join: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
   }
 
   ngOnDestroy() {

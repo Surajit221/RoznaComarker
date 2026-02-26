@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { DeviceService } from '../../../../../services/device.service';
 import { SubmissionApiService, type BackendSubmission } from '../../../../../api/submission-api.service';
 import { AlertService } from '../../../../../services/alert.service';
+import { environment } from '../../../../../../environments/environment';
 
 @Component({
   selector: 'app-dialog-view-submissions',
@@ -42,10 +43,18 @@ export class DialogViewSubmissions {
     await this.load();
   }
 
+  private avatarUrlFromPhoto(photo: unknown): string {
+    const url = typeof photo === 'string' ? photo : '';
+    if (!url) return 'img/default-img.png';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${environment.apiUrl}${url}`;
+  }
+
   private mapSubmissionToRow(s: BackendSubmission) {
     const student: any = s && (s as any).student;
     const name = (student && (student.displayName || student.email)) || 'Student';
-    const image = (student && student.photoURL) || 'img/default-img.png';
+    const rawPhoto = student && (student.photoURL || student.photoUrl || student.avatar || student.image);
+    const image = this.avatarUrlFromPhoto(rawPhoto);
     const date = s && s.submittedAt ? new Date(s.submittedAt) : null;
     const lastActivity = date ? date.toLocaleDateString() : '';
 

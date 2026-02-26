@@ -8,6 +8,7 @@ import { SubmissionApiService, type BackendSubmission } from '../../../../../api
 import { AlertService } from '../../../../../services/alert.service';
 import { AuthService, type BackendUser } from '../../../../../auth/auth.service';
 import { ClassApiService } from '../../../../../api/class-api.service';
+import { environment } from '../../../../../../environments/environment';
 
 @Component({
   selector: 'app-student-profile-pages',
@@ -29,6 +30,13 @@ export class StudentProfilePages {
 
   student: BackendUser | null = null;
   classTitle: string = '';
+
+  get avatarUrl(): string {
+    const url = this.student?.photoURL || '';
+    if (!url) return 'img/default-img.png';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${environment.apiUrl}${url}`;
+  }
 
   get studentName(): string {
     return this.student?.displayName || this.student?.email || '';

@@ -10,10 +10,16 @@
 
       <div class="w-full lg:w-1/3 flex flex-col gap-6">
         <div class="bg-white p-6 rounded-3xl flex flex-col items-center text-center gap-5">
-          <div class="relative group cursor-pointer">
+          <input
+            #avatarInputDesktop
+            type="file"
+            accept="image/png,image/jpeg"
+            hidden
+            (change)="onAvatarSelected($event)"
+          />
+          <div class="relative group cursor-pointer" (click)="avatarInputDesktop.click()">
             <div class="w-32 h-32 rounded-full border-4 border-[#008081] p-1 bg-white">
-              <img src="https://i.pravatar.cc/300?u=teacher_id_1" class="w-full h-full rounded-full object-cover"
-                alt="Teacher Avatar">
+              <img [src]="avatarUrl" class="w-full h-full rounded-full object-cover" alt="Teacher Avatar">
             </div>
             <div
               class="absolute bottom-1 right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
@@ -22,20 +28,20 @@
           </div>
 
           <div>
-            <h2 class="text-2xl font-bold text-[#203864]">Mr. Anderson</h2>
+            <h2 class="text-2xl font-bold text-[#203864]">{{ meName }}</h2>
             <span
               class="px-3 py-1 bg-[#E6F2F2] text-[#008081] font-bold text-xs rounded-lg border border-[#136C6D] mt-2 inline-block">
-              SENIOR TEACHER
+              {{ meRoleLabel || 'TEACHER' }}
             </span>
           </div>
 
           <div class="grid grid-cols-2 gap-3 w-full mt-2">
             <div class="p-3 rounded-xl border-2 border-[#E7E7E7] bg-[#FAFAFA] flex flex-col items-center">
-              <span class="text-xl font-bold text-[#203864]">142</span>
+              <span class="text-xl font-bold text-[#203864]">{{ totalStudentsCount }}</span>
               <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Students</span>
             </div>
             <div class="p-3 rounded-xl border-2 border-[#E7E7E7] bg-[#FAFAFA] flex flex-col items-center">
-              <span class="text-xl font-bold text-[#008081]">350+</span>
+              <span class="text-xl font-bold text-[#008081]">{{ totalReviewsCount }}</span>
               <span class="text-[10px] uppercase font-bold text-[#7A7A7A]">Reviews</span>
             </div>
           </div>
@@ -64,7 +70,7 @@
         <div class="bg-white p-8  rounded-3xl min-h-[600px] relative">
 
           @if(activeTab === 'general'){
-          <div class="flex flex-col gap-6 animate-fade-in">
+          <form class="flex flex-col gap-6 animate-fade-in" [formGroup]="profileForm" (ngSubmit)="onSaveProfile()">
             <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
               <h3 class="text-xl font-bold text-[#203864]">Profile Information</h3>
             </div>
@@ -72,33 +78,35 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Full Name</label>
-                <input type="text" class="input-text" value="Thomas Anderson">
+                <input type="text" class="input-text" formControlName="fullName">
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Email Address</label>
-                <input type="email" class="input-text bg-gray-50 text-gray-400" value="t.anderson@school.edu" readonly>
+                <input type="email" class="input-text bg-gray-50 text-gray-400" formControlName="email" readonly>
               </div>
               <div class="flex flex-col gap-2 md:col-span-2">
                 <label class="font-semibold text-sm ml-1">School / Institution</label>
                 <div class="relative">
                   <i class='bx bxs-building-house absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400'></i>
-                  <input type="text" class="input-text pl-12" value="Neo High School">
+                  <input type="text" class="input-text pl-12" formControlName="institution">
                 </div>
               </div>
               <div class="flex flex-col gap-2 md:col-span-2">
                 <label class="font-semibold text-sm ml-1">Bio (Visible to Students)</label>
-                <textarea class="input-text h-32 resize-none pt-3"
+                <textarea class="input-text h-32 resize-none pt-3" formControlName="bio"
                   placeholder="Describe your teaching style..."></textarea>
               </div>
             </div>
             <div class="mt-4 flex justify-end">
-              <button class="btn-primary">Save Profile</button>
+              <button class="btn-primary" type="submit" [disabled]="isSavingProfile">
+                {{ isSavingProfile ? 'Saving...' : 'Save Profile' }}
+              </button>
             </div>
-          </div>
+          </form>
           }
 
           @if(activeTab === 'ai-config'){
-          <div class="flex flex-col gap-6 animate-fade-in">
+          <form class="flex flex-col gap-6 animate-fade-in" [formGroup]="aiConfigForm" (ngSubmit)="onSaveAiConfig()">
             <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2 flex justify-between items-center">
               <h3 class="text-xl font-bold text-[#203864]">AI Grading Intelligence</h3>
               <span
@@ -109,7 +117,7 @@
               <label class="font-bold text-[#203864]">Correction Strictness</label>
               <div class="grid grid-cols-3 gap-4">
                 <label class="relative group cursor-pointer">
-                  <input type="radio" name="strictness" class="focus-card-input sr-only">
+                  <input type="radio" formControlName="strictness" value="friendly" class="focus-card-input sr-only">
                   <div
                     class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 h-full flex flex-col items-center text-center gap-2 hover:bg-gray-50 transition-all">
                     <i class='bx bxs-smile text-4xl text-[#FFC300] mb-2'></i>
@@ -119,7 +127,7 @@
                 </label>
 
                 <label class="relative group cursor-pointer">
-                  <input type="radio" name="strictness" class="focus-card-input sr-only" checked>
+                  <input type="radio" formControlName="strictness" value="balanced" class="focus-card-input sr-only">
                   <div
                     class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 h-full flex flex-col items-center text-center gap-2 hover:bg-gray-50 transition-all">
                     <i class='bx bxs-user-check text-4xl text-[#008081] mb-2'></i>
@@ -129,7 +137,7 @@
                 </label>
 
                 <label class="relative group cursor-pointer">
-                  <input type="radio" name="strictness" class="focus-card-input sr-only">
+                  <input type="radio" formControlName="strictness" value="strict" class="focus-card-input sr-only">
                   <div
                     class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 h-full flex flex-col items-center text-center gap-2 hover:bg-gray-50 transition-all">
                     <i class='bx bxs-analyse text-4xl text-[#EE4E4E] mb-2'></i>
@@ -150,7 +158,7 @@
                   <div class="bg-blue-100 p-2 rounded-lg text-blue-600"><i class='bx bx-text'></i></div>
                   <span class="font-semibold text-sm">Check Grammar & Spelling</span>
                 </div>
-                <input type="checkbox" checked class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
+                <input type="checkbox" formControlName="grammarSpelling" class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
               </div>
 
               <div class="flex items-center justify-between p-3 border-2 border-[#E7E7E7] rounded-xl">
@@ -158,7 +166,7 @@
                   <div class="bg-purple-100 p-2 rounded-lg text-purple-600"><i class='bx bx-git-branch'></i></div>
                   <span class="font-semibold text-sm">Check Coherence & Logic</span>
                 </div>
-                <input type="checkbox" checked class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
+                <input type="checkbox" formControlName="coherenceLogic" class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
               </div>
 
               <div class="flex items-center justify-between p-3 border-2 border-[#E7E7E7] rounded-xl">
@@ -166,18 +174,20 @@
                   <div class="bg-orange-100 p-2 rounded-lg text-orange-600"><i class='bx bx-search-alt'></i></div>
                   <span class="font-semibold text-sm">Fact Checking (Beta)</span>
                 </div>
-                <input type="checkbox" class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
+                <input type="checkbox" formControlName="factChecking" class="w-6 h-6 accent-[#008081] rounded cursor-pointer">
               </div>
             </div>
 
             <div class="mt-2 flex justify-end">
-              <button class="btn-primary">Update AI Logic</button>
+              <button class="btn-primary" type="submit" [disabled]="isSavingAiConfig">
+                {{ isSavingAiConfig ? 'Saving...' : 'Update AI Logic' }}
+              </button>
             </div>
-          </div>
+          </form>
           }
 
           @if(activeTab === 'classroom'){
-          <div class="flex flex-col gap-6 animate-fade-in">
+          <form class="flex flex-col gap-6 animate-fade-in" [formGroup]="classroomDefaultsForm" (ngSubmit)="onSaveClassroomDefaults()">
             <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
               <h3 class="text-xl font-bold text-[#203864]">Classroom Defaults</h3>
               <p class="text-sm text-[#7A7A7A]">These settings will apply to new classes you create.</p>
@@ -186,16 +196,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Default Grading Scale</label>
-                <select class="input-text bg-white appearance-none">
-                  <option>Score 0 - 100</option>
-                  <option>Grade A - F</option>
-                  <option>Pass / Fail</option>
+                <select class="input-text bg-white appearance-none" formControlName="gradingScale">
+                  <option value="score_0_100">Score 0 - 100</option>
+                  <option value="grade_a_f">Grade A - F</option>
+                  <option value="pass_fail">Pass / Fail</option>
                 </select>
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Late Submission Penalty</label>
                 <div class="relative">
-                  <input type="number" class="input-text pr-12" value="10">
+                  <input type="number" class="input-text pr-12" formControlName="lateSubmissionPenaltyPercent">
                   <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">%</span>
                 </div>
               </div>
@@ -206,17 +216,19 @@
                 <span class="font-bold text-[#203864]">Auto-Publish Grades</span>
                 <span class="text-xs text-[#7A7A7A]">Automatically release AI grades to students immediately.</span>
               </div>
-              <input type="checkbox" class="w-6 h-6 accent-[#008081] cursor-pointer">
+              <input type="checkbox" formControlName="autoPublishGrades" class="w-6 h-6 accent-[#008081] cursor-pointer">
             </div>
 
             <div class="mt-4 flex justify-end">
-              <button class="btn-primary">Save Defaults</button>
+              <button class="btn-primary" type="submit" [disabled]="isSavingClassroomDefaults">
+                {{ isSavingClassroomDefaults ? 'Saving...' : 'Save Defaults' }}
+              </button>
             </div>
-          </div>
+          </form>
           }
 
           @if(activeTab === 'security'){
-          <div class="flex flex-col gap-6 animate-fade-in">
+          <form class="flex flex-col gap-6 animate-fade-in" [formGroup]="securityForm" (ngSubmit)="onUpdatePassword()">
             <div class="border-b-2 border-[#F0F0F0] pb-4 mb-2">
               <h3 class="text-xl font-bold text-[#203864]">Account Security</h3>
             </div>
@@ -224,17 +236,67 @@
             <div class="flex flex-col gap-4 max-w-md">
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Current Password</label>
-                <input type="password" class="input-text" placeholder="••••••••">
+                <div class="relative">
+                  <input
+                    [type]="showCurrentPassword ? 'text' : 'password'"
+                    class="input-text"
+                    placeholder="••••••••"
+                    formControlName="currentPassword"
+                  >
+                  <button
+                    type="button"
+                    (click)="toggleCurrentPassword()"
+                    class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                    aria-label="Toggle password visibility"
+                  >
+                    <i class="bx text text-2xl" [ngClass]="showCurrentPassword ? 'bx-show' : 'bx-hide'"></i>
+                  </button>
+                </div>
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">New Password</label>
-                <input type="password" class="input-text" placeholder="••••••••">
+                <div class="relative">
+                  <input
+                    [type]="showNewPassword ? 'text' : 'password'"
+                    class="input-text"
+                    placeholder="••••••••"
+                    formControlName="newPassword"
+                  >
+                  <button
+                    type="button"
+                    (click)="toggleNewPassword()"
+                    class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                    aria-label="Toggle password visibility"
+                  >
+                    <i class="bx text text-2xl" [ngClass]="showNewPassword ? 'bx-show' : 'bx-hide'"></i>
+                  </button>
+                </div>
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Confirm Password</label>
-                <input type="password" class="input-text" placeholder="••••••••">
+                <div class="relative">
+                  <input
+                    [type]="showConfirmPassword ? 'text' : 'password'"
+                    class="input-text"
+                    placeholder="••••••••"
+                    formControlName="confirmPassword"
+                  >
+                  <button
+                    type="button"
+                    (click)="toggleConfirmPassword()"
+                    class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                    aria-label="Toggle password visibility"
+                  >
+                    <i class="bx text text-2xl" [ngClass]="showConfirmPassword ? 'bx-show' : 'bx-hide'"></i>
+                  </button>
+                </div>
+                @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
+                <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
+                }
               </div>
-              <button class="btn-info w-fit mt-2">Update Password</button>
+              <button class="btn-info w-fit mt-2" type="submit" [disabled]="isUpdatingPassword">
+                {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+              </button>
             </div>
 
             <div class="border-t-2 border-[#E7E7E7] pt-6 mt-4">
@@ -248,7 +310,7 @@
                   Account</button>
               </div>
             </div>
-          </div>
+          </form>
           }
 
         </div>
@@ -263,22 +325,28 @@
   <div class="w-full min-h-screen pb-10 font-sans text-[#474747]">
     <div class="pt-6 pb-6 rounded-xl mb-6">
       <div class="flex flex-col items-center gap-4">
-        <div class="relative group">
+        <input
+          #avatarInputMobile
+          type="file"
+          accept="image/png,image/jpeg"
+          hidden
+          (change)="onAvatarSelected($event)"
+        />
+        <div class="relative group overflow-visible" (click)="avatarInputMobile.click()">
           <div class="w-28 h-28 rounded-full border-4 border-[#008081] p-1 bg-white">
-            <img src="https://i.pravatar.cc/300?u=teacher_id_1" class="w-full h-full rounded-full object-cover"
-              alt="Avatar">
+            <img [src]="avatarUrl" class="w-full h-full rounded-full object-cover" alt="Avatar">
           </div>
           <div
-            class="absolute bottom-0 right-0 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md">
+            class="absolute -bottom-1 -right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md z-10">
             <i class='bx bxs-camera'></i>
           </div>
         </div>
 
         <div class="text-center">
-          <h1 class="text-2xl font-bold text-[#203864]">Mr. Anderson</h1>
+          <h1 class="text-2xl font-bold text-[#203864]">{{ meName }}</h1>
           <p
             class="text-sm font-bold text-[#008081] bg-[#E6F2F2] px-3 py-1 rounded-lg border border-[#136C6D] inline-block mt-1">
-            Senior Teacher
+            {{ meRoleLabel || 'TEACHER' }}
           </p>
         </div>
       </div>
@@ -287,30 +355,53 @@
         <p class="text-center text-sm text-gray-600">ID: {{ meId }}</p>
       </div>
 
+      <div class="flex p-1 bg-white rounded-xl border-2 border-[#E7E7E7] mt-6">
+        <button (click)="activeTab = 'general'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
+          [ngClass]="activeTab === 'general' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
+          General
+        </button>
+        <button (click)="activeTab = 'ai-config'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
+          [ngClass]="activeTab === 'ai-config' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
+          AI
+        </button>
+        <button (click)="activeTab = 'classroom'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
+          [ngClass]="activeTab === 'classroom' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
+          Classroom
+        </button>
+        <button (click)="activeTab = 'security'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200"
+          [ngClass]="activeTab === 'security' ? 'bg-[#008081] text-white shadow-md' : 'text-[#7A7A7A] hover:bg-gray-50'">
+          Security
+        </button>
+      </div>
+    </div>
+
+    <div class="px-5 flex flex-col gap-6">
       @if(activeTab === 'general'){
-      <div class="flex flex-col gap-4 animate-fade-in">
+      <form class="flex flex-col gap-4 animate-fade-in" [formGroup]="profileForm">
         <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
           <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Teacher Info</h3>
 
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Full Name</label>
-            <input type="text" class="input-text py-2" value="Thomas Anderson">
+            <input type="text" class="input-text py-2" formControlName="fullName">
           </div>
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">School Name</label>
-            <input type="text" class="input-text py-2" value="Neo High School">
+            <input type="text" class="input-text py-2" formControlName="institution">
           </div>
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Bio</label>
-            <textarea class="input-text py-2 h-24 resize-none" placeholder="Teaching philosophy..."></textarea>
+            <textarea class="input-text py-2 h-24 resize-none" formControlName="bio" placeholder="Teaching philosophy..."></textarea>
           </div>
-          <button class="btn-primary w-full mt-2">Save Profile</button>
+          <button class="btn-primary w-full mt-2" type="button" (click)="onSaveProfile()" [disabled]="isSavingProfile">
+            {{ isSavingProfile ? 'Saving...' : 'Save Profile' }}
+          </button>
         </div>
-      </div>
+      </form>
       }
 
       @if(activeTab === 'ai-config'){
-      <div class="flex flex-col gap-4 animate-fade-in">
+      <form class="flex flex-col gap-4 animate-fade-in" [formGroup]="aiConfigForm" (ngSubmit)="onSaveAiConfig()">
         <div class="bg-[#FFF4E5] p-3 rounded-xl border border-[#DBB12A] flex gap-3 items-center">
           <i class='bx bxs-bot text-[#FFC300] text-2xl'></i>
           <p class="text-xs text-[#B45309] font-bold">
@@ -322,7 +413,7 @@
           <label class="font-bold text-[#203864] ml-1">Strictness Level</label>
 
           <label class="relative group cursor-pointer">
-            <input type="radio" name="strictness_mobile" class="focus-card-input sr-only">
+            <input type="radio" formControlName="strictness" value="friendly" class="focus-card-input sr-only">
             <div
               class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
               <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center text-yellow-600 shrink-0">
@@ -336,7 +427,7 @@
           </label>
 
           <label class="relative group cursor-pointer">
-            <input type="radio" name="strictness_mobile" class="focus-card-input sr-only" checked>
+            <input type="radio" formControlName="strictness" value="balanced" class="focus-card-input sr-only">
             <div
               class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
               <div class="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 shrink-0">
@@ -350,7 +441,7 @@
           </label>
 
           <label class="relative group cursor-pointer">
-            <input type="radio" name="strictness_mobile" class="focus-card-input sr-only">
+            <input type="radio" formControlName="strictness" value="strict" class="focus-card-input sr-only">
             <div
               class="focus-card-label border-2 border-[#E7E7E7] rounded-2xl p-4 flex items-center gap-4 transition-all">
               <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-red-600 shrink-0">
@@ -368,51 +459,132 @@
           <span class="font-bold text-[#203864] text-sm">Active Checks</span>
           <div class="flex items-center justify-between">
             <span class="text-sm">Grammar & Spelling</span>
-            <input type="checkbox" checked class="w-5 h-5 accent-[#008081]">
+            <input type="checkbox" formControlName="grammarSpelling" class="w-5 h-5 accent-[#008081]">
           </div>
           <div class="flex items-center justify-between">
             <span class="text-sm">Coherence</span>
-            <input type="checkbox" checked class="w-5 h-5 accent-[#008081]">
+            <input type="checkbox" formControlName="coherenceLogic" class="w-5 h-5 accent-[#008081]">
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm">Fact Checking</span>
+            <input type="checkbox" formControlName="factChecking" class="w-5 h-5 accent-[#008081]">
           </div>
         </div>
 
-        <button class="btn-primary w-full mt-2">Save AI Config</button>
-      </div>
+        <button class="btn-primary w-full mt-2" type="submit" [disabled]="isSavingAiConfig">
+          {{ isSavingAiConfig ? 'Saving...' : 'Save AI Config' }}
+        </button>
+      </form>
       }
 
-      @if(activeTab === 'settings'){
-      <div class="flex flex-col gap-4 animate-fade-in">
+      @if(activeTab === 'classroom'){
+      <form class="flex flex-col gap-4 animate-fade-in" [formGroup]="classroomDefaultsForm" (ngSubmit)="onSaveClassroomDefaults()">
         <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
           <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Classroom Defaults</h3>
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Grading Scale</label>
-            <select class="input-text py-2 bg-white">
-              <option>0-100</option>
-              <option>A-F</option>
+            <select class="input-text py-2 bg-white" formControlName="gradingScale">
+              <option value="score_0_100">0-100</option>
+              <option value="grade_a_f">A-F</option>
+              <option value="pass_fail">Pass/Fail</option>
             </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Late Penalty (%)</label>
+            <input type="number" class="input-text py-2" formControlName="lateSubmissionPenaltyPercent">
           </div>
           <div class="flex items-center justify-between mt-2">
             <span class="text-sm font-bold text-[#203864]">Auto-Publish Grades</span>
-            <input type="checkbox" class="w-5 h-5 accent-[#008081]">
+            <input type="checkbox" formControlName="autoPublishGrades" class="w-5 h-5 accent-[#008081]">
           </div>
+          <button class="btn-primary w-full mt-2" type="submit" [disabled]="isSavingClassroomDefaults">
+            {{ isSavingClassroomDefaults ? 'Saving...' : 'Save Defaults' }}
+          </button>
         </div>
+      </form>
+      }
 
+      @if(activeTab === 'security'){
+      <form class="flex flex-col gap-4 animate-fade-in" [formGroup]="securityForm" (ngSubmit)="onUpdatePassword()">
         <div class="bg-white p-5 border-[3px] border-[#E7E7E7] rounded-2xl flex flex-col gap-4">
-          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Security</h3>
+          <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Account Security</h3>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Current Password</label>
+            <div class="relative">
+              <input
+                [type]="showCurrentPassword ? 'text' : 'password'"
+                class="input-text py-2"
+                placeholder="••••••••"
+                formControlName="currentPassword"
+              >
+              <button
+                type="button"
+                (click)="toggleCurrentPassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showCurrentPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
+          </div>
+
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">New Password</label>
-            <input type="password" class="input-text py-2" placeholder="••••••••">
+            <div class="relative">
+              <input
+                [type]="showNewPassword ? 'text' : 'password'"
+                class="input-text py-2"
+                placeholder="••••••••"
+                formControlName="newPassword"
+              >
+              <button
+                type="button"
+                (click)="toggleNewPassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showNewPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
           </div>
-          <button class="btn-info w-full mt-2">Update Password</button>
+
+          <div class="flex flex-col gap-1">
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Confirm Password</label>
+            <div class="relative">
+              <input
+                [type]="showConfirmPassword ? 'text' : 'password'"
+                class="input-text py-2"
+                placeholder="••••••••"
+                formControlName="confirmPassword"
+              >
+              <button
+                type="button"
+                (click)="toggleConfirmPassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showConfirmPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
+            @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
+            <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
+            }
+          </div>
+
+          <button class="btn-info w-full mt-2" type="submit" [disabled]="isUpdatingPassword">
+            {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+          </button>
         </div>
 
-        <button class="w-full bg-white border-2 border-[#EE4E4E] text-[#EE4E4E] font-bold py-3 rounded-xl">
+        <button type="button" (click)="onLogout()" class="w-full bg-white border-2 border-[#EE4E4E] text-[#EE4E4E] font-bold py-3 rounded-xl">
           Sign Out
         </button>
-      </div>
+      </form>
       }
 
     </div>
+
   </div>
   }
 </ng-container>

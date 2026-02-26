@@ -21,12 +21,10 @@
     <div class="flex flex-col flex-1 overflow-hidden">
       <header class="flex items-center justify-end px-6 py-2">
         <div class="flex flex-row gap-10">
-          <app-chart-storage [used]="5" [total]="9" [strokeColor]="'#FFC300'" [size]="150">
+          <app-chart-storage [used]="storageUsedGb" [total]="storageTotalGb" [strokeColor]="'#FFC300'" [size]="150">
           </app-chart-storage>
 
           <div class="flex items-center gap-4">
-            <a routerLink="/pricing" class="btn-primary-sm">Upgrade</a>
-
             <div id="notif-menu" class="relative">
               <button
                 class="w-12 h-12 bg-white border-2 border-gray-200 text-[#008081] rounded-full flex items-center justify-center hover:bg-gray-100"
@@ -65,9 +63,7 @@
 
             <div id="user-menu" class="relative">
               <div class="flex items-center cursor-pointer" (click)="toggleUserDropdown()">
-                <img class="h-12 w-12 rounded-full"
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                  alt="User profile" />
+                <img class="h-12 w-12 rounded-full" [src]="avatarUrl" alt="User profile" />
                 <div class="hidden md:flex flex-col ml-2">
                   <span class="font-semibold text-gray-700">{{ meName }}</span>
                   <span class="text-sm text-gray-500">{{
@@ -113,8 +109,6 @@
         <img src="./img/logo.png" class="w-8" alt="" />
         <h1 class="font-bold text-xl text-gray-800">RoznaHub</h1>
       </div>
-
-      <a routerLink="/pricing" class="btn-primary-sm">Upgrade</a>
     </div>
     }
 

@@ -42,6 +42,8 @@ import { ImageAnnotationOverlayComponent } from '../../../../../components/image
 
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 
+import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
+
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -51,6 +53,8 @@ import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { DialogViewSubmissions } from '../dialog-view-submissions/dialog-view-submissions';
 
 import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
+
+import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
 
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 
@@ -121,6 +125,8 @@ export class StudentSubmissionPages {
   private sanitizer = inject(DomSanitizer);
 
   private writingCorrectionsApi = inject(WritingCorrectionsApiService);
+
+  private teacherDashboardState = inject(TeacherDashboardStateService);
 
 
 
@@ -257,9 +263,6 @@ export class StudentSubmissionPages {
         ]
 
       }
-
-
-
     ]
 
   };
@@ -516,9 +519,15 @@ export class StudentSubmissionPages {
 
   studentId: string | null = null;
 
+  classId: string | null = null;
+
 
 
   classTitle: string = '';
+
+  classGradingScale: GradingScale = 'score_0_100';
+
+  private hasLoadedClassSettings = false;
 
 
 
@@ -742,13 +751,80 @@ export class StudentSubmissionPages {
 
 
 
+  private get effectiveOverallScore100(): number {
+
+    const fb: any = this.currentFeedback;
+
+    const persisted = Number(fb?.overallScore);
+
+    // If a teacher explicitly overrode grading, the persisted score is authoritative.
+    if (fb?.overriddenByTeacher && Number.isFinite(persisted)) return persisted;
+
+    // Otherwise, prefer the live, legend-aligned score derived from LanguageTool issues
+    // so the score stays consistent with Correction Statistics shown on the page.
+    const live = Number(this.legendAligned?.overallScore100);
+    if (Number.isFinite(live)) return live;
+
+    // Fallback: compute from correctionStats counts if available.
+    const cs: any = fb?.correctionStats;
+    const hasCounts = cs && typeof cs === 'object';
+    if (hasCounts) {
+      const counts = {
+        CONTENT: Math.max(0, Number(cs?.content) || 0),
+        ORGANIZATION: Math.max(0, Number(cs?.organization) || 0),
+        GRAMMAR: Math.max(0, Number(cs?.grammar) || 0),
+        VOCABULARY: Math.max(0, Number(cs?.vocabulary) || 0),
+        MECHANICS: Math.max(0, Number(cs?.mechanics) || 0)
+      };
+
+      const weights = {
+        CONTENT: 1.0,
+        ORGANIZATION: 0.9,
+        GRAMMAR: 1.2,
+        VOCABULARY: 1.0,
+        MECHANICS: 1.1
+      };
+
+      const round1 = (n: number) => Math.round(n * 10) / 10;
+      const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+      const perCategoryScores5 = {
+        CONTENT: 5,
+        ORGANIZATION: 5,
+        GRAMMAR: 5,
+        VOCABULARY: 5,
+        MECHANICS: 5
+      };
+
+      for (const k of Object.keys(perCategoryScores5) as Array<keyof typeof perCategoryScores5>) {
+        const penalty = counts[k] * 0.35 * (weights as any)[k];
+        (perCategoryScores5 as any)[k] = round1(clamp(5 - penalty, 0, 5));
+      }
+
+      const avg5 =
+        (perCategoryScores5.CONTENT +
+          perCategoryScores5.ORGANIZATION +
+          perCategoryScores5.GRAMMAR +
+          perCategoryScores5.VOCABULARY +
+          perCategoryScores5.MECHANICS) /
+        5;
+
+      const fromStats = round1(clamp((avg5 / 5) * 100, 0, 100));
+      if (Number.isFinite(fromStats)) return fromStats;
+    }
+
+    if (Number.isFinite(persisted)) return persisted;
+    return 0;
+
+  }
+
+
+
   get overallScoreText(): string {
 
-    const score = Number(this.legendAligned?.overallScore100 ?? this.currentFeedback?.overallScore);
+    const score = this.effectiveOverallScore100;
 
-    if (!Number.isFinite(score)) return '0/100';
-
-    return `${Math.round(score * 10) / 10}/100`;
+    return formatGradingDisplay(score, this.classGradingScale).displayText;
 
   }
 
@@ -756,9 +832,9 @@ export class StudentSubmissionPages {
 
   get gradeLabel(): string {
 
-    const g = typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : (typeof this.currentFeedback?.grade === 'string' ? this.currentFeedback.grade : '');
+    const score = this.effectiveOverallScore100;
 
-    return g || 'F';
+    return formatGradingDisplay(score, this.classGradingScale).badgeText;
 
   }
 
@@ -892,7 +968,7 @@ export class StudentSubmissionPages {
 
   get overallScorePct(): number {
 
-    const score100 = Number(this.legendAligned?.overallScore100 ?? this.currentFeedback?.overallScore);
+    const score100 = this.effectiveOverallScore100;
 
     if (!Number.isFinite(score100)) return 0;
 
@@ -1951,7 +2027,45 @@ export class StudentSubmissionPages {
 
   async generateRubricUsingAi() {
 
-    await this.generateAiForCurrentSubmission();
+    const submission = this.currentSubmission;
+
+    if (!submission) {
+
+      this.alert.showWarning('No submission', 'Please select a submission first.');
+
+      return;
+
+    }
+
+    if (this.isLoading) return;
+
+    this.isLoading = true;
+
+    try {
+
+      const updated = await this.feedbackApi.generateRubricDesignerAi(submission._id);
+
+      this.currentFeedback = updated;
+
+      this.hydrateRubricDesignerFromFeedback();
+
+      this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
+
+      this.hydrateRubricEditFormFromFeedback();
+
+      this.recomputeRubricFeedbackItems();
+
+      this.alert.showToast('Rubric generated', 'success');
+
+    } catch (err: any) {
+
+      this.alert.showError('Generate Rubric failed', err?.error?.message || err?.message || 'Please try again');
+
+    } finally {
+
+      this.isLoading = false;
+
+    }
 
   }
 
@@ -1988,77 +2102,6 @@ export class StudentSubmissionPages {
         this.rubricCriteriaRows = seeded.criteria.map((c) => ({ title: c.title, cells: [...c.cells] }));
 
       }
-
-
-
-      // Keep AI Feedback cards and rubric modal consistent:
-
-      // when teacher edits the rubric designer, sync the fixed 4 rubric descriptions
-
-      // back into rubricScores comments.
-
-      const fixedMap: Record<string, 'GRAMMAR' | 'ORGANIZATION' | 'CONTENT' | 'MECHANICS'> = {
-
-        'GRAMMAR_&_MECHANICS': 'GRAMMAR',
-
-        'STRUCTURE_&_ORGANIZATION': 'ORGANIZATION',
-
-        'CONTENT_RELEVANCE': 'CONTENT',
-
-        'OVERALL_RUBRIC_SCORE': 'MECHANICS'
-
-      };
-
-
-
-      const rs: any = (base as any).rubricScores || {};
-
-      for (const row of Array.isArray(this.rubricCriteriaRows) ? this.rubricCriteriaRows : []) {
-
-        const title = String((row as any)?.title || '').trim();
-
-        if (!title) continue;
-
-        const key = fixedMap[title.toUpperCase().replace(/\s+/g, '_')];
-
-        if (!key) continue;
-
-
-
-        const firstCell = Array.isArray((row as any).cells) ? String((row as any).cells[0] || '').trim() : '';
-
-        if (!firstCell) continue;
-
-
-
-        const existing = rs?.[key] || { score: 0, maxScore: 5, comment: '' };
-
-        rs[key] = {
-
-          ...existing,
-
-          maxScore: 5,
-
-          comment: firstCell
-
-        };
-
-      }
-
-
-
-      this.currentFeedback = {
-
-        ...(base as any),
-
-        rubricScores: rs
-
-      } as SubmissionFeedback;
-
-
-
-      this.ensureFixedRubricScoresAndComments();
-
 
 
       const payload: SubmissionFeedback = {
@@ -2320,10 +2363,13 @@ export class StudentSubmissionPages {
   private async loadClassTitle() {
 
     const classId = this.route.snapshot.queryParamMap.get('classId');
+    this.classId = classId;
 
     if (!classId) {
 
       this.classTitle = '';
+
+      this.hasLoadedClassSettings = false;
 
       return;
 
@@ -2337,10 +2383,64 @@ export class StudentSubmissionPages {
 
       this.classTitle = summary?.name || '';
 
+      const rawScale = typeof summary?.gradingScale === 'string' ? summary.gradingScale : undefined;
+      this.classGradingScale = (rawScale === 'score_0_100' || rawScale === 'grade_a_f' || rawScale === 'pass_fail')
+        ? rawScale
+        : 'score_0_100';
+
+      this.hasLoadedClassSettings = true;
+
     } catch {
 
       this.classTitle = '';
 
+      this.classGradingScale = 'score_0_100';
+
+      this.hasLoadedClassSettings = false;
+
+    }
+
+  }
+
+
+
+  private resolveClassIdFromSubmission(s: BackendSubmission | null): string | null {
+
+    const fromQuery = this.classId;
+    if (typeof fromQuery === 'string' && fromQuery.trim().length) return fromQuery.trim();
+
+    const raw: any = s && (s as any).class;
+    if (!raw) return null;
+
+    if (typeof raw === 'string') return raw;
+
+    const id = raw && typeof raw === 'object' ? (raw._id || raw.id) : null;
+    return typeof id === 'string' && id.trim().length ? id.trim() : null;
+
+  }
+
+
+
+  private async ensureClassSettingsLoadedFromSubmission(s: BackendSubmission | null): Promise<void> {
+
+    if (this.hasLoadedClassSettings) return;
+
+    const classId = this.resolveClassIdFromSubmission(s);
+    if (!classId) return;
+
+    this.classId = classId;
+
+    try {
+      const summary = await this.classApi.getClassSummary(classId);
+      const rawScale = typeof summary?.gradingScale === 'string' ? summary.gradingScale : undefined;
+      this.classGradingScale = (rawScale === 'score_0_100' || rawScale === 'grade_a_f' || rawScale === 'pass_fail')
+        ? rawScale
+        : 'score_0_100';
+      this.classTitle = this.classTitle || (summary?.name || '');
+      this.hasLoadedClassSettings = true;
+    } catch {
+      this.classGradingScale = 'score_0_100';
+      this.hasLoadedClassSettings = false;
     }
 
   }
@@ -2538,6 +2638,8 @@ export class StudentSubmissionPages {
     this.currentSubmission = submission;
 
     this.submissionId = submission?._id || null;
+
+    await this.ensureClassSettingsLoadedFromSubmission(submission);
 
 
 
@@ -2917,6 +3019,13 @@ export class StudentSubmissionPages {
 
       this.currentFeedback = updated;
 
+      // Reflect review instantly in dashboard pending list/count within the same session.
+      try {
+        this.teacherDashboardState.markReviewed(submission._id, updated);
+      } catch {
+        // ignore
+      }
+
       console.log('[TEACHER FEEDBACK SAVED]', {
 
         submissionId: submission._id,
@@ -2936,6 +3045,10 @@ export class StudentSubmissionPages {
 
 
       this.alert.showToast('Feedback saved', 'success');
+
+      // Ensure backend remains the source of truth if user later returns to dashboard.
+      // (Marking reviewed above avoids flicker; refresh keeps state consistent.)
+      this.teacherDashboardState.refresh();
 
     } catch (err: any) {
 

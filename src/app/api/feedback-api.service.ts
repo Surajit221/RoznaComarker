@@ -111,6 +111,28 @@ export class FeedbackApiService {
     return resp.data;
   }
 
+  async generateRubricDesigner(submissionId: string): Promise<SubmissionFeedback> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-rubric`,
+        {}
+      )
+    );
+    return resp.data;
+  }
+
+  async generateRubricDesignerAi(submissionId: string): Promise<SubmissionFeedback> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-rubric-ai`,
+        {}
+      )
+    );
+    return resp.data;
+  }
+
   async getFeedbackBySubmissionForStudent(submissionId: string): Promise<BackendFeedback> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(

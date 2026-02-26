@@ -12,6 +12,7 @@ import { SubmissionApiService } from '../../../../api/submission-api.service';
 import { type BackendUploadResponse, UploadApiService } from '../../../../api/upload-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassSummary } from '../../../../api/class-api.service';
+import { TeacherDashboardStateService } from '../../../../services/teacher-dashboard-state.service';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
@@ -30,6 +31,7 @@ export class DetailMyClassStudentPages {
   private uploadApi = inject(UploadApiService);
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
+  private teacherDashboardState = inject(TeacherDashboardStateService);
 
   classId: string | null = null;
   isLoading = false;
@@ -239,6 +241,10 @@ export class DetailMyClassStudentPages {
       });
 
       this.alert.showToast('Upload successful', 'success');
+
+      // Keep teacher dashboard data consistent within the same app session.
+      // Backend remains the source of truth (no synthetic submissions).
+      this.teacherDashboardState.refresh();
 
       const idx = this.assignments.findIndex((a) => a.id === assignmentId);
       if (idx >= 0) {

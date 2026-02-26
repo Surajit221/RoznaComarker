@@ -10,10 +10,16 @@
 
       <div class="w-full lg:w-1/3 flex flex-col gap-6">
         <div class="bg-white p-6 rounded-3xl flex flex-col items-center text-center gap-5">
-          <div class="relative group cursor-pointer">
+          <input
+            #avatarInputDesktop
+            type="file"
+            accept="image/png,image/jpeg"
+            hidden
+            (change)="onAvatarSelected($event)"
+          />
+          <div class="relative group cursor-pointer" (click)="avatarInputDesktop.click()">
             <div class="w-32 h-32 rounded-full border-4 border-[#008081] p-1 bg-white">
-              <img src="https://i.pravatar.cc/300?u=student_id_1" class="w-full h-full rounded-full object-cover"
-                alt="Student Avatar">
+              <img [src]="avatarUrl" class="w-full h-full rounded-full object-cover" alt="Student Avatar">
             </div>
             <div
               class="absolute bottom-1 right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
@@ -102,15 +108,60 @@
             <div class="flex flex-col gap-4 max-w-md">
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Current Password</label>
-                <input type="password" class="input-text" placeholder="••••••••" formControlName="currentPassword">
+                <div class="relative">
+                  <input
+                    [type]="showCurrentPassword ? 'text' : 'password'"
+                    class="input-text"
+                    placeholder="••••••••"
+                    formControlName="currentPassword"
+                  >
+                  <button
+                    type="button"
+                    (click)="toggleCurrentPassword()"
+                    class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                    aria-label="Toggle password visibility"
+                  >
+                    <i class="bx text text-2xl" [ngClass]="showCurrentPassword ? 'bx-show' : 'bx-hide'"></i>
+                  </button>
+                </div>
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">New Password</label>
-                <input type="password" class="input-text" placeholder="••••••••" formControlName="newPassword">
+                <div class="relative">
+                  <input
+                    [type]="showNewPassword ? 'text' : 'password'"
+                    class="input-text"
+                    placeholder="••••••••"
+                    formControlName="newPassword"
+                  >
+                  <button
+                    type="button"
+                    (click)="toggleNewPassword()"
+                    class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                    aria-label="Toggle password visibility"
+                  >
+                    <i class="bx text text-2xl" [ngClass]="showNewPassword ? 'bx-show' : 'bx-hide'"></i>
+                  </button>
+                </div>
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-semibold text-sm ml-1">Confirm Password</label>
-                <input type="password" class="input-text" placeholder="••••••••" formControlName="confirmPassword">
+                <div class="relative">
+                  <input
+                    [type]="showConfirmPassword ? 'text' : 'password'"
+                    class="input-text"
+                    placeholder="••••••••"
+                    formControlName="confirmPassword"
+                  >
+                  <button
+                    type="button"
+                    (click)="toggleConfirmPassword()"
+                    class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                    aria-label="Toggle password visibility"
+                  >
+                    <i class="bx text text-2xl" [ngClass]="showConfirmPassword ? 'bx-show' : 'bx-hide'"></i>
+                  </button>
+                </div>
                 @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
                 <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
                 }
@@ -146,13 +197,19 @@
   <div class="w-full min-h-screen pb-10 font-sans text-[#474747]">
     <div class="pt-6 pb-6 rounded-xl mb-6">
       <div class="flex flex-col items-center gap-4">
-        <div class="relative group">
+        <input
+          #avatarInputMobile
+          type="file"
+          accept="image/png,image/jpeg"
+          hidden
+          (change)="onAvatarSelected($event)"
+        />
+        <div class="relative group overflow-visible" (click)="avatarInputMobile.click()">
           <div class="w-28 h-28 rounded-full border-4 border-[#008081] p-1 bg-white">
-            <img src="https://i.pravatar.cc/300?u=student_id_1" class="w-full h-full rounded-full object-cover"
-              alt="Avatar">
+            <img [src]="avatarUrl" class="w-full h-full rounded-full object-cover" alt="Avatar">
           </div>
           <div
-            class="absolute bottom-0 right-0 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md">
+            class="absolute -bottom-1 -right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md z-10">
             <i class='bx bxs-camera'></i>
           </div>
         </div>
@@ -223,21 +280,67 @@
 
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Current Password</label>
-            <input type="password" class="input-text py-2" placeholder="••••••••" formControlName="currentPassword">
+            <div class="relative">
+              <input
+                [type]="showCurrentPassword ? 'text' : 'password'"
+                class="input-text py-2"
+                placeholder="••••••••"
+                formControlName="currentPassword"
+              >
+              <button
+                type="button"
+                (click)="toggleCurrentPassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showCurrentPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
           </div>
 
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">New Password</label>
-            <input type="password" class="input-text py-2" placeholder="••••••••" formControlName="newPassword">
+            <div class="relative">
+              <input
+                [type]="showNewPassword ? 'text' : 'password'"
+                class="input-text py-2"
+                placeholder="••••••••"
+                formControlName="newPassword"
+              >
+              <button
+                type="button"
+                (click)="toggleNewPassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showNewPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
           </div>
 
           <div class="flex flex-col gap-1">
             <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Confirm Password</label>
-            <input type="password" class="input-text py-2" placeholder="••••••••" formControlName="confirmPassword">
+            <div class="relative">
+              <input
+                [type]="showConfirmPassword ? 'text' : 'password'"
+                class="input-text py-2"
+                placeholder="••••••••"
+                formControlName="confirmPassword"
+              >
+              <button
+                type="button"
+                (click)="toggleConfirmPassword()"
+                class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
+                aria-label="Toggle password visibility"
+              >
+                <i class="bx text text-2xl" [ngClass]="showConfirmPassword ? 'bx-show' : 'bx-hide'"></i>
+              </button>
+            </div>
             @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
             <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
             }
           </div>
+
           <button class="btn-info w-full mt-2" type="submit" [disabled]="isUpdatingPassword">
             {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
           </button>

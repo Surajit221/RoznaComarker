@@ -29,7 +29,7 @@ export class AuthErrorInterceptor implements HttpInterceptor {
           return throwError(() => err);
         }
 
-        if ((err.status === 401 || err.status === 403) && !this.isHandlingAuthError) {
+        if (err.status === 401 && !this.isHandlingAuthError) {
           this.isHandlingAuthError = true;
 
           const attemptedUrl = (() => {
