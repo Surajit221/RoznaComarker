@@ -105,7 +105,8 @@ export class AssignmentForm {
       this.created.emit(created);
       this.closeDialog();
     } catch (err: any) {
-      this.alert.showError('Failed to create assignment', err?.message || 'Please try again');
+      const message = err?.error?.message || err?.message || 'Please try again';
+      this.alert.showError('Failed to create assignment', message);
     }
   }
 
