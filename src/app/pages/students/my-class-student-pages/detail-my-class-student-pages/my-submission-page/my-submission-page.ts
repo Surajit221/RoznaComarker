@@ -82,6 +82,8 @@ import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../.
 
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 
+import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
+
 
 
 import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
@@ -194,6 +196,8 @@ export class MySubmissionPage {
 
   classId: string | null = null;
 
+  private hasLoadedClassSettings = false;
+
 
 
 
@@ -201,6 +205,51 @@ export class MySubmissionPage {
 
 
   classTitle: string = '';
+
+  classGradingScale: GradingScale = 'score_0_100';
+
+
+
+  private resolveClassIdFromSubmission(s: BackendSubmission | null): string | null {
+
+    const fromQuery = this.classId;
+    if (typeof fromQuery === 'string' && fromQuery.trim().length) return fromQuery.trim();
+
+    const raw: any = s && (s as any).class;
+    if (!raw) return null;
+
+    if (typeof raw === 'string') return raw;
+
+    const id = raw && typeof raw === 'object' ? (raw._id || raw.id) : null;
+    return typeof id === 'string' && id.trim().length ? id.trim() : null;
+
+  }
+
+
+
+  private async ensureClassSettingsLoadedFromSubmission(s: BackendSubmission | null): Promise<void> {
+
+    if (this.hasLoadedClassSettings) return;
+
+    const classId = this.resolveClassIdFromSubmission(s);
+    if (!classId) return;
+
+    this.classId = classId;
+
+    try {
+      const summary = await this.classApi.getClassSummary(classId);
+      const rawScale = typeof summary?.gradingScale === 'string' ? summary.gradingScale : undefined;
+      this.classGradingScale = (rawScale === 'score_0_100' || rawScale === 'grade_a_f' || rawScale === 'pass_fail')
+        ? rawScale
+        : 'score_0_100';
+      this.classTitle = this.classTitle || (summary?.name || '');
+      this.hasLoadedClassSettings = true;
+    } catch {
+      this.classGradingScale = 'score_0_100';
+      this.hasLoadedClassSettings = false;
+    }
+
+  }
 
 
 
@@ -514,16 +563,87 @@ export class MySubmissionPage {
 
 
 
-  get overallScoreText(): string {
+  private get effectiveOverallScore100(): number {
 
-    const score = Number(this.feedback?.overallScore ?? this.legendAligned?.overallScore100);
+    const fb: any = this.feedback;
 
-    if (!Number.isFinite(score)) return '0/100';
+    const persisted = Number(fb?.overallScore);
 
-    return `${Math.round(score * 10) / 10}/100`;
+    // If a teacher explicitly overrode grading, the persisted score is authoritative.
+    if (fb?.overriddenByTeacher && Number.isFinite(persisted)) return persisted;
+
+    // Otherwise, prefer the live, legend-aligned score derived from LanguageTool issues
+    // so the score stays consistent with Correction Statistics shown on the page.
+    const live = Number(this.legendAligned?.overallScore100);
+
+    if (Number.isFinite(live)) return live;
+
+    // If the writing issues are not available (or legend alignment hasn't run yet) but the
+    // backend feedback includes correction statistics, compute the same legend-aligned score
+    // from those counts to keep the UI consistent.
+    const cs: any = fb?.correctionStats;
+    const hasCounts = cs && typeof cs === 'object';
+    if (hasCounts) {
+      const counts = {
+        CONTENT: Math.max(0, Number(cs?.content) || 0),
+        ORGANIZATION: Math.max(0, Number(cs?.organization) || 0),
+        GRAMMAR: Math.max(0, Number(cs?.grammar) || 0),
+        VOCABULARY: Math.max(0, Number(cs?.vocabulary) || 0),
+        MECHANICS: Math.max(0, Number(cs?.mechanics) || 0)
+      };
+
+      const weights = {
+        CONTENT: 1.0,
+        ORGANIZATION: 0.9,
+        GRAMMAR: 1.2,
+        VOCABULARY: 1.0,
+        MECHANICS: 1.1
+      };
+
+      const round1 = (n: number) => Math.round(n * 10) / 10;
+      const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+      const perCategoryScores5 = {
+        CONTENT: 5,
+        ORGANIZATION: 5,
+        GRAMMAR: 5,
+        VOCABULARY: 5,
+        MECHANICS: 5
+      };
+
+      for (const k of Object.keys(perCategoryScores5) as Array<keyof typeof perCategoryScores5>) {
+        const penalty = counts[k] * 0.35 * (weights as any)[k];
+        (perCategoryScores5 as any)[k] = round1(clamp(5 - penalty, 0, 5));
+      }
+
+      const avg5 =
+        (perCategoryScores5.CONTENT +
+          perCategoryScores5.ORGANIZATION +
+          perCategoryScores5.GRAMMAR +
+          perCategoryScores5.VOCABULARY +
+          perCategoryScores5.MECHANICS) /
+        5;
+
+      const fromStats = round1(clamp((avg5 / 5) * 100, 0, 100));
+      if (Number.isFinite(fromStats)) return fromStats;
+    }
+
+    // Fallback to persisted score if present.
+    if (Number.isFinite(persisted)) return persisted;
+
+    return 0;
 
   }
 
+
+
+  get overallScoreText(): string {
+
+    const score = this.effectiveOverallScore100;
+
+    return formatGradingDisplay(score, this.classGradingScale).displayText;
+
+  }
 
 
   private buildFallbackRubricDesignerFromFeedback(fb: SubmissionFeedback): RubricDesigner | null {
@@ -659,7 +779,7 @@ export class MySubmissionPage {
 
       }))
 
-      .filter((c: { title: string; cells: string[] }) => c.title.trim().length || c.cells.some((x) => String(x).trim().length));
+      .filter((c: { title: string; cells: string[] }) => c.title.trim().length || c.cells.some((x: string) => String(x).trim().length));
 
 
 
@@ -698,6 +818,16 @@ export class MySubmissionPage {
 
     if (!d) return [];
 
+    const normalizeKey = (value: any): string => {
+      return String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/&/g, 'AND')
+        .replace(/[^A-Z0-9\s_]/g, ' ')
+        .replace(/\s+/g, '_')
+        .trim();
+    };
+
 
 
     const normalizeCriteriaTitle = (t: any): string => {
@@ -726,6 +856,10 @@ export class MySubmissionPage {
 
     };
 
+    const feedbackCategoryKeys = new Set<string>(
+      (this.feedbacks || []).map((x: any) => normalizeKey(x?.category))
+    );
+
 
 
     const levels = Array.isArray((d as any).levels) ? (d as any).levels : [];
@@ -736,11 +870,33 @@ export class MySubmissionPage {
 
     const criteria = Array.isArray((d as any).criteria) ? (d as any).criteria : [];
 
-    return criteria
-
+    const seen = new Set<string>();
+    const out = criteria
       .map((r: any) => ({ title: normalizeCriteriaTitle(r?.title), maxPoints: perRowMax }))
+      .filter((r: { title: string; maxPoints: number }) => r.title.length > 0)
+      .filter((r: { title: string; maxPoints: number }) => {
+        const k = normalizeKey(r.title);
+        if (!k) return false;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
 
-      .filter((r: { title: string; maxPoints: number }) => r.title.length > 0);
+    if (!out.length) return [];
+
+    const previewKeys = new Set<string>(out.map((x: { title: string; maxPoints: number }) => normalizeKey(x.title)));
+
+    let isRedundant = previewKeys.size > 0;
+    if (isRedundant) {
+      for (const k of Array.from(previewKeys.values()) as string[]) {
+        if (!feedbackCategoryKeys.has(k)) {
+          isRedundant = false;
+          break;
+        }
+      }
+    }
+
+    return isRedundant ? [] : out;
 
   }
 
@@ -748,11 +904,9 @@ export class MySubmissionPage {
 
   get gradeLabel(): string {
 
-    const g = typeof this.feedback?.grade === 'string'
-      ? this.feedback.grade
-      : (typeof this.legendAligned?.grade === 'string' ? this.legendAligned.grade : '');
+    const score = this.effectiveOverallScore100;
 
-    return g || 'F';
+    return formatGradingDisplay(score, this.classGradingScale).badgeText;
 
   }
 
@@ -878,7 +1032,7 @@ export class MySubmissionPage {
 
   get overallScorePct(): number {
 
-    const score100 = Number(this.feedback?.overallScore ?? this.legendAligned?.overallScore100);
+    const score100 = this.effectiveOverallScore100;
 
     if (!Number.isFinite(score100)) return 0;
 
@@ -2244,7 +2398,7 @@ export class MySubmissionPage {
 
   scrollToAiFeedback() {
 
-    const el = document.getElementById('ai-feedback-section');
+    const el = document.getElementById('ai-feedback-section-mobile') || document.getElementById('ai-feedback-section');
 
     if (!el) return;
 
@@ -2438,6 +2592,10 @@ export class MySubmissionPage {
 
       this.classTitle = '';
 
+      this.classGradingScale = 'score_0_100';
+
+      this.hasLoadedClassSettings = false;
+
 
 
       return;
@@ -2462,6 +2620,13 @@ export class MySubmissionPage {
 
       this.classTitle = summary?.name || '';
 
+      const rawScale = typeof summary?.gradingScale === 'string' ? summary.gradingScale : undefined;
+      this.classGradingScale = (rawScale === 'score_0_100' || rawScale === 'grade_a_f' || rawScale === 'pass_fail')
+        ? rawScale
+        : 'score_0_100';
+
+      this.hasLoadedClassSettings = true;
+
 
 
     } catch {
@@ -2469,6 +2634,8 @@ export class MySubmissionPage {
 
 
       this.classTitle = '';
+
+      this.classGradingScale = 'score_0_100';
 
 
 
@@ -2562,33 +2729,11 @@ export class MySubmissionPage {
 
       }
 
-
-
-
-
-
-
       if (this.destroyed || seq !== this.loadSeq) return;
-
-
 
       this.submission = submission;
 
-
-
-      try {
-
-        const a: any = submission && (submission as any).assignment;
-
-        console.log('[SUBMISSION META] assignment.teacher', a && typeof a === 'object' ? (a.teacher || null) : null, 'assignment.createdAt', a && typeof a === 'object' ? a.createdAt : null);
-
-      } catch {
-
-        // ignore
-
-      }
-
-
+      await this.ensureClassSettingsLoadedFromSubmission(submission);
 
       this.revokeObjectUrls();
 
@@ -2828,261 +2973,78 @@ export class MySubmissionPage {
 
     }
 
-
-
   }
 
 
 
-
-
-
-
-  private scheduleNextOcrRefresh(ms: number) {
-
-
-
+  private scheduleNextOcrRefresh(delayMs: number) {
     if (!this.isOcrPolling || this.destroyed) return;
 
-
-
     if (this.ocrPollTimeoutId) {
-
-
-
       clearTimeout(this.ocrPollTimeoutId);
-
-
-
       this.ocrPollTimeoutId = null;
-
-
-
     }
 
-
-
-
-
-
-
     this.ocrPollTimeoutId = setTimeout(() => {
-
-
-
       if (this.destroyed) return;
-
-
-
       this.refreshSubmissionForOcr();
-
-
-
-    }, ms);
-
-
-
+    }, delayMs);
   }
-
-
-
-
 
 
 
   private async refreshSubmissionForOcr() {
-
-
-
     const assignmentId = this.assignmentId;
-
-
-
     if (!assignmentId) {
-
-
-
       this.stopOcrPolling();
-
-
-
       return;
-
-
-
     }
-
-
-
-
-
-
 
     if (!this.isOcrPolling || this.destroyed) return;
 
-
-
     if (this.isOcrRefreshing) {
-
-
-
       this.scheduleNextOcrRefresh(2500);
-
-
-
       return;
-
-
-
     }
-
-
-
-
-
-
 
     this.isOcrRefreshing = true;
 
-
-
     try {
-
-
-
       const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId);
-
-
-
       if (this.destroyed) return;
 
-
-
       this.submission = updated;
-
-
-
       await this.setUploadedFileUrl(updated?.fileUrl || this.rawUploadedFileUrl);
-
-
-
-
-
-
-
       this.rebuildOcrWords();
 
-
-
       if (updated?._id && !this.hasLoadedOcrCorrections) {
-
-
-
         await this.loadOcrCorrections(updated._id);
-
-
-
         this.hasLoadedOcrCorrections = true;
-
-
-
       }
-
-
 
       this.rebuildHighlightedTranscript();
-
-
-
       await this.refreshWritingCorrections();
 
-
-
-
-
-
-
       if (updated?.ocrStatus === 'failed') {
-
-
-
         this.ocrErrorMessage = updated.ocrError || 'OCR failed';
-
-
-
       } else {
-
-
-
         this.ocrErrorMessage = null;
-
-
-
       }
-
-
-
-
-
-
 
       if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed' || this.extractedText) {
-
-
-
         this.stopOcrPolling();
-
-
-
         return;
-
-
-
       }
 
-
-
-
-
-
-
       this.scheduleNextOcrRefresh(3000);
-
-
-
     } catch (err: any) {
-
-
-
       const message = err?.error?.message || err?.message || 'Failed to fetch OCR text';
-
-
-
       this.ocrErrorMessage = message;
-
-
-
       this.stopOcrPolling();
-
-
-
     } finally {
-
-
-
       this.isOcrRefreshing = false;
-
-
-
     }
-
-
-
   }
-
-
-
-
 
 
 

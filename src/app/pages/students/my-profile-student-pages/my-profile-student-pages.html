@@ -204,12 +204,12 @@
           hidden
           (change)="onAvatarSelected($event)"
         />
-        <div class="relative group" (click)="avatarInputMobile.click()">
+        <div class="relative group overflow-visible" (click)="avatarInputMobile.click()">
           <div class="w-28 h-28 rounded-full border-4 border-[#008081] p-1 bg-white">
             <img [src]="avatarUrl" class="w-full h-full rounded-full object-cover" alt="Avatar">
           </div>
           <div
-            class="absolute bottom-0 right-0 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md">
+            class="absolute -bottom-1 -right-1 bg-[#FFC300] border-2 border-[#DBB12A] w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md z-10">
             <i class='bx bxs-camera'></i>
           </div>
         </div>

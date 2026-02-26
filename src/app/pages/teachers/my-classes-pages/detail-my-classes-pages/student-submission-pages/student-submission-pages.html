@@ -1009,6 +1009,8 @@
 
       </div>
 
+      <ng-container *ngTemplateOutlet="aiFeedbackMobile"></ng-container>
+
       </ng-container>
 
       <ng-container *ngIf="activeTab === 'transcribed-text'">
@@ -1086,6 +1088,8 @@
               }
 
             </div>
+
+            <ng-container *ngTemplateOutlet="aiFeedbackMobile"></ng-container>
 
 
 
@@ -1484,6 +1488,88 @@
       </div>
 
       </ng-container>
+
+      <ng-template #aiFeedbackMobile>
+
+        <div class="flex flex-col gap-4" id="ai-feedback-section-mobile">
+
+          <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
+
+            <div class="flex flex-row justify-between items-center">
+
+              <p class="text-2xl font-bold">AI Feedback</p>
+
+            </div>
+
+            <div class="">
+
+              <div class="flex flex-col gap-3">
+
+                @if (rubricFeedbackItems.length) {
+
+                @for (item of rubricFeedbackItems; track item.category) {
+
+                <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
+
+                  <div class="min-w-0 flex-1">
+
+                    <div class="flex flex-row gap-2 items-center flex-wrap">
+
+                      <p class="text-xl font-bold mb-1 break-words">
+
+                        {{ item.category }}
+
+                      </p>
+
+                      <div
+
+                        class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
+
+                        [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'"
+
+                      >
+
+                        <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
+
+                          {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
+
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <p class="break-words">
+
+                      {{ item.description }}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+                }
+
+                } @else {
+
+                <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+
+                  <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed text to compute dynamic rubric.</p>
+
+                </div>
+
+                }
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </ng-template>
 
     </div>
 

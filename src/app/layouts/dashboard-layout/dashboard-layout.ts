@@ -5,6 +5,8 @@ import { DeviceService } from '../../services/device.service';
 import { ChartStorage } from '../../shared/chart-storage/chart-storage';
 import { AuthService } from '../../auth/auth.service';
 import { RoleService } from '../../services/role.service';
+import { SubscriptionApiService, type BackendMySubscription } from '../../api/subscription-api.service';
+import { environment } from '../../../environments/environment';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -34,19 +36,43 @@ export class DashboardLayout {
   isNotificationsDropdownOpen = false;
 
   meName: string = '';
+  mePhotoUrl: string = '';
+
+  get avatarUrl(): string {
+    const url = this.mePhotoUrl;
+    if (!url) return 'img/default-img.png';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${environment.apiUrl}${url}`;
+  }
 
   showAppBar = signal(false);
   showBottomNav = signal(true);
 
   device = inject(DeviceService);
   private auth = inject(AuthService);
+  private subscriptionApi = inject(SubscriptionApiService);
   roleService = inject(RoleService);
+
+  mySubscription: BackendMySubscription | null = null;
+  isSubscriptionLoading = false;
 
   teacherMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
     { name: 'Reports', icon: 'bx bxs-report', path: '/teacher/reports' },
   ];
+
+  get storageUsedGb(): number {
+    const usedMB = this.mySubscription?.usage?.storageMB;
+    const usedGb = typeof usedMB === 'number' && Number.isFinite(usedMB) ? usedMB / 1024 : 0;
+    return Math.max(0, Number(usedGb.toFixed(2)));
+  }
+
+  get storageTotalGb(): number {
+    const limitMB = this.mySubscription?.plan?.limits?.storageMB;
+    const totalGb = typeof limitMB === 'number' && Number.isFinite(limitMB) ? limitMB / 1024 : 0;
+    return Math.max(0, Number(totalGb.toFixed(2)));
+  }
 
   teacherMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
@@ -110,8 +136,19 @@ export class DashboardLayout {
     try {
       const me = await this.auth.getMeProfile();
       this.meName = me.displayName || me.email || '';
+      this.mePhotoUrl = me.photoURL || '';
     } catch {
       this.meName = '';
+      this.mePhotoUrl = '';
+    }
+
+    this.isSubscriptionLoading = true;
+    try {
+      this.mySubscription = await this.subscriptionApi.getMySubscription();
+    } catch {
+      this.mySubscription = null;
+    } finally {
+      this.isSubscriptionLoading = false;
     }
   }
 

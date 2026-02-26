@@ -28,6 +28,19 @@ export type BackendMe = {
   photoURL?: string;
   institution?: string;
   bio?: string;
+  aiConfig?: {
+    strictness?: 'friendly' | 'balanced' | 'strict' | string;
+    checks?: {
+      grammarSpelling?: boolean;
+      coherenceLogic?: boolean;
+      factChecking?: boolean;
+    };
+  };
+  classroomDefaults?: {
+    gradingScale?: 'score_0_100' | 'grade_a_f' | 'pass_fail' | string;
+    lateSubmissionPenaltyPercent?: number;
+    autoPublishGrades?: boolean;
+  };
   role: string;
 };
 
@@ -36,6 +49,8 @@ export type BackendUser = {
   email: string;
   displayName?: string;
   photoURL?: string;
+  institution?: string;
+  bio?: string;
   role?: string;
 };
 
@@ -175,6 +190,8 @@ export class AuthService {
     displayName?: string;
     institution?: string;
     bio?: string;
+    aiConfig?: BackendMe['aiConfig'];
+    classroomDefaults?: BackendMe['classroomDefaults'];
   }): Promise<BackendMe> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {

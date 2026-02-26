@@ -35,6 +35,7 @@ export type BackendClassSummary = {
   name: string;
   description: string;
   joinCode: string;
+  gradingScale?: 'score_0_100' | 'grade_a_f' | 'pass_fail' | string;
   teacher: {
     id: string;
     name: string;
