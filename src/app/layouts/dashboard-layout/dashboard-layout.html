@@ -109,6 +109,27 @@
         <img src="./img/logo.png" class="w-8" alt="" />
         <h1 class="font-bold text-xl text-gray-800">RoznaHub</h1>
       </div>
+
+      <div id="user-menu" class="relative">
+        <button class="flex items-center" (click)="toggleUserDropdown()">
+          <img class="h-10 w-10 rounded-full" [src]="avatarUrl" alt="User profile" />
+        </button>
+
+        @if (isUserDropdownOpen()) {
+        <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+
+          <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+            [routerLink]="['/', roleService.currentRole(), 'my-profile']" (click)="closeAllDropdowns()">
+            <i class="bx bx-user mr-2"></i>Profile
+          </div>
+
+          <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer" (click)="toLogin()">
+            <i class="bx bx-log-out mr-2"></i>Sign out
+          </div>
+
+        </div>
+        }
+      </div>
     </div>
     }
 
