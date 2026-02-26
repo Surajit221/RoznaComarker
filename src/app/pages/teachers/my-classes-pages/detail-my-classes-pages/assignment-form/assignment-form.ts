@@ -34,6 +34,11 @@ export class AssignmentForm {
     const today = new Date().toISOString().split('T')[0];
     this.classForm.get('startDate')?.setValue(today);
 
+    const roleControl = this.classForm.get('role');
+    if (roleControl && !roleControl.value) {
+      roleControl.setValue('teacher');
+    }
+
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
     this.classForm.get('endDate')?.setValue(nextWeek.toISOString().split('T')[0]);
