@@ -14,6 +14,7 @@ type BackendResponse<T> = {
 export type BackendAssignment = {
   _id: string;
   title: string;
+  writingType?: string;
   instructions?: string;
   rubric?: string;
   deadline: string;
@@ -48,6 +49,7 @@ export class AssignmentApiService {
     title: string;
     classId: string;
     deadline: string;
+    writingType: string;
     instructions?: string;
     rubric?: any;
     allowLateResubmission?: boolean;
@@ -71,6 +73,36 @@ export class AssignmentApiService {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendAssignment>>(`${apiBaseUrl}/assignments/${encodeURIComponent(id)}`)
+    );
+    return resp.data;
+  }
+
+  async updateAssignment(
+    id: string,
+    payload: {
+      title?: string;
+      writingType?: string;
+      instructions?: string | null;
+      deadline?: string;
+      allowLateResubmission?: boolean;
+    }
+  ): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.patch<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/${encodeURIComponent(id)}`,
+        payload
+      )
+    );
+    return resp.data;
+  }
+
+  async deleteAssignment(id: string): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.delete<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/${encodeURIComponent(id)}`
+      )
     );
     return resp.data;
   }

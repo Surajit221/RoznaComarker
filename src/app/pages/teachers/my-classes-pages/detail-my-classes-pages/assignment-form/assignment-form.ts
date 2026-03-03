@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output, SimpleChanges } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -20,55 +20,60 @@ import { AssignmentApiService, type BackendAssignment } from '../../../../../api
 export class AssignmentForm {
   classForm: FormGroup;
   @Input() classId: string | null = null;
+  @Input() assignment: BackendAssignment | null = null;
   @Output() created = new EventEmitter<BackendAssignment>();
+  @Output() updated = new EventEmitter<BackendAssignment>();
   @Output() closed = new EventEmitter<void>();
   device = inject(DeviceService);
   private assignmentApi = inject(AssignmentApiService);
   private alert = inject(AlertService);
 
+  isSubmitting = false;
+
   constructor(private fb: FormBuilder) {
     this.classForm = this.createForm();
   }
 
-  ngOnInit(): void {
-    const today = new Date().toISOString().split('T')[0];
-    this.classForm.get('startDate')?.setValue(today);
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['assignment']) {
+      this.applyAssignmentToForm();
+    }
+  }
 
-    const roleControl = this.classForm.get('role');
-    if (roleControl && !roleControl.value) {
-      roleControl.setValue('teacher');
+  ngOnInit(): void {
+    this.applyAssignmentToForm();
+  }
+
+  private applyAssignmentToForm(): void {
+    const a = this.assignment;
+    if (a) {
+      const deadline = a.deadline ? new Date(a.deadline) : null;
+      const dateOnly = deadline && !Number.isNaN(deadline.getTime()) ? deadline.toISOString().split('T')[0] : '';
+
+      this.classForm.reset();
+      this.classForm.patchValue({
+        className: a.title || '',
+        writingType: a.writingType || '',
+        startDate: dateOnly,
+        message: a.instructions || ''
+      });
+      return;
     }
 
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    this.classForm.get('endDate')?.setValue(nextWeek.toISOString().split('T')[0]);
+    this.classForm.reset();
+    const today = new Date().toISOString().split('T')[0];
+    this.classForm.get('startDate')?.setValue(today);
   }
 
   createForm(): FormGroup {
     return this.fb.group(
       {
         className: ['', [Validators.required, Validators.minLength(3)]],
-        role: ['', Validators.required],
+        writingType: ['', Validators.required],
         startDate: ['', Validators.required],
-        endDate: ['', Validators.required],
         message: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
-      },
-      { validators: this.dateValidator }
+      }
     );
-  }
-
-  dateValidator(form: AbstractControl) {
-    const startDate = form.get('startDate')?.value;
-    const endDate = form.get('endDate')?.value;
-
-    if (!startDate || !endDate) {
-      return null;
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    return end >= start ? null : { dateRange: true };
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -77,41 +82,76 @@ export class AssignmentForm {
   }
 
   onSubmit(): void {
+    if (this.isSubmitting) return;
     void this.handleSubmit();
   }
 
   private async handleSubmit() {
+    if (this.isSubmitting) return;
+
     if (!this.classForm.valid) {
       this.markAllFieldsAsTouched();
       return;
     }
 
-    const classId = this.classId;
-    if (!classId) {
-      this.alert.showError('Missing class', 'Unable to create assignment: class id is missing.');
-      return;
-    }
-
     try {
+      this.isSubmitting = true;
+
       const title = this.classForm.value.className;
       const instructions = this.classForm.value.message;
-      const endDate = this.classForm.value.endDate;
+      const writingType = this.classForm.value.writingType;
+      const deadlineDateOnly = this.classForm.value.startDate;
 
-      const deadlineDate = new Date(endDate);
+      const now = new Date();
+      const deadlineDate = new Date(`${deadlineDateOnly}T23:59:59.999`);
+      if (Number.isNaN(deadlineDate.getTime())) {
+        this.alert.showError('Invalid deadline', 'Please select a valid deadline date.');
+        return;
+      }
+
+      if (deadlineDate.getTime() <= now.getTime()) {
+        this.alert.showError(
+          'Invalid deadline',
+          'Deadline must be in the future. Please pick a later date.'
+        );
+        return;
+      }
+
       const deadline = deadlineDate.toISOString();
+
+      if (this.assignment?._id) {
+        const updated = await this.assignmentApi.updateAssignment(this.assignment._id, {
+          title,
+          deadline,
+          instructions,
+          writingType
+        });
+        this.updated.emit(updated);
+        this.closeDialog();
+        return;
+      }
+
+      const classId = this.classId;
+      if (!classId) {
+        this.alert.showError('Missing class', 'Unable to create assignment: class id is missing.');
+        return;
+      }
 
       const created = await this.assignmentApi.createAssignment({
         title,
         classId,
         deadline,
-        instructions
+        instructions,
+        writingType
       });
 
       this.created.emit(created);
       this.closeDialog();
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Please try again';
-      this.alert.showError('Failed to create assignment', message);
+      this.alert.showError(this.assignment?._id ? 'Failed to update assignment' : 'Failed to create assignment', message);
+    } finally {
+      this.isSubmitting = false;
     }
   }
 

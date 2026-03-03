@@ -100,7 +100,7 @@
           </div>
           <div class="max-h-[480px] overflow-y-auto">
             <div class="flex flex-col gap-3">
-              @for (item of assignments; track item.title) {
+              @for (item of assignments; track item.id) {
               <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
                 <div class="col-span-5">
                   <p class="text-xl font-bold mb-1">
@@ -131,9 +131,27 @@
                   </div>
                 </div>
                 <div class="col-span-2 text-right">
-                  <p class="text-sm underline cursor-pointer" (click)="onOpenSubmission(item.id)">
-                    View Submissions
-                  </p>
+                  <div class="flex flex-col items-end gap-1">
+                    <p class="text-sm underline cursor-pointer" (click)="onOpenSubmission(item.id)">
+                      View Submissions
+                    </p>
+                    <div class="flex flex-row gap-2">
+                      <button
+                        type="button"
+                        class="px-3 py-1 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
+                        (click)="onEditAssignment(item.id)"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
+                        (click)="onDeleteAssignment(item.id)"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
               }
@@ -190,12 +208,21 @@
 
                 <!-- Action -->
                 <div class="col-span-1 text-right">
-                  <p
-                    class="text-sm font-normal underline cursor-pointer hover:text-gray-600"
-                    (click)="toStudentProfile(student.id)"
-                  >
-                    View Profile
-                  </p>
+                  <div class="flex flex-col items-end gap-2">
+                    <p
+                      class="text-sm font-normal underline cursor-pointer hover:text-gray-600"
+                      (click)="toStudentProfile(student.id)"
+                    >
+                      View Profile
+                    </p>
+                    <button
+                      type="button"
+                      class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
+                      (click)="onRemoveStudent(student.id, student.name)"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </div>
               }
@@ -208,8 +235,14 @@
 
   <!-- dialog -->
   <app-modal-dialog [open]="showDialog">
-    <h2 class="text-3xl font-bold text-center mb-8">Create New Assignment</h2>
-    <app-assignment-form [classId]="classId" (created)="onAssignmentCreated($event)" (closed)="closeDialog()"></app-assignment-form>
+    <h2 class="text-3xl font-bold text-center mb-8">{{ assignmentDialogTitle }}</h2>
+    <app-assignment-form
+      [classId]="classId"
+      [assignment]="selectedAssignmentForEdit"
+      (created)="onAssignmentCreated($event)"
+      (updated)="onAssignmentUpdated($event)"
+      (closed)="closeDialog()"
+    ></app-assignment-form>
   </app-modal-dialog>
 
   <app-modal-dialog [open]="showDialogSubmission">
@@ -314,7 +347,7 @@
         </button>
       </div>
       <div class="overflow-y-auto">
-        @for (item of assignments; track item.title) {
+        @for (item of assignments; track item.id) {
         <div class="bg-[#F3F3F3] w-full rounded-xl my-2 py-4 px-4">
           <div class="flex flex-row justify-between items-center gap-4 w-full">
             <p class="text-gray-500 text-xs">Due: {{ item.dueDate }}</p>
@@ -343,9 +376,25 @@
             <p class="text-base font-bold mb-1 leading-5">
               {{ item.title }}
             </p>
-            <p class="text-xs underline cursor-pointer" (click)="onOpenSheetSubmission(item.id)">
-              View Submissions
-            </p>
+            <div class="flex flex-row items-center gap-4">
+              <p class="text-xs underline cursor-pointer" (click)="onOpenSheetSubmission(item.id)">
+                View Submissions
+              </p>
+              <button
+                type="button"
+                class="px-3 py-1 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
+                (click)="onOpenEditAssignmentSheet(item.id)"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
+                (click)="onDeleteAssignment(item.id)"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
         }
@@ -396,6 +445,13 @@
               >
                 View
               </p>
+              <button
+                type="button"
+                class="mt-2 px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
+                (click)="onRemoveStudent(student.id, student.name)"
+              >
+                Remove
+              </button>
             </div>
           </div>
         </div>
@@ -404,8 +460,14 @@
     </div>
   </div>
   <app-bottomsheet-dialog [open]="openSheetAssignment" (closed)="onCloseCreateAssignment()">
-    <h2 class="text-2xl font-bold mb-5">Create New Assignment</h2>
-    <app-assignment-form [classId]="classId" (created)="onAssignmentCreated($event)" (closed)="onCloseCreateAssignment()"></app-assignment-form>
+    <h2 class="text-2xl font-bold mb-5">{{ assignmentDialogTitle }}</h2>
+    <app-assignment-form
+      [classId]="classId"
+      [assignment]="selectedAssignmentForEdit"
+      (created)="onAssignmentCreated($event)"
+      (updated)="onAssignmentUpdated($event)"
+      (closed)="onCloseCreateAssignment()"
+    ></app-assignment-form>
   </app-bottomsheet-dialog>
 
   <app-bottomsheet-dialog [open]="openSheetQr" (closed)="onCloseQR()">

@@ -133,6 +133,48 @@ export class FeedbackApiService {
     return resp.data;
   }
 
+  async generateRubricDesignerFromPrompt(submissionId: string, prompt: string): Promise<SubmissionFeedback> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-rubric-prompt`,
+        { prompt }
+      )
+    );
+    return resp.data;
+  }
+
+  async generateRubricDesignerFromContext(
+    submissionId: string,
+    payload?: {
+      prompt?: string;
+      forceRegenerate?: boolean;
+    }
+  ): Promise<SubmissionFeedback> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const body = payload && typeof payload === 'object' ? payload : {};
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-rubric-context`,
+        body
+      )
+    );
+    return resp.data;
+  }
+
+  async uploadRubricFile(submissionId: string, file: File): Promise<SubmissionFeedback> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const fd = new FormData();
+    fd.append('file', file);
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/rubric-file`,
+        fd
+      )
+    );
+    return resp.data;
+  }
+
   async getFeedbackBySubmissionForStudent(submissionId: string): Promise<BackendFeedback> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(

@@ -199,6 +199,10 @@ export class DetailMyClassStudentPages {
     }
 
     const file = this.selectedFiles[0];
+    if (!file) {
+      this.alert.showWarning('No file selected', 'Please select a file to upload.');
+      return;
+    }
 
     if (this.isLoading) return;
     this.isLoading = true;

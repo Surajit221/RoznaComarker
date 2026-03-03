@@ -26,23 +26,41 @@
   <div class="grid grid-cols-2 gap-4 w-full">
     <div class="w-full">
       <div class="flex flex-col gap-1">
-        <label for="role" class="text-sm font-bold pl-2">Subject / Level</label>
+        <label for="role" class="text-sm font-bold pl-2">Genre</label>
         <div class="relative w-full">
           <select
-            formControlName="role"
+            formControlName="writingType"
             class="input-text appearance-none pr-10 cursor-pointer"
-            [class.input-error]="isFieldInvalid('role')"
+            [ngClass]="{
+              'text-gray-400': !classForm.get('writingType')?.value,
+              'text-gray-700': !!classForm.get('writingType')?.value
+            }"
+            [class.input-error]="isFieldInvalid('writingType')"
           >
-            <option value="" disabled>Select Your Role</option>
-            <option value="teacher">Teacher</option>
-            <option value="student">Student</option>
+            <option value="" disabled>Choose one</option>
+            <option value="Personal">Personal</option>
+            <option value="Descriptive">Descriptive</option>
+            <option value="Narrative">Narrative</option>
+            <option value="Opinion">Opinion</option>
+            <option value="Advantages and Disadvantages">Advantages and Disadvantages</option>
+            <option value="Problem–Solution">Problem–Solution</option>
+            <option value="Argumentative">Argumentative</option>
+            <option value="For-and-Against">For-and-Against</option>
+            <option value="Discursive">Discursive</option>
+            <option value="Report">Report</option>
+            <option value="Review">Review</option>
+            <option value="Informal Letter/Email">Informal Letter/Email</option>
+            <option value="Formal Letter/Email">Formal Letter/Email</option>
+            <option value="Message/Note">Message/Note</option>
+            <option value="Postcard">Postcard</option>
+            <option value="Instructional / Process (How-to)">Instructional / Process (How-to)</option>
           </select>
           <i
             class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"
           ></i>
         </div>
-        @if (isFieldInvalid('role')) {
-        <div class="text-red-500 text-sm mt-1">Please select a role</div>
+        @if (isFieldInvalid('writingType')) {
+        <div class="text-red-500 text-sm mt-1">Please select a writing type</div>
         }
       </div>
     </div>
@@ -101,12 +119,14 @@
   @if(device.isDesktop()) {
   <div class="flex justify-center items-center gap-3">
     <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
-    <button type="submit" class="btn-primary" [disabled]="classForm.invalid">Submit</button>
+    <button type="submit" class="btn-primary" [disabled]="classForm.invalid || isSubmitting">
+      {{ assignment?._id ? 'Update' : 'Submit' }}
+    </button>
   </div>
   } @if(device.isMobile() || device.isTablet()) {
   <div class="flex flex-col justify-center items-center gap-3">
-    <button type="submit" class="btn-primary-sm w-full" [disabled]="classForm.invalid">
-      Submit
+    <button type="submit" class="btn-primary-sm w-full" [disabled]="classForm.invalid || isSubmitting">
+      {{ assignment?._id ? 'Update' : 'Submit' }}
     </button>
     <button type="button" class="btn-danger-sm w-full" (click)="closeDialog()">Cancel</button>
   </div>
