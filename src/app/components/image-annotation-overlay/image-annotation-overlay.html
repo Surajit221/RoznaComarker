@@ -12,6 +12,11 @@
     <div class="overlay-layer" aria-hidden="true" (click)="clearActive()">
       @for (box of overlayBoxes; track box.annotationId + '-' + $index) {
       <div
+        class="overlay-underline"
+        [ngStyle]="getUnderlineStyle(box)"
+        (click)="onMarkerClick(box, $event)"
+      ></div>
+      <div
         class="overlay-marker"
         [ngStyle]="getMarkerStyle(box)"
         (mouseenter)="onBoxEnter(box)"

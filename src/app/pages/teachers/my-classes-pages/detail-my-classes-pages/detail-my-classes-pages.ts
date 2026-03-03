@@ -83,6 +83,14 @@ export class DetailMyClassesPages {
 
   selectedAssignmentId: string | null = null;
 
+  selectedAssignmentForEdit: BackendAssignment | null = null;
+
+  private assignmentsById: Record<string, BackendAssignment> = {};
+
+  get assignmentDialogTitle(): string {
+    return this.selectedAssignmentForEdit ? 'Edit Assignment' : 'Create New Assignment';
+  }
+
   assignments: Array<{
     id: string;
     title: string;
@@ -132,6 +140,12 @@ export class DetailMyClassesPages {
     this.isLoading = true;
     try {
       const assignments = await this.assignmentApi.getClassAssignments(classId);
+
+      this.assignmentsById = (assignments || []).reduce((acc, a) => {
+        acc[a._id] = a;
+        return acc;
+      }, {} as Record<string, BackendAssignment>);
+
       this.assignments = (assignments || []).map((a) => this.mapAssignment(a));
 
       // fill in submission stats
@@ -158,6 +172,34 @@ export class DetailMyClassesPages {
   async onAssignmentCreated(_created: BackendAssignment) {
     this.closeDialog();
     this.onCloseCreateAssignment();
+    if (this.classId) {
+      this.classApi.invalidateClassSummary(this.classId);
+    }
+    this.classApi.invalidateTeacherClassesList();
+    await this.loadAssignments();
+  }
+
+  async onAssignmentUpdated(_updated: BackendAssignment) {
+    this.closeDialog();
+    this.onCloseCreateAssignment();
+
+    if (this.classId) {
+      this.classApi.invalidateClassSummary(this.classId);
+    }
+    this.classApi.invalidateTeacherClassesList();
+
+    if (_updated?._id) {
+      this.assignmentsById[_updated._id] = _updated;
+      const mapped = this.mapAssignment(_updated);
+      const idx = (this.assignments || []).findIndex((a) => a.id === _updated._id);
+      if (idx >= 0) {
+        this.assignments[idx] = {
+          ...this.assignments[idx],
+          ...mapped
+        };
+      }
+    }
+
     await this.loadAssignments();
   }
 
@@ -209,6 +251,36 @@ export class DetailMyClassesPages {
     }
   }
 
+  async onRemoveStudent(studentId: string, studentName: string) {
+    const classId = this.classId;
+    if (!classId) return;
+
+    const ok = await this.alert.showConfirm(
+      'Remove student?',
+      `This will remove ${studentName} from this class.`,
+      'Yes, remove',
+      'Cancel'
+    );
+    if (!ok) return;
+
+    const prevStudents = [...(this.students || [])];
+
+    try {
+      await this.classApi.removeStudentFromClass(classId, studentId);
+
+      this.students = (this.students || []).filter((s) => s.id !== studentId);
+
+      await this.loadClassSummary();
+      await this.loadStudents();
+      await this.loadAssignments();
+
+      this.alert.showSuccess('Removed', 'Student removed from the class.');
+    } catch (err: any) {
+      this.students = prevStudents;
+      this.alert.showError('Failed to remove student', err?.error?.message || err?.message || 'Please try again');
+    }
+  }
+
   constructor(private router: Router) {}
 
   toMyClasses() {
@@ -224,7 +296,54 @@ export class DetailMyClassesPages {
   }
 
   onAddAssignment() {
+    this.selectedAssignmentForEdit = null;
     this.showDialog = true;
+  }
+
+  onEditAssignment(assignmentId: string) {
+    const found = this.assignmentsById[assignmentId];
+    if (!found) return;
+    this.selectedAssignmentForEdit = found;
+    this.showDialog = true;
+  }
+
+  onOpenEditAssignmentSheet(assignmentId: string) {
+    const found = this.assignmentsById[assignmentId];
+    if (!found) return;
+    this.selectedAssignmentForEdit = found;
+    this.openSheetAssignment = true;
+    document.body.classList.add('overflow-hidden');
+  }
+
+  async onDeleteAssignment(assignmentId: string) {
+    const ok = await this.alert.showConfirm(
+      'Delete assignment?',
+      'This will remove the assignment from your class.',
+      'Yes, delete',
+      'Cancel'
+    );
+    if (!ok) return;
+
+    const prevAssignments = [...(this.assignments || [])];
+    const prevAssignmentsById = { ...this.assignmentsById };
+
+    try {
+      await this.assignmentApi.deleteAssignment(assignmentId);
+
+      this.assignments = (this.assignments || []).filter((a) => a.id !== assignmentId);
+      delete this.assignmentsById[assignmentId];
+
+      if (this.classId) {
+        this.classApi.invalidateClassSummary(this.classId);
+      }
+      this.classApi.invalidateTeacherClassesList();
+
+      this.alert.showSuccess('Deleted', 'Assignment deleted successfully.');
+    } catch (err: any) {
+      this.assignments = prevAssignments;
+      this.assignmentsById = prevAssignmentsById;
+      this.alert.showError('Failed to delete assignment', err?.error?.message || err?.message || 'Please try again');
+    }
   }
 
   onOpenSubmission(assignmentId: string) {
@@ -238,6 +357,7 @@ export class DetailMyClassesPages {
 
   closeDialog() {
     this.showDialog = false;
+    this.selectedAssignmentForEdit = null;
   }
 
   closeDialogSubmission() {
@@ -252,6 +372,7 @@ export class DetailMyClassesPages {
   onCloseCreateAssignment() {
     document.body.classList.remove('overflow-hidden');
     this.openSheetAssignment = false;
+    this.selectedAssignmentForEdit = null;
   }
 
   onOpenCreateNewAssignment() {

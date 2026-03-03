@@ -37,6 +37,14 @@ export type BackendSubmission = {
   class: any;
   file: BackendFile | string;
   fileUrl: string;
+  files?: Array<BackendFile | string>;
+  fileUrls?: string[];
+  ocrPages?: Array<{
+    fileId?: string;
+    pageNumber?: number;
+    text?: string;
+    words?: any;
+  }>;
   status: 'submitted' | 'late' | 'missing';
   submittedAt: string;
   isLate: boolean;
@@ -44,6 +52,7 @@ export type BackendSubmission = {
   transcriptText?: string;
   ocrStatus?: 'pending' | 'completed' | 'failed';
   ocrText?: string;
+  combinedOcrText?: string;
   ocrError?: string;
   ocrUpdatedAt?: string;
   feedback?: string;
@@ -117,6 +126,9 @@ export class SubmissionApiService {
       );
       return resp.data;
     } catch (err: unknown) {
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        return null as any;
+      }
       this.logHttpError('getMySubmissionByAssignmentId', err);
       throw err;
     }
@@ -132,6 +144,9 @@ export class SubmissionApiService {
       );
       return resp?.data || [];
     } catch (err: unknown) {
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        return [];
+      }
       this.logHttpError('getSubmissionsByAssignment', err);
       throw err;
     }

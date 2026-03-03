@@ -4,6 +4,7 @@
     <div class="flex flex-col gap-2">
       <div class="w-full flex flex-row justify-between items-center">
         <p class="text-2xl font-bold">My Notification</p>
+        <button type="button" class="btn-info-sm" (click)="onMarkAllRead()">Mark all read</button>
       </div>
       <div class="relative">
         <input
@@ -15,13 +16,13 @@
       </div>
     </div>
     <div class="w-full flex flex-col gap-2">
-      @for (item of notifications; track item.title) {
+      @for (item of notifications; track item._id) {
       <div
         class="w-full bg-white p-3 border-[1.5px] lg:border-[3px] border-[#E7E7E7] rounded-2xl flex flex-row gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747] items-center"
-        (click)="onOpenSheet()"
+        (click)="onClickNotification(item)"
       >
-        <div class="w-16 h-16 flex justify-center items-center rounded-xl" [ngClass]="item.iconBg">
-          <i [ngClass]="['bx', item.icon, item.iconColor]" class="text-3xl"></i>
+        <div class="w-16 h-16 flex justify-center items-center rounded-xl" [ngClass]="iconFor(item).iconBg">
+          <i [ngClass]="['bx', iconFor(item).icon, iconFor(item).iconColor]" class="text-3xl"></i>
         </div>
         <div class="flex flex-col w-80">
           <h1 class="block w-full text-base font-bold truncate cursor-pointer">
@@ -30,7 +31,7 @@
           <p class="text-sm line-clamp-2">
             {{ item.description }}
           </p>
-          <small class="mb-0 text-xs text-gray-500"> {{ item.time }}</small>
+          <small class="mb-0 text-xs text-gray-500"> {{ timeFor(item) }}</small>
         </div>
       </div>
       }

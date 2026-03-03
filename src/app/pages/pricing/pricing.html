@@ -30,7 +30,7 @@
           }
 
           <div class="flex flex-col gap-3">
-            <h2 class="text-2xl font-bold text-gray-800">Free</h2>
+            <h2 class="text-2xl font-bold text-gray-800">{{ freePlan?.name || 'Free' }}</h2>
             <p class="text-gray-500">{{ freePlan?.description || 'Perfect to try the workflow.' }}</p>
 
             <div class="flex items-end gap-2 mt-2">
@@ -57,61 +57,34 @@
           </div>
         </article>
 
-        <!-- Starter (toggle monthly/yearly) -->
+        <!-- Expert -->
         <article
           class="relative bg-white border-2 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300"
-          [ngClass]="starterPlan?.isPopular ? 'border-[#FFC300]' : 'border-[#E7E7E7]'"
+          [ngClass]="expertPlan?.isPopular ? 'border-[#FFC300]' : 'border-[#E7E7E7]'"
         >
-          @if (starterPlan?.isPopular) {
+          @if (expertPlan?.isPopular) {
           <div class="absolute -top-3 left-6">
             <span
               class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
             >
-              {{ starterPlan?.badgeText || 'Popular' }}
+              {{ expertPlan?.badgeText || 'Popular' }}
             </span>
           </div>
           }
 
           <div class="flex flex-col gap-3">
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div>
-                <h2 class="text-2xl font-bold text-gray-800">Starter</h2>
-                <p class="text-gray-500">{{ starterPlan?.description || 'Great for growing classrooms.' }}</p>
-              </div>
-
-              <div class="flex items-center bg-[#F3F4F6] rounded-full p-1 shrink-0 w-fit">
-                <button
-                  type="button"
-                  class="px-3 py-1 rounded-full text-sm font-semibold"
-                  [class.bg-white]="starterBilling === 'monthly'"
-                  [class.text-gray-800]="starterBilling === 'monthly'"
-                  [class.text-gray-500]="starterBilling !== 'monthly'"
-                  (click)="setStarterBilling('monthly')"
-                >
-                  Monthly
-                </button>
-                <button
-                  type="button"
-                  class="px-3 py-1 rounded-full text-sm font-semibold"
-                  [class.bg-white]="starterBilling === 'yearly'"
-                  [class.text-gray-800]="starterBilling === 'yearly'"
-                  [class.text-gray-500]="starterBilling !== 'yearly'"
-                  (click)="setStarterBilling('yearly')"
-                >
-                  Yearly
-                </button>
-              </div>
-            </div>
+            <h2 class="text-2xl font-bold text-gray-800">{{ expertPlan?.name || 'Expert' }}</h2>
+            <p class="text-gray-500">{{ expertPlan?.description || 'Best for active teachers.' }}</p>
 
             <div class="flex items-end gap-2 mt-2">
-              <span class="text-4xl font-extrabold text-gray-800">{{ formatPrice(starterPlan) }}</span>
-              <span class="text-gray-500 font-semibold">{{ formatPeriod(starterPlan) }}</span>
+              <span class="text-4xl font-extrabold text-gray-800">{{ formatPrice(expertPlan) }}</span>
+              <span class="text-gray-500 font-semibold">{{ formatPeriod(expertPlan) }}</span>
             </div>
           </div>
 
           <div class="mt-6 flex flex-col gap-3">
             <ul class="flex flex-col gap-2">
-              @for (lim of limitsList(starterPlan); track lim.label) {
+              @for (lim of limitsList(expertPlan); track lim.label) {
               <li class="flex items-start gap-2 text-gray-600">
                 <span
                   class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
@@ -127,32 +100,33 @@
           </div>
         </article>
 
-        <!-- Custom -->
+        <!-- Researcher -->
         <article
           class="relative bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 md:col-span-2 lg:col-span-1"
         >
-          @if (customPlan?.isPopular) {
+          @if (researcherPlan?.isPopular) {
           <div class="absolute -top-3 left-6">
             <span
               class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
             >
-              {{ customPlan?.badgeText || 'Popular' }}
+              {{ researcherPlan?.badgeText || 'Popular' }}
             </span>
           </div>
           }
 
           <div class="flex flex-col gap-3">
-            <h2 class="text-2xl font-bold text-gray-800">Custom</h2>
-            <p class="text-gray-500">{{ customPlan?.description || 'Tailored for schools and organizations.' }}</p>
+            <h2 class="text-2xl font-bold text-gray-800">{{ researcherPlan?.name || 'Researcher' }}</h2>
+            <p class="text-gray-500">{{ researcherPlan?.description || 'Advanced features for research.' }}</p>
 
             <div class="flex items-end gap-2 mt-2">
-              <span class="text-3xl md:text-4xl font-extrabold text-gray-800">{{ formatPrice(customPlan) }}</span>
+              <span class="text-3xl md:text-4xl font-extrabold text-gray-800">{{ formatPrice(researcherPlan) }}</span>
+              <span class="text-gray-500 font-semibold">{{ formatPeriod(researcherPlan) }}</span>
             </div>
           </div>
 
           <div class="mt-6 flex flex-col gap-3">
             <ul class="flex flex-col gap-2">
-              @for (lim of limitsList(customPlan); track lim.label) {
+              @for (lim of limitsList(researcherPlan); track lim.label) {
               <li class="flex items-start gap-2 text-gray-600">
                 <span
                   class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"

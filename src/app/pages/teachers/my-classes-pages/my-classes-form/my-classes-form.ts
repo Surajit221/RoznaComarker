@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -23,7 +23,13 @@ export class MyClassesForm {
   private classApi = inject(ClassApiService);
   private alert = inject(AlertService);
 
+  @Input() mode: 'create' | 'edit' = 'create';
+  @Input() classId: string | null = null;
+  @Input() initialName = '';
+  @Input() initialDescription = '';
+
   @Output() created = new EventEmitter<BackendClass>();
+  @Output() updated = new EventEmitter<BackendClass>();
   @Output() closed = new EventEmitter<void>();
   dismissible: any;
 
@@ -38,6 +44,12 @@ export class MyClassesForm {
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
     this.classForm.get('endDate')?.setValue(nextWeek.toISOString().split('T')[0]);
+
+    if (this.mode === 'edit') {
+      this.classForm.get('role')?.setValue('teacher');
+      this.classForm.get('className')?.setValue(this.initialName || '');
+      this.classForm.get('message')?.setValue(this.initialDescription || '');
+    }
   }
 
   createForm(): FormGroup {
@@ -86,16 +98,30 @@ export class MyClassesForm {
       const name = this.classForm.value.className;
       const description = this.classForm.value.message;
 
-      const created = await this.classApi.createClass({
-        name,
-        description
-      });
+      if (this.mode === 'edit') {
+        if (!this.classId) {
+          this.alert.showError('Failed to update class', 'Missing class id');
+          return;
+        }
+
+        const updated = await this.classApi.updateClass(this.classId, {
+          name,
+          description
+        });
+
+        this.updated.emit(updated);
+        this.closeDialog();
+        return;
+      }
+
+      const created = await this.classApi.createClass({ name, description });
 
       this.created.emit(created);
       this.closeDialog();
       this.onReset();
     } catch (err: any) {
-      this.alert.showError('Failed to create class', err?.message || 'Please try again');
+      const title = this.mode === 'edit' ? 'Failed to update class' : 'Failed to create class';
+      this.alert.showError(title, err?.message || 'Please try again');
     }
   }
 

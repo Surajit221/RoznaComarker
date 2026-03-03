@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, Input } from '@angular/core';
+import { Component, EventEmitter, HostListener, inject, Input, Output } from '@angular/core';
 import { Router } from '@angular/router';
 import { DeviceService } from '../../../services/device.service';
 import { TruncatePipe } from '../../../pipe/truncate.pipe';
@@ -20,13 +20,53 @@ export class MyClassesCard {
   @Input() description!: string;
   @Input() lastEdited!: string;
 
+  @Output() editRequested = new EventEmitter<{ id: string; title: string; description: string }>();
+  @Output() deleteRequested = new EventEmitter<{ id: string; title: string }>();
+
   device = inject(DeviceService);
+
+  menuOpen = false;
 
   constructor(private router: Router) {}
 
   toDetailMyClasses() {
     if (!this.id) return;
     this.router.navigate(['/teacher/my-classes/detail/', this.id]);
+  }
+
+  onMenuClick(event: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    this.menuOpen = !this.menuOpen;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    if (this.menuOpen) this.menuOpen = false;
+  }
+
+  onMenuPanelClick(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  onEditClick(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.id) return;
+    this.menuOpen = false;
+    this.editRequested.emit({ id: this.id, title: this.title, description: this.description });
+  }
+
+  onDeleteClick(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.id) return;
+    this.menuOpen = false;
+    this.deleteRequested.emit({ id: this.id, title: this.title });
   }
 
   formatLastEdited(): string {

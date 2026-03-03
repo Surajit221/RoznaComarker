@@ -22,6 +22,10 @@ export class MyClassesPages {
   device = inject(DeviceService);
   openSheet = false;
 
+  showEditDialog = false;
+  showDeleteDialog = false;
+  selectedClass: { id: string; title: string; description: string } | null = null;
+
   private classApi = inject(ClassApiService);
   private alert = inject(AlertService);
   private debounceService = inject(DebounceService);
@@ -139,7 +143,13 @@ export class MyClassesPages {
       const classCards = await Promise.all(
         (classes || []).map((c) => this.mapClassToCardItem(c))
       );
-      this.classes = classCards;
+
+      const uniqueById = new Map<string, (typeof classCards)[number]>();
+      for (const item of classCards) {
+        uniqueById.set(item.id, item);
+      }
+
+      this.classes = Array.from(uniqueById.values());
       this.filteredClasses = [...this.classes];
     } catch (err: any) {
       this.alert.showError('Failed to load classes', err?.message || 'Please try again');
@@ -159,6 +169,43 @@ export class MyClassesPages {
   }
   closeDialog() {
     this.showDialog = false;
+  }
+
+  onEditRequested(payload: { id: string; title: string; description: string }) {
+    this.selectedClass = { ...payload };
+    this.showEditDialog = true;
+  }
+
+  closeEditDialog() {
+    this.showEditDialog = false;
+    this.selectedClass = null;
+  }
+
+  onDeleteRequested(payload: { id: string; title: string }) {
+    this.selectedClass = { id: payload.id, title: payload.title, description: '' };
+    this.showDeleteDialog = true;
+  }
+
+  closeDeleteDialog() {
+    this.showDeleteDialog = false;
+    this.selectedClass = null;
+  }
+
+  async onClassUpdated() {
+    this.closeEditDialog();
+    await this.loadClasses();
+  }
+
+  async confirmDeleteClass() {
+    if (!this.selectedClass?.id) return;
+    try {
+      await this.classApi.deleteClass(this.selectedClass.id);
+      this.alert.showSuccess('Class deleted', 'Your class has been removed');
+      this.closeDeleteDialog();
+      await this.loadClasses();
+    } catch (err: any) {
+      this.alert.showError('Failed to delete class', err?.message || 'Please try again');
+    }
   }
 
   onOpenCreateClass() {

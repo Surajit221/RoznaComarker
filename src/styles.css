@@ -50,6 +50,10 @@
     @apply text-base bg-red-400 text-gray-600;
   }
 
+  .swal2-container {
+    z-index: 11000 !important;
+  }
+
   .swal2-actions {
     @apply flex justify-center gap-3 mt-4;
   }

@@ -7,6 +7,8 @@ import { AuthService } from '../../auth/auth.service';
 import { RoleService } from '../../services/role.service';
 import { SubscriptionApiService, type BackendMySubscription } from '../../api/subscription-api.service';
 import { environment } from '../../../environments/environment';
+import { NotificationApiService, type BackendNotification } from '../../api/notification-api.service';
+import { NotificationRealtimeService } from '../../services/notification-realtime.service';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -34,6 +36,8 @@ export class DashboardLayout {
   role: string | null = null;
   isUserDropdownOpen = signal(false);
   isNotificationsDropdownOpen = false;
+
+  unreadCount = 0;
 
   meName: string = '';
   mePhotoUrl: string = '';
@@ -77,7 +81,7 @@ export class DashboardLayout {
   teacherMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/notifications' }, // Sesuaikan path
+    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/my-notification' }, // Sesuaikan path
     { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
   ];
 
@@ -90,7 +94,7 @@ export class DashboardLayout {
   studentMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/student/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/student/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/student/notifications' },
+    { name: 'Notification', icon: 'bx bxs-bell', path: '/student/my-notification' },
     { name: 'Profile', icon: 'bx bxs-user', path: '/student/my-profile' },
   ];
 
@@ -98,14 +102,10 @@ export class DashboardLayout {
   mainMenu: any[] = [];
   mainMenuMobile: any[] = [];
 
-  notifications: Array<{
-    icon: string;
-    iconBg: string;
-    iconColor: string;
-    title: string;
-    description: string;
-    time: string;
-  }> = [];
+  notifications: BackendNotification[] = [];
+
+  private notificationApi = inject(NotificationApiService);
+  private notificationRealtime = inject(NotificationRealtimeService);
 
   constructor(private router: Router, private location: Location) {
     // A. Logic Deteksi Detail Page (AppBar vs BottomNav)
@@ -150,6 +150,21 @@ export class DashboardLayout {
     } finally {
       this.isSubscriptionLoading = false;
     }
+
+    await this.refreshNotificationsPreview();
+    await this.refreshUnreadCount();
+
+    this.notificationRealtime.connect();
+    this.notificationRealtime.notifications$.subscribe((n) => {
+      this.notifications = [n, ...(this.notifications || [])].slice(0, 5);
+      if (!n?.readAt) {
+        this.unreadCount = Math.max(0, Number(this.unreadCount) + 1);
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.notificationRealtime.disconnect();
   }
 
   // Helper navigasi
@@ -164,8 +179,73 @@ export class DashboardLayout {
   }
 
   toggleNotificationsDropdown() {
-    this.isNotificationsDropdownOpen = !this.isNotificationsDropdownOpen;
+    const next = !this.isNotificationsDropdownOpen;
+    this.isNotificationsDropdownOpen = next;
     this.isUserDropdownOpen.set(false);
+
+    if (next) {
+      this.refreshNotificationsPreview();
+      this.refreshUnreadCount();
+    }
+  }
+
+  private async refreshNotificationsPreview() {
+    try {
+      this.notifications = await this.notificationApi.listMyNotifications(5);
+    } catch {
+      this.notifications = [];
+    }
+  }
+
+  private async refreshUnreadCount() {
+    try {
+      this.unreadCount = await this.notificationApi.getUnreadCount();
+    } catch {
+      this.unreadCount = 0;
+    }
+  }
+
+  iconFor(n: BackendNotification): { icon: string; iconBg: string; iconColor: string } {
+    if (n?.type === 'assignment_submitted') {
+      return { icon: 'bxs-check-circle', iconBg: 'bg-[#B0F8D5]', iconColor: 'text-[#136C6D]' };
+    }
+    if (n?.type === 'assignment_uploaded') {
+      return { icon: 'bxs-book', iconBg: 'bg-[#D7DBFF]', iconColor: 'text-[#2F2F9F]' };
+    }
+    return { icon: 'bxs-bell', iconBg: 'bg-[#F3F3F3]', iconColor: 'text-[#474747]' };
+  }
+
+  timeFor(n: BackendNotification): string {
+    const raw = (n as any)?.createdAt;
+    const d = raw ? new Date(raw) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString();
+  }
+
+  async onClickNavbarNotification(n: BackendNotification) {
+    const route: any = n?.data?.route;
+    if (!route || typeof route.path !== 'string') return;
+
+    try {
+      if (n?._id && !n.readAt) {
+        await this.notificationApi.markRead(n._id);
+        this.unreadCount = Math.max(0, Number(this.unreadCount) - 1);
+      }
+    } catch {
+      // ignore
+    }
+
+    const commands: any[] = [route.path, ...(Array.isArray(route.params) ? route.params : [])];
+    this.closeAllDropdowns();
+    this.router.navigate(commands, {
+      queryParams: route.queryParams || undefined
+    });
+  }
+
+  toAllNotifications() {
+    const role = this.roleService.currentRole();
+    this.closeAllDropdowns();
+    this.router.navigate(['/', role, 'my-notification']);
   }
 
   closeAllDropdowns() {

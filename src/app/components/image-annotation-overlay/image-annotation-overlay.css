@@ -1,94 +1,268 @@
 .overlay-root {
+
   width: 100%;
+
 }
+
+
 
 .image-container {
+
   position: relative;
+
   width: 100%;
+
   overflow: hidden;
+
 }
+
+
 
 .overlay-image {
+
   width: 100%;
+
   height: auto;
+
   display: block;
+
   -webkit-user-drag: none;
+
   -webkit-user-select: none;
+
   user-select: none;
+
 }
+
+
 
 .overlay-layer {
+
   position: absolute;
+
   inset: 0;
+
   z-index: 2000;
+
+  touch-action: manipulation;
+
 }
+
+
+
+.overlay-underline {
+
+  position: absolute;
+
+  height: var(--underline-height, 3px);
+
+  transform: translateY(-50%);
+
+  border-radius: 999px;
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  pointer-events: none;
+
+  opacity: 0.95;
+
+}
+
+
 
 .overlay-marker {
+
   position: absolute;
+
   width: var(--marker-size, 26px);
+
   height: var(--marker-size, 26px);
-  transform: translate(-50%, -50%);
+
+  transform: translate(-50%, calc(-50% - var(--marker-y-offset, 0px)));
+
   border-radius: 999px;
+
   box-sizing: border-box;
+
   color: #fff;
+
   font-size: var(--marker-font-size, 12px);
+
   font-weight: 700;
+
   line-height: 1;
+
   display: grid;
+
   place-items: center;
+
   cursor: pointer;
+
   user-select: none;
+
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+
   border: 2px solid rgba(255, 255, 255, 0.95);
+
+  transition: transform 0.12s ease, filter 0.12s ease;
+
+  -webkit-tap-highlight-color: transparent;
+
+  touch-action: manipulation;
+
 }
+
+
+
+.overlay-marker:focus-visible {
+
+  outline: 3px solid rgba(255, 255, 255, 0.75);
+
+  outline-offset: 2px;
+
+}
+
+
 
 .overlay-marker:hover {
+
   filter: brightness(0.98);
+
 }
+
+
 
 .overlay-marker:active {
-  transform: translate(-50%, -50%) scale(0.98);
+
+  transform: translate(-50%, calc(-50% - var(--marker-y-offset, 0px))) scale(0.98);
+
 }
+
+
 
 .overlay-tooltip {
+
   position: absolute;
-  background: rgba(0, 0, 0, 0.85);
+
+  background: rgba(15, 23, 42, 0.9);
+
   color: white;
+
   padding: 12px 16px;
+
   border-radius: 10px;
+
   font-size: 0.875rem;
+
   width: max-content;
+
   max-width: 40%;
+
   box-sizing: border-box;
+
   overflow-wrap: anywhere;
+
   word-break: break-word;
+
   hyphens: auto;
+
   transition: opacity 0.15s ease;
+
   z-index: 9999;
+
   backdrop-filter: blur(10px);
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+
+  line-height: 1.35;
+
   pointer-events: none;
+
   max-height: 50%;
+
   overflow: auto;
+
+  overscroll-behavior: contain;
+
+  -webkit-overflow-scrolling: touch;
+
 }
+
+
 
 .overlay-root.student .overlay-marker {
+
   opacity: 0.95;
+
 }
+
+
 
 .overlay-root.teacher .overlay-marker {
+
   opacity: 1;
+
 }
+
+
+
+@media (max-width: 768px) {
+
+  .overlay-marker {
+
+    filter: brightness(1);
+
+  }
+
+
+
+  .overlay-underline {
+
+    pointer-events: auto;
+
+    cursor: pointer;
+
+  }
+
+
+
+  .overlay-tooltip {
+
+    pointer-events: auto;
+
+    max-height: min(60vh, 420px);
+
+  }
+
+}
+
+
 
 @media (max-width: 480px) {
+
   .overlay-tooltip {
+
     font-size: 0.75rem;
+
     padding: 8px 10px;
+
     max-width: 80%;
+
   }
+
 }
 
+
+
 @media (max-width: 900px) {
+
   .overlay-tooltip {
+
     max-width: 60%;
+
   }
+
 }
+

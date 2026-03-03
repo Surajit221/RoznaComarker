@@ -31,8 +31,10 @@
                 (click)="toggleNotificationsDropdown()">
                 <i class="bx bx-bell text-3xl"></i>
               </button>
+              @if (unreadCount > 0) {
               <span
-                class="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full">3</span>
+                class="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full">{{ unreadCount }}</span>
+              }
 
               <div
                 class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-20 transition-all duration-200"
@@ -41,21 +43,25 @@
                   <h3 class="text-lg font-semibold text-gray-800">Notifications</h3>
                 </div>
                 <div class="max-h-60 overflow-y-auto">
-                  @for (notif of notifications; track notif.title) {
-                  <div class="px-4 py-3 hover: bg-[#F3F3F3] border-b border-gray-100 cursor-pointer flex items-start">
-                    <div class="{{ notif.iconBg }} p-2 rounded-full mr-3">
-                      <i class="{{ notif.icon }} {{ notif.iconColor }}"></i>
+                  @for (notif of notifications; track notif._id) {
+                  <div
+                    class="px-4 py-3 hover: bg-[#F3F3F3] border-b border-gray-100 cursor-pointer flex items-start"
+                    (click)="onClickNavbarNotification(notif)"
+                  >
+                    <div class="{{ iconFor(notif).iconBg }} p-2 rounded-full mr-3">
+                      <i class="bx {{ iconFor(notif).icon }} {{ iconFor(notif).iconColor }}"></i>
                     </div>
                     <div class="flex-1">
                       <p class="text-sm font-medium text-gray-800">{{ notif.title }}</p>
                       <p class="text-xs text-gray-500">{{ notif.description }}</p>
-                      <p class="text-xs text-gray-400 mt-1">{{ notif.time }}</p>
+                      <p class="text-xs text-gray-400 mt-1">{{ timeFor(notif) }}</p>
                     </div>
                   </div>
                   }
                 </div>
                 <div
-                  class="px-4 py-2 border-t border-gray-100 text-center text-sm text-blue-600 font-medium cursor-pointer">
+                  class="px-4 py-2 border-t border-gray-100 text-center text-sm text-blue-600 font-medium cursor-pointer"
+                  (click)="toAllNotifications()">
                   View All Notifications
                 </div>
               </div>

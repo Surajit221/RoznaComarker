@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
-import { BackendPlan, PlansApiService } from '../../api/plans-api.service';
+import { PricingPlan, PricingPlansApiService } from '../../api/pricing-plans-api.service';
 
 @Component({
   selector: 'app-pricing',
@@ -15,10 +15,9 @@ export class PricingComponent {
   isLoading = true;
   errorMessage: string | null = null;
 
-  allPlans: BackendPlan[] = [];
-  starterBilling: 'monthly' | 'yearly' = 'monthly';
+  allPlans: PricingPlan[] = [];
 
-  constructor(private plansApi: PlansApiService) {}
+  constructor(private plansApi: PricingPlansApiService) {}
 
   async ngOnInit(): Promise<void> {
     await this.loadPlans();
@@ -37,26 +36,20 @@ export class PricingComponent {
     }
   }
 
-  setStarterBilling(next: 'monthly' | 'yearly'): void {
-    this.starterBilling = next;
+  get freePlan(): PricingPlan | null {
+    return this.allPlans.find((p) => p.slug === 'free') || null;
   }
 
-  get freePlan(): BackendPlan | null {
-    return this.allPlans.find((p) => p.name === 'Free') || null;
+  get expertPlan(): PricingPlan | null {
+    return this.allPlans.find((p) => p.slug === 'expert') || null;
   }
 
-  get starterPlan(): BackendPlan | null {
-    const targetName = this.starterBilling === 'monthly' ? 'Starter Monthly' : 'Starter Yearly';
-    return this.allPlans.find((p) => p.name === targetName) || null;
+  get researcherPlan(): PricingPlan | null {
+    return this.allPlans.find((p) => p.slug === 'researcher') || null;
   }
 
-  get customPlan(): BackendPlan | null {
-    return this.allPlans.find((p) => p.name === 'Custom') || null;
-  }
-
-  formatPrice(plan: BackendPlan | null): string {
+  formatPrice(plan: PricingPlan | null): string {
     if (!plan) return '';
-    if (plan.billingType === 'custom') return 'Contact Us';
     if (typeof plan.price !== 'number') return '';
 
     if (plan.price === 0) return '$0';
@@ -68,28 +61,56 @@ export class PricingComponent {
     }).format(plan.price);
   }
 
-  formatPeriod(plan: BackendPlan | null): string {
+  formatPeriod(plan: PricingPlan | null): string {
     if (!plan) return '';
-    if (plan.billingType === 'monthly') return '/month';
-    if (plan.billingType === 'yearly') return '/year';
     return '';
   }
 
-  limitsList(plan: BackendPlan | null): Array<{ label: string; value: number | null }> {
+  limitsList(plan: PricingPlan | null): Array<{ label: string; value: any }> {
     if (!plan) return [];
-    const limits = plan.limits || ({} as any);
+    const f = plan.features || ({} as any);
     return [
-      { label: 'Classes', value: limits.classes ?? null },
-      { label: 'Assignments', value: limits.assignments ?? null },
-      { label: 'Students', value: limits.students ?? null },
-      { label: 'Submissions', value: limits.submissions ?? null },
-      { label: 'Storage', value: limits.storageMB ?? null }
+      { label: 'Classes', value: f.classes ?? null },
+      { label: 'Students', value: f.maxStudentsPerClass ?? null },
+      { label: 'Essays/month', value: f.essaysPerMonth ?? null },
+      { label: 'Storage', value: { storageMB: f.storageMB ?? null, storageGB: f.storageGB ?? null } },
+      { label: 'AI tokens', value: f.aiTokens ?? null },
+      { label: 'Priority AI processing', value: !!f.priorityProcessing },
+      { label: 'Analytics access', value: !!f.analyticsAccess }
     ];
   }
 
-  formatLimitValue(label: string, value: number | null): string {
-    if (value === null) return 'Unlimited';
-    if (label === 'Storage') return `${value} MB`;
+  private isUnlimitedValue(value: unknown): boolean {
+    if (value === null || typeof value === 'undefined') return true;
+    if (typeof value === 'string' && value.toLowerCase() === 'unlimited') return true;
+    return false;
+  }
+
+  formatLimitValue(label: string, value: any): string {
+    if (label === 'Storage') {
+      const mb = value?.storageMB;
+      const gb = value?.storageGB;
+      if (typeof gb === 'number' && Number.isFinite(gb)) return `${gb} GB`;
+      if (typeof mb === 'number' && Number.isFinite(mb)) return `${mb} MB`;
+      return 'Unlimited';
+    }
+
+    if (label === 'Priority AI processing' || label === 'Analytics access') {
+      return value ? 'Yes' : 'No';
+    }
+
+    if (label === 'AI tokens') {
+      if (this.isUnlimitedValue(value)) return 'Unlimited';
+      if (typeof value === 'string') {
+        const v = value.toLowerCase();
+        if (v === 'limited') return 'Limited';
+        if (v === 'unlimited') return 'Unlimited';
+        return value;
+      }
+      return String(value);
+    }
+
+    if (this.isUnlimitedValue(value)) return 'Unlimited';
     return String(value);
   }
 }

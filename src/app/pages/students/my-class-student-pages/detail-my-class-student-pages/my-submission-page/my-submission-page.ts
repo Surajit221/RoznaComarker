@@ -84,6 +84,8 @@ import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../..
 
 import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
 
+import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-legend.default';
+
 
 
 import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
@@ -222,6 +224,240 @@ export class MySubmissionPage {
 
     const id = raw && typeof raw === 'object' ? (raw._id || raw.id) : null;
     return typeof id === 'string' && id.trim().length ? id.trim() : null;
+
+  }
+
+
+
+  private readonly defaultCorrectionLegend: any = DEFAULT_CORRECTION_LEGEND;
+
+
+
+  private normalizeLegendKey(value: any): string {
+
+    return String(value || '')
+
+      .trim()
+
+      .toUpperCase()
+
+      .replace(/\s+/g, '_');
+
+  }
+
+
+
+  toRgba(color: string | null | undefined, alpha: number): string {
+
+    const c = typeof color === 'string' ? color.trim() : '';
+
+    const a = Number.isFinite(Number(alpha)) ? Number(alpha) : 0.18;
+
+    if (!c.startsWith('#')) {
+
+      return `rgba(255, 193, 7, ${a})`;
+
+    }
+
+    const hex = c.slice(1);
+
+    const full = hex.length === 3 ? hex.split('').map((ch) => ch + ch).join('') : hex;
+
+    if (full.length !== 6) {
+
+      return `rgba(255, 193, 7, ${a})`;
+
+    }
+
+    const r = parseInt(full.slice(0, 2), 16);
+
+    const g = parseInt(full.slice(2, 4), 16);
+
+    const b = parseInt(full.slice(4, 6), 16);
+
+    if (![r, g, b].every((v) => Number.isFinite(v))) {
+
+      return `rgba(255, 193, 7, ${a})`;
+
+    }
+
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+
+  }
+
+
+
+  private parseHexColor(color: string | null | undefined): { r: number; g: number; b: number } | null {
+
+    const c = typeof color === 'string' ? color.trim() : '';
+
+    if (!c.startsWith('#')) return null;
+
+    const hex = c.slice(1);
+
+    const full = hex.length === 3 ? hex.split('').map((ch) => ch + ch).join('') : hex;
+
+    if (full.length !== 6) return null;
+
+    const r = parseInt(full.slice(0, 2), 16);
+
+    const g = parseInt(full.slice(2, 4), 16);
+
+    const b = parseInt(full.slice(4, 6), 16);
+
+    if (![r, g, b].every((v) => Number.isFinite(v))) return null;
+
+    return { r, g, b };
+
+  }
+
+
+
+  private relativeLuminance(color: string | null | undefined): number {
+
+    const rgb = this.parseHexColor(color);
+
+    if (!rgb) return 0.5;
+
+    const srgb = [rgb.r, rgb.g, rgb.b].map((v) => v / 255);
+
+    const lin = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+
+  }
+
+
+
+  badgeTextColor(color: string | null | undefined): string {
+
+    const lum = this.relativeLuminance(color);
+
+    if (lum >= 0.72) return '#374151';
+
+    const c = typeof color === 'string' && color.trim() ? color.trim() : '#374151';
+
+    return c;
+
+  }
+
+
+
+  badgeBorderColor(color: string | null | undefined): string {
+
+    const lum = this.relativeLuminance(color);
+
+    if (lum >= 0.72) return 'rgba(55, 65, 81, 0.35)';
+
+    const c = typeof color === 'string' && color.trim() ? color.trim() : '#374151';
+
+    return c;
+
+  }
+
+
+
+  private isAcademicLegend(legend: any): boolean {
+
+    const groups = legend && Array.isArray(legend.groups) ? legend.groups : [];
+
+    if (!groups.length) return false;
+
+    const keys = new Set(groups.map((g: any) => this.normalizeLegendKey(g?.key)).filter((k: string) => k.length));
+
+    return (
+
+      keys.has('CONTENT') ||
+
+      keys.has('ORGANIZATION') ||
+
+      keys.has('GRAMMAR') ||
+
+      keys.has('VOCABULARY') ||
+
+      keys.has('MECHANICS')
+
+    );
+
+  }
+
+
+
+  get correctionLegendItems(): Array<{ symbol: string; label: string; color: string }> {
+
+    // Keep the submission "Correction Legend" stable and consistent across student/teacher UI.
+    // The backend /writing-corrections/legend may return a LanguageTool legend, which can arrive
+    // asynchronously and cause the legend list to "flip" after initial render.
+    // For this legend section, we always want the academic legend (REL/DEV/...).
+    const legend: any = this.defaultCorrectionLegend;
+
+    const groups = legend && Array.isArray(legend.groups) ? legend.groups : [];
+
+    const items: Array<{ symbol: string; label: string; color: string }> = [];
+
+    const seen = new Set<string>();
+
+    for (const g of groups) {
+
+      if (!g) continue;
+
+      const color = typeof g.color === 'string' && g.color.trim() ? g.color.trim() : '#FFC107';
+
+      const symbols = Array.isArray(g.symbols) ? g.symbols : [];
+
+      for (const s of symbols) {
+
+        const sym = this.normalizeLegendKey(s && (s as any).symbol);
+
+        if (!sym || seen.has(sym)) continue;
+
+        items.push({
+
+          symbol: sym,
+
+          label: String((s as any)?.label || sym),
+
+          color
+
+        });
+
+        seen.add(sym);
+
+      }
+
+    }
+
+    for (const issue of Array.isArray(this.writingCorrectionsIssues) ? this.writingCorrectionsIssues : []) {
+
+      const sym = this.normalizeLegendKey((issue as any)?.symbol);
+
+      if (!sym || seen.has(sym)) continue;
+
+      const color = typeof (issue as any)?.color === 'string' && String((issue as any).color).trim() ? String((issue as any).color).trim() : '#FFC107';
+
+      const label = String((issue as any)?.symbolLabel || sym);
+
+      items.push({ symbol: sym, label, color });
+
+      seen.add(sym);
+
+    }
+
+    for (const ann of Array.isArray(this.annotations) ? this.annotations : []) {
+
+      const sym = this.normalizeLegendKey((ann as any)?.symbol);
+
+      if (!sym || seen.has(sym)) continue;
+
+      const color = typeof (ann as any)?.color === 'string' && String((ann as any).color).trim() ? String((ann as any).color).trim() : '#FFC107';
+
+      items.push({ symbol: sym, label: sym, color });
+
+      seen.add(sym);
+
+    }
+
+    return items;
 
   }
 
@@ -571,62 +807,6 @@ export class MySubmissionPage {
 
     // If a teacher explicitly overrode grading, the persisted score is authoritative.
     if (fb?.overriddenByTeacher && Number.isFinite(persisted)) return persisted;
-
-    // Otherwise, prefer the live, legend-aligned score derived from LanguageTool issues
-    // so the score stays consistent with Correction Statistics shown on the page.
-    const live = Number(this.legendAligned?.overallScore100);
-
-    if (Number.isFinite(live)) return live;
-
-    // If the writing issues are not available (or legend alignment hasn't run yet) but the
-    // backend feedback includes correction statistics, compute the same legend-aligned score
-    // from those counts to keep the UI consistent.
-    const cs: any = fb?.correctionStats;
-    const hasCounts = cs && typeof cs === 'object';
-    if (hasCounts) {
-      const counts = {
-        CONTENT: Math.max(0, Number(cs?.content) || 0),
-        ORGANIZATION: Math.max(0, Number(cs?.organization) || 0),
-        GRAMMAR: Math.max(0, Number(cs?.grammar) || 0),
-        VOCABULARY: Math.max(0, Number(cs?.vocabulary) || 0),
-        MECHANICS: Math.max(0, Number(cs?.mechanics) || 0)
-      };
-
-      const weights = {
-        CONTENT: 1.0,
-        ORGANIZATION: 0.9,
-        GRAMMAR: 1.2,
-        VOCABULARY: 1.0,
-        MECHANICS: 1.1
-      };
-
-      const round1 = (n: number) => Math.round(n * 10) / 10;
-      const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-
-      const perCategoryScores5 = {
-        CONTENT: 5,
-        ORGANIZATION: 5,
-        GRAMMAR: 5,
-        VOCABULARY: 5,
-        MECHANICS: 5
-      };
-
-      for (const k of Object.keys(perCategoryScores5) as Array<keyof typeof perCategoryScores5>) {
-        const penalty = counts[k] * 0.35 * (weights as any)[k];
-        (perCategoryScores5 as any)[k] = round1(clamp(5 - penalty, 0, 5));
-      }
-
-      const avg5 =
-        (perCategoryScores5.CONTENT +
-          perCategoryScores5.ORGANIZATION +
-          perCategoryScores5.GRAMMAR +
-          perCategoryScores5.VOCABULARY +
-          perCategoryScores5.MECHANICS) /
-        5;
-
-      const fromStats = round1(clamp((avg5 / 5) * 100, 0, 100));
-      if (Number.isFinite(fromStats)) return fromStats;
-    }
 
     // Fallback to persisted score if present.
     if (Number.isFinite(persisted)) return persisted;

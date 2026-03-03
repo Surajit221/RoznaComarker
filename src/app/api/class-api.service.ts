@@ -88,6 +88,36 @@ export class ClassApiService {
     return resp.data;
   }
 
+  async updateClass(
+    classId: string,
+    payload: { name?: string; description?: string | null }
+  ): Promise<BackendClass> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.patch<BackendResponse<BackendClass>>(
+        `${apiBaseUrl}/classes/${encodeURIComponent(classId)}`,
+        payload
+      )
+    );
+
+    this.clearClassCache(classId);
+    this.cache.delete('my-teacher-classes');
+    return resp.data;
+  }
+
+  async deleteClass(classId: string): Promise<BackendClass> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.delete<BackendResponse<BackendClass>>(
+        `${apiBaseUrl}/classes/${encodeURIComponent(classId)}`
+      )
+    );
+
+    this.clearClassCache(classId);
+    this.cache.delete('my-teacher-classes');
+    return resp.data;
+  }
+
   async getClassStudents(classId: string): Promise<BackendClassStudent[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = `class-students-${classId}`;
@@ -108,6 +138,18 @@ export class ClassApiService {
     return data;
   }
 
+  async removeStudentFromClass(classId: string, studentId: string): Promise<void> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    await firstValueFrom(
+      this.http.delete<BackendResponse<any>>(
+        `${apiBaseUrl}/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}`
+      )
+    );
+
+    this.clearClassCache(classId);
+    this.cache.delete('my-teacher-classes');
+  }
+
   async getClassSummary(classId: string): Promise<BackendClassSummary> {
     const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = `class-summary-${classId}`;
@@ -126,6 +168,14 @@ export class ClassApiService {
     // Cache for 1 minute (summary data changes frequently)
     this.cache.set(cacheKey, data, 60 * 1000);
     return data;
+  }
+
+  invalidateClassSummary(classId: string): void {
+    this.cache.delete(`class-summary-${classId}`);
+  }
+
+  invalidateTeacherClassesList(): void {
+    this.cache.delete('my-teacher-classes');
   }
 
   // Method to clear cache for specific class
