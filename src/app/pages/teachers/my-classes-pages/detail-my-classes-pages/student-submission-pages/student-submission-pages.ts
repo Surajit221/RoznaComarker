@@ -600,6 +600,110 @@ export class StudentSubmissionPages {
 
 
 
+    const isLegacyAutoSeededTemplate = (() => {
+
+
+
+      const levels = levelsRaw;
+
+
+
+      const criteria = criteriaRaw;
+
+
+
+      const levelSig = (Array.isArray(levels) ? levels : []).map((l: any) => ({
+
+
+
+        t: String(l?.title || '').trim(),
+
+
+
+        p: Number(l?.maxPoints)
+
+
+
+      }));
+
+
+
+      const expectedLevels = [
+
+
+
+        { t: 'Excellent', p: 10 },
+
+
+
+        { t: 'Good', p: 8 },
+
+
+
+        { t: 'Fair', p: 6 },
+
+
+
+        { t: 'Needs Improvement', p: 4 }
+
+
+
+      ];
+
+
+
+      const sameLevels = levelSig.length === expectedLevels.length && levelSig.every((x: any, i: number) => x.t === expectedLevels[i].t && x.p === expectedLevels[i].p);
+
+
+
+      if (!sameLevels) return false;
+
+
+
+      const normalize = (s: any) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+
+
+      const critTitles = (Array.isArray(criteria) ? criteria : []).map((c: any) => normalize(c?.title));
+
+
+
+      const expectedCrit = new Set([
+
+
+
+        'grammar & mechanics',
+
+
+
+        'structure & organization',
+
+
+
+        'content relevance',
+
+
+
+        'overall rubric score'
+
+
+
+      ]);
+
+
+
+      const hasExpectedCrit = critTitles.length && critTitles.every((t: string) => expectedCrit.has(t));
+
+
+
+      return hasExpectedCrit;
+
+
+
+    })();
+
+
+
 
 
 
@@ -613,6 +717,22 @@ export class StudentSubmissionPages {
 
 
     if (!hasAnyLevelTitle && !hasAnyCriteriaTitle && !hasAnyCellText) {
+
+
+
+      this.resetRubricDesigner();
+
+
+
+      return;
+
+
+
+    }
+
+
+
+    if (isLegacyAutoSeededTemplate) {
 
 
 
@@ -660,11 +780,31 @@ export class StudentSubmissionPages {
 
 
 
-      ? levels.map((l: any) => ({ title: String((l as any)?.title || ''), maxPoints: this.coercePointsInput((l as any)?.maxPoints) ?? 0 }))
+      ? levels.map((l: any) => {
 
 
 
-      : Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: 10 }));
+          const title = String((l as any)?.title || '');
+
+
+
+          const rawPoints = this.coercePointsInput((l as any)?.maxPoints);
+
+
+
+          const maxPoints = !title.trim().length && rawPoints === 0 ? null : (rawPoints ?? null);
+
+
+
+          return { title, maxPoints };
+
+
+
+        })
+
+
+
+      : Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: null }));
 
 
 
@@ -790,35 +930,11 @@ export class StudentSubmissionPages {
 
 
 
-    const levels = [
-
-
-
-      { title: 'Excellent', maxPoints: 10 },
-
-
-
-      { title: 'Good', maxPoints: 8 },
-
-
-
-      { title: 'Fair', maxPoints: 6 },
-
-
-
-      { title: 'Needs Improvement', maxPoints: 4 }
-
-
-
-    ];
+    const levels = Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: null as any }));
 
 
 
 
-
-
-
-    const rs: any = (fb as any)?.rubricScores || {};
 
 
 
@@ -826,19 +942,19 @@ export class StudentSubmissionPages {
 
 
 
-      { category: 'Grammar & Mechanics', message: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : '' },
+      { category: '' },
 
 
 
-      { category: 'Structure & Organization', message: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : '' },
+      { category: '' },
 
 
 
-      { category: 'Content Relevance', message: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : '' },
+      { category: '' },
 
 
 
-      { category: 'Overall Rubric Score', message: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : '' }
+      { category: '' }
 
 
 
@@ -858,10 +974,6 @@ export class StudentSubmissionPages {
 
 
 
-      const msg = typeof x?.message === 'string' ? x.message : '';
-
-
-
       return {
 
 
@@ -870,7 +982,7 @@ export class StudentSubmissionPages {
 
 
 
-        cells: levels.map((_, i) => (i === 0 ? msg : ''))
+        cells: levels.map(() => '')
 
 
 
@@ -2110,6 +2222,56 @@ export class StudentSubmissionPages {
 
 uploadData: any = null;
 
+  submissionFileUrls: string[] = [];
+
+  submissionFileIds: string[] = [];
+
+  activeFileIndex = 0;
+
+  get hasMultipleImages(): boolean {
+    const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
+    return urls.filter((u: string) => typeof u === 'string' && u.trim().length).length > 1;
+  }
+
+  get activeFileId(): string | null {
+    const ids = Array.isArray(this.submissionFileIds) ? this.submissionFileIds : [];
+    const id = ids[this.activeFileIndex];
+    return typeof id === 'string' && id.trim().length ? id.trim() : null;
+  }
+
+  get activeFileUrlRaw(): string | null {
+    const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
+    const url = urls[this.activeFileIndex];
+    return typeof url === 'string' && url.trim().length ? url.trim() : null;
+  }
+
+  get activeOcrPages(): Array<{ fileId?: string; pageNumber?: number; text?: string; words?: any }> {
+    const pages = Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission!.ocrPages : [];
+    if (!pages.length) return [];
+
+    const activeId = this.activeFileId;
+    if (!activeId) return pages;
+
+    const filtered = pages.filter((p: any) => {
+      const fid = p && p.fileId ? String(p.fileId) : '';
+      return fid && fid === activeId;
+    });
+
+    return filtered.length ? filtered : pages;
+  }
+
+  onSelectSubmissionImage(index: number) {
+    const i = Number(index);
+    if (!Number.isFinite(i)) return;
+    const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
+    if (i < 0 || i >= urls.length) return;
+    if (this.activeFileIndex === i) return;
+
+    this.activeFileIndex = i;
+
+    void this.applyCurrentSubmission(this.currentSubmission, false);
+  }
+
 
 
   private objectUrls: string[] = [];
@@ -2152,7 +2314,10 @@ uploadData: any = null;
 
 
 
-        this.http.post<any>(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, {})
+        this.http.post<any>(
+          `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`,
+          this.activeFileId ? { fileId: this.activeFileId } : {}
+        )
 
 
 
@@ -2828,18 +2993,23 @@ uploadData: any = null;
 
 
 
-    const fromTranscript = (s as any).transcriptText && String((s as any).transcriptText).trim()
+    const activePages = this.activeOcrPages;
+    const pageText = activePages
+      .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
+      .map((t: string) => t.trim())
+      .filter((t: string) => t.length)
+      .join('\n\n');
 
+    if (pageText) return pageText;
 
-
-      ? String((s as any).transcriptText)
-
-
-
+    const combined = (s as any).combinedOcrText && String((s as any).combinedOcrText).trim()
+      ? String((s as any).combinedOcrText)
       : '';
+    if (combined) return combined;
 
-
-
+    const fromTranscript = (s as any).transcriptText && String((s as any).transcriptText).trim()
+      ? String((s as any).transcriptText)
+      : '';
     if (fromTranscript) return fromTranscript;
 
 
@@ -3586,55 +3756,19 @@ uploadData: any = null;
 
 
 
-    const gmMsg = grammarScore >= 3.5
+    const gmMsg = '';
 
 
 
-      ? 'Grammar and mechanics are strong with minimal issues detected.'
+    const soMsg = '';
 
 
 
-      : 'Grammar and mechanics need improvement; review sentence structure and correctness.';
+    const crMsg = '';
 
 
 
-
-
-
-
-    const soMsg = structureScore >= 3.5
-
-
-
-      ? 'Structure and organization are clear with logical flow.'
-
-
-
-      : 'Structure is hard to follow; consider using clear paragraphs.';
-
-
-
-
-
-
-
-    const crMsg = contentScore >= 3.5
-
-
-
-      ? 'Ideas are relevant and well supported.'
-
-
-
-      : 'Some ideas appear unclear or off-target; focus on answering the prompt directly and completely.';
-
-
-
-
-
-
-
-    const overallMsg = `Overall rubric reflects: Grammar & Mechanics ${grammarScore}/5, Structure & Organization ${structureScore}/5, Content Relevance ${contentScore}/5.`;
+    const overallMsg = '';
 
 
 
@@ -3806,7 +3940,7 @@ uploadData: any = null;
 
 
 
-      maxPoints: 10
+      maxPoints: null
 
 
 
@@ -3858,7 +3992,7 @@ uploadData: any = null;
 
 
 
-    this.rubricLevels = [...this.rubricLevels, { title: '', maxPoints: 10 }];
+    this.rubricLevels = [...this.rubricLevels, { title: '', maxPoints: null }];
 
 
 
@@ -5168,28 +5302,10 @@ uploadData: any = null;
 
   }
 
-
-
-
-
-
-
-  private isProbablyPdfUrl(url: string | null | undefined): boolean {
-
-
-
+  isProbablyPdfUrl(url: string | null | undefined): boolean {
     if (!url) return false;
-
-
-
-    const lowered = url.toLowerCase().split('?')[0];
-
-
-
+    const lowered = String(url).toLowerCase().split('?')[0];
     return lowered.endsWith('.pdf');
-
-
-
   }
 
 
@@ -5570,7 +5686,32 @@ uploadData: any = null;
 
 
 
-    const url = this.currentSubmission?.fileUrl || null;
+    this.submissionFileUrls = Array.isArray((submission as any)?.fileUrls)
+      ? (submission as any).fileUrls.filter((u: any) => typeof u === 'string' && u.trim().length)
+      : (submission?.fileUrl ? [submission.fileUrl] : []);
+
+    const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
+    this.submissionFileIds = rawFiles
+      .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
+      .map((id: any) => (typeof id === 'string' ? id.trim() : ''))
+      .filter((id: string) => Boolean(id));
+
+    if (!this.submissionFileIds.length && (submission as any)?.file) {
+      const fid = typeof (submission as any).file === 'string' ? (submission as any).file : ((submission as any).file?._id || (submission as any).file?.id);
+      if (typeof fid === 'string' && fid.trim()) {
+        this.submissionFileIds = [fid.trim()];
+      }
+    }
+
+    if (!Array.isArray(this.submissionFileUrls) || !this.submissionFileUrls.length) {
+      this.submissionFileUrls = submission?.fileUrl ? [submission.fileUrl] : [];
+    }
+
+    if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) {
+      this.activeFileIndex = 0;
+    }
+
+    const url = this.activeFileUrlRaw || this.currentSubmission?.fileUrl || null;
 
 
 
