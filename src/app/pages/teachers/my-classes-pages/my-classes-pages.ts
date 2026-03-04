@@ -74,6 +74,12 @@ export class MyClassesPages {
     }
   }
 
+  async onRefresh() {
+    this.classApi.invalidateTeacherClassesList();
+    this.classApi.invalidateAllClassSummaries();
+    await this.loadClasses();
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();

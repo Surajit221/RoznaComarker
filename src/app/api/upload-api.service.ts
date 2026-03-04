@@ -22,6 +22,12 @@ export type BackendHandwrittenUploadResponse = {
   message?: string;
 };
 
+type BackendResponse<T> = {
+  success: boolean;
+  data: T;
+  message?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class UploadApiService {
   constructor(private http: HttpClient) {}
@@ -32,6 +38,30 @@ export class UploadApiService {
 
   private getApiBaseUrl(): string {
     return `${environment.apiUrl}/api`;
+  }
+
+  submitSubmissionFiles(files: File[], assignmentId: string): Observable<HttpEvent<BackendResponse<BackendSubmission>>> {
+    const apiBaseUrl = this.getApiBaseUrl();
+
+    const list = Array.isArray(files) ? files.filter(Boolean) : [];
+    const formData = new FormData();
+
+    if (list.length === 1) {
+      formData.append('file', list[0]);
+    } else {
+      for (const f of list) {
+        formData.append('files', f);
+      }
+    }
+
+    return this.http.post<BackendResponse<BackendSubmission>>(
+      `${apiBaseUrl}/submissions/${encodeURIComponent(assignmentId)}`,
+      formData,
+      {
+        observe: 'events',
+        reportProgress: true
+      }
+    );
   }
 
   uploadFile(file: File, assignmentId: string): Observable<HttpEvent<BackendUploadResponse>> {

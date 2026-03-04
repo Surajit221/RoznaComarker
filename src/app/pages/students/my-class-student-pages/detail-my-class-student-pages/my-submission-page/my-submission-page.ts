@@ -2,7 +2,15 @@ import { Component, inject } from '@angular/core';
 
 
 
+
+
+
+
 import { ActivatedRoute, Router } from '@angular/router';
+
+
+
+
 
 
 
@@ -10,7 +18,15 @@ import { DeviceService } from '../../../../../services/device.service';
 
 
 
+
+
+
+
 import { CommonModule } from '@angular/common';
+
+
+
+
 
 
 
@@ -18,7 +34,15 @@ import { AppBarBackButton } from '../../../../../shared/app-bar-back-button/app-
 
 
 
+
+
+
+
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+
+
+
+
 
 
 
@@ -26,7 +50,15 @@ import { HttpClient } from '@angular/common/http';
 
 
 
+
+
+
+
 import { SubmissionApiService, type BackendSubmission } from '../../../../../api/submission-api.service';
+
+
+
+
 
 
 
@@ -34,7 +66,15 @@ import { FeedbackApiService } from '../../../../../api/feedback-api.service';
 
 
 
+
+
+
+
 import { PdfApiService } from '../../../../../api/pdf-api.service';
+
+
+
+
 
 
 
@@ -42,7 +82,15 @@ import { AlertService } from '../../../../../services/alert.service';
 
 
 
+
+
+
+
 import { ClassApiService } from '../../../../../api/class-api.service';
+
+
+
+
 
 
 
@@ -50,7 +98,15 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 
 
 
+
+
+
+
 import { firstValueFrom } from 'rxjs';
+
+
+
+
 
 
 
@@ -58,7 +114,15 @@ import { TokenizedTranscript } from '../../../../../components/submission-detail
 
 
 
+
+
+
+
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
+
+
+
+
 
 
 
@@ -66,7 +130,15 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 
 
 
+
+
+
+
 import type { OcrWord } from '../../../../../models/ocr-token.model';
+
+
+
+
 
 
 
@@ -74,17 +146,35 @@ import type { CorrectionLegend } from '../../../../../models/correction-legend.m
 
 
 
+
+
+
+
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
+
+
 
 import { applyLegendToIssues } from '../../../../../utils/correction-legend-mapping.util';
 
+
+
 import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
+
+
 
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 
+
+
 import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
 
+
+
 import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-legend.default';
+
+
+
+
 
 
 
@@ -92,11 +182,23 @@ import { ImageAnnotationOverlayComponent } from '../../../../../components/image
 
 
 
+
+
+
+
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 
 
 
+
+
+
+
 import { environment } from '../../../../../../environments/environment';
+
+
+
+
 
 
 
@@ -108,7 +210,19 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 
 
+
+
+
+
+
+
+
+
 @Component({
+
+
+
+
 
 
 
@@ -116,7 +230,15 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 
 
+
+
+
+
   imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ImageAnnotationOverlayComponent, ModalDialog],
+
+
+
+
 
 
 
@@ -124,7 +246,15 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 
 
+
+
+
+
   styleUrl: './my-submission-page.css',
+
+
+
+
 
 
 
@@ -132,7 +262,15 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 
 
+
+
+
+
 export class MySubmissionPage {
+
+
+
+
 
 
 
@@ -140,7 +278,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   device = inject(DeviceService);
+
+
+
+
 
 
 
@@ -152,7 +298,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   private route = inject(ActivatedRoute);
+
+
+
+
 
 
 
@@ -160,7 +318,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private feedbackApi = inject(FeedbackApiService);
+
+
+
+
 
 
 
@@ -168,7 +334,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private alert = inject(AlertService);
+
+
+
+
 
 
 
@@ -176,11 +350,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private sanitizer = inject(DomSanitizer);
 
 
 
+
+
+
+
   private http = inject(HttpClient);
+
+
+
+
 
 
 
@@ -192,11 +378,25 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   assignmentId: string | null = null;
 
 
 
+
+
+
+
   classId: string | null = null;
+
+
 
   private hasLoadedClassSettings = false;
 
@@ -206,26 +406,57 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   classTitle: string = '';
+
+
 
   classGradingScale: GradingScale = 'score_0_100';
 
 
 
+
+
+
+
   private resolveClassIdFromSubmission(s: BackendSubmission | null): string | null {
 
+
+
     const fromQuery = this.classId;
+
     if (typeof fromQuery === 'string' && fromQuery.trim().length) return fromQuery.trim();
 
+
+
     const raw: any = s && (s as any).class;
+
     if (!raw) return null;
+
+
 
     if (typeof raw === 'string') return raw;
 
+
+
     const id = raw && typeof raw === 'object' ? (raw._id || raw.id) : null;
+
     return typeof id === 'string' && id.trim().length ? id.trim() : null;
 
+
+
   }
+
+
+
+
 
 
 
@@ -233,259 +464,523 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private normalizeLegendKey(value: any): string {
+
+
 
     return String(value || '')
 
+
+
       .trim()
+
+
 
       .toUpperCase()
 
+
+
       .replace(/\s+/g, '_');
 
+
+
   }
+
+
+
+
 
 
 
   toRgba(color: string | null | undefined, alpha: number): string {
 
+
+
     const c = typeof color === 'string' ? color.trim() : '';
+
+
 
     const a = Number.isFinite(Number(alpha)) ? Number(alpha) : 0.18;
 
+
+
     if (!c.startsWith('#')) {
+
+
 
       return `rgba(255, 193, 7, ${a})`;
 
+
+
     }
+
+
 
     const hex = c.slice(1);
 
+
+
     const full = hex.length === 3 ? hex.split('').map((ch) => ch + ch).join('') : hex;
+
+
 
     if (full.length !== 6) {
 
+
+
       return `rgba(255, 193, 7, ${a})`;
 
+
+
     }
+
+
 
     const r = parseInt(full.slice(0, 2), 16);
 
+
+
     const g = parseInt(full.slice(2, 4), 16);
+
+
 
     const b = parseInt(full.slice(4, 6), 16);
 
+
+
     if (![r, g, b].every((v) => Number.isFinite(v))) {
+
+
 
       return `rgba(255, 193, 7, ${a})`;
 
+
+
     }
+
+
 
     return `rgba(${r}, ${g}, ${b}, ${a})`;
 
+
+
   }
+
+
+
+
 
 
 
   private parseHexColor(color: string | null | undefined): { r: number; g: number; b: number } | null {
 
+
+
     const c = typeof color === 'string' ? color.trim() : '';
+
+
 
     if (!c.startsWith('#')) return null;
 
+
+
     const hex = c.slice(1);
+
+
 
     const full = hex.length === 3 ? hex.split('').map((ch) => ch + ch).join('') : hex;
 
+
+
     if (full.length !== 6) return null;
+
+
 
     const r = parseInt(full.slice(0, 2), 16);
 
+
+
     const g = parseInt(full.slice(2, 4), 16);
+
+
 
     const b = parseInt(full.slice(4, 6), 16);
 
+
+
     if (![r, g, b].every((v) => Number.isFinite(v))) return null;
+
+
 
     return { r, g, b };
 
+
+
   }
+
+
+
+
 
 
 
   private relativeLuminance(color: string | null | undefined): number {
 
+
+
     const rgb = this.parseHexColor(color);
+
+
 
     if (!rgb) return 0.5;
 
+
+
     const srgb = [rgb.r, rgb.g, rgb.b].map((v) => v / 255);
+
+
 
     const lin = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
 
+
+
     return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
 
+
+
   }
+
+
+
+
 
 
 
   badgeTextColor(color: string | null | undefined): string {
 
+
+
     const lum = this.relativeLuminance(color);
+
+
 
     if (lum >= 0.72) return '#374151';
 
+
+
     const c = typeof color === 'string' && color.trim() ? color.trim() : '#374151';
+
+
 
     return c;
 
+
+
   }
+
+
+
+
 
 
 
   badgeBorderColor(color: string | null | undefined): string {
 
+
+
     const lum = this.relativeLuminance(color);
+
+
 
     if (lum >= 0.72) return 'rgba(55, 65, 81, 0.35)';
 
+
+
     const c = typeof color === 'string' && color.trim() ? color.trim() : '#374151';
+
+
 
     return c;
 
+
+
   }
+
+
+
+
 
 
 
   private isAcademicLegend(legend: any): boolean {
 
+
+
     const groups = legend && Array.isArray(legend.groups) ? legend.groups : [];
+
+
 
     if (!groups.length) return false;
 
+
+
     const keys = new Set(groups.map((g: any) => this.normalizeLegendKey(g?.key)).filter((k: string) => k.length));
+
+
 
     return (
 
+
+
       keys.has('CONTENT') ||
+
+
 
       keys.has('ORGANIZATION') ||
 
+
+
       keys.has('GRAMMAR') ||
+
+
 
       keys.has('VOCABULARY') ||
 
+
+
       keys.has('MECHANICS')
+
+
 
     );
 
+
+
   }
+
+
+
+
 
 
 
   get correctionLegendItems(): Array<{ symbol: string; label: string; color: string }> {
 
+
+
     // Keep the submission "Correction Legend" stable and consistent across student/teacher UI.
+
     // The backend /writing-corrections/legend may return a LanguageTool legend, which can arrive
+
     // asynchronously and cause the legend list to "flip" after initial render.
+
     // For this legend section, we always want the academic legend (REL/DEV/...).
+
     const legend: any = this.defaultCorrectionLegend;
+
+
 
     const groups = legend && Array.isArray(legend.groups) ? legend.groups : [];
 
+
+
     const items: Array<{ symbol: string; label: string; color: string }> = [];
+
+
 
     const seen = new Set<string>();
 
+
+
     for (const g of groups) {
+
+
 
       if (!g) continue;
 
+
+
       const color = typeof g.color === 'string' && g.color.trim() ? g.color.trim() : '#FFC107';
+
+
 
       const symbols = Array.isArray(g.symbols) ? g.symbols : [];
 
+
+
       for (const s of symbols) {
+
+
 
         const sym = this.normalizeLegendKey(s && (s as any).symbol);
 
+
+
         if (!sym || seen.has(sym)) continue;
+
+
 
         items.push({
 
+
+
           symbol: sym,
+
+
 
           label: String((s as any)?.label || sym),
 
+
+
           color
+
+
 
         });
 
+
+
         seen.add(sym);
+
+
 
       }
 
+
+
     }
+
+
 
     for (const issue of Array.isArray(this.writingCorrectionsIssues) ? this.writingCorrectionsIssues : []) {
 
+
+
       const sym = this.normalizeLegendKey((issue as any)?.symbol);
 
+
+
       if (!sym || seen.has(sym)) continue;
+
+
 
       const color = typeof (issue as any)?.color === 'string' && String((issue as any).color).trim() ? String((issue as any).color).trim() : '#FFC107';
 
+
+
       const label = String((issue as any)?.symbolLabel || sym);
+
+
 
       items.push({ symbol: sym, label, color });
 
+
+
       seen.add(sym);
 
+
+
     }
+
+
 
     for (const ann of Array.isArray(this.annotations) ? this.annotations : []) {
 
+
+
       const sym = this.normalizeLegendKey((ann as any)?.symbol);
+
+
 
       if (!sym || seen.has(sym)) continue;
 
+
+
       const color = typeof (ann as any)?.color === 'string' && String((ann as any).color).trim() ? String((ann as any).color).trim() : '#FFC107';
+
+
 
       items.push({ symbol: sym, label: sym, color });
 
+
+
       seen.add(sym);
+
+
 
     }
 
+
+
     return items;
 
+
+
   }
+
+
+
+
 
 
 
   private async ensureClassSettingsLoadedFromSubmission(s: BackendSubmission | null): Promise<void> {
 
+
+
     if (this.hasLoadedClassSettings) return;
 
+
+
     const classId = this.resolveClassIdFromSubmission(s);
+
     if (!classId) return;
+
+
 
     this.classId = classId;
 
+
+
     try {
+
       const summary = await this.classApi.getClassSummary(classId);
+
       const rawScale = typeof summary?.gradingScale === 'string' ? summary.gradingScale : undefined;
+
       this.classGradingScale = (rawScale === 'score_0_100' || rawScale === 'grade_a_f' || rawScale === 'pass_fail')
+
         ? rawScale
+
         : 'score_0_100';
+
       this.classTitle = this.classTitle || (summary?.name || '');
+
       this.hasLoadedClassSettings = true;
+
     } catch {
+
       this.classGradingScale = 'score_0_100';
+
       this.hasLoadedClassSettings = false;
+
     }
 
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -497,7 +992,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   isPdfDownloading = false;
+
+
+
+
 
 
 
@@ -505,79 +1008,163 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   feedback: SubmissionFeedback | null = null;
+
+
+
+
 
 
 
   get submissionTitle(): string {
 
+
+
     const a: any = this.submission && (this.submission as any).assignment;
+
+
 
     const title = a && typeof a === 'object' ? (a.title || a.name) : '';
 
+
+
     return typeof title === 'string' && title.trim().length ? title : 'Submission';
 
+
+
   }
+
+
+
+
 
 
 
   private recomputeLegendAligned(): void {
 
+
+
     this.legendAligned = buildLegendAlignedFeedback({
+
+
 
       legend: this.writingCorrectionsLegend,
 
+
+
       writingIssues: this.writingCorrectionsIssues,
+
+
 
       annotations: this.annotations
 
+
+
     });
 
+
+
   }
+
+
+
+
 
 
 
   get submissionAuthor(): string {
 
+
+
     const a: any = this.submission && (this.submission as any).assignment;
+
+
 
     const teacher: any = a && typeof a === 'object' ? (a.teacher || a.createdBy) : null;
 
+
+
     const teacherEmail = teacher && typeof teacher === 'object' ? (teacher.email || teacher.userEmail) : '';
+
+
 
     if (typeof teacherEmail === 'string' && teacherEmail.trim().length) return teacherEmail.trim();
 
 
 
+
+
+
+
     const s: any = this.submission && (this.submission as any).student;
+
+
 
     if (!s) return '';
 
+
+
     if (typeof s === 'string') return '';
+
+
 
     return s.displayName || s.email || '';
 
+
+
   }
+
+
+
+
 
 
 
   get submissionDateText(): string {
 
+
+
     const a: any = this.submission && (this.submission as any).assignment;
+
+
 
     const assignmentDateRaw: any = a && typeof a === 'object' ? (a.publishedAt || a.createdAt) : null;
 
 
 
+
+
+
+
     const raw: any = assignmentDateRaw || (this.submission && (this.submission as any).submittedAt);
+
+
 
     const d = raw ? new Date(raw) : null;
 
+
+
     if (!d || Number.isNaN(d.getTime())) return '';
+
+
 
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -589,7 +1176,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   isOcrRefreshing = false;
+
+
+
+
 
 
 
@@ -597,7 +1192,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private ocrPollTimeoutId: any = null;
+
+
+
+
 
 
 
@@ -605,7 +1208,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private loadSeq = 0;
+
+
+
+
 
 
 
@@ -617,11 +1228,33 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   uploadedFileUrl: string | null = null;
 
 
 
+
+
+
+
   private rawUploadedFileUrl: string | null = null;
+
+  submissionFileUrls: string[] = [];
+
+  submissionFileIds: string[] = [];
+
+  activeFileIndex = 0;
+
+
+
+
 
 
 
@@ -629,7 +1262,70 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private objectUrls: string[] = [];
+
+  get hasMultipleImages(): boolean {
+    const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
+    return urls.filter((u: string) => typeof u === 'string' && u.trim().length).length > 1;
+  }
+
+  get activeFileId(): string | null {
+    const ids = Array.isArray(this.submissionFileIds) ? this.submissionFileIds : [];
+    const id = ids[this.activeFileIndex];
+    return typeof id === 'string' && id.trim().length ? id.trim() : null;
+  }
+
+  get activeFileUrlRaw(): string | null {
+    const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
+    const url = urls[this.activeFileIndex];
+    return typeof url === 'string' && url.trim().length ? url.trim() : null;
+  }
+
+  onSelectSubmissionImage(index: number) {
+    const i = Number(index);
+    if (!Number.isFinite(i)) return;
+    const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
+    if (i < 0 || i >= urls.length) return;
+    if (this.activeFileIndex === i) return;
+    this.activeFileIndex = i;
+
+    void this.setUploadedFileUrl(this.activeFileUrlRaw);
+
+    this.annotations = [];
+    this.recomputeLegendAligned();
+    this.rebuildOcrWords();
+
+    const submissionId = this.submission?._id;
+    if (submissionId) {
+      void this.loadOcrCorrections(submissionId);
+    }
+
+    this.rebuildHighlightedTranscript();
+    void this.refreshWritingCorrections();
+  }
+
+  get activeOcrPages(): Array<{ fileId?: string; pageNumber?: number; text?: string; words?: any }> {
+    const pages = Array.isArray(this.submission?.ocrPages) ? this.submission!.ocrPages : [];
+    if (!pages.length) return [];
+
+    const activeId = this.activeFileId;
+    if (!activeId) return pages;
+
+    const filtered = pages.filter((p: any) => {
+      const fid = p && p.fileId ? String(p.fileId) : '';
+      return fid && fid === activeId;
+    });
+
+    return filtered.length ? filtered : pages;
+  }
+
+
+
+
 
 
 
@@ -637,7 +1333,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const idx = this.objectUrls.indexOf(url);
+
+
+
+
 
 
 
@@ -645,83 +1349,167 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.objectUrls.splice(idx, 1);
+
+
+
+
 
 
 
     }
 
+
+
   }
+
+
+
+
 
 
 
   private buildEmptyFeedback(submissionId: string): SubmissionFeedback {
 
+
+
     const emptyItem = () => ({ score: 0, maxScore: 5 as const, comment: '' });
+
+
 
     return {
 
+
+
       submissionId,
+
+
 
       rubricScores: {
 
+
+
         CONTENT: emptyItem(),
+
+
 
         ORGANIZATION: emptyItem(),
 
+
+
         GRAMMAR: emptyItem(),
+
+
 
         VOCABULARY: emptyItem(),
 
+
+
         MECHANICS: emptyItem()
 
+
+
       },
+
+
 
       overallScore: 0,
 
+
+
       grade: 'F',
+
+
 
       correctionStats: {
 
+
+
         content: 0,
+
+
 
         grammar: 0,
 
+
+
         organization: 0,
+
+
 
         vocabulary: 0,
 
+
+
         mechanics: 0
 
+
+
       },
+
+
 
       detailedFeedback: {
 
+
+
         strengths: [],
+
+
 
         areasForImprovement: [],
 
+
+
         actionSteps: []
 
+
+
       },
+
+
 
       aiFeedback: {
 
+
+
         perCategory: [],
+
+
 
         overallComments: ''
 
+
+
       },
+
+
 
       overriddenByTeacher: false
 
+
+
     };
+
+
 
   }
 
 
 
+
+
+
+
   teacherComment: string | null = null;
+
+
+
+
 
 
 
@@ -733,21 +1521,47 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   highlightedTranscriptHtml: SafeHtml | null = null;
+
+
+
+
 
 
 
   writingCorrectionsLegend: CorrectionLegend | null = null;
 
+
+
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
+
+
 
   writingCorrectionsHtml: SafeHtml | null = null;
 
+
+
   writingCorrectionsError: string | null = null;
+
+
 
   isWritingCorrectionsLoading = false;
 
+
+
   private lastWritingCorrectionsText: string | null = null;
+
+
+
+
 
 
 
@@ -755,7 +1569,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   ocrWords: OcrWord[] = [];
+
+
+
+
 
 
 
@@ -763,534 +1585,986 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   private toRubricVm(category: string, item: RubricItem | null | undefined) {
+
+
 
     const labelMap: Record<string, string> = {
 
+
+
       CONTENT: 'Content Relevance',
+
+
 
       ORGANIZATION: 'Structure & Organization',
 
+
+
       GRAMMAR: 'Grammar & Mechanics',
+
+
 
       VOCABULARY: 'Vocabulary',
 
+
+
       MECHANICS: 'Overall Rubric Score'
 
+
+
     };
+
+
+
+
 
 
 
     const score = Number(item?.score);
 
+
+
     return {
+
+
 
       category: labelMap[category] || category,
 
+
+
       score: Number.isFinite(score) ? Math.max(0, Math.min(5, Math.round(score * 10) / 10)) : 0,
+
+
 
       maxScore: 5,
 
+
+
       description: typeof item?.comment === 'string' ? item.comment : ''
+
+
 
     };
 
+
+
   }
+
+
+
+
 
 
 
   private get effectiveOverallScore100(): number {
 
+
+
     const fb: any = this.feedback;
+
+
 
     const persisted = Number(fb?.overallScore);
 
+
+
     // If a teacher explicitly overrode grading, the persisted score is authoritative.
+
     if (fb?.overriddenByTeacher && Number.isFinite(persisted)) return persisted;
 
+
+
     // Fallback to persisted score if present.
+
     if (Number.isFinite(persisted)) return persisted;
+
+
 
     return 0;
 
+
+
   }
+
+
+
+
 
 
 
   get overallScoreText(): string {
 
+
+
     const score = this.effectiveOverallScore100;
 
+
+
     return formatGradingDisplay(score, this.classGradingScale).displayText;
+
+
 
   }
 
 
+
+
+
   private buildFallbackRubricDesignerFromFeedback(fb: SubmissionFeedback): RubricDesigner | null {
 
-    const rs: any = fb && (fb as any).rubricScores ? (fb as any).rubricScores : {};
+
 
     const criteriaSeed = [
-      { category: 'Grammar & Mechanics', message: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : '' },
-      { category: 'Structure & Organization', message: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : '' },
-      { category: 'Content Relevance', message: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : '' },
-      { category: 'Overall Rubric Score', message: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : '' }
-    ];
 
+      { category: '' },
 
+      { category: '' },
 
-    const levels = [
+      { category: '' },
 
-      { title: 'Excellent', maxPoints: 10 },
-
-      { title: 'Good', maxPoints: 8 },
-
-      { title: 'Fair', maxPoints: 6 },
-
-      { title: 'Needs Improvement', maxPoints: 4 }
+      { category: '' }
 
     ];
+
+
+
+
+
+
+
+    const levels = Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: null as any }));
+
+
+
+
 
 
 
     const criteria = criteriaSeed.map((x: any) => {
 
+
+
       const cat = typeof x?.category === 'string' ? x.category : 'Criteria';
 
-      const msg = typeof x?.message === 'string' ? x.message : '';
+
 
       return {
 
+
+
         title: cat,
 
-        cells: levels.map((_, i) => (i === 0 ? msg : ''))
+
+
+        cells: levels.map(() => '')
+
+
 
       };
+
+
 
     });
 
 
 
+
+
+
+
     return {
+
+
 
       title: `Rubric: ${this.submissionTitle}`,
 
+
+
       levels,
+
+
 
       criteria
 
+
+
     };
 
+
+
   }
+
+
+
+
 
 
 
   get rubricDesigner(): RubricDesigner | null {
 
+
+
     const fb = this.feedback;
+
+
 
     if (!fb) return null;
 
 
 
+
+
+
+
     const normalizeCriteriaTitle = (t: any): string => {
+
+
 
       const raw = String(t || '').trim();
 
+
+
       if (!raw) return '';
+
+
 
       const key = raw.toUpperCase().replace(/\s+/g, '_');
 
+
+
       const labelMap: Record<string, string> = {
+
+
 
         CONTENT: 'Content Relevance',
 
+
+
         ORGANIZATION: 'Structure & Organization',
+
+
 
         GRAMMAR: 'Grammar & Mechanics',
 
+
+
         VOCABULARY: 'Vocabulary',
+
+
 
         MECHANICS: 'Overall Rubric Score'
 
+
+
       };
+
+
 
       return labelMap[key] || raw;
 
+
+
     };
+
+
+
+
 
 
 
     const d: any = (fb as any)?.rubricDesigner;
 
+
+
     if (!d || typeof d !== 'object') {
+
+
 
       return this.buildFallbackRubricDesignerFromFeedback(fb);
 
+
+
     }
+
+
+
+
 
 
 
     const levelsRaw = Array.isArray(d.levels) ? d.levels : [];
 
+
+
     const criteriaRaw = Array.isArray(d.criteria) ? d.criteria : [];
+
+
+
+    const isLegacyAutoSeededTemplate = (() => {
+
+
+
+      const levelSig = levelsRaw.map((l: any) => ({ t: String(l?.title || '').trim(), p: Number(l?.maxPoints) }));
+
+
+
+      const expectedLevels = [
+
+
+
+        { t: 'Excellent', p: 10 },
+
+
+
+        { t: 'Good', p: 8 },
+
+
+
+        { t: 'Fair', p: 6 },
+
+
+
+        { t: 'Needs Improvement', p: 4 }
+
+
+
+      ];
+
+
+
+      const sameLevels = levelSig.length === expectedLevels.length && levelSig.every((x: any, i: number) => x.t === expectedLevels[i].t && x.p === expectedLevels[i].p);
+
+
+
+      if (!sameLevels) return false;
+
+
+
+      const normalize = (s: any) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+
+
+      const critTitles = criteriaRaw.map((c: any) => normalize(c?.title));
+
+
+
+      const expectedCrit = new Set([
+
+
+
+        'grammar & mechanics',
+
+
+
+        'structure & organization',
+
+
+
+        'content relevance',
+
+
+
+        'overall rubric score'
+
+
+
+      ]);
+
+
+
+      return critTitles.length && critTitles.every((t: string) => expectedCrit.has(t));
+
+
+
+    })();
+
+
+
+    if (isLegacyAutoSeededTemplate) {
+
+
+
+      return this.buildFallbackRubricDesignerFromFeedback(fb);
+
+
+
+    }
+
+
+
+
 
 
 
     const levels = levelsRaw
 
+
+
       .slice(0, 5)
 
-      .map((l: any) => ({ title: String(l?.title || ''), maxPoints: Number(l?.maxPoints) || 0 }))
 
-      .filter((l: { title: string; maxPoints: number }) => l.title.trim().length || l.maxPoints > 0);
+
+      .map((l: any) => {
+
+
+
+        const title = String(l?.title || '');
+
+
+
+        const rawPoints = Number(l?.maxPoints);
+
+
+
+        const maxPoints = Number.isFinite(rawPoints) ? rawPoints : 0;
+
+
+
+        return { title, maxPoints: !title.trim().length && maxPoints === 0 ? null : maxPoints };
+
+
+
+      })
+
+
+
+      .filter((l: { title: string; maxPoints: number | null }) => l.title.trim().length || (Number(l.maxPoints) || 0) > 0);
+
+
+
+
 
 
 
     const criteria = criteriaRaw
 
+
+
       .slice(0, 12)
+
+
 
       .map((c: any) => ({
 
+
+
         title: normalizeCriteriaTitle(c?.title),
+
+
 
         cells: levels.map((_lvl: { title: string; maxPoints: number }, i: number) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
 
+
+
       }))
+
+
 
       .filter((c: { title: string; cells: string[] }) => c.title.trim().length || c.cells.some((x: string) => String(x).trim().length));
 
 
 
+
+
+
+
     if (!levels.length || !criteria.length) {
+
+
 
       return this.buildFallbackRubricDesignerFromFeedback(fb);
 
+
+
     }
+
+
+
+
 
 
 
     return {
 
+
+
       title: typeof d.title === 'string' ? d.title : `Rubric: ${this.submissionTitle}`,
+
+
 
       levels,
 
+
+
       criteria
+
+
 
     };
 
+
+
   }
+
+
+
+
 
 
 
   get rubricDesignerTitle(): string {
 
+
+
     return this.rubricDesigner?.title || `Rubric: ${this.submissionTitle}`;
 
+
+
   }
+
+
+
+
 
 
 
   get rubricCriteriaPreview(): Array<{ title: string; maxPoints: number }> {
-    const d = this.rubricDesigner;
 
-    if (!d) return [];
-
-    const normalizeKey = (value: any): string => {
-      return String(value || '')
-        .trim()
-        .toUpperCase()
-        .replace(/&/g, 'AND')
-        .replace(/[^A-Z0-9\s_]/g, ' ')
-        .replace(/\s+/g, '_')
-        .trim();
-    };
-
-
-
-    const normalizeCriteriaTitle = (t: any): string => {
-
-      const raw = String(t || '').trim();
-
-      if (!raw) return '';
-
-      const key = raw.toUpperCase().replace(/\s+/g, '_');
-
-      const labelMap: Record<string, string> = {
-
-        CONTENT: 'Content Relevance',
-
-        ORGANIZATION: 'Structure & Organization',
-
-        GRAMMAR: 'Grammar & Mechanics',
-
-        VOCABULARY: 'Vocabulary',
-
-        MECHANICS: 'Overall Rubric Score'
-
-      };
-
-      return labelMap[key] || raw;
-
-    };
-
-    const feedbackCategoryKeys = new Set<string>(
-      (this.feedbacks || []).map((x: any) => normalizeKey(x?.category))
-    );
-
-
-
-    const levels = Array.isArray((d as any).levels) ? (d as any).levels : [];
-
-    const perRowMax = levels.reduce((acc: number, x: any) => acc + (Number(x?.maxPoints) || 0), 0);
-
-
-
-    const criteria = Array.isArray((d as any).criteria) ? (d as any).criteria : [];
-
-    const seen = new Set<string>();
-    const out = criteria
-      .map((r: any) => ({ title: normalizeCriteriaTitle(r?.title), maxPoints: perRowMax }))
-      .filter((r: { title: string; maxPoints: number }) => r.title.length > 0)
-      .filter((r: { title: string; maxPoints: number }) => {
-        const k = normalizeKey(r.title);
-        if (!k) return false;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
-
-    if (!out.length) return [];
-
-    const previewKeys = new Set<string>(out.map((x: { title: string; maxPoints: number }) => normalizeKey(x.title)));
-
-    let isRedundant = previewKeys.size > 0;
-    if (isRedundant) {
-      for (const k of Array.from(previewKeys.values()) as string[]) {
-        if (!feedbackCategoryKeys.has(k)) {
-          isRedundant = false;
-          break;
-        }
-      }
-    }
-
-    return isRedundant ? [] : out;
-
+    return [];
   }
+
+
+
+
 
 
 
   get gradeLabel(): string {
 
+
+
     const score = this.effectiveOverallScore100;
+
+
 
     return formatGradingDisplay(score, this.classGradingScale).badgeText;
 
+
+
   }
+
+
+
+
 
 
 
   get contentIssuesCount(): number {
 
+
+
     const n = Number(this.legendAligned?.counts?.CONTENT ?? this.feedback?.correctionStats?.content);
+
+
 
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 
+
+
   }
+
+
+
+
 
 
 
   get grammarIssuesCount(): number {
 
+
+
     const n = Number(this.legendAligned?.counts?.GRAMMAR ?? this.feedback?.correctionStats?.grammar);
+
+
 
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 
+
+
   }
+
+
+
+
 
 
 
   get organizationIssuesCount(): number {
 
+
+
     const n = Number(this.legendAligned?.counts?.ORGANIZATION ?? this.feedback?.correctionStats?.organization);
+
+
 
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 
+
+
   }
+
+
+
+
 
 
 
   get vocabularyIssuesCount(): number {
 
+
+
     const n = Number(this.legendAligned?.counts?.VOCABULARY ?? this.feedback?.correctionStats?.vocabulary);
+
+
 
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 
+
+
   }
+
+
+
+
 
 
 
   get mechanicsIssuesCount(): number {
 
+
+
     const n = Number(this.legendAligned?.counts?.MECHANICS ?? this.feedback?.correctionStats?.mechanics);
+
+
 
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 
+
+
   }
+
+
+
+
 
 
 
   get correctionStatsTotalForBars(): number {
 
+
+
     const total =
+
+
 
       this.contentIssuesCount +
 
+
+
       this.grammarIssuesCount +
+
+
 
       this.organizationIssuesCount +
 
+
+
       this.vocabularyIssuesCount +
+
+
 
       this.mechanicsIssuesCount;
 
+
+
     return total > 0 ? total : 1;
 
+
+
   }
+
+
+
+
 
 
 
   private barPct(count: number): number {
 
+
+
     return Math.max(0, Math.min(100, Math.round((count / this.correctionStatsTotalForBars) * 100)));
 
+
+
   }
+
+
+
+
 
 
 
   get contentIssuesBarWidth(): string {
 
+
+
     return `${this.barPct(this.contentIssuesCount)}%`;
 
+
+
   }
+
+
+
+
 
 
 
   get grammarIssuesBarWidth(): string {
 
+
+
     return `${this.barPct(this.grammarIssuesCount)}%`;
 
+
+
   }
+
+
+
+
 
 
 
   get organizationIssuesBarWidth(): string {
 
+
+
     return `${this.barPct(this.organizationIssuesCount)}%`;
 
+
+
   }
+
+
+
+
 
 
 
   get vocabularyIssuesBarWidth(): string {
 
+
+
     return `${this.barPct(this.vocabularyIssuesCount)}%`;
 
+
+
   }
+
+
+
+
 
 
 
   get mechanicsIssuesBarWidth(): string {
 
+
+
     return `${this.barPct(this.mechanicsIssuesCount)}%`;
 
+
+
   }
+
+
+
+
 
 
 
   get overallScorePct(): number {
 
+
+
     const score100 = this.effectiveOverallScore100;
+
+
 
     if (!Number.isFinite(score100)) return 0;
 
+
+
     return Math.max(0, Math.min(100, score100));
 
+
+
   }
+
+
+
+
 
 
 
   get progressRingCircumference(): number {
 
+
+
     return 326.56;
 
+
+
   }
+
+
+
+
 
 
 
   get progressRingOffset(): number {
 
+
+
     return this.progressRingCircumference - (this.overallScorePct / 100) * this.progressRingCircumference;
 
+
+
   }
+
+
+
+
 
 
 
   get actionSteps(): string[] {
 
+
+
     const computed = Array.isArray(this.legendAligned?.actionSteps) ? this.legendAligned!.actionSteps : [];
+
+
 
     if (computed.length) return computed.slice(0, 5);
 
+
+
     const arr = Array.isArray(this.feedback?.detailedFeedback?.actionSteps) ? this.feedback?.detailedFeedback?.actionSteps : [];
+
+
 
     const top = arr.filter((x) => typeof x === 'string' && x.trim().length).slice(0, 5);
 
+
+
     return top.length ? top : [''];
 
+
+
   }
+
+
+
+
 
 
 
   get areasForImprovement(): Array<{ title: string; description: string; borderClass: string }> {
 
+
+
     const computed = Array.isArray(this.legendAligned?.areasForImprovement) ? this.legendAligned!.areasForImprovement : [];
+
+
 
     const arr = computed.length
 
+
+
       ? computed
+
+
 
       : (Array.isArray(this.feedback?.detailedFeedback?.areasForImprovement)
 
+
+
           ? this.feedback?.detailedFeedback?.areasForImprovement
+
+
 
           : []);
 
+
+
     const top = arr.filter((x) => typeof x === 'string' && x.trim().length).slice(0, 3);
+
+
 
     return top.map((t) => ({ title: t, description: '', borderClass: 'border-blue-400' }));
 
+
+
   }
+
+
+
+
 
 
 
   get strengths(): Array<{ title: string; description: string }> {
 
+
+
     const computed = Array.isArray(this.legendAligned?.strengths) ? this.legendAligned!.strengths : [];
+
+
 
     const arr = computed.length
 
+
+
       ? computed
+
+
 
       : (Array.isArray(this.feedback?.detailedFeedback?.strengths) ? this.feedback?.detailedFeedback?.strengths : []);
 
+
+
     const top = arr.filter((x) => typeof x === 'string' && x.trim().length).slice(0, 3);
+
+
 
     return top.map((t) => ({ title: t, description: '' }));
 
+
+
   }
+
+
+
+
 
 
 
@@ -1298,11 +2572,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     return this.uploadedFileIsPdf;
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1314,7 +2604,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     event.preventDefault();
+
+
+
+
+
+
+
+
 
 
 
@@ -1326,7 +2628,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     if (!rawUrl) {
+
+
+
+
 
 
 
@@ -1334,11 +2644,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       return;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1350,7 +2676,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       const objectUrl = await this.fetchAsObjectUrl(rawUrl, false);
+
+
+
+
 
 
 
@@ -1358,7 +2692,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     } catch {
+
+
+
+
 
 
 
@@ -1366,11 +2708,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1382,7 +2740,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     for (const url of this.objectUrls) {
+
+
+
+
 
 
 
@@ -1390,7 +2756,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         URL.revokeObjectURL(url);
+
+
+
+
 
 
 
@@ -1398,7 +2772,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         // ignore
+
+
+
+
 
 
 
@@ -1406,7 +2788,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -1414,7 +2804,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1426,7 +2828,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
+
+
+
+
 
 
 
@@ -1438,7 +2848,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     if (trackForCleanup) {
+
+
+
+
 
 
 
@@ -1446,7 +2868,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     } else {
+
+
+
+
 
 
 
@@ -1454,7 +2884,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       setTimeout(() => {
+
+
+
+
 
 
 
@@ -1462,7 +2900,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           URL.revokeObjectURL(objectUrl);
+
+
+
+
 
 
 
@@ -1470,7 +2916,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           // ignore
+
+
+
+
 
 
 
@@ -1478,11 +2932,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       }, 60000);
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1494,7 +2964,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1506,7 +2988,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     return value
+
+
+
+
 
 
 
@@ -1514,7 +3004,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       .replace(/</g, '&lt;')
+
+
+
+
 
 
 
@@ -1522,7 +3020,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       .replace(/"/g, '&quot;')
+
+
+
+
 
 
 
@@ -1530,7 +3036,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1542,7 +3060,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const text = this.extractedText || '';
+
+
+
+
 
 
 
@@ -1550,7 +3076,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.highlightedTranscriptHtml = null;
+
+
+
+
 
 
 
@@ -1558,7 +3092,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1570,7 +3116,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const annotated = fb && fb.aiFeedback && Array.isArray(fb.aiFeedback.annotatedText)
+
+
+
+
 
 
 
@@ -1578,7 +3132,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       : [];
+
+
+
+
+
+
+
+
 
 
 
@@ -1590,7 +3156,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.highlightedTranscriptHtml = this.sanitizer.bypassSecurityTrustHtml(this.escapeHtml(text));
+
+
+
+
 
 
 
@@ -1598,7 +3172,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1610,7 +3196,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       .map((a: any) => {
+
+
+
+
 
 
 
@@ -1618,7 +3212,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         const endIndex = typeof a.endIndex === 'number' ? a.endIndex : Number(a.endIndex);
+
+
+
+
 
 
 
@@ -1626,7 +3228,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         const description = typeof a.description === 'string' ? a.description : '';
+
+
+
+
 
 
 
@@ -1634,7 +3244,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         const color = typeof a.color === 'string' ? a.color : '#FF0000';
+
+
+
+
 
 
 
@@ -1642,7 +3260,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         if (!symbol) return null;
+
+
+
+
 
 
 
@@ -1650,11 +3276,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       })
 
 
 
+
+
+
+
       .filter(Boolean)
+
+
+
+
 
 
 
@@ -1666,7 +3304,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     let cursor = 0;
+
+
+
+
 
 
 
@@ -1678,7 +3328,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     for (const a of sorted) {
+
+
+
+
 
 
 
@@ -1686,11 +3348,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         continue;
 
 
 
+
+
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -1702,11 +3380,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         html += this.escapeHtml(text.slice(cursor, a.startIndex));
 
 
 
+
+
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -1718,7 +3412,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       const tooltip = `${this.escapeHtml(a.symbol)} - ${this.escapeHtml(a.description)}${a.suggestion ? '<br />Suggestion: ' + this.escapeHtml(a.suggestion) : ''}`;
+
+
+
+
+
+
+
+
 
 
 
@@ -1730,11 +3436,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       html += `${this.escapeHtml(snippet)}<span style="color:${this.escapeHtml(a.color)}; font-weight:700; margin-left:2px;">${this.escapeHtml(a.symbol)}</span>`;
 
 
 
+
+
+
+
       html += `<span class="correction-tooltip"><strong style="color:${this.escapeHtml(a.color)}">${this.escapeHtml(a.symbol)}</strong><br />${tooltip}</span>`;
+
+
+
+
 
 
 
@@ -1746,11 +3464,31 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
       cursor = a.endIndex;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1762,11 +3500,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       html += this.escapeHtml(text.slice(cursor));
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1778,7 +3532,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1790,7 +3556,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     if (this.writingCorrectionsLegend) return;
+
+
+
+
 
 
 
@@ -1798,7 +3572,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1810,7 +3596,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const text = this.extractedText || '';
+
+
+
+
 
 
 
@@ -1818,7 +3612,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.writingCorrectionsIssues = [];
+
+
+
+
 
 
 
@@ -1826,7 +3628,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.writingCorrectionsError = null;
+
+
+
+
 
 
 
@@ -1834,11 +3644,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       return;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1850,11 +3676,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       return;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1866,11 +3708,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       return;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1882,13 +3740,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.writingCorrectionsError = null;
+
+
+
+
 
 
 
     // Mark the current text as the latest attempted text so we don't re-trigger
 
+
+
     // the same request repeatedly when an error occurs.
+
+
+
+
 
 
 
@@ -1900,7 +3772,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     try {
+
+
+
+
 
 
 
@@ -1908,13 +3792,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       const resp = await this.writingCorrectionsApi.check({ text, language: 'en-US' });
+
+
+
+
 
 
 
       const rawIssues = Array.isArray(resp?.issues) ? resp.issues : [];
 
+
+
       this.writingCorrectionsIssues = applyLegendToIssues(rawIssues, this.writingCorrectionsLegend);
+
+
+
+
 
 
 
@@ -1922,7 +3820,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
+
+
+
+
 
 
 
@@ -1930,7 +3836,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.lastWritingCorrectionsText = text;
+
+
+
+
 
 
 
@@ -1938,7 +3852,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.writingCorrectionsIssues = [];
+
+
+
+
 
 
 
@@ -1946,7 +3868,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to check writing corrections';
+
+
+
+
 
 
 
@@ -1954,7 +3884,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     } finally {
+
+
+
+
 
 
 
@@ -1962,11 +3900,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1978,15 +3932,28 @@ export class MySubmissionPage {
 
 
 
-    const rawWords = this.submission && (this.submission as any).ocrData && Array.isArray((this.submission as any).ocrData.words)
 
 
 
-      ? (this.submission as any).ocrData.words
+
+    const pages = this.activeOcrPages;
+    const pageWords = pages
+      .map((p: any) => (p && Array.isArray(p.words) ? p.words : []))
+      .flat();
+
+    const rawWords = pageWords.length
+      ? pageWords
+      : (this.submission && (this.submission as any).ocrData && Array.isArray((this.submission as any).ocrData.words)
+        ? (this.submission as any).ocrData.words
+        : []);
 
 
 
-      : [];
+
+
+
+
+
 
 
 
@@ -1998,7 +3965,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const seenIds = new Set<string>();
+
+
+
+
+
+
+
+
 
 
 
@@ -2010,11 +3989,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       .map((w: any) => {
 
 
 
+
+
+
+
         const text = typeof w?.text === "string" ? w.text.trim() : '';
+
+
+
+
 
 
 
@@ -2026,7 +4017,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
         const pageNum = typeof w?.page === 'number' ? w.page : Number(w?.page);
+
+
+
+
 
 
 
@@ -2038,7 +4041,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
         const nextCount = (counters.get(page) || 0) + 1;
+
+
+
+
 
 
 
@@ -2046,7 +4061,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         const rawId = (w as any)?.id;
+
+
+
+
 
 
 
@@ -2054,7 +4077,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           ? rawId.trim()
+
+
+
+
 
 
 
@@ -2062,7 +4093,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             ? String(rawId)
+
+
+
+
 
 
 
@@ -2070,7 +4109,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         let id = baseId;
+
+
+
+
 
 
 
@@ -2078,7 +4125,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           // Ensure uniqueness if backend has duplicate IDs or we generated a duplicate.
+
+
+
+
 
 
 
@@ -2086,7 +4141,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           while (seenIds.has(`${baseId}_${suffix}`)) suffix += 1;
+
+
+
+
 
 
 
@@ -2094,7 +4157,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -2106,7 +4177,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
         let bbox: OcrWord['bbox'] = null;
+
+
+
+
 
 
 
@@ -2114,7 +4197,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         if (rawBbox && typeof rawBbox === 'object') {
+
+
+
+
 
 
 
@@ -2122,11 +4213,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           const y0 = Number((rawBbox as any).y0);
 
 
 
+
+
+
+
           const x1 = Number((rawBbox as any).x1);
+
+
+
+
 
 
 
@@ -2138,7 +4241,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
           if ([x0, y0, x1, y1].every(Number.isFinite) && x1 > x0 && y1 > y0) {
+
+
+
+
 
 
 
@@ -2146,11 +4261,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           }
 
 
 
+
+
+
+
         }
+
+
+
+
+
+
+
+
 
 
 
@@ -2162,7 +4293,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           id,
+
+
+
+
 
 
 
@@ -2170,7 +4309,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           bbox
+
+
+
+
 
 
 
@@ -2178,37 +4325,77 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       })
+
+
+
+
 
 
 
       .filter(Boolean) as OcrWord[];
 
+
+
   }
+
+
+
+
 
 
 
   private async loadOcrCorrections(submissionId: string) {
 
+
+
     try {
+
+
 
       const apiBaseUrl = `${environment.apiUrl}/api`;
 
-      const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, {}));
+
+
+      const fileId = this.activeFileId;
+      const body = fileId ? { fileId } : {};
+      const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, body));
+
+
+
+
 
 
 
       const success = Boolean(resp && (resp as any).success);
 
+
+
       const data = resp && typeof resp === 'object' ? (resp as any).data : null;
+
+
+
+
 
 
 
       if (success && data) {
 
+
+
         const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
 
+
+
         const ocrPages: any[] = Array.isArray((data as any).ocr) ? (data as any).ocr : [];
+
+
+
+
 
 
 
@@ -2216,7 +4403,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         for (const page of Array.isArray(ocrPages) ? ocrPages : []) {
+
+
+
+
 
 
 
@@ -2224,7 +4419,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           for (const w of words) {
+
+
+
+
 
 
 
@@ -2232,7 +4435,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             if (typeof id === 'string' && id.trim()) knownWordIds.add(id.trim());
+
+
+
+
 
 
 
@@ -2240,11 +4451,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           }
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -2252,7 +4475,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         if (!knownWordIds.size) {
+
+
+
+
 
 
 
@@ -2260,7 +4491,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             if (w && typeof w.id === 'string' && w.id.trim()) knownWordIds.add(w.id.trim());
+
+
+
+
 
 
 
@@ -2268,7 +4507,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -2276,7 +4523,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         this.annotations = corrections
+
+
+
+
 
 
 
@@ -2284,7 +4539,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             const correctionId = c && (typeof c.id === 'string' || typeof c.id === 'number') ? String(c.id) : '';
+
+
+
+
 
 
 
@@ -2292,7 +4555,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             if (seenCorrectionIds.has(correctionId)) return null;
+
+
+
+
 
 
 
@@ -2300,7 +4571,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             const rawWordIds = Array.isArray(c?.wordIds) ? c.wordIds : [];
+
+
+
+
 
 
 
@@ -2308,7 +4587,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               .map((x: any) => (typeof x === 'string' && x.trim() ? x.trim() : (typeof x === 'number' && Number.isFinite(x) ? String(x) : '')))
+
+
+
+
 
 
 
@@ -2316,7 +4603,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             const bboxList = Array.isArray(c?.bboxList) ? c.bboxList : [];
+
+
+
+
 
 
 
@@ -2324,7 +4619,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             if (!wordIds.length && !bboxList.length) return null;
+
+
+
+
 
 
 
@@ -2332,7 +4635,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               _id: correctionId,
+
+
+
+
 
 
 
@@ -2340,7 +4651,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               page: c?.page,
+
+
+
+
 
 
 
@@ -2348,7 +4667,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               bboxList,
+
+
+
+
 
 
 
@@ -2356,7 +4683,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               symbol: c?.symbol,
+
+
+
+
 
 
 
@@ -2364,7 +4699,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               message: c?.message,
+
+
+
+
 
 
 
@@ -2372,7 +4715,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               startChar: c?.startChar,
+
+
+
+
 
 
 
@@ -2380,7 +4731,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
               source: 'AI' as const,
+
+
+
+
 
 
 
@@ -2388,7 +4747,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
             } satisfies FeedbackAnnotation;
+
+
+
+
 
 
 
@@ -2396,13 +4763,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           .filter(Boolean) as FeedbackAnnotation[];
+
+
+
+
 
 
 
         this.recomputeLegendAligned();
 
+
+
       } else {
+
+
+
+
 
 
 
@@ -2410,15 +4791,31 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         this.recomputeLegendAligned();
+
+
+
+
 
 
 
       }
 
+
+
     } catch (err) {
 
+
+
       this.annotations = [];
+
+
+
+
 
 
 
@@ -2426,13 +4823,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.alert.showWarning('OCR corrections unavailable', 'Word highlights may be limited.');
+
+
+
+
 
 
 
     }
 
+
+
   }
+
+
+
+
 
 
 
@@ -2440,59 +4851,119 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const submissionId = this.submission?._id;
+
+
+
+
 
 
 
     if (!submissionId) {
 
+
+
       this.alert.showWarning('No submission', 'Please upload a submission first.');
 
+
+
       return;
+
+
 
     }
 
 
 
+
+
+
+
     if (this.isPdfDownloading) return;
+
+
 
     this.isPdfDownloading = true;
 
 
 
+
+
+
+
     try {
+
+
 
       const blob = await this.pdfApi.downloadSubmissionPdf(submissionId);
 
+
+
       const objectUrl = URL.createObjectURL(blob);
+
+
 
       this.objectUrls.push(objectUrl);
 
 
 
+
+
+
+
       const a = document.createElement('a');
+
+
 
       a.href = objectUrl;
 
+
+
       a.download = 'submission-feedback.pdf';
+
+
 
       document.body.appendChild(a);
 
+
+
       a.click();
+
+
 
       a.remove();
 
 
 
+
+
+
+
       const ua = navigator.userAgent || '';
+
+
 
       const isIos = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
 
+
+
       if (isIos) {
+
+
 
         window.open(objectUrl, '_blank', 'noopener,noreferrer');
 
+
+
       }
+
+
+
+
 
 
 
@@ -2500,7 +4971,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       setTimeout(() => {
+
+
+
+
 
 
 
@@ -2508,7 +4987,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           URL.revokeObjectURL(objectUrl);
+
+
+
+
 
 
 
@@ -2516,7 +5003,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           // ignore
+
+
+
+
 
 
 
@@ -2524,7 +5019,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           this.removeObjectUrl(objectUrl);
+
+
+
+
 
 
 
@@ -2532,21 +5035,47 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       }, 60000);
+
+
 
     } catch (err: any) {
 
+
+
       this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+
+
 
     } finally {
 
+
+
       this.isPdfDownloading = false;
+
+
 
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -2562,47 +5091,99 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   get feedbacks(): RubricFeedbackItem[] {
+
+
 
     const fb = this.feedback;
 
+
+
     if (!fb) return [];
+
+
 
     console.log('Dynamic AI rubric generated for submission', (this.submission as any)?._id);
 
+
+
     return rubricScoresToFeedbackItems((fb as any).rubricScores);
 
+
+
   }
+
+
+
+
 
 
 
   scrollToAiFeedback() {
 
+
+
     const el = document.getElementById('ai-feedback-section-mobile') || document.getElementById('ai-feedback-section');
+
+
 
     if (!el) return;
 
 
 
+
+
+
+
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+
+
   }
+
+
+
+
 
 
 
   openRubricDialog() {
 
+
+
     this.showRubricDialog = true;
 
+
+
   }
+
+
+
+
 
 
 
   closeRubricDialog() {
 
+
+
     this.showRubricDialog = false;
 
+
+
   }
+
+
+
+
 
 
 
@@ -2610,7 +5191,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.feedbackForm = fb.group({
+
+
+
+
 
 
 
@@ -2618,11 +5207,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     });
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -2634,7 +5239,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.destroyed = true;
+
+
+
+
 
 
 
@@ -2642,11 +5255,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.revokeObjectUrls();
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -2658,7 +5287,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const s = this.submission;
+
+
+
+
 
 
 
@@ -2666,11 +5303,28 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+    const activePages = this.activeOcrPages;
+    const pageText = activePages
+      .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
+      .map((t: string) => t.trim())
+      .filter((t: string) => t.length)
+      .join('\n\n');
+
+    if (pageText) return pageText;
+
+    const combined = s.combinedOcrText && String(s.combinedOcrText).trim() ? String(s.combinedOcrText) : '';
+    if (combined) return combined;
+
     const fromTranscript = s.transcriptText && String(s.transcriptText).trim() ? String(s.transcriptText) : '';
-
-
-
     if (fromTranscript) return fromTranscript;
+
+
+
+
 
 
 
@@ -2678,11 +5332,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     return fromOcr || null;
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -2694,11 +5364,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     return this.submission?.ocrStatus || null;
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -2710,7 +5396,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     return this.ocrStatus === 'pending' && !this.extractedText;
+
+
+
+
 
 
 
@@ -2722,7 +5416,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   async ngOnInit() {
+
+
+
+
 
 
 
@@ -2730,7 +5436,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.classId = this.route.snapshot.queryParamMap.get('classId');
+
+
+
+
+
+
+
+
 
 
 
@@ -2746,11 +5464,31 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     await this.load();
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -2762,7 +5500,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     const classId = this.classId;
+
+
+
+
 
 
 
@@ -2770,11 +5516,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.classTitle = '';
+
+
 
       this.classGradingScale = 'score_0_100';
 
+
+
       this.hasLoadedClassSettings = false;
+
+
+
+
 
 
 
@@ -2782,7 +5540,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -2794,18 +5564,37 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       const summary = await this.classApi.getClassSummary(classId);
+
+
+
+
 
 
 
       this.classTitle = summary?.name || '';
 
+
+
       const rawScale = typeof summary?.gradingScale === 'string' ? summary.gradingScale : undefined;
+
       this.classGradingScale = (rawScale === 'score_0_100' || rawScale === 'grade_a_f' || rawScale === 'pass_fail')
+
         ? rawScale
+
         : 'score_0_100';
 
+
+
       this.hasLoadedClassSettings = true;
+
+
+
+
 
 
 
@@ -2813,13 +5602,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.classTitle = '';
+
+
 
       this.classGradingScale = 'score_0_100';
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -2831,7 +5634,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
   private async load() {
+
+
+
+
 
 
 
@@ -2839,7 +5654,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     if (!assignmentId) return;
+
+
+
+
 
 
 
@@ -2847,11 +5670,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.isLoading = true;
 
 
 
+
+
+
+
     this.loadSeq += 1;
+
+
+
+
 
 
 
@@ -2863,7 +5698,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     try {
+
+
+
+
 
 
 
@@ -2871,7 +5718,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       try {
+
+
+
+
 
 
 
@@ -2879,7 +5734,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       } catch (e: any) {
+
+
+
+
 
 
 
@@ -2887,7 +5750,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         const match = (mine || []).find((s) => {
+
+
+
+
 
 
 
@@ -2895,7 +5766,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
           return typeof a === 'string' ? a === assignmentId : a && a._id === assignmentId;
+
+
+
+
 
 
 
@@ -2903,23 +5782,91 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         submission = match || null;
+
+
+
+
 
 
 
       }
 
+
+
       if (this.destroyed || seq !== this.loadSeq) return;
+
+
 
       this.submission = submission;
 
+      this.submissionFileUrls = Array.isArray((submission as any)?.fileUrls)
+        ? (submission as any).fileUrls.filter((u: any) => typeof u === 'string' && u.trim().length)
+        : (submission?.fileUrl ? [submission.fileUrl] : []);
+
+      const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
+      this.submissionFileIds = rawFiles
+        .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
+        .map((id: any) => (typeof id === 'string' ? id.trim() : ''))
+        .filter((id: string) => Boolean(id));
+
+      if (!this.submissionFileIds.length) {
+        const pages: any[] = Array.isArray((submission as any)?.ocrPages) ? (submission as any).ocrPages : [];
+        const seen = new Set<string>();
+        const idsFromPages: string[] = [];
+        for (const p of pages) {
+          const fid = p && p.fileId ? String(p.fileId).trim() : '';
+          if (!fid || seen.has(fid)) continue;
+          seen.add(fid);
+          idsFromPages.push(fid);
+        }
+        if (idsFromPages.length) {
+          this.submissionFileIds = idsFromPages;
+        }
+      }
+
+      if (!this.submissionFileIds.length && (submission as any)?.file) {
+        const fid = typeof (submission as any).file === 'string' ? (submission as any).file : ((submission as any).file?._id || (submission as any).file?.id);
+        if (typeof fid === 'string' && fid.trim()) {
+          this.submissionFileIds = [fid.trim()];
+        }
+      }
+
+      if (!Array.isArray(this.submissionFileUrls) || !this.submissionFileUrls.length) {
+        this.submissionFileUrls = submission?.fileUrl ? [submission.fileUrl] : [];
+      }
+
+      if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) {
+        this.activeFileIndex = 0;
+      }
+
+
+
       await this.ensureClassSettingsLoadedFromSubmission(submission);
+
+
 
       this.revokeObjectUrls();
 
 
 
-      await this.setUploadedFileUrl(submission?.fileUrl || null);
+
+
+
+
+      await this.setUploadedFileUrl(this.activeFileUrlRaw || submission?.fileUrl || null);
+
+
+
+
+
+
+
+
 
 
 
@@ -2931,13 +5878,31 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       if (submission?._id && !this.hasLoadedOcrCorrections) {
+
+
 
         await this.loadOcrCorrections(submission._id);
 
+
+
         this.hasLoadedOcrCorrections = true;
 
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -2949,7 +5914,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       if (submission?.ocrStatus === 'failed') {
+
+
+
+
 
 
 
@@ -2957,7 +5930,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -2973,51 +5958,111 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
       // Student feedback is fetched by submissionId; do not require the submission payload
+
+
 
       // to contain a populated `feedback` reference (it is often absent in student endpoints).
 
+
+
       if (submission?._id) {
 
+
+
         try {
+
+
 
           const fb = await this.feedbackApi.getSubmissionFeedback(submission._id);
 
 
 
+
+
+
+
           if (this.destroyed || seq !== this.loadSeq) return;
+
+
+
+
 
 
 
           this.feedback = fb;
 
+
+
           console.log('STUDENT FEEDBACK LOADED:', fb);
+
+
 
           this.teacherComment = typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : null;
 
 
 
+
+
+
+
           this.feedbackForm.patchValue({
+
+
 
             message: this.teacherComment || ''
 
+
+
           });
+
+
 
         } catch (err: any) {
 
+
+
           // Keep the page working even when feedback isn't generated yet.
+
+
 
           if (this.destroyed || seq !== this.loadSeq) return;
 
+
+
           this.feedback = this.buildEmptyFeedback(submission._id);
+
+
 
           this.teacherComment = null;
 
+
+
           this.feedbackForm.patchValue({ message: '' });
+
+
 
         }
 
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -3029,21 +6074,47 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.rebuildHighlightedTranscript();
+
+
 
       await this.refreshWritingCorrections();
 
+
+
     } catch (err: any) {
+
+
 
       console.error('Failed to load OCR corrections:', err?.error || err);
 
+
+
       throw err;
+
+
 
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -3055,7 +6126,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     if (!this.submission) {
+
+
+
+
 
 
 
@@ -3063,11 +6142,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       return;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -3079,7 +6174,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.startOcrPolling();
+
+
+
+
 
 
 
@@ -3087,7 +6190,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -3099,7 +6214,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -3111,7 +6238,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     if (this.isOcrPolling) return;
+
+
+
+
 
 
 
@@ -3119,11 +6254,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.scheduleNextOcrRefresh(1500);
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -3135,11 +6286,23 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.isOcrPolling = false;
 
 
 
+
+
+
+
     if (this.ocrPollTimeoutId) {
+
+
+
+
 
 
 
@@ -3147,84 +6310,169 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       this.ocrPollTimeoutId = null;
+
+
+
+
 
 
 
     }
 
+
+
   }
+
+
+
+
 
 
 
   private scheduleNextOcrRefresh(delayMs: number) {
+
     if (!this.isOcrPolling || this.destroyed) return;
 
+
+
     if (this.ocrPollTimeoutId) {
+
       clearTimeout(this.ocrPollTimeoutId);
+
       this.ocrPollTimeoutId = null;
+
     }
 
+
+
     this.ocrPollTimeoutId = setTimeout(() => {
+
       if (this.destroyed) return;
+
       this.refreshSubmissionForOcr();
+
     }, delayMs);
+
   }
+
+
+
+
 
 
 
   private async refreshSubmissionForOcr() {
+
     const assignmentId = this.assignmentId;
+
     if (!assignmentId) {
+
       this.stopOcrPolling();
+
       return;
+
     }
+
+
 
     if (!this.isOcrPolling || this.destroyed) return;
 
+
+
     if (this.isOcrRefreshing) {
+
       this.scheduleNextOcrRefresh(2500);
+
       return;
+
     }
+
+
 
     this.isOcrRefreshing = true;
 
+
+
     try {
+
       const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId);
+
       if (this.destroyed) return;
 
+
+
       this.submission = updated;
+
       await this.setUploadedFileUrl(updated?.fileUrl || this.rawUploadedFileUrl);
+
       this.rebuildOcrWords();
 
+
+
       if (updated?._id && !this.hasLoadedOcrCorrections) {
+
         await this.loadOcrCorrections(updated._id);
+
         this.hasLoadedOcrCorrections = true;
+
       }
+
+
 
       this.rebuildHighlightedTranscript();
+
       await this.refreshWritingCorrections();
 
+
+
       if (updated?.ocrStatus === 'failed') {
+
         this.ocrErrorMessage = updated.ocrError || 'OCR failed';
+
       } else {
+
         this.ocrErrorMessage = null;
+
       }
+
+
 
       if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed' || this.extractedText) {
+
         this.stopOcrPolling();
+
         return;
+
       }
 
+
+
       this.scheduleNextOcrRefresh(3000);
+
     } catch (err: any) {
+
       const message = err?.error?.message || err?.message || 'Failed to fetch OCR text';
+
       this.ocrErrorMessage = message;
+
       this.stopOcrPolling();
+
     } finally {
+
       this.isOcrRefreshing = false;
+
     }
+
   }
+
+
+
+
 
 
 
@@ -3232,7 +6480,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     if (this.classId) {
+
+
+
+
 
 
 
@@ -3240,11 +6496,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       return;
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -3256,7 +6528,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -3268,11 +6552,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.activeTab = param;
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -3284,7 +6584,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.revokeObjectUrls();
+
+
+
+
 
 
 
@@ -3292,7 +6600,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
     this.uploadedFileUrl = null;
+
+
+
+
 
 
 
@@ -3304,11 +6620,27 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     if (!url) {
 
 
 
+
+
+
+
       return Promise.resolve();
+
+
+
+
 
 
 
@@ -3320,7 +6652,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     const lowered = url.toLowerCase().split('?')[0];
+
+
+
+
 
 
 
@@ -3332,7 +6676,19 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
+
+
+
+
     return this.fetchAsObjectUrl(url, true)
+
+
+
+
 
 
 
@@ -3340,7 +6696,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
         this.uploadedFileUrl = objectUrl;
+
+
+
+
 
 
 
@@ -3348,7 +6712,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       .catch(() => {
+
+
+
+
 
 
 
@@ -3356,7 +6728,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
       });
+
+
+
+
 
 
 
@@ -3364,7 +6744,15 @@ export class MySubmissionPage {
 
 
 
+
+
+
+
 }
+
+
+
+
 
 
 

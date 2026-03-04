@@ -178,6 +178,14 @@ export class ClassApiService {
     this.cache.delete('my-teacher-classes');
   }
 
+  invalidateAllClassSummaries(): void {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith('class-summary-')) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
   // Method to clear cache for specific class
   clearClassCache(classId?: string): void {
     if (classId) {

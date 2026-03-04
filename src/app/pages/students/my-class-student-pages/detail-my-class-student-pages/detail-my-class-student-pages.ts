@@ -198,12 +198,6 @@ export class DetailMyClassStudentPages {
       return;
     }
 
-    const file = this.selectedFiles[0];
-    if (!file) {
-      this.alert.showWarning('No file selected', 'Please select a file to upload.');
-      return;
-    }
-
     if (this.isLoading) return;
     this.isLoading = true;
     this.uploadProgressPercent = 0;
@@ -213,7 +207,7 @@ export class DetailMyClassStudentPages {
 
     try {
       await new Promise<void>((resolve, reject) => {
-        const subscription = this.uploadApi.uploadFile(file, assignmentId).subscribe({
+        const subscription = this.uploadApi.submitSubmissionFiles(this.selectedFiles, assignmentId).subscribe({
           next: (event) => {
             if (event.type === HttpEventType.UploadProgress) {
               const total = typeof event.total === 'number' ? event.total : null;
@@ -223,7 +217,7 @@ export class DetailMyClassStudentPages {
             }
 
             if (event.type === HttpEventType.Response) {
-              const body = event.body as BackendUploadResponse | null;
+              const body = event.body as any;
               if (!body || body.success !== true) {
                 reject(new Error(body?.message || 'Upload failed'));
                 subscription.unsubscribe();
@@ -231,7 +225,7 @@ export class DetailMyClassStudentPages {
               }
 
               this.uploadProgressPercent = 100;
-              this.uploadedSubmission = body;
+              this.uploadedSubmission = null;
               this.uploadSuccessMessage = 'Upload successful';
               resolve();
               subscription.unsubscribe();
