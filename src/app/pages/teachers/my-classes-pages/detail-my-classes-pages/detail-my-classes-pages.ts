@@ -13,6 +13,8 @@ import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassStudent, type BackendClassSummary } from '../../../../api/class-api.service';
 import { SubmissionApiService } from '../../../../api/submission-api.service';
 import { QrGeneratorService } from '../../../../services/qr-generator.service';
+import { RubricDesignerModal } from '../../../../components/teacher/rubric-designer-modal/rubric-designer-modal';
+import type { RubricDesigner } from '../../../../models/submission-feedback.model';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -24,6 +26,7 @@ import { QrGeneratorService } from '../../../../services/qr-generator.service';
     DialogViewSubmissions,
     AppBarBackButton,
     BottomsheetDialog,
+    RubricDesignerModal,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
@@ -43,6 +46,11 @@ export class DetailMyClassesPages {
   openSheetAssignment = false;
   openSheetQr = false;
   openSheetSubmission = false;
+
+  showRubricDialog = false;
+  selectedRubricAssignmentId: string | null = null;
+  selectedRubricDesigner: RubricDesigner | null = null;
+  selectedRubricDefaultTitle = 'Rubric';
 
   classId: string | null = null;
   isLoading = false;
@@ -177,6 +185,163 @@ export class DetailMyClassesPages {
     }
     this.classApi.invalidateTeacherClassesList();
     await this.loadAssignments();
+
+    const assignmentId = _created && _created._id ? String(_created._id) : '';
+    if (!assignmentId) return;
+
+    const ok = await this.alert.showConfirm(
+      'Add rubric now?',
+      'Do you want to add a rubric for this assignment now?',
+      'Yes, add rubric',
+      'Not now'
+    );
+    if (!ok) return;
+
+    await this.openRubricForAssignment(assignmentId);
+  }
+
+  onOpenRubric(assignmentId: string) {
+    this.openRubricForAssignment(assignmentId);
+  }
+
+  private async openRubricForAssignment(assignmentId: string) {
+    let a = this.assignmentsById[assignmentId];
+
+    try {
+      const fresh = await this.assignmentApi.getAssignmentByIdForTeacher(assignmentId);
+      if (fresh && fresh._id) {
+        this.assignmentsById[fresh._id] = fresh;
+        a = fresh;
+      }
+    } catch (err: any) {
+      const msg = err?.error?.message || err?.message || 'Please try again';
+      this.alert.showError('Failed to load rubric', msg);
+      return;
+    }
+
+    if (!a) {
+      this.alert.showWarning('Not found', 'Assignment not found.');
+      return;
+    }
+
+    this.selectedRubricAssignmentId = assignmentId;
+    this.selectedRubricDefaultTitle = a.title ? `Rubric: ${a.title}` : 'Rubric';
+    this.selectedRubricDesigner = this.parseRubricDesignerFromAssignment(a);
+    this.showRubricDialog = true;
+  }
+
+  closeRubricDialog() {
+    this.showRubricDialog = false;
+    this.selectedRubricAssignmentId = null;
+    this.selectedRubricDesigner = null;
+  }
+
+  async onSaveAssignmentRubric(designer: RubricDesigner) {
+    const assignmentId = this.selectedRubricAssignmentId;
+    if (!assignmentId) return;
+    if (!designer) return;
+
+    try {
+      const rubrics = this.toAssignmentRubrics(designer);
+
+      const updated = await this.assignmentApi.updateAssignment(assignmentId, {
+        rubrics,
+        rubric: designer
+      });
+      if (updated && updated._id) {
+        this.assignmentsById[updated._id] = updated;
+      }
+      this.alert.showToast('Rubric saved', 'success');
+      this.closeRubricDialog();
+      await this.loadAssignments();
+    } catch (err: any) {
+      this.alert.showError('Save rubric failed', err?.error?.message || err?.message || 'Please try again');
+    }
+  }
+
+  private parseRubricDesignerFromAssignment(a: BackendAssignment): RubricDesigner | null {
+    const fromRubrics = this.parseRubricDesignerFromRubricsField((a as any)?.rubrics, a.title);
+    if (fromRubrics) return fromRubrics;
+    return this.parseLegacyRubricDesigner((a as any)?.rubric, a.title);
+  }
+
+  private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: string): RubricDesigner | null {
+    const obj = value && typeof value === 'object' ? value : null;
+    const criteriaRaw = Array.isArray(obj?.criteria) ? obj.criteria : null;
+    if (!criteriaRaw) return null;
+
+    // Collect a stable ordered list of level titles from the first criteria row.
+    const first = criteriaRaw[0] && typeof criteriaRaw[0] === 'object' ? criteriaRaw[0] : null;
+    const levelsRaw = Array.isArray((first as any)?.levels) ? (first as any).levels : [];
+    if (!levelsRaw.length) return null;
+
+    const levels = levelsRaw.map((l: any) => ({
+      title: typeof l?.title === 'string' ? String(l.title) : '',
+      maxPoints: Number(l?.score) || 0
+    }));
+
+    const criteria = criteriaRaw.map((c: any) => {
+      const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
+      return {
+        title: typeof c?.name === 'string' ? String(c.name) : '',
+        cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
+      };
+    });
+
+    return {
+      title: assignmentTitle ? `Rubric: ${assignmentTitle}` : 'Rubric',
+      levels,
+      criteria
+    };
+  }
+
+  private parseLegacyRubricDesigner(value: any, assignmentTitle: string): RubricDesigner | null {
+    if (!value) return null;
+    const obj = typeof value === 'string' ? this.safeJsonParse(value) : value;
+    if (!obj || typeof obj !== 'object') return null;
+
+    const title = typeof (obj as any).title === 'string'
+      ? String((obj as any).title)
+      : (assignmentTitle ? `Rubric: ${assignmentTitle}` : 'Rubric');
+    const levels = Array.isArray((obj as any).levels) ? (obj as any).levels : null;
+    const criteria = Array.isArray((obj as any).criteria) ? (obj as any).criteria : null;
+    if (!levels || !criteria) return null;
+
+    return {
+      title,
+      levels: levels.map((l: any) => ({
+        title: typeof l?.title === 'string' ? String(l.title) : '',
+        maxPoints: Number(l?.maxPoints) || 0
+      })),
+      criteria: criteria.map((c: any) => ({
+        title: typeof c?.title === 'string' ? String(c.title) : '',
+        cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
+      }))
+    };
+  }
+
+  private toAssignmentRubrics(designer: RubricDesigner): any {
+    const levels = Array.isArray(designer?.levels) ? designer.levels : [];
+    const criteria = Array.isArray(designer?.criteria) ? designer.criteria : [];
+
+    return {
+      criteria: criteria.map((row: any) => ({
+        name: typeof row?.title === 'string' ? row.title : '',
+        levels: levels.map((lvl: any, i: number) => ({
+          title: typeof lvl?.title === 'string' ? lvl.title : '',
+          score: Number(lvl?.maxPoints) || 0,
+          description: String(Array.isArray(row?.cells) ? (row.cells[i] ?? '') : '')
+        }))
+      }))
+    };
+  }
+
+  private safeJsonParse(value: string): any {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
   }
 
   async onAssignmentUpdated(_updated: BackendAssignment) {

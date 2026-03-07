@@ -47,6 +47,20 @@ export class MyNotificationStudentPages {
     }
   }
 
+  async onMarkRead(event: Event, n: BackendNotification) {
+    event.stopPropagation();
+    if (!n?._id || n.readAt) return;
+
+    const now = new Date().toISOString();
+    this.notifications = (this.notifications || []).map((x) => (x._id === n._id ? { ...x, readAt: now } : x));
+
+    try {
+      await this.notificationApi.markRead(n._id);
+    } catch {
+      await this.load();
+    }
+  }
+
   ngOnDestroy() {
     this.realtime.disconnect();
   }

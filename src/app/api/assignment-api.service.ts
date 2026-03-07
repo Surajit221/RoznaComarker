@@ -17,6 +17,7 @@ export type BackendAssignment = {
   writingType?: string;
   instructions?: string;
   rubric?: string;
+  rubrics?: any;
   deadline: string;
   class: BackendClass | string;
   teacher: any;
@@ -52,6 +53,7 @@ export class AssignmentApiService {
     writingType: string;
     instructions?: string;
     rubric?: any;
+    rubrics?: any;
     allowLateResubmission?: boolean;
   }): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();
@@ -77,12 +79,24 @@ export class AssignmentApiService {
     return resp.data;
   }
 
+  async getAssignmentByIdForTeacher(id: string): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/teacher/${encodeURIComponent(id)}`
+      )
+    );
+    return resp.data;
+  }
+
   async updateAssignment(
     id: string,
     payload: {
       title?: string;
       writingType?: string;
       instructions?: string | null;
+      rubric?: any;
+      rubrics?: any;
       deadline?: string;
       allowLateResubmission?: boolean;
     }
