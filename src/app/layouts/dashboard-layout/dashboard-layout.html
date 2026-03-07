@@ -39,8 +39,17 @@
               <div
                 class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-20 transition-all duration-200"
                 [class.hidden]="!isNotificationsDropdownOpen">
-                <div class="px-4 py-2 border-b border-gray-100">
+                <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-3">
                   <h3 class="text-lg font-semibold text-gray-800">Notifications</h3>
+                  <button
+                    type="button"
+                    class="text-xs font-semibold text-[#008081] hover:text-[#136C6D] flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    [disabled]="unreadCount === 0"
+                    (click)="onMarkAllNavbarNotificationsRead($event)"
+                  >
+                    <i class="bx bx-check-double text-base"></i>
+                    Mark all read
+                  </button>
                 </div>
                 <div class="max-h-60 overflow-y-auto">
                   @for (notif of notifications; track notif._id) {
@@ -52,10 +61,25 @@
                       <i class="bx {{ iconFor(notif).icon }} {{ iconFor(notif).iconColor }}"></i>
                     </div>
                     <div class="flex-1">
-                      <p class="text-sm font-medium text-gray-800">{{ notif.title }}</p>
+                      <p class="text-sm font-medium text-gray-800 flex items-center gap-2">
+                        <span class="truncate">{{ notif.title }}</span>
+                        @if (!notif.readAt) {
+                        <span class="w-2 h-2 rounded-full bg-[#008081] shrink-0"></span>
+                        }
+                      </p>
                       <p class="text-xs text-gray-500">{{ notif.description }}</p>
                       <p class="text-xs text-gray-400 mt-1">{{ timeFor(notif) }}</p>
                     </div>
+                    <button
+                      type="button"
+                      class="ml-2 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-500 hover:text-[#008081] disabled:opacity-40 disabled:cursor-not-allowed"
+                      [disabled]="!!notif.readAt"
+                      (click)="onMarkNavbarNotificationRead($event, notif)"
+                      aria-label="Mark notification as read"
+                      title="Mark as read"
+                    >
+                      <i class="bx bx-check text-xl"></i>
+                    </button>
                   </div>
                   }
                 </div>

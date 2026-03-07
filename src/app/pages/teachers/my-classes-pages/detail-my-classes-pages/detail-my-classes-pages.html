@@ -145,6 +145,13 @@
                       </button>
                       <button
                         type="button"
+                        class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
+                        (click)="onOpenRubric(item.id)"
+                      >
+                        Rubric
+                      </button>
+                      <button
+                        type="button"
                         class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
                         (click)="onDeleteAssignment(item.id)"
                       >
@@ -261,6 +268,17 @@
       (closed)="closeDialogQRClasses()"
     ></app-dialog-qr-classes>
   </app-modal-dialog>
+
+  <app-rubric-designer-modal
+    [open]="showRubricDialog"
+    [rubricDesigner]="selectedRubricDesigner"
+    [defaultTitle]="selectedRubricDefaultTitle"
+    [isGenerating]="false"
+    [isSaving]="false"
+    [isAttaching]="false"
+    (closed)="closeRubricDialog()"
+    (save)="onSaveAssignmentRubric($event)"
+  ></app-rubric-designer-modal>
 
   }
 </ng-container>
@@ -389,6 +407,13 @@
               </button>
               <button
                 type="button"
+                class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
+                (click)="onOpenRubric(item.id)"
+              >
+                Rubric
+              </button>
+              <button
+                type="button"
                 class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
                 (click)="onDeleteAssignment(item.id)"
               >
@@ -486,5 +511,16 @@
       (closed)="onCloseSubmission()"
     ></app-dialog-view-submissions>
   </app-bottomsheet-dialog>
+
+  <app-rubric-designer-modal
+    [open]="showRubricDialog"
+    [rubricDesigner]="selectedRubricDesigner"
+    [defaultTitle]="selectedRubricDefaultTitle"
+    [isGenerating]="false"
+    [isSaving]="false"
+    [isAttaching]="false"
+    (closed)="closeRubricDialog()"
+    (save)="onSaveAssignmentRubric($event)"
+  ></app-rubric-designer-modal>
   }
 </ng-container>

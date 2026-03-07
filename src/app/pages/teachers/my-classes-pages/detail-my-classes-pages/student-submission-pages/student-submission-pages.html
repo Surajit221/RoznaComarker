@@ -2,7 +2,7 @@
 
 
 
-  @if(device.isDesktop()) {
+  <ng-container *ngIf="device.isDesktop()">
 
 
 
@@ -29,105 +29,34 @@
       </button>
 
 
-
       <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button>
-
-
-
     </div>
-
-
-
   </div>
-
-
-
-
-
-
-
   <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
-
-
-
     <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
-
-
-
     <div class="flex flex-col justify-center items-center">
-
-
-
       <p class="font-bold text-2xl">{{ studentName }}</p>
-
-
-
       <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
-
-
-
     </div>
-
-
-
     <button class="btn-primary" [disabled]="!canGoNext" (click)="onNextSubmission()">Next</button>
-
-
-
   </div>
-
-
-
   @if(isUploadedFile) {
-
-
-
   <div class="w-full mb-4">
-
-
-
     <div class="flex flex-col gap-4">
-
-
-
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
-
-
-
         <div class="flex flex-row justify-between items-center">
-
-
-
           <p class="text-2xl font-bold">Student's Uploaded File</p>
-
-
-
           <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
-
-
-
             View Student Transcribed Text
-
-
-
           </button>
-
-
-
         </div>
-
-
-
         <div class="w-full rounded-2xl overflow-hidden">
-
           <app-image-annotation-overlay
             [imageUrl]="essayImageUrl || currentSubmission?.fileUrl || 'img/default-img.png'"
             [annotations]="annotations"
             [page]="1"
           ></app-image-annotation-overlay>
-
         </div>
-
         @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
         <div class="w-full mt-3">
           <div class="submission-thumbs" role="tablist" aria-label="Submission images">
@@ -145,484 +74,221 @@
           </div>
         </div>
         }
-
-
-
       </div>
-
-
-
     </div>
-
-
-
   </div>
-
-
-
   } @else {
-
-
-
   <div class="w-full mb-4">
-
-
 
     <div class="flex flex-col gap-4">
 
-
-
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
-
-
 
         <div class="flex flex-row justify-between items-center">
 
-
-
           <p class="text-2xl font-bold">Student's Transcribed Text</p>
-
-
 
           <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
 
-
-
             View Student Uploaded File
-
-
 
           </button>
 
-
-
         </div>
-
-
 
         <div class="bg-[#F3F3F3] p-4 rounded-2xl">
 
-
-
           <div class="w-full px-0">
-
-
 
             <div class="grid lg:grid-cols-4 gap-4">
 
-
-
               <!-- Sidebar with Statistics -->
-
-
 
               <div class="lg:col-span-1 space-y-4">
 
-
-
                 <!-- Score Card -->
 
-
-
                 <div class="gradient-card p-6 hover-lift">
-
-
 
                   <div class="flex items-center justify-between mb-4">
 
-
-
                     <h3 class="font-semibold text-gray-700">Overall Score</h3>
-
-
 
                     <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
 
-
-
                   </div>
-
-
-
-
-
-
 
                   <div class="relative w-32 h-32 mx-auto mb-4">
 
-
-
                     <svg class="progress-ring w-32 h-32" width="120" height="120">
 
-
-
                       <circle
-
-
 
                         class="text-gray-200"
 
-
-
                         stroke-width="10"
-
-
 
                         stroke="currentColor"
 
-
-
                         fill="transparent"
-
-
 
                         r="52"
 
-
-
                         cx="60"
-
-
 
                         cy="60"
 
-
-
                       />
-
-
 
                       <circle
 
-
-
                         class="progress-ring-circle text-blue-500"
-
-
 
                         stroke-width="10"
 
-
-
                         stroke-dasharray="326.56"
-
-
 
                         [attr.stroke-dashoffset]="progressRingOffset"
 
-
-
                         stroke-linecap="round"
-
-
 
                         stroke="currentColor"
 
-
-
                         fill="transparent"
-
-
 
                         r="52"
 
-
-
                         cx="60"
-
-
 
                         cy="60"
 
-
-
                       />
-
-
 
                     </svg>
 
-
-
                     <div class="absolute inset-0 flex items-center justify-center">
-
-
 
                       <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
 
-
-
                     </div>
 
-
-
                   </div>
-
-
-
-
-
-
 
                   <div class="text-center text-sm text-gray-600">
 
-
-
                     <p>Strong effort with some areas for refinement</p>
-
-
 
                   </div>
 
-
-
                 </div>
-
-
-
-
-
-
 
                 <!-- Correction Stats -->
 
-
-
                 <div class="gradient-card p-6 hover-lift">
-
-
 
                   <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
 
-
-
-
-
-
-
                   <div class="space-y-4">
-
-
 
                     <div>
 
-
-
                       <div class="flex justify-between text-sm mb-1">
-
-
 
                         <span class="text-gray-600">Content Issues</span>
 
-
-
                         <span class="font-medium">{{ contentIssuesCount }}</span>
-
-
 
                       </div>
 
-
-
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-
-
 
                         <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
 
-
-
                       </div>
-
-
 
                     </div>
 
-
-
-
-
-
-
                     <div>
 
-
-
                       <div class="flex justify-between text-sm mb-1">
-
-
 
                         <span class="text-gray-600">Grammar Issues</span>
 
-
-
                         <span class="font-medium">{{ grammarIssuesCount }}</span>
-
-
 
                       </div>
 
-
-
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-
-
 
                         <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
 
-
-
                       </div>
-
-
 
                     </div>
 
-
-
-
-
-
-
                     <div>
 
-
-
                       <div class="flex justify-between text-sm mb-1">
-
-
 
                         <span class="text-gray-600">Organization Issues</span>
 
-
-
                         <span class="font-medium">{{ organizationIssuesCount }}</span>
-
-
 
                       </div>
 
-
-
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-
-
 
                         <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
 
-
-
                       </div>
-
-
 
                     </div>
 
-
-
-
-
-
-
                     <div>
 
-
-
                       <div class="flex justify-between text-sm mb-1">
-
-
 
                         <span class="text-gray-600">Vocabulary Issues</span>
 
-
-
                         <span class="font-medium">{{ vocabularyIssuesCount }}</span>
-
-
 
                       </div>
 
-
-
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-
-
 
                         <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
 
-
-
                       </div>
 
-
-
                     </div>
-
-
-
-
-
-
 
                     <div>
 
-
-
                       <div class="flex justify-between text-sm mb-1">
-
-
 
                         <span class="text-gray-600">Mechanics Issues</span>
 
-
-
                         <span class="font-medium">{{ mechanicsIssuesCount }}</span>
 
-
-
                       </div>
-
-
 
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
 
-
-
                         <div class="h-full bg-yellow-400 rounded-full" [style.width]="mechanicsIssuesBarWidth"></div>
-
-
 
                       </div>
 
-
-
                     </div>
-
-
 
                   </div>
 
-
-
                 </div>
-
-
-
-
-
-
 
                 <!-- Correction Legend -->
 
-
-
                 <div class="gradient-card p-6 hover-lift">
 
-
-
                   <h3 class="font-semibold text-gray-700 mb-4">Correction Legend</h3>
-
-
 
                   <div class="space-y-3">
 
@@ -654,459 +320,206 @@
 
                   </div>
 
-
-
                 </div>
 
-
-
               </div>
-
-
-
-
-
-
 
               <!-- Main Content Area -->
 
-
-
               <div class="lg:col-span-3 space-y-8">
-
-
 
                 <!-- Essay with Corrections -->
 
-
-
                 <div class="gradient-card hover-lift fade-in p-4">
-
-
 
                   <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
 
-
-
                     <div>
-
-
 
                       <h2 class="text-2xl font-bold text-gray-800">
 
-
-
                         {{ submissionTitle }}
-
-
 
                       </h2>
 
-
-
                       <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
 
-
-
                     </div>
-
-
 
                     <div class="flex space-x-2">
 
-
-
                       <span
-
-
 
                         class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
 
-
-
-                        >Education</span
-
-
-
-                      >
-
-
+                      >Education</span>
 
                       <span
 
-
-
                         class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
 
-
-
-                        >Technology</span
-
-
-
-                      >
-
-
+                      >Technology</span>
 
                     </div>
 
-
-
                   </div>
-
-
-
-
-
-
 
                   <article class="text-gray-700 leading-relaxed text-lg space-y-6">
 
-
-
                     <section class="p-4 rounded-lg bg-white border border-gray-200">
-
-
 
                       @if (ocrWords.length) {
 
-
-
                       <app-tokenized-transcript
-
-
 
                         class="text-sm leading-relaxed text-gray-700 font-sans"
 
-
-
                         [ocrWords]="ocrWords"
-
-
 
                         [annotations]="annotations"
 
-
-
                       ></app-tokenized-transcript>
-
-
 
                       } @else {
 
-
-
                       @if (writingCorrectionsHtml) {
-
-
 
                       <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans" [innerHTML]="writingCorrectionsHtml"></pre>
 
-
-
                       }
 
-
-
                       }
-
-
 
                     </section>
 
-
-
                   </article>
 
-
-
                 </div>
-
-
-
-
-
-
 
                 <!-- Feedback and Suggestions -->
 
-
-
                 <div class="gradient-card hover-lift fade-in p-4">
-
-
 
                   <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
 
-
-
                     <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
-
-
 
                     Detailed Feedback & Suggestions
 
-
-
                   </h3>
-
-
-
-
-
-
 
                   <div class="grid md:grid-cols-2 gap-6">
 
-
-
                     <!-- Areas for Improvement -->
-
-
 
                     <div>
 
-
-
                       <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
-
-
 
                         <i class="fas fa-tools text-red-500 mr-2"></i>
 
-
-
                         Areas for Improvement
-
-
 
                       </h4>
 
-
-
-
-
-
-
                       <div class="space-y-4">
-
-
 
                         @for (item of areasForImprovement; track item.title) {
 
-
-
                         <div class="suggestion-item" [ngClass]="item.borderClass">
-
-
 
                           <h5 class="font-medium text-gray-800">{{ item.title }}</h5>
 
-
-
                           <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
-
-
 
                         </div>
 
-
-
                         }
-
-
 
                       </div>
 
-
-
                     </div>
-
-
-
-
-
-
 
                     <!-- Strengths -->
 
-
-
                     <div>
-
-
 
                       <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
 
-
-
                         <i class="fas fa-star text-yellow-500 mr-2"></i>
-
-
 
                         Strengths
 
-
-
                       </h4>
-
-
-
-
-
-
 
                       <div class="space-y-4">
 
-
-
                         @for (s of strengths; track s.title) {
-
-
-
                         <div class="flex items-start">
-
-
 
                           <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
 
-
-
                           <div>
-
-
 
                             <h5 class="font-medium text-gray-800">{{ s.title }}</h5>
 
-
-
                             <p class="text-sm text-gray-600 mt-1">{{ s.description }}</p>
-
-
 
                           </div>
 
-
-
                         </div>
-
-
 
                         }
 
-
-
                       </div>
-
-
 
                     </div>
 
-
-
                   </div>
-
-
-
-
-
-
 
                   <!-- Action Steps -->
 
-
-
                   <div
-
-
 
                     class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200"
 
-
-
                   >
-
-
 
                     <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
 
-
-
                       <i class="fas fa-road text-blue-500 mr-2"></i>
-
-
 
                       Action Steps for Improvement
 
-
-
                     </h4>
-
-
 
                     <ol class="list-decimal list-inside text-gray-700 space-y-2">
 
-
-
                       @for (step of actionSteps; track step) {
-
-
-
                       <li>{{ step }}</li>
-
-
-
                       }
-
-
 
                     </ol>
 
-
-
                   </div>
-
-
 
                 </div>
 
-
-
               </div>
-
-
 
             </div>
 
-
-
           </div>
-
-
 
         </div>
 
-
-
       </div>
-
-
 
     </div>
 
-
-
   </div>
 
-
-
-  }
-
-
-
-
-
-
+}
 
   <div class="flex flex-col gap-4">
 
@@ -1368,343 +781,26 @@
 
 
 
-          <app-modal-dialog
-
+          <app-rubric-designer-modal
             [open]="showDialog"
+            [rubricDesigner]="rubricDesignerForModal"
+            [defaultTitle]="rubricDesignerTitle"
+            [isGenerating]="isLoading"
+            [isSaving]="isRubricSaving"
+            [isAttaching]="isRubricUploading"
+            (closed)="closeRubricDesignerDialog()"
+            (save)="onRubricDesignerSave($event)"
+            (generateAi)="onRubricDesignerGenerateAi($event)"
+            (attachFile)="onRubricDesignerAttachFile($event)"
+          ></app-rubric-designer-modal>
 
-            [maxWidthClass]="'max-w-none'"
 
-            [panelClass]="'lg:w-[90vw]'"
 
-            (closed)="closeDialog()"
 
-          >
 
 
 
-            <div class="w-full flex flex-col gap-6">
-
-
-
-              <div class="w-full flex flex-col items-center justify-center">
-
-                <p class="text-2xl sm:text-3xl font-bold text-center text-gray-700">{{ rubricDesignerTitle }}</p>
-
-              </div>
-
-
-
-              <div class="w-full overflow-x-auto">
-
-                <div class="min-w-[980px] w-full">
-
-                  <div
-
-                    class="w-full grid gap-3 items-start"
-
-                    [style.gridTemplateColumns]="'minmax(200px, 1fr) repeat(' + rubricLevels.length + ', minmax(180px, 1fr)) minmax(120px, 120px)'"
-
-                  >
-
-
-
-                    <div class="font-semibold text-gray-700">Grading Criteria</div>
-
-
-
-                    @for (lvl of rubricLevels; track $index) {
-
-                    <div class="w-full flex flex-col gap-2">
-
-                      <div class="w-full flex flex-row gap-2 items-center">
-
-                        <input type="text" class="input-text bg-white w-full" [(ngModel)]="lvl.title" placeholder="Add text here..." />
-
-                        <button
-
-                          type="button"
-
-                          class="btn-danger-sm shrink-0 hidden sm:inline-flex"
-
-                          (click)="removeRubricLevelColumn($index)"
-
-                          [disabled]="rubricLevels.length <= 1"
-
-                          aria-label="Delete rubric column"
-
-                        >
-
-                          Remove
-
-                        </button>
-
-                      </div>
-
-                      <input
-
-                        type="number"
-
-                        class="input-text bg-white text-center max-w-[90px]"
-
-                        [ngModel]="lvl.maxPoints"
-
-                        (ngModelChange)="lvl.maxPoints = coercePointsInput($event)"
-
-                        min="0"
-
-                        step="1"
-
-                        placeholder="10"
-
-                      />
-
-                    </div>
-
-                    }
-
-
-
-                    <div class="w-full flex flex-col sm:flex-row gap-2 justify-end pt-1">
-
-                      <button
-
-                        type="button"
-
-                        class="btn-danger-sm w-full sm:hidden"
-
-                        (click)="removeRubricLevelColumn(rubricLevels.length - 1)"
-
-                        [disabled]="rubricLevels.length <= 1"
-
-                        aria-label="Remove last rubric column"
-
-                      >
-
-                        Remove
-
-                      </button>
-
-                      <button
-
-                        type="button"
-
-                        class="btn-primary w-full sm:w-auto"
-
-                        (click)="addRubricLevelColumn()"
-
-                        [disabled]="rubricLevels.length >= 5"
-
-                      >
-
-                        + Add
-
-                      </button>
-
-                    </div>
-
-
-
-                    @for (row of rubricCriteriaRows; track $index) {
-
-                    <div class="w-full flex flex-col gap-2">
-
-                      <textarea
-
-                        class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-
-                        [(ngModel)]="row.title"
-
-                        placeholder="Add text here..."
-
-                      ></textarea>
-
-                    </div>
-
-
-
-                    @for (cell of row.cells; track $index) {
-
-                    <textarea
-
-                      class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-
-                      [(ngModel)]="row.cells[$index]"
-
-                      placeholder="Add text here..."
-
-                    ></textarea>
-
-                    }
-
-
-
-                    <div class="w-full flex items-center justify-end pt-2">
-
-                      <button
-
-                        type="button"
-
-                        class="btn-danger-sm"
-
-                        (click)="removeRubricCriteriaRow($index)"
-
-                        [disabled]="rubricCriteriaRows.length <= 1"
-
-                      >
-
-                        Remove
-
-                      </button>
-
-                    </div>
-
-                    }
-
-
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-
-              <div class="sticky bottom-0 -mx-6 sm:-mx-8 px-6 sm:px-8 pt-4 pb-2 bg-white border-t border-gray-100">
-
-                <div class="w-full flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6">
-
-                  <div class="w-full sm:w-auto flex justify-start">
-
-                    <button type="button" class="btn-primary w-full sm:w-auto" (click)="addRubricCriteriaRow()">+ Add</button>
-
-                  </div>
-
-
-
-                  <div class="w-full sm:flex-1 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-
-                    <input
-
-                      type="text"
-
-                      class="w-full sm:flex-1 sm:min-w-[220px] border-2 border-[#E7E7E7] rounded-2xl px-4 py-3 placeholder:text-[#B8B8B8] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-
-                      [(ngModel)]="rubricPromptText"
-
-                      placeholder="Describe the rubric you want to generate..."
-
-                      [disabled]="isLoading"
-
-                    />
-
-
-
-                    <button
-
-                      type="button"
-
-                      class="btn-info w-full sm:w-auto whitespace-nowrap sm:min-w-[140px]"
-
-                      (click)="generateRubricUsingAi()"
-
-                      [disabled]="isLoading"
-
-                    >
-
-                      @if (isLoading) { Generating Rubric... } @else { Generate Rubric Using AI }
-
-                    </button>
-
-                  </div>
-
-
-
-                  <input
-
-                    #rubricFileInput
-
-                    type="file"
-
-                    accept="application/json,.json,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
-
-                    class="hidden"
-
-                    (change)="onRubricFileSelected($event)"
-
-                  />
-
-
-
-                  <div class="w-full sm:w-auto grid grid-cols-3 gap-2">
-
-                    <button type="button" class="btn-danger w-full" (click)="closeDialog()">Cancel</button>
-
-
-
-                    <button type="button" class="btn-primary w-full" [disabled]="isRubricUploading" (click)="onRubricAttachRequested(rubricFileInput)">
-
-                      @if (isRubricUploading) { Attaching... } @else { Attach }
-
-                    </button>
-
-
-
-                    <button type="button" class="btn-primary w-full" [disabled]="isRubricSaving" (click)="saveRubricAndRegenerate()">
-
-                      @if (isRubricSaving) { Saving... } @else { Save }
-
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-
-            </div>
-
-
-
-          </app-modal-dialog>
-
-
-
-        </div>
-
-
-
-      </div>
-
-
-
-    </div>
-
-
-
-  </div>
-
-
-
-
-
-
-
-
-
-
-
-  }
-
-
-
-
-
-
-
-<app-modal-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
+          <app-modal-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
 
 
 
@@ -1729,9 +825,9 @@
 
 
   ></app-dialog-view-submissions>
-
-
-
+ 
+ 
+ 
 </app-modal-dialog>
 
 
@@ -1793,9 +889,6 @@
 
 
         @if (isPdfDownloading) {
-
-
-
         <span class="pdf-loading">
 
 
@@ -1809,17 +902,8 @@
 
 
         </span>
-
-
-
         } @else {
-
-
-
         Download PDF
-
-
-
         }
 
 
@@ -2105,9 +1189,6 @@
 
 
               @if (ocrWords.length) {
-
-
-
               <app-tokenized-transcript
 
 
@@ -2125,25 +1206,10 @@
 
 
               ></app-tokenized-transcript>
-
-
-
               } @else {
-
-
-
               @if (writingCorrectionsHtml) {
-
-
-
               <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans" [innerHTML]="writingCorrectionsHtml"></pre>
-
-
-
               }
-
-
-
               }
 
 
@@ -2225,9 +1291,6 @@
 
 
                     @for (item of areasForImprovement; track item.title) {
-
-
-
                     <div class="suggestion-item" [ngClass]="item.borderClass">
 
 
@@ -2293,9 +1356,6 @@
 
 
                     @for (s of strengths; track s.title) {
-
-
-
                     <div class="flex items-start">
 
 
@@ -2381,13 +1441,7 @@
 
 
                   @for (step of actionSteps; track step) {
-
-
-
                   <li>{{ step }}</li>
-
-
-
                   }
 
 
@@ -2863,13 +1917,7 @@
 
 
                 @if (rubricFeedbackItems.length) {
-
-
-
                 @for (item of rubricFeedbackItems; track item.category) {
-
-
-
                 <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
 
 
@@ -2951,13 +1999,7 @@
 
 
                 }
-
-
-
                 } @else {
-
-
-
                 <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
 
 
@@ -3000,303 +2042,8 @@
 
   </div>
 
+ </ng-container>
 
-
-
-
-
-
-  <app-modal-dialog
-
-    [open]="showDialog"
-
-    [maxWidthClass]="'max-w-none'"
-
-    [panelClass]="'lg:w-[90vw]'"
-
-    (closed)="closeDialog()"
-
-  >
-
-
-
-    <div class="w-full flex flex-col gap-6">
-
-
-
-      <div class="w-full flex flex-col items-center justify-center">
-
-        <p class="text-2xl sm:text-3xl font-bold text-center text-gray-700">{{ rubricDesignerTitle }}</p>
-
-      </div>
-
-
-
-      <div class="w-full overflow-x-auto">
-
-        <div class="min-w-[980px] w-full">
-
-          <div
-
-            class="w-full grid gap-3 items-start"
-
-            [style.gridTemplateColumns]="'minmax(200px, 1fr) repeat(' + rubricLevels.length + ', minmax(180px, 1fr)) minmax(120px, 120px)'"
-
-          >
-
-
-
-            <div class="font-semibold text-gray-700">Grading Criteria</div>
-
-
-
-            @for (lvl of rubricLevels; track $index) {
-
-            <div class="w-full flex flex-col gap-2">
-
-              <div class="w-full flex flex-row gap-2 items-center">
-
-                <input type="text" class="input-text bg-white w-full" [(ngModel)]="lvl.title" placeholder="Add text here..." />
-
-                <button
-
-                  type="button"
-
-                  class="btn-danger-sm shrink-0 hidden sm:inline-flex"
-
-                  (click)="removeRubricLevelColumn($index)"
-
-                  [disabled]="rubricLevels.length <= 1"
-
-                  aria-label="Delete rubric column"
-
-                >
-
-                  Remove
-
-                </button>
-
-              </div>
-
-              <input
-
-                type="number"
-
-                class="input-text bg-white text-center max-w-[90px]"
-
-                [ngModel]="lvl.maxPoints"
-
-                (ngModelChange)="lvl.maxPoints = coercePointsInput($event)"
-
-                min="0"
-
-                step="1"
-
-                placeholder="10"
-
-              />
-
-            </div>
-
-            }
-
-
-
-            <div class="w-full flex flex-col sm:flex-row gap-2 justify-end pt-1">
-
-              <button
-
-                type="button"
-
-                class="btn-danger-sm w-full sm:hidden"
-
-                (click)="removeRubricLevelColumn(rubricLevels.length - 1)"
-
-                [disabled]="rubricLevels.length <= 1"
-
-                aria-label="Remove last rubric column"
-
-              >
-
-                Remove
-
-              </button>
-
-              <button
-
-                type="button"
-
-                class="btn-primary w-full sm:w-auto"
-
-                (click)="addRubricLevelColumn()"
-
-                [disabled]="rubricLevels.length >= 5"
-
-              >
-
-                + Add
-
-              </button>
-
-            </div>
-
-
-
-            @for (row of rubricCriteriaRows; track $index) {
-
-            <div class="w-full flex flex-col gap-2">
-
-              <textarea
-
-                class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-
-                [(ngModel)]="row.title"
-
-                placeholder="Add text here..."
-
-              ></textarea>
-
-            </div>
-
-
-
-            @for (cell of row.cells; track $index) {
-
-            <textarea
-
-              class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-
-              [(ngModel)]="row.cells[$index]"
-
-              placeholder="Add text here..."
-
-            ></textarea>
-
-            }
-
-
-
-            <div class="w-full flex items-center justify-end pt-2">
-
-              <button
-
-                type="button"
-
-                class="btn-danger-sm"
-
-                (click)="removeRubricCriteriaRow($index)"
-
-                [disabled]="rubricCriteriaRows.length <= 1"
-
-              >
-
-                Remove
-
-              </button>
-
-            </div>
-
-            }
-
-
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-
-      <div class="sticky bottom-0 -mx-6 sm:-mx-8 px-6 sm:px-8 pt-4 pb-2 bg-white border-t border-gray-100">
-
-        <div class="w-full flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6">
-
-          <div class="w-full sm:w-auto flex justify-start">
-
-            <button type="button" class="btn-primary w-full sm:w-auto" (click)="addRubricCriteriaRow()">+ Add</button>
-
-          </div>
-
-
-
-          <div class="w-full sm:flex-1 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-
-            <input
-
-              type="text"
-
-              class="w-full sm:flex-1 sm:min-w-[220px] border-2 border-[#E7E7E7] rounded-2xl px-4 py-3 placeholder:text-[#B8B8B8] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-
-              [(ngModel)]="rubricPromptText"
-
-              placeholder="Describe the rubric you want to generate..."
-
-              [disabled]="isLoading"
-
-            />
-
-
-
-            <button type="button" class="btn-info w-full sm:w-auto whitespace-nowrap sm:min-w-[140px]" (click)="generateRubricUsingAi()" [disabled]="isLoading">
-
-              @if (isLoading) { Generating Rubric... } @else { Generate Rubric Using AI }
-
-            </button>
-
-          </div>
-
-
-
-          <div class="w-full sm:w-auto grid grid-cols-3 gap-2">
-
-            <button type="button" class="btn-danger w-full" (click)="closeDialog()">Cancel</button>
-
-
-
-            <button type="button" class="btn-primary w-full" [disabled]="isRubricSaving" (click)="attachRubricDesigner()">
-
-              @if (isRubricSaving) { Attaching... } @else { Attach }
-
-            </button>
-
-
-
-            <button type="button" class="btn-primary w-full" [disabled]="isRubricSaving" (click)="saveRubricAndRegenerate()">
-
-              @if (isRubricSaving) { Saving... } @else { Save }
-
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-
-    </div>
-
-
-
-  </app-modal-dialog>
-
-
-
-
-
-
-
-</ng-container>
-
-
-
-
-
-
-
-</ng-container>
 
 
 

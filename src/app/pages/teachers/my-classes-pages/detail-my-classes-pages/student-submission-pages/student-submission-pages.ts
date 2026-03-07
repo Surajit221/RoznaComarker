@@ -35,6 +35,7 @@ import { FeedbackApiService, type BackendFeedback } from '../../../../../api/fee
 
 
 import { PdfApiService } from '../../../../../api/pdf-api.service';
+import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
 
 
 
@@ -106,6 +107,10 @@ import { DialogViewSubmissions } from '../dialog-view-submissions/dialog-view-su
 
 
 
+import { RubricDesignerModal } from '../../../../../components/teacher/rubric-designer-modal/rubric-designer-modal';
+
+
+
 import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 
 
@@ -164,7 +169,9 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 
 
-    DialogViewSubmissions
+    DialogViewSubmissions,
+
+    RubricDesignerModal
 
 
 
@@ -197,6 +204,10 @@ export class StudentSubmissionPages {
 
 
   openSheetSubmission = false;
+
+  isRubricDialogOpen = false;
+
+  rubricDesignerForModal: RubricDesigner | null = null;
 
 
 
@@ -233,6 +244,8 @@ export class StudentSubmissionPages {
 
 
   private pdfApi = inject(PdfApiService);
+
+  private assignmentApi = inject(AssignmentApiService);
 
 
 
@@ -278,6 +291,221 @@ export class StudentSubmissionPages {
 
       .replace(/\s+/g, '_');
 
+  }
+
+  private async hydrateRubricDesignerFromAssignmentThenFeedback(): Promise<void> {
+    const submission: any = this.currentSubmission;
+    const assignmentRaw: any = submission && submission.assignment;
+    const assignmentId = typeof assignmentRaw === 'string'
+      ? assignmentRaw
+      : (assignmentRaw && typeof assignmentRaw === 'object' ? String(assignmentRaw._id || assignmentRaw.id || '') : '');
+
+    if (assignmentId && assignmentId.trim().length) {
+      try {
+        const a: BackendAssignment = await this.assignmentApi.getAssignmentByIdForTeacher(assignmentId.trim());
+        const d = this.parseRubricDesignerFromRubricsField((a as any)?.rubrics, (a as any)?.title)
+          || this.parseLegacyRubricDesigner((a as any)?.rubric, (a as any)?.title);
+        if (d) {
+          this.applyRubricDesignerToState(d);
+          return;
+        }
+      } catch (err: any) {
+        const msg = err?.error?.message || err?.message || 'Please try again';
+        this.alert.showError('Failed to load assignment rubric', msg);
+      }
+    }
+
+    // fallback for legacy submission-based rubric designer
+    this.hydrateRubricDesignerFromFeedback();
+  }
+
+  private tryRevokeObjectUrl(url: string | null | undefined): void {
+    const u = typeof url === 'string' ? url : '';
+    if (!u.startsWith('blob:')) return;
+    try {
+      URL.revokeObjectURL(u);
+    } catch {
+      // ignore
+    }
+  }
+
+  openRubricDesignerDialog() {
+    this.isRubricDialogOpen = true;
+    this.showDialog = true;
+  }
+
+  private applyRubricDesignerToState(designer: RubricDesigner | null): void {
+    if (!designer) {
+      this.resetRubricDesigner();
+      return;
+    }
+
+    const levelsRaw = Array.isArray(designer.levels) ? designer.levels : [];
+    const criteriaRaw = Array.isArray(designer.criteria) ? designer.criteria : [];
+
+    this.rubricDesignerTitle = typeof designer.title === 'string' ? designer.title : `Rubric: ${this.submissionTitle}`;
+    this.rubricLevels = levelsRaw.length
+      ? levelsRaw.map((l: any) => ({
+          title: String(l?.title || ''),
+          maxPoints: Number(l?.maxPoints) || 0
+        }))
+      : Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: null }));
+
+    this.rubricCriteriaRows = criteriaRaw.length
+      ? criteriaRaw.map((c: any) => ({
+          title: String(c?.title || ''),
+          cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
+        }))
+      : [{ title: '', cells: this.rubricLevels.map(() => '') }];
+
+    this.rubricDesignerForModal = this.rubricDesignerFromState;
+  }
+
+  private safeJsonParse(value: string): any {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw.length) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: any): RubricDesigner | null {
+    const obj = value && typeof value === 'object' ? value : null;
+    const criteriaRaw = Array.isArray(obj?.criteria) ? obj.criteria : null;
+    if (!criteriaRaw) return null;
+
+    const first = criteriaRaw[0] && typeof criteriaRaw[0] === 'object' ? criteriaRaw[0] : null;
+    const levelsRaw = Array.isArray((first as any)?.levels) ? (first as any).levels : [];
+    if (!levelsRaw.length) return null;
+
+    const levels = levelsRaw.map((l: any) => ({
+      title: typeof l?.title === 'string' ? String(l.title) : '',
+      maxPoints: Number(l?.score) || 0
+    }));
+
+    const criteria = criteriaRaw.map((c: any) => {
+      const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
+      return {
+        title: typeof c?.name === 'string' ? String(c.name) : '',
+        cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
+      };
+    });
+
+    const at = typeof assignmentTitle === 'string' ? assignmentTitle : '';
+    return {
+      title: at.trim().length ? `Rubric: ${at}` : `Rubric: ${this.submissionTitle}`,
+      levels,
+      criteria
+    };
+  }
+
+  private parseLegacyRubricDesigner(value: any, assignmentTitle: any): RubricDesigner | null {
+    if (!value) return null;
+    const obj = typeof value === 'string' ? this.safeJsonParse(value) : value;
+    if (!obj || typeof obj !== 'object') return null;
+
+    const at = typeof assignmentTitle === 'string' ? assignmentTitle : '';
+    const title = typeof (obj as any).title === 'string'
+      ? String((obj as any).title)
+      : (at.trim().length ? `Rubric: ${at}` : `Rubric: ${this.submissionTitle}`);
+    const levels = Array.isArray((obj as any).levels) ? (obj as any).levels : null;
+    const criteria = Array.isArray((obj as any).criteria) ? (obj as any).criteria : null;
+    if (!levels || !criteria) return null;
+
+    return {
+      title,
+      levels: levels.map((l: any) => ({
+        title: typeof l?.title === 'string' ? String(l.title) : '',
+        maxPoints: Number(l?.maxPoints) || 0
+      })),
+      criteria: criteria.map((c: any) => ({
+        title: typeof c?.title === 'string' ? String(c.title) : '',
+        cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
+      }))
+    };
+  }
+
+  closeRubricDesignerDialog() {
+    this.isRubricDialogOpen = false;
+    this.showDialog = false;
+  }
+
+  async onRubricDesignerSave(designer: RubricDesigner) {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) return;
+
+    if (this.isRubricSaving) return;
+    if (!designer) return;
+
+    this.isRubricSaving = true;
+    try {
+      const base = this.currentFeedback || this.buildEmptyFeedback(submissionId);
+      const payload: SubmissionFeedback = {
+        ...(base as any),
+        submissionId,
+        rubricDesigner: designer,
+        overriddenByTeacher: true
+      };
+
+      const saved = await this.feedbackApi.upsertSubmissionFeedback(submissionId, payload);
+      this.currentFeedback = saved;
+      void this.hydrateRubricDesignerFromAssignmentThenFeedback();
+
+      this.recomputeRubricFeedbackItems();
+      this.alert.showToast('Rubric saved', 'success');
+      this.closeRubricDesignerDialog();
+    } catch (err: any) {
+      this.alert.showError('Save rubric failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricSaving = false;
+    }
+  }
+
+  async onRubricDesignerGenerateAi(prompt: string) {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) return;
+    if (this.isLoading) return;
+
+    const p = String(prompt || '').trim();
+    if (!p) {
+      this.alert.showWarning('Prompt required', 'Please enter a prompt to generate a rubric.');
+      return;
+    }
+
+    this.isLoading = true;
+    try {
+      const updated = await this.feedbackApi.generateRubricDesignerFromPrompt(submissionId, p);
+      this.currentFeedback = updated;
+      this.hydrateRubricDesignerFromFeedback();
+      this.recomputeRubricFeedbackItems();
+      this.alert.showToast('Rubric generated', 'success');
+    } catch (err: any) {
+      this.alert.showError('Generate Rubric failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async onRubricDesignerAttachFile(file: File) {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) return;
+    if (!file) return;
+    if (this.isRubricUploading) return;
+
+    this.isRubricUploading = true;
+    try {
+      const updated = await this.feedbackApi.uploadRubricFile(submissionId, file);
+      this.currentFeedback = updated;
+      this.hydrateRubricDesignerFromFeedback();
+      this.recomputeRubricFeedbackItems();
+      this.alert.showToast('Rubric attached', 'success');
+    } catch (err: any) {
+      this.alert.showError('Attach rubric failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricUploading = false;
+    }
   }
 
 
@@ -833,6 +1061,8 @@ export class StudentSubmissionPages {
 
 
       : [{ title: '', cells: this.rubricLevels.map(() => '') }];
+
+    this.rubricDesignerForModal = this.rubricDesignerFromState;
 
 
 
@@ -2228,6 +2458,8 @@ uploadData: any = null;
 
   activeFileIndex = 0;
 
+  private applyCurrentSubmissionSeq = 0;
+
   get hasMultipleImages(): boolean {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
     return urls.filter((u: string) => typeof u === 'string' && u.trim().length).length > 1;
@@ -2268,6 +2500,11 @@ uploadData: any = null;
     if (this.activeFileIndex === i) return;
 
     this.activeFileIndex = i;
+
+    this.ocrWords = [];
+    this.annotations = [];
+    this.correctionsError = null;
+    this.recomputeLegendAligned();
 
     void this.applyCurrentSubmission(this.currentSubmission, false);
   }
@@ -3974,6 +4211,8 @@ uploadData: any = null;
 
     ];
 
+    this.rubricDesignerForModal = null;
+
 
 
   }
@@ -5642,6 +5881,10 @@ uploadData: any = null;
 
 
 
+    const seq = ++this.applyCurrentSubmissionSeq;
+
+
+
     this.currentSubmission = submission;
 
 
@@ -5656,16 +5899,11 @@ uploadData: any = null;
 
 
 
-
-
     try {
 
 
 
       const a: any = submission && (submission as any).assignment;
-
-
-
       console.log('[SUBMISSION META] assignment.teacher', a && typeof a === 'object' ? (a.teacher || null) : null, 'assignment.createdAt', a && typeof a === 'object' ? a.createdAt : null);
 
 
@@ -5725,8 +5963,6 @@ uploadData: any = null;
 
 
 
-
-
     this.ocrWords = [];
 
 
@@ -5741,13 +5977,13 @@ uploadData: any = null;
 
 
 
-
-
     this.currentFeedback = null;
 
 
 
     this.feedbackForm.patchValue({ message: '' });
+
+
 
 
 
@@ -5764,10 +6000,13 @@ uploadData: any = null;
 
 
       const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
+      const objectUrl = await this.fetchAsObjectUrl(previewUrl);
+      if (seq !== this.applyCurrentSubmissionSeq) {
+        this.tryRevokeObjectUrl(objectUrl);
+        return;
+      }
 
-
-
-      this.essayImageUrl = await this.fetchAsObjectUrl(previewUrl);
+      this.essayImageUrl = objectUrl;
 
 
 
@@ -5775,7 +6014,13 @@ uploadData: any = null;
 
 
 
-      this.essayImageUrl = await this.fetchAsObjectUrl(url);
+      const objectUrl = await this.fetchAsObjectUrl(url);
+      if (seq !== this.applyCurrentSubmissionSeq) {
+        this.tryRevokeObjectUrl(objectUrl);
+        return;
+      }
+
+      this.essayImageUrl = objectUrl;
 
 
 
@@ -5789,11 +6034,8 @@ uploadData: any = null;
 
     if (this.currentSubmission?._id) {
 
-
-
       await this.loadOcrCorrections(this.currentSubmission._id);
-
-
+      if (seq !== this.applyCurrentSubmissionSeq) return;
 
     }
 
@@ -5804,8 +6046,7 @@ uploadData: any = null;
 
 
     await this.loadFeedback();
-
-
+    if (seq !== this.applyCurrentSubmissionSeq) return;
 
     this.recomputeRubricFeedbackItems();
 
@@ -5816,6 +6057,7 @@ uploadData: any = null;
 
 
     await this.ensureAiFeedbackGeneratedOnce();
+    if (seq !== this.applyCurrentSubmissionSeq) return;
 
 
 
@@ -6589,7 +6831,7 @@ uploadData: any = null;
 
 
 
-  onEditRubric() {
+  async onEditRubric() {
 
 
 
@@ -6601,7 +6843,7 @@ uploadData: any = null;
 
 
 
-    this.hydrateRubricDesignerFromFeedback();
+    await this.hydrateRubricDesignerFromAssignmentThenFeedback();
 
 
 
@@ -6613,7 +6855,7 @@ uploadData: any = null;
 
 
 
-    void this.ensureRubricGeneratedFromContextOnce();
+    // Do not auto-generate rubric on open; assignment.rubrics is the single source of truth.
 
 
 

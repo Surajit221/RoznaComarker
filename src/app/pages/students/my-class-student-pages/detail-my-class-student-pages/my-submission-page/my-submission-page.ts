@@ -88,6 +88,8 @@ import { AlertService } from '../../../../../services/alert.service';
 
 import { ClassApiService } from '../../../../../api/class-api.service';
 
+import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
+
 
 
 
@@ -316,6 +318,8 @@ export class MySubmissionPage {
 
   private submissionApi = inject(SubmissionApiService);
 
+  private assignmentApi = inject(AssignmentApiService);
+
 
 
 
@@ -452,6 +456,83 @@ export class MySubmissionPage {
 
 
 
+  }
+
+  private buildRubricDesignerFromAssignment(): RubricDesigner | null {
+    const a: any = this.assignment;
+    if (!a) return null;
+
+    const fromRubrics = this.parseRubricDesignerFromRubricsField(a?.rubrics, a?.title);
+    if (fromRubrics) return fromRubrics;
+
+    return this.parseLegacyRubricDesigner(a?.rubric, a?.title);
+  }
+
+  private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: any): RubricDesigner | null {
+    const obj = value && typeof value === 'object' ? value : null;
+    const criteriaRaw = Array.isArray(obj?.criteria) ? obj.criteria : null;
+    if (!criteriaRaw) return null;
+
+    const first = criteriaRaw[0] && typeof criteriaRaw[0] === 'object' ? criteriaRaw[0] : null;
+    const levelsRaw = Array.isArray((first as any)?.levels) ? (first as any).levels : [];
+    if (!levelsRaw.length) return null;
+
+    const levels = levelsRaw.map((l: any) => ({
+      title: typeof l?.title === 'string' ? String(l.title) : '',
+      maxPoints: Number(l?.score) || 0
+    }));
+
+    const criteria = criteriaRaw.map((c: any) => {
+      const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
+      return {
+        title: typeof c?.name === 'string' ? String(c.name) : '',
+        cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
+      };
+    });
+
+    const at = typeof assignmentTitle === 'string' ? assignmentTitle : '';
+    return {
+      title: at.trim().length ? `Rubric: ${at}` : `Rubric: ${this.submissionTitle}`,
+      levels,
+      criteria
+    };
+  }
+
+  private parseLegacyRubricDesigner(value: any, assignmentTitle: any): RubricDesigner | null {
+    if (!value) return null;
+    const obj = typeof value === 'string' ? this.safeJsonParse(value) : value;
+    if (!obj || typeof obj !== 'object') return null;
+
+    const at = typeof assignmentTitle === 'string' ? assignmentTitle : '';
+    const title = typeof (obj as any).title === 'string'
+      ? String((obj as any).title)
+      : (at.trim().length ? `Rubric: ${at}` : `Rubric: ${this.submissionTitle}`);
+    const levels = Array.isArray((obj as any).levels) ? (obj as any).levels : null;
+    const criteria = Array.isArray((obj as any).criteria) ? (obj as any).criteria : null;
+    if (!levels || !criteria) return null;
+
+    return {
+      title,
+      levels: levels.map((l: any) => ({
+        title: typeof l?.title === 'string' ? String(l.title) : '',
+        maxPoints: Number(l?.maxPoints) || 0
+      })),
+      criteria: criteria.map((c: any) => ({
+        title: typeof c?.title === 'string' ? String(c.title) : '',
+        cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
+      }))
+    };
+  }
+
+  private safeJsonParse(value: string): any {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw.length) return null;
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   }
 
 
@@ -1013,6 +1094,8 @@ export class MySubmissionPage {
 
 
   feedback: SubmissionFeedback | null = null;
+
+  assignment: BackendAssignment | null = null;
 
 
 
@@ -1876,6 +1959,9 @@ export class MySubmissionPage {
 
 
 
+
+    const fromAssignment = this.buildRubricDesignerFromAssignment();
+    if (fromAssignment) return fromAssignment;
 
     const d: any = (fb as any)?.rubricDesigner;
 
@@ -5804,15 +5890,37 @@ export class MySubmissionPage {
 
       this.submission = submission;
 
-      this.submissionFileUrls = Array.isArray((submission as any)?.fileUrls)
-        ? (submission as any).fileUrls.filter((u: any) => typeof u === 'string' && u.trim().length)
-        : (submission?.fileUrl ? [submission.fileUrl] : []);
+      // Always fetch the latest assignment to avoid caching old rubrics.
+      try {
+        this.assignment = await this.assignmentApi.getAssignmentById(assignmentId);
+      } catch {
+        this.assignment = null;
+      }
 
       const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
-      this.submissionFileIds = rawFiles
-        .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
-        .map((id: any) => (typeof id === 'string' ? id.trim() : ''))
-        .filter((id: string) => Boolean(id));
+      const filePairsFromObjects = rawFiles
+        .map((f: any) => {
+          if (!f || typeof f !== 'object') return null;
+          const id = typeof (f._id || f.id) === 'string' ? String(f._id || f.id).trim() : '';
+          const url = typeof f.url === 'string' ? f.url.trim() : '';
+          if (!id || !url) return null;
+          return { id, url };
+        })
+        .filter(Boolean) as Array<{ id: string; url: string }>;
+
+      if (filePairsFromObjects.length) {
+        this.submissionFileIds = filePairsFromObjects.map((p) => p.id);
+        this.submissionFileUrls = filePairsFromObjects.map((p) => p.url);
+      } else {
+        this.submissionFileUrls = Array.isArray((submission as any)?.fileUrls)
+          ? (submission as any).fileUrls.filter((u: any) => typeof u === 'string' && u.trim().length)
+          : (submission?.fileUrl ? [submission.fileUrl] : []);
+
+        this.submissionFileIds = rawFiles
+          .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
+          .map((id: any) => (typeof id === 'string' ? id.trim() : ''))
+          .filter((id: string) => Boolean(id));
+      }
 
       if (!this.submissionFileIds.length) {
         const pages: any[] = Array.isArray((submission as any)?.ocrPages) ? (submission as any).ocrPages : [];
@@ -5891,28 +5999,12 @@ export class MySubmissionPage {
 
 
         this.hasLoadedOcrCorrections = true;
-
-
-
       }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+      this.rebuildHighlightedTranscript();
+      await this.refreshWritingCorrections();
 
       this.ocrErrorMessage = null;
-
-
 
 
 
@@ -6075,14 +6167,6 @@ export class MySubmissionPage {
 
 
 
-
-
-
-      this.rebuildHighlightedTranscript();
-
-
-
-      await this.refreshWritingCorrections();
 
 
 
