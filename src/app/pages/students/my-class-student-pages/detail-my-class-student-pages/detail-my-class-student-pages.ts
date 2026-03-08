@@ -242,7 +242,8 @@ export class DetailMyClassStudentPages {
 
       // Keep teacher dashboard data consistent within the same app session.
       // Backend remains the source of truth (no synthetic submissions).
-      this.teacherDashboardState.refresh();
+      // Intentionally skip teacher dashboard refresh for student uploads.
+      // Teacher-only dashboard endpoints (e.g. /api/classes/mine) will return 403 for students.
 
       const idx = this.assignments.findIndex((a) => a.id === assignmentId);
       if (idx >= 0) {
