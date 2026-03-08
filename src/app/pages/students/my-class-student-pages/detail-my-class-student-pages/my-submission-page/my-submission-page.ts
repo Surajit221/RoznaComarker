@@ -1351,6 +1351,21 @@ export class MySubmissionPage {
 
   private objectUrls: string[] = [];
 
+  private normalizeUploadsUrl(url: string): string {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+
+    // Already absolute
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    // Backend sometimes returns relative '/uploads/...'
+    if (raw.startsWith('/')) {
+      return `${String(environment.apiUrl || '').replace(/\/+$/, '')}${raw}`;
+    }
+
+    return raw;
+  }
+
   get hasMultipleImages(): boolean {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
     return urls.filter((u: string) => typeof u === 'string' && u.trim().length).length > 1;
@@ -6754,68 +6769,19 @@ export class MySubmissionPage {
 
     this.uploadedFileIsPdf = lowered.endsWith('.pdf');
 
+    const normalizedUrl = this.normalizeUploadsUrl(url);
 
+    // Prefer direct URLs for <img [src]> and <a href>.
+    // Blob fetching via XHR can fail due to CORS/auth differences even when <img src> would work.
+    this.uploadedFileUrl = normalizedUrl;
 
-
-
-
-
-
-
-
-
-
-
-
-
-    return this.fetchAsObjectUrl(url, true)
-
-
-
-
-
-
-
+    // Fallback: try to fetch as Blob and use an object URL.
+    return this.fetchAsObjectUrl(normalizedUrl, true)
       .then((objectUrl) => {
-
-
-
-
-
-
-
         this.uploadedFileUrl = objectUrl;
-
-
-
-
-
-
-
       })
-
-
-
-
-
-
-
       .catch(() => {
-
-
-
-
-
-
-
-        this.uploadedFileUrl = null;
-
-
-
-
-
-
-
+        this.uploadedFileUrl = normalizedUrl;
       });
 
 
