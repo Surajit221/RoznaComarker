@@ -273,11 +273,12 @@
     [open]="showRubricDialog"
     [rubricDesigner]="selectedRubricDesigner"
     [defaultTitle]="selectedRubricDefaultTitle"
-    [isGenerating]="false"
+    [isGenerating]="isRubricGenerating"
     [isSaving]="false"
     [isAttaching]="false"
     (closed)="closeRubricDialog()"
     (save)="onSaveAssignmentRubric($event)"
+    (generateAi)="onAssignmentRubricGenerateAi($event)"
   ></app-rubric-designer-modal>
 
   }
@@ -516,11 +517,12 @@
     [open]="showRubricDialog"
     [rubricDesigner]="selectedRubricDesigner"
     [defaultTitle]="selectedRubricDefaultTitle"
-    [isGenerating]="false"
+    [isGenerating]="isRubricGenerating"
     [isSaving]="false"
     [isAttaching]="false"
     (closed)="closeRubricDialog()"
     (save)="onSaveAssignmentRubric($event)"
+    (generateAi)="onAssignmentRubricGenerateAi($event)"
   ></app-rubric-designer-modal>
   }
 </ng-container>

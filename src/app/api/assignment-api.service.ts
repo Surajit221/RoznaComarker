@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import type { BackendClass } from './class-api.service';
+import type { RubricDesigner } from '../models/submission-feedback.model';
 
 type BackendResponse<T> = {
   success: boolean;
@@ -116,6 +117,17 @@ export class AssignmentApiService {
     const resp = await firstValueFrom(
       this.http.delete<BackendResponse<BackendAssignment>>(
         `${apiBaseUrl}/assignments/${encodeURIComponent(id)}`
+      )
+    );
+    return resp.data;
+  }
+
+  async generateRubricDesignerFromPrompt(assignmentId: string, prompt: string): Promise<RubricDesigner> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<RubricDesigner>>(
+        `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/generate-rubric-prompt`,
+        { prompt }
       )
     );
     return resp.data;
