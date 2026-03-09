@@ -51,6 +51,7 @@ export class DetailMyClassesPages {
   selectedRubricAssignmentId: string | null = null;
   selectedRubricDesigner: RubricDesigner | null = null;
   selectedRubricDefaultTitle = 'Rubric';
+  isRubricGenerating = false;
 
   classId: string | null = null;
   isLoading = false;
@@ -234,6 +235,30 @@ export class DetailMyClassesPages {
     this.showRubricDialog = false;
     this.selectedRubricAssignmentId = null;
     this.selectedRubricDesigner = null;
+    this.isRubricGenerating = false;
+  }
+
+  async onAssignmentRubricGenerateAi(prompt: string) {
+    const assignmentId = this.selectedRubricAssignmentId;
+    if (!assignmentId) return;
+    if (this.isRubricGenerating) return;
+
+    const p = String(prompt || '').trim();
+    if (!p) {
+      this.alert.showWarning('Prompt required', 'Please enter a prompt to generate a rubric.');
+      return;
+    }
+
+    this.isRubricGenerating = true;
+    try {
+      const designer = await this.assignmentApi.generateRubricDesignerFromPrompt(assignmentId, p);
+      this.selectedRubricDesigner = designer;
+      this.alert.showToast('Rubric generated', 'success');
+    } catch (err: any) {
+      this.alert.showError('Generate Rubric failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricGenerating = false;
+    }
   }
 
   async onSaveAssignmentRubric(designer: RubricDesigner) {
