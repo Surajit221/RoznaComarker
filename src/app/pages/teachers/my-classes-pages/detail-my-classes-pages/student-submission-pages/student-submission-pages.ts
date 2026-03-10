@@ -441,6 +441,25 @@ export class StudentSubmissionPages {
 
     this.isRubricSaving = true;
     try {
+      const submission: any = this.currentSubmission;
+      const assignmentRaw: any = submission && submission.assignment;
+      const assignmentId = typeof assignmentRaw === 'string'
+        ? assignmentRaw
+        : (assignmentRaw && typeof assignmentRaw === 'object' ? String(assignmentRaw._id || assignmentRaw.id || '') : '');
+
+      if (assignmentId && assignmentId.trim().length) {
+        const updated = await this.assignmentApi.updateAssignmentRubrics(assignmentId.trim(), {
+          rubricDesigner: designer
+        });
+        if (updated && updated._id) {
+          const state: any = this.teacherDashboardState as any;
+          if (!state.assignmentsById || typeof state.assignmentsById !== 'object') {
+            state.assignmentsById = {};
+          }
+          state.assignmentsById[updated._id] = updated as any;
+        }
+      }
+
       const base = this.currentFeedback || this.buildEmptyFeedback(submissionId);
       const payload: SubmissionFeedback = {
         ...(base as any),
