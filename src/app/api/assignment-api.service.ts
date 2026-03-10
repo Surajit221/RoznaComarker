@@ -112,6 +112,23 @@ export class AssignmentApiService {
     return resp.data;
   }
 
+  async updateAssignmentRubrics(
+    id: string,
+    payload: {
+      rubrics?: any;
+      rubricDesigner?: RubricDesigner | null;
+    }
+  ): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.patch<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/${encodeURIComponent(id)}/rubrics`,
+        payload
+      )
+    );
+    return resp.data;
+  }
+
   async deleteAssignment(id: string): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
