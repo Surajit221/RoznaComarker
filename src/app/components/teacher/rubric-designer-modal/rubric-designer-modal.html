@@ -66,7 +66,7 @@
           @for (row of rubricCriteriaRows; track $index) {
           <div class="w-full flex flex-col gap-2">
             <textarea
-              class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
+              class="w-full min-h-[140px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
               [(ngModel)]="row.title"
               placeholder="Add text here..."
             ></textarea>
@@ -74,7 +74,7 @@
 
           @for (cell of row.cells; track $index) {
           <textarea
-            class="w-full min-h-[110px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
+            class="w-full min-h-[140px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
             [(ngModel)]="row.cells[$index]"
             placeholder="Add text here..."
           ></textarea>

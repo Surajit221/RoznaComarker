@@ -52,6 +52,7 @@ export class DetailMyClassesPages {
   selectedRubricDesigner: RubricDesigner | null = null;
   selectedRubricDefaultTitle = 'Rubric';
   isRubricGenerating = false;
+  isRubricAttaching = false;
 
   classId: string | null = null;
   isLoading = false;
@@ -123,6 +124,27 @@ export class DetailMyClassesPages {
       this.classSummary = await this.classApi.getClassSummary(classId);
     } catch {
       this.classSummary = null;
+    }
+  }
+
+  async onAssignmentRubricAttachFile(file: File) {
+    const assignmentId = this.selectedRubricAssignmentId;
+    if (!assignmentId) return;
+    if (!file) return;
+    if (this.isRubricAttaching) return;
+
+    this.isRubricAttaching = true;
+    try {
+      const updated = await this.assignmentApi.uploadRubricFile(assignmentId, file);
+      if (updated && updated._id) {
+        this.assignmentsById[updated._id] = updated;
+      }
+      this.selectedRubricDesigner = this.parseRubricDesignerFromAssignment(updated as any);
+      this.alert.showToast('Rubric attached', 'success');
+    } catch (err: any) {
+      this.alert.showError('Attach rubric failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricAttaching = false;
     }
   }
 

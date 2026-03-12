@@ -495,10 +495,38 @@ export class StudentSubmissionPages {
 
     this.isLoading = true;
     try {
-      const updated = await this.feedbackApi.generateRubricDesignerFromPrompt(submissionId, p);
-      this.currentFeedback = updated;
-      this.hydrateRubricDesignerFromFeedback();
-      this.recomputeRubricFeedbackItems();
+      const submission: any = this.currentSubmission;
+      const assignmentRaw: any = submission && submission.assignment;
+      const assignmentId = typeof assignmentRaw === 'string'
+        ? assignmentRaw
+        : (assignmentRaw && typeof assignmentRaw === 'object' ? String(assignmentRaw._id || assignmentRaw.id || '') : '');
+
+      if (!assignmentId || !assignmentId.trim().length) {
+        throw new Error('Assignment not found for this submission');
+      }
+
+      const tryGenerate = async () => {
+        const designer = await this.assignmentApi.generateRubricDesignerFromPrompt(assignmentId.trim(), p);
+        this.rubricDesignerForModal = designer;
+        if (!this.currentFeedback) {
+          this.currentFeedback = this.buildEmptyFeedback(submissionId);
+        }
+        (this.currentFeedback as any).rubricDesigner = designer;
+        this.recomputeRubricFeedbackItems();
+      };
+
+      try {
+        await tryGenerate();
+      } catch (err1: any) {
+        const status = err1?.status ?? err1?.error?.status ?? err1?.error?.statusCode;
+        const msg = String(err1?.error?.message || err1?.message || '').toLowerCase();
+        if (status === 422 && msg.includes('incomplete rubric')) {
+          // Auto-retry once; backend already retries too but this covers transient provider truncation.
+          await tryGenerate();
+        } else {
+          throw err1;
+        }
+      }
       this.alert.showToast('Rubric generated', 'success');
     } catch (err: any) {
       this.alert.showError('Generate Rubric failed', err?.error?.message || err?.message || 'Please try again');
@@ -1745,6 +1773,8 @@ export class StudentSubmissionPages {
 
   isCorrectionsLoading = false;
 
+  private loadOcrCorrectionsSeq = 0;
+
 
 
 
@@ -2542,9 +2572,7 @@ uploadData: any = null;
 
 
 
-    if (this.isCorrectionsLoading) return false;
-
-
+    const seq = ++this.loadOcrCorrectionsSeq;
 
     this.isCorrectionsLoading = true;
 
@@ -2590,6 +2618,8 @@ uploadData: any = null;
 
 
       const data = resp && typeof resp === 'object' ? (resp as any).data : null;
+
+      if (seq !== this.loadOcrCorrectionsSeq) return false;
 
 
 
@@ -2811,9 +2841,9 @@ uploadData: any = null;
 
     } finally {
 
-
-
-      this.isCorrectionsLoading = false;
+      if (seq === this.loadOcrCorrectionsSeq) {
+        this.isCorrectionsLoading = false;
+      }
 
 
 
@@ -5948,10 +5978,19 @@ uploadData: any = null;
       : (submission?.fileUrl ? [submission.fileUrl] : []);
 
     const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
-    this.submissionFileIds = rawFiles
+    const idsFromFiles = rawFiles
       .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
-      .map((id: any) => (typeof id === 'string' ? id.trim() : ''))
-      .filter((id: string) => Boolean(id));
+      .map((id: any) => (typeof id === 'string' ? id.trim() : ''));
+
+    // Try to keep fileIds aligned with fileUrls by index (required for per-image OCR corrections)
+    // If lengths don't match, fall back to the old behavior (filtered list).
+    const urlsCount = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls.length : 0;
+    const idsCount = Array.isArray(idsFromFiles) ? idsFromFiles.length : 0;
+    if (urlsCount > 0 && urlsCount === idsCount) {
+      this.submissionFileIds = idsFromFiles.map((id) => (typeof id === 'string' ? id : ''));
+    } else {
+      this.submissionFileIds = idsFromFiles.filter((id: any) => typeof id === 'string' && id.trim().length);
+    }
 
     if (!this.submissionFileIds.length && (submission as any)?.file) {
       const fid = typeof (submission as any).file === 'string' ? (submission as any).file : ((submission as any).file?._id || (submission as any).file?.id);
