@@ -144,7 +144,7 @@
 
               <app-image-annotation-overlay
 
-                [imageUrl]="uploadedFileUrl || 'img/default-img.png'"
+                [imageUrl]="uploadedFileUrl || activeFileUrlRaw || 'img/default-img.png'"
 
                 [annotations]="annotations"
 
@@ -1796,7 +1796,7 @@
 
         <app-image-annotation-overlay
 
-          [imageUrl]="uploadedFileUrl || 'img/default-img.png'"
+          [imageUrl]="uploadedFileUrl || activeFileUrlRaw || 'img/default-img.png'"
 
           [annotations]="annotations"
 
