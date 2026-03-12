@@ -98,6 +98,8 @@ import { AssignmentApiService, type BackendAssignment } from '../../../../../api
 
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 
+import { Subscription } from 'rxjs';
+
 
 
 
@@ -1289,6 +1291,9 @@ export class MySubmissionPage {
 
   private destroyed = false;
 
+  private refreshParamSub: Subscription | null = null;
+  private lastRefreshToken: string | null = null;
+
 
 
 
@@ -1304,6 +1309,10 @@ export class MySubmissionPage {
 
 
   private hasLoadedOcrCorrections = false;
+
+  private loadOcrCorrectionsSeq = 0;
+
+  private setUploadedFileUrlSeq = 0;
 
 
 
@@ -1355,12 +1364,30 @@ export class MySubmissionPage {
     const raw = String(url || '').trim();
     if (!raw) return '';
 
+    const cacheBustToken = this.lastRefreshToken;
+    const appendCacheBust = (input: string): string => {
+      const token = cacheBustToken ? String(cacheBustToken).trim() : '';
+      if (!token) return input;
+
+      const parts = input.split('#');
+      const baseWithQuery = parts[0];
+      const hash = parts.length > 1 ? `#${parts.slice(1).join('#')}` : '';
+
+      if (baseWithQuery.toLowerCase().includes('_cb=')) return `${baseWithQuery}${hash}`;
+
+      const sep = baseWithQuery.includes('?') ? '&' : '?';
+      return `${baseWithQuery}${sep}_cb=${encodeURIComponent(token)}${hash}`;
+    };
+
     // Already absolute
-    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^https?:\/\//i.test(raw)) {
+      return raw.includes('/uploads/submissions/') ? appendCacheBust(raw) : raw;
+    }
 
     // Backend sometimes returns relative '/uploads/...'
     if (raw.startsWith('/')) {
-      return `${String(environment.apiUrl || '').replace(/\/+$/, '')}${raw}`;
+      const abs = `${String(environment.apiUrl || '').replace(/\/+$/, '')}${raw}`;
+      return raw.startsWith('/uploads/submissions/') ? appendCacheBust(abs) : abs;
     }
 
     return raw;
@@ -4452,6 +4479,9 @@ export class MySubmissionPage {
 
   private async loadOcrCorrections(submissionId: string) {
 
+    const seq = ++this.loadOcrCorrectionsSeq;
+    const requestedFileId = this.activeFileId;
+
 
 
     try {
@@ -4462,8 +4492,7 @@ export class MySubmissionPage {
 
 
 
-      const fileId = this.activeFileId;
-      const body = fileId ? { fileId } : {};
+      const body = requestedFileId ? { fileId: requestedFileId } : {};
       const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, body));
 
 
@@ -4483,6 +4512,9 @@ export class MySubmissionPage {
 
 
 
+
+      if (seq !== this.loadOcrCorrectionsSeq) return;
+      if (requestedFileId && requestedFileId !== this.activeFileId) return;
 
       if (success && data) {
 
@@ -4628,7 +4660,7 @@ export class MySubmissionPage {
 
 
 
-        this.annotations = corrections
+        const nextAnnotations = corrections
 
 
 
@@ -4870,12 +4902,10 @@ export class MySubmissionPage {
 
           .filter(Boolean) as FeedbackAnnotation[];
 
+        if (seq !== this.loadOcrCorrectionsSeq) return;
+        if (requestedFileId && requestedFileId !== this.activeFileId) return;
 
-
-
-
-
-
+        this.annotations = nextAnnotations;
         this.recomputeLegendAligned();
 
 
@@ -5346,6 +5376,9 @@ export class MySubmissionPage {
 
     this.destroyed = true;
 
+    this.refreshParamSub?.unsubscribe();
+    this.refreshParamSub = null;
+
 
 
 
@@ -5542,6 +5575,18 @@ export class MySubmissionPage {
 
 
     this.classId = this.route.snapshot.queryParamMap.get('classId');
+
+    this.lastRefreshToken = this.route.snapshot.queryParamMap.get('refresh');
+
+    this.refreshParamSub?.unsubscribe();
+    this.refreshParamSub = this.route.queryParamMap.subscribe((params) => {
+      const next = params.get('refresh');
+      if (next === this.lastRefreshToken) return;
+      this.lastRefreshToken = next;
+
+      if (!next) return;
+      void this.load();
+    });
 
 
 
@@ -5793,6 +5838,8 @@ export class MySubmissionPage {
 
     const seq = this.loadSeq;
 
+    this.hasLoadedOcrCorrections = false;
+
 
 
 
@@ -5831,7 +5878,7 @@ export class MySubmissionPage {
 
 
 
-        submission = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId);
+        submission = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId, this.lastRefreshToken);
 
 
 
@@ -5927,14 +5974,27 @@ export class MySubmissionPage {
         this.submissionFileIds = filePairsFromObjects.map((p) => p.id);
         this.submissionFileUrls = filePairsFromObjects.map((p) => p.url);
       } else {
-        this.submissionFileUrls = Array.isArray((submission as any)?.fileUrls)
-          ? (submission as any).fileUrls.filter((u: any) => typeof u === 'string' && u.trim().length)
-          : (submission?.fileUrl ? [submission.fileUrl] : []);
+        const urlsRaw = Array.isArray((submission as any)?.fileUrls) ? (submission as any).fileUrls : [];
+        const urls = urlsRaw
+          .map((u: any) => (typeof u === 'string' ? u.trim() : ''))
+          .filter((u: string) => Boolean(u));
 
-        this.submissionFileIds = rawFiles
+        const idsRaw = rawFiles
           .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
-          .map((id: any) => (typeof id === 'string' ? id.trim() : ''))
-          .filter((id: string) => Boolean(id));
+          .map((id: any) => (typeof id === 'string' ? id.trim() : ''));
+
+        // Try to keep fileIds aligned with fileUrls by index (required for per-image OCR corrections).
+        // If lengths don't match, fall back to the old behavior (filtered list).
+        const urlsCount = Array.isArray(urlsRaw) ? urlsRaw.length : 0;
+        const idsCount = Array.isArray(idsRaw) ? idsRaw.length : 0;
+
+        if (urlsCount > 0 && urlsCount === idsCount) {
+          this.submissionFileUrls = urlsRaw.map((u: any) => (typeof u === 'string' ? u.trim() : '')).filter((u: string) => Boolean(u));
+          this.submissionFileIds = idsRaw.map((id: any) => (typeof id === 'string' ? id : ''));
+        } else {
+          this.submissionFileUrls = urls.length ? urls : (submission?.fileUrl ? [submission.fileUrl] : []);
+          this.submissionFileIds = idsRaw.filter((id: string) => Boolean(id));
+        }
       }
 
       if (!this.submissionFileIds.length) {
@@ -6005,14 +6065,8 @@ export class MySubmissionPage {
 
 
 
-      if (submission?._id && !this.hasLoadedOcrCorrections) {
-
-
-
+      if (submission?._id) {
         await this.loadOcrCorrections(submission._id);
-
-
-
         this.hasLoadedOcrCorrections = true;
       }
 
@@ -6499,7 +6553,7 @@ export class MySubmissionPage {
 
     try {
 
-      const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId);
+      const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId, this.lastRefreshToken);
 
       if (this.destroyed) return;
 
@@ -6681,6 +6735,8 @@ export class MySubmissionPage {
 
   private setUploadedFileUrl(url: string | null) {
 
+    const seq = ++this.setUploadedFileUrlSeq;
+
 
 
 
@@ -6773,15 +6829,21 @@ export class MySubmissionPage {
 
     // Prefer direct URLs for <img [src]> and <a href>.
     // Blob fetching via XHR can fail due to CORS/auth differences even when <img src> would work.
-    this.uploadedFileUrl = normalizedUrl;
+    if (seq === this.setUploadedFileUrlSeq) {
+      this.uploadedFileUrl = normalizedUrl;
+    }
 
     // Fallback: try to fetch as Blob and use an object URL.
     return this.fetchAsObjectUrl(normalizedUrl, true)
       .then((objectUrl) => {
-        this.uploadedFileUrl = objectUrl;
+        if (seq === this.setUploadedFileUrlSeq) {
+          this.uploadedFileUrl = objectUrl;
+        }
       })
       .catch(() => {
-        this.uploadedFileUrl = normalizedUrl;
+        if (seq === this.setUploadedFileUrlSeq) {
+          this.uploadedFileUrl = normalizedUrl;
+        }
       });
 
 

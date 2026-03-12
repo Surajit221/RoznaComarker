@@ -52,7 +52,7 @@
         </div>
         <div class="w-full rounded-2xl overflow-hidden">
           <app-image-annotation-overlay
-            [imageUrl]="essayImageUrl || currentSubmission?.fileUrl || 'img/default-img.png'"
+            [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || 'img/default-img.png'"
             [annotations]="annotations"
             [page]="1"
           ></app-image-annotation-overlay>

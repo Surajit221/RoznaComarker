@@ -266,8 +266,11 @@ export class DetailMyClassStudentPages {
 
       this.router.navigate(['/student/my-classes/detail/my-submissions', assignmentId], {
         queryParams: {
-          classId: this.classId || undefined
+          classId: this.classId || undefined,
+          refresh: Date.now()
         }
+      }).then(() => {
+        window.location.reload();
       });
 
     } catch (err: any) {

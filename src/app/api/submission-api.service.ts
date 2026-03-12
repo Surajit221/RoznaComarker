@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
@@ -116,12 +116,19 @@ export class SubmissionApiService {
     }
   }
 
-  async getMySubmissionByAssignmentId(assignmentId: string): Promise<BackendSubmission> {
+  async getMySubmissionByAssignmentId(assignmentId: string, cacheBustToken?: string | number | null): Promise<BackendSubmission> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
+      let params = new HttpParams();
+      const token = cacheBustToken === null || cacheBustToken === undefined ? '' : String(cacheBustToken);
+      if (token.trim().length) {
+        params = params.set('_cb', token.trim());
+      }
+
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission>>(
-          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}/my`
+          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}/my`,
+          { params }
         )
       );
       return resp.data;
@@ -134,12 +141,19 @@ export class SubmissionApiService {
     }
   }
 
-  async getSubmissionsByAssignment(assignmentId: string): Promise<BackendSubmission[]> {
+  async getSubmissionsByAssignment(assignmentId: string, cacheBustToken?: string | number | null): Promise<BackendSubmission[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
+      let params = new HttpParams();
+      const token = cacheBustToken === null || cacheBustToken === undefined ? '' : String(cacheBustToken);
+      if (token.trim().length) {
+        params = params.set('_cb', token.trim());
+      }
+
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission[]>>(
-          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}`
+          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}`,
+          { params }
         )
       );
       return resp?.data || [];
