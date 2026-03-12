@@ -275,10 +275,11 @@
     [defaultTitle]="selectedRubricDefaultTitle"
     [isGenerating]="isRubricGenerating"
     [isSaving]="false"
-    [isAttaching]="false"
+    [isAttaching]="isRubricAttaching"
     (closed)="closeRubricDialog()"
     (save)="onSaveAssignmentRubric($event)"
     (generateAi)="onAssignmentRubricGenerateAi($event)"
+    (attachFile)="onAssignmentRubricAttachFile($event)"
   ></app-rubric-designer-modal>
 
   }
@@ -519,10 +520,11 @@
     [defaultTitle]="selectedRubricDefaultTitle"
     [isGenerating]="isRubricGenerating"
     [isSaving]="false"
-    [isAttaching]="false"
+    [isAttaching]="isRubricAttaching"
     (closed)="closeRubricDialog()"
     (save)="onSaveAssignmentRubric($event)"
     (generateAi)="onAssignmentRubricGenerateAi($event)"
+    (attachFile)="onAssignmentRubricAttachFile($event)"
   ></app-rubric-designer-modal>
   }
 </ng-container>

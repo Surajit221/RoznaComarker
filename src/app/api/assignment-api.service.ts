@@ -149,4 +149,17 @@ export class AssignmentApiService {
     );
     return resp.data;
   }
+
+  async uploadRubricFile(assignmentId: string, file: File): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const fd = new FormData();
+    fd.append('file', file);
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/rubric-file`,
+        fd
+      )
+    );
+    return resp.data;
+  }
 }

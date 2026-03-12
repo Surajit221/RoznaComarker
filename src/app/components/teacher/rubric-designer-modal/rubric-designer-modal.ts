@@ -71,7 +71,7 @@ export class RubricDesignerModal {
     this.rubricCriteriaRows = criteriaRaw.length
       ? criteriaRaw.map((c: any) => ({
           title: String(c?.title || ''),
-          cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
+          cells: this.rubricLevels.map((_, i) => this.coerceCellText(Array.isArray(c?.cells) ? c.cells[i] : ''))
         }))
       : [{ title: '', cells: this.rubricLevels.map(() => '') }];
   }
@@ -146,6 +146,26 @@ export class RubricDesignerModal {
   onGenerateRubricAi() {
     const prompt = String(this.rubricPromptText || '').trim();
     this.generateAi.emit(prompt);
+  }
+
+  private coerceCellText(value: any): string {
+    if (typeof value === 'string') return value;
+    if (value == null) return '';
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value === 'object') {
+      const obj: any = value;
+      const preferred = [obj?.description, obj?.text, obj?.content, obj?.value, obj?.label];
+      for (const x of preferred) {
+        const s = typeof x === 'string' ? x : (x == null ? '' : String(x));
+        if (s.trim().length) return s;
+      }
+      try {
+        return JSON.stringify(obj).slice(0, 2000);
+      } catch {
+        return '';
+      }
+    }
+    return '';
   }
 
   onSaveRubric() {

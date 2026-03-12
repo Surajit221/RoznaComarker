@@ -248,17 +248,21 @@ export class ImageAnnotationOverlayComponent implements AfterViewInit, OnChanges
 
       this.tooltipStyle = { display: 'none' };
 
-      // In some browsers/cases the <img> load event may not fire (e.g. cached image, very fast
-      // object-url swaps). After Angular updates the DOM, re-check the element and rebuild.
-      queueMicrotask(() => {
-        const img = this.imgEl?.nativeElement;
-        if (!img) return;
-        if (img.complete && img.naturalWidth > 0) {
-          this.onImageLoad();
-        }
-      });
+      queueMicrotask(() => this.ensureImageLoaded(0));
     }
 
+  }
+
+  private ensureImageLoaded(attempt: number): void {
+    const img = this.imgEl?.nativeElement;
+    if (!img) return;
+    if (img.complete && img.naturalWidth > 0) {
+      this.onImageLoad();
+      return;
+    }
+
+    if (attempt >= 30) return;
+    requestAnimationFrame(() => this.ensureImageLoaded(attempt + 1));
   }
 
 
