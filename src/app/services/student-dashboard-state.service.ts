@@ -7,6 +7,7 @@ import type { BackendMembership } from '../api/membership-api.service';
 import type { BackendSubmission } from '../api/submission-api.service';
 import type { SubmissionFeedback } from '../models/submission-feedback.model';
 import { StudentDashboardDataService, type StudentDashboardData } from './student-dashboard-data.service';
+import { NotificationRealtimeService } from './notification-realtime.service';
 
 export type StudentDashboardStats = {
   essaysDone: number;
@@ -61,6 +62,9 @@ const initialState: StudentDashboardState = {
 @Injectable({ providedIn: 'root' })
 export class StudentDashboardStateService {
   private readonly stateSubject = new BehaviorSubject<StudentDashboardState>(initialState);
+
+  private pendingRefresh = false;
+  private pollId: number | null = null;
 
   readonly state$: Observable<StudentDashboardState> = this.stateSubject.asObservable().pipe(shareReplay(1));
 
@@ -334,7 +338,14 @@ export class StudentDashboardStateService {
 
   private inFlightRefresh: Promise<void> | null = null;
 
-  constructor(private data: StudentDashboardDataService) {}
+  constructor(private data: StudentDashboardDataService, private realtime: NotificationRealtimeService) {
+    this.realtime.notifications$.subscribe((n: any) => {
+      if (!n || n.type !== 'assignment_uploaded') return;
+      this.scheduleRefresh();
+    });
+
+    this.startPolling();
+  }
 
   ensureLoaded(): Promise<void> {
     const state = this.stateSubject.value;
@@ -365,6 +376,27 @@ export class StudentDashboardStateService {
     })();
 
     return this.inFlightRefresh;
+  }
+
+  private scheduleRefresh(): void {
+    if (this.pendingRefresh) return;
+    this.pendingRefresh = true;
+    window.setTimeout(() => {
+      this.pendingRefresh = false;
+      void this.refresh();
+    }, 800);
+  }
+
+  private startPolling(): void {
+    if (this.pollId !== null) return;
+    this.pollId = window.setInterval(() => {
+      try {
+        if (document.visibilityState !== 'visible') return;
+      } catch {
+        // ignore
+      }
+      void this.refresh();
+    }, 60000);
   }
 
   private toRelativeLabel(ts: number): string {

@@ -15,6 +15,8 @@ import { SubmissionApiService } from '../../../../api/submission-api.service';
 import { QrGeneratorService } from '../../../../services/qr-generator.service';
 import { RubricDesignerModal } from '../../../../components/teacher/rubric-designer-modal/rubric-designer-modal';
 import type { RubricDesigner } from '../../../../models/submission-feedback.model';
+import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -42,6 +44,11 @@ export class DetailMyClassesPages {
   private classApi = inject(ClassApiService);
   private submissionApi = inject(SubmissionApiService);
   private qrGenerator = inject(QrGeneratorService);
+  private realtime = inject(NotificationRealtimeService);
+
+  private realtimeSub: Subscription | null = null;
+  private pollId: number | null = null;
+  private pendingSubmissionCountRefresh = false;
   isButtonFabOpen = false;
   openSheetAssignment = false;
   openSheetQr = false;
@@ -110,11 +117,123 @@ export class DetailMyClassesPages {
     status: 'pending' | 'in-progress' | 'completed';
   }> = [];
 
+  private studentSubmissionStatsById: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
+
   async ngOnInit() {
     this.classId = this.route.snapshot.paramMap.get('slug');
     await this.loadClassSummary();
     await this.loadStudents();
     await this.loadAssignments();
+
+    this.realtimeSub?.unsubscribe();
+    this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
+      if (!n || n.type !== 'assignment_submitted') return;
+      const classId = this.classId;
+      const eventClassId = n?.data?.classId ? String(n.data.classId) : '';
+      if (!classId || !eventClassId || eventClassId !== classId) return;
+      const assignmentId = n?.data?.assignmentId ? String(n.data.assignmentId) : '';
+      this.scheduleSubmissionCountRefresh(assignmentId);
+    });
+
+    this.startPolling();
+  }
+
+  ngOnDestroy() {
+    this.realtimeSub?.unsubscribe();
+    this.realtimeSub = null;
+
+    if (this.pollId !== null) {
+      window.clearInterval(this.pollId);
+      this.pollId = null;
+    }
+  }
+
+  private scheduleSubmissionCountRefresh(assignmentId: string): void {
+    if (this.pendingSubmissionCountRefresh) return;
+    this.pendingSubmissionCountRefresh = true;
+
+    window.setTimeout(() => {
+      this.pendingSubmissionCountRefresh = false;
+      if (assignmentId) {
+        void this.refreshAssignmentSubmissionCount(assignmentId);
+        return;
+      }
+      void this.loadAssignments();
+    }, 600);
+  }
+
+  private startPolling(): void {
+    if (this.pollId !== null) return;
+    this.pollId = window.setInterval(() => {
+      try {
+        if (document.visibilityState !== 'visible') return;
+      } catch {
+        // ignore
+      }
+      void this.loadAssignments();
+    }, 60000);
+  }
+
+  private async refreshAssignmentSubmissionCount(assignmentId: string): Promise<void> {
+    const classId = this.classId;
+    if (!classId || !assignmentId) return;
+
+    const idx = (this.assignments || []).findIndex((a) => a.id === assignmentId);
+    if (idx < 0) {
+      await this.loadAssignments();
+      return;
+    }
+
+    try {
+      const submissions = await this.submissionApi.getSubmissionsByAssignment(assignmentId);
+      const totalStudents = this.studentsCount;
+
+      const nextAssignments = [...this.assignments];
+      nextAssignments[idx] = {
+        ...nextAssignments[idx],
+        submitted: (submissions || []).length,
+        total: totalStudents
+      };
+      this.assignments = nextAssignments;
+
+      // Keep student progress stats reasonably fresh for the UI.
+      const getStudentIdFromSubmission = (submission: any): string => {
+        const s = submission && submission.student ? submission.student : null;
+        if (!s) return '';
+        if (typeof s === 'string') return s;
+        if (typeof s === 'object') {
+          const candidate = (s._id || s.id || s.studentId) as any;
+          return typeof candidate === 'string' ? candidate : '';
+        }
+        return '';
+      };
+
+      const getSubmissionTimestampMs = (submission: any): number => {
+        const raw = submission?.submittedAt || submission?.updatedAt || submission?.createdAt;
+        if (!raw) return 0;
+        const t = new Date(raw).getTime();
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      const statsByStudent = { ...(this.studentSubmissionStatsById || {}) } as Record<string, { assignmentIds: Set<string>; lastActivityMs: number }>;
+      for (const sub of submissions || []) {
+        const studentId = getStudentIdFromSubmission(sub);
+        if (!studentId) continue;
+        if (!statsByStudent[studentId]) {
+          statsByStudent[studentId] = { assignmentIds: new Set<string>(), lastActivityMs: 0 };
+        }
+        statsByStudent[studentId].assignmentIds.add(assignmentId);
+        const t = getSubmissionTimestampMs(sub);
+        if (t > statsByStudent[studentId].lastActivityMs) {
+          statsByStudent[studentId].lastActivityMs = t;
+        }
+      }
+      this.studentSubmissionStatsById = statsByStudent;
+      this.applyStudentStats();
+    } catch {
+      // If anything goes wrong, fall back to full reload.
+      await this.loadAssignments();
+    }
   }
 
   private async loadClassSummary() {
@@ -181,18 +300,54 @@ export class DetailMyClassesPages {
 
       // fill in submission stats
       const totalStudents = this.studentsCount;
+      const statsByStudent: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
+
+      const getStudentIdFromSubmission = (submission: any): string => {
+        const s = submission && submission.student ? submission.student : null;
+        if (!s) return '';
+        if (typeof s === 'string') return s;
+        if (typeof s === 'object') {
+          const candidate = (s._id || s.id || s.studentId) as any;
+          return typeof candidate === 'string' ? candidate : '';
+        }
+        return '';
+      };
+
+      const getSubmissionTimestampMs = (submission: any): number => {
+        const raw = submission?.submittedAt || submission?.updatedAt || submission?.createdAt;
+        if (!raw) return 0;
+        const t = new Date(raw).getTime();
+        return Number.isFinite(t) ? t : 0;
+      };
+
       await Promise.all(
         this.assignments.map(async (item) => {
           try {
             const submissions = await this.submissionApi.getSubmissionsByAssignment(item.id);
             item.submitted = (submissions || []).length;
             item.total = totalStudents;
+
+            for (const sub of submissions || []) {
+              const studentId = getStudentIdFromSubmission(sub);
+              if (!studentId) continue;
+              if (!statsByStudent[studentId]) {
+                statsByStudent[studentId] = { assignmentIds: new Set<string>(), lastActivityMs: 0 };
+              }
+              statsByStudent[studentId].assignmentIds.add(item.id);
+              const t = getSubmissionTimestampMs(sub);
+              if (t > statsByStudent[studentId].lastActivityMs) {
+                statsByStudent[studentId].lastActivityMs = t;
+              }
+            }
           } catch {
             item.submitted = 0;
             item.total = totalStudents;
           }
         })
       );
+
+      this.studentSubmissionStatsById = statsByStudent;
+      this.applyStudentStats();
     } catch (err: any) {
       this.alert.showError('Failed to load assignments', err?.message || 'Please try again');
     } finally {
@@ -274,7 +429,7 @@ export class DetailMyClassesPages {
     this.isRubricGenerating = true;
     try {
       const designer = await this.assignmentApi.generateRubricDesignerFromPrompt(assignmentId, p);
-      this.selectedRubricDesigner = designer;
+      this.selectedRubricDesigner = this.normalizeRubricDesigner(designer, this.selectedRubricDefaultTitle);
       this.alert.showToast('Rubric generated', 'success');
     } catch (err: any) {
       this.alert.showError('Generate Rubric failed', err?.error?.message || err?.message || 'Please try again');
@@ -289,11 +444,12 @@ export class DetailMyClassesPages {
     if (!designer) return;
 
     try {
-      const rubrics = this.toAssignmentRubrics(designer);
+      const normalizedDesigner = this.normalizeRubricDesigner(designer, this.selectedRubricDefaultTitle);
+      const rubrics = this.toAssignmentRubrics(normalizedDesigner);
 
       const updated = await this.assignmentApi.updateAssignment(assignmentId, {
         rubrics,
-        rubric: designer
+        rubric: normalizedDesigner
       });
       if (updated && updated._id) {
         this.assignmentsById[updated._id] = updated;
@@ -308,8 +464,65 @@ export class DetailMyClassesPages {
 
   private parseRubricDesignerFromAssignment(a: BackendAssignment): RubricDesigner | null {
     const fromRubrics = this.parseRubricDesignerFromRubricsField((a as any)?.rubrics, a.title);
-    if (fromRubrics) return fromRubrics;
-    return this.parseLegacyRubricDesigner((a as any)?.rubric, a.title);
+    if (fromRubrics) return this.normalizeRubricDesigner(fromRubrics, a.title ? `Rubric: ${a.title}` : 'Rubric');
+    const legacy = this.parseLegacyRubricDesigner((a as any)?.rubric, a.title);
+    return legacy ? this.normalizeRubricDesigner(legacy, a.title ? `Rubric: ${a.title}` : 'Rubric') : null;
+  }
+
+  private normalizeRubricDesigner(input: any, defaultTitle: string): RubricDesigner {
+    const d = input && typeof input === 'object' ? input : {};
+    const titleRaw = typeof d.title === 'string' ? d.title : '';
+    const title = titleRaw.trim().length ? titleRaw.trim() : String(defaultTitle || 'Rubric');
+
+    const levelsCandidate = Array.isArray(d.levels)
+      ? d.levels
+      : (d.levels && typeof d.levels === 'object' ? Object.values(d.levels) : null);
+
+    const criteriaCandidate = Array.isArray(d.criteria)
+      ? d.criteria
+      : (d.criteria && typeof d.criteria === 'object' ? Object.values(d.criteria) : null);
+
+    const safeCriteriaRaw = Array.isArray(criteriaCandidate) ? criteriaCandidate : [];
+
+    let inferredLevelCount = 0;
+    if (safeCriteriaRaw.length) {
+      const firstRow: any = safeCriteriaRaw[0] && typeof safeCriteriaRaw[0] === 'object' ? safeCriteriaRaw[0] : {};
+      const cellsCandidate = Array.isArray(firstRow.cells)
+        ? firstRow.cells
+        : (firstRow.cells && typeof firstRow.cells === 'object' ? Object.values(firstRow.cells) : null);
+      inferredLevelCount = Array.isArray(cellsCandidate) ? cellsCandidate.length : 0;
+    }
+
+    const levelCount = Array.isArray(levelsCandidate)
+      ? levelsCandidate.length
+      : (inferredLevelCount > 0 ? inferredLevelCount : 4);
+
+    const levelsRaw = Array.isArray(levelsCandidate)
+      ? levelsCandidate
+      : Array.from({ length: Math.min(6, Math.max(1, levelCount)) }).map(() => ({ title: '', maxPoints: 0 }));
+
+    const levels = levelsRaw
+      .map((l: any) => ({
+        title: typeof l?.title === 'string' ? String(l.title) : String(l?.title || ''),
+        maxPoints: Number(l?.maxPoints) || 0
+      }))
+      .slice(0, 6);
+
+    const criteria = (safeCriteriaRaw.length ? safeCriteriaRaw : [{ title: '', cells: [] }])
+      .map((c: any) => {
+        const rawCells = Array.isArray(c?.cells)
+          ? c.cells
+          : (c?.cells && typeof c.cells === 'object' ? Object.values(c.cells) : []);
+        const cells = Array.isArray(rawCells) ? rawCells.map((x: any) => String(x ?? '')) : [];
+        const padded = Array.from({ length: levels.length }).map((_, i) => String(cells[i] ?? ''));
+        return {
+          title: typeof c?.title === 'string' ? String(c.title) : String(c?.title || ''),
+          cells: padded
+        };
+      })
+      .slice(0, 50);
+
+    return { title, levels, criteria };
   }
 
   private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: string): RubricDesigner | null {
@@ -445,11 +658,31 @@ export class DetailMyClassesPages {
       id: s.id,
       name: s.name,
       image: 'img/default-img.png',
-      status: 'ACTIVE' as const,
+      status: (joined ? 'ACTIVE' : 'INVITED') as 'ACTIVE' | 'INVITED',
       submitted: 0,
       total: 0,
       lastActivity
     };
+  }
+
+  private applyStudentStats() {
+    const totalAssignments = (this.assignments || []).length;
+    const stats = this.studentSubmissionStatsById || {};
+
+    this.students = (this.students || []).map((s) => {
+      const st = stats[s.id];
+      const submitted = st ? st.assignmentIds.size : 0;
+      const lastActivity = st && st.lastActivityMs
+        ? new Date(st.lastActivityMs).toLocaleDateString()
+        : s.lastActivity;
+
+      return {
+        ...s,
+        submitted,
+        total: totalAssignments,
+        lastActivity
+      };
+    });
   }
 
   private async loadStudents() {
@@ -458,6 +691,7 @@ export class DetailMyClassesPages {
     try {
       const students = await this.classApi.getClassStudents(classId);
       this.students = (students || []).map((s) => this.mapStudent(s));
+      this.applyStudentStats();
     } catch (err: any) {
       this.alert.showError('Failed to load students', err?.error?.message || err?.message || 'Please try again');
     }

@@ -13,6 +13,8 @@ import { type BackendUploadResponse, UploadApiService } from '../../../../api/up
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassSummary } from '../../../../api/class-api.service';
 import { TeacherDashboardStateService } from '../../../../services/teacher-dashboard-state.service';
+import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
@@ -32,6 +34,11 @@ export class DetailMyClassStudentPages {
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
   private teacherDashboardState = inject(TeacherDashboardStateService);
+  private realtime = inject(NotificationRealtimeService);
+
+  private realtimeSub: Subscription | null = null;
+  private assignmentsPollId: number | null = null;
+  private pendingAssignmentsRefresh = false;
 
   classId: string | null = null;
   isLoading = false;
@@ -72,6 +79,53 @@ export class DetailMyClassStudentPages {
     this.classId = this.route.snapshot.paramMap.get('slug') || this.route.snapshot.paramMap.get('classId');
     await this.loadClassSummary();
     await this.loadAssignments();
+
+    this.realtimeSub?.unsubscribe();
+    this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
+      if (!n || n.type !== 'assignment_uploaded') return;
+      const classId = this.classId;
+      const eventClassId = n?.data?.classId ? String(n.data.classId) : '';
+      if (!classId || !eventClassId || eventClassId !== classId) return;
+      this.scheduleAssignmentsRefresh();
+    });
+
+    this.startAssignmentsPolling();
+  }
+
+  ngOnDestroy() {
+    this.realtimeSub?.unsubscribe();
+    this.realtimeSub = null;
+
+    if (this.assignmentsPollId !== null) {
+      window.clearInterval(this.assignmentsPollId);
+      this.assignmentsPollId = null;
+    }
+  }
+
+  private scheduleAssignmentsRefresh(): void {
+    if (this.pendingAssignmentsRefresh) return;
+    this.pendingAssignmentsRefresh = true;
+
+    // Debounce to avoid rapid refresh storms if multiple notifications arrive.
+    window.setTimeout(() => {
+      this.pendingAssignmentsRefresh = false;
+      void this.loadClassSummary();
+      void this.loadAssignments();
+    }, 500);
+  }
+
+  private startAssignmentsPolling(): void {
+    if (this.assignmentsPollId !== null) return;
+
+    this.assignmentsPollId = window.setInterval(() => {
+      try {
+        if (document.visibilityState !== 'visible') return;
+      } catch {
+        // ignore
+      }
+
+      void this.loadAssignments();
+    }, 30000);
   }
 
   private async loadClassSummary() {
@@ -264,14 +318,22 @@ export class DetailMyClassStudentPages {
       this.selectedFiles = [];
       this.selectedAssignmentId = null;
 
-      this.router.navigate(['/student/my-classes/detail/my-submissions', assignmentId], {
+      const refreshToken = String(Date.now());
+      try {
+        sessionStorage.setItem(`forceSubmissionReload:${assignmentId}:${refreshToken}`, '1');
+      } catch {
+        // ignore storage failures
+      }
+
+      const tree = this.router.createUrlTree(['/student/my-classes/detail/my-submissions', assignmentId], {
         queryParams: {
           classId: this.classId || undefined,
-          refresh: Date.now()
+          refresh: refreshToken,
+          hardReload: 1
         }
-      }).then(() => {
-        window.location.reload();
       });
+      const url = this.router.serializeUrl(tree);
+      window.location.assign(url);
 
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Please try again';
