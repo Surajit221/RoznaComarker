@@ -1,0 +1,44 @@
+﻿Folder PATH listing for volume New Volume
+Volume serial number is 0000005F C055:F522
+D:\CLIENT PROJECT FIVERR\1ST PROJECT\PROJECTROZNA\ROZNACOMARKER\PUBLIC
+|   favicon.ico
+|   
++---icons
+|       ic_apple.svg
+|       ic_google.svg
+|       
+\---img
+    |   ai-icon.svg
+    |   check.svg
+    |   default-img.png
+    |   dones.svg
+    |   hero-banner.png
+    |   lineup.svg
+    |   logo.png
+    |   notes.svg
+    |   pie.svg
+    |   sample.png
+    |   students.png
+    |   upload.svg
+    |   voices.svg
+    |   
+    +---ic
+    |       chart-square 1.png
+    |       chat-rounded.svg
+    |       chat.svg
+    |       clock.svg
+    |       law.svg
+    |       like.svg
+    |       students.svg
+    |       
+    \---steps
+            ai-analyze.png
+            ai-feedback.png
+            ai-score.png
+            create-new-class-removed.png
+            create-new-class-screen.png
+            create-new-class.png
+            feedback.png
+            upload-essay-screen.png
+            upload-essay.png
+            

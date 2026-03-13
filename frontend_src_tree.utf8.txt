@@ -1,0 +1,388 @@
+﻿Folder PATH listing for volume New Volume
+Volume serial number is 0000006B C055:F522
+D:\CLIENT PROJECT FIVERR\1ST PROJECT\PROJECTROZNA\ROZNACOMARKER\SRC
+|   index.html
+|   main.ts
+|   styles.css
+|   
++---app
+|   |   app.config.ts
+|   |   app.css
+|   |   app.html
+|   |   app.routes.ts
+|   |   app.spec.ts
+|   |   app.ts
+|   |   
+|   +---api
+|   |       assignment-api.service.ts
+|   |       class-api.service.ts
+|   |       feedback-api.service.ts
+|   |       membership-api.service.ts
+|   |       notification-api.service.ts
+|   |       pdf-api.service.ts
+|   |       plans-api.service.ts
+|   |       pricing-plans-api.service.ts
+|   |       submission-api.service.ts
+|   |       subscription-api.service.ts
+|   |       upload-api.service.ts
+|   |       writing-corrections-api.service.ts
+|   |       
+|   +---auth
+|   |       auth-error.interceptor.ts
+|   |       auth.service.ts
+|   |       jwt.interceptor.ts
+|   |       student.guard.ts
+|   |       teacher.guard.ts
+|   |       
+|   +---components
+|   |   +---common
+|   |   |   \---correction-legend
+|   |   +---correction-highlight
+|   |   +---correction-tooltip
+|   |   +---feedback-summary
+|   |   |       feedback-summary.css
+|   |   |       feedback-summary.html
+|   |   |       feedback-summary.ts
+|   |   |       
+|   |   +---image-annotation-overlay
+|   |   |       image-annotation-overlay.css
+|   |   |       image-annotation-overlay.html
+|   |   |       image-annotation-overlay.ts
+|   |   |       
+|   |   +---lp
+|   |   |   +---footer-lp
+|   |   |   |       footer-lp.css
+|   |   |   |       footer-lp.html
+|   |   |   |       footer-lp.spec.ts
+|   |   |   |       footer-lp.ts
+|   |   |   |       
+|   |   |   +---navbar-lp
+|   |   |   |       navbar-lp.css
+|   |   |   |       navbar-lp.html
+|   |   |   |       navbar-lp.spec.ts
+|   |   |   |       navbar-lp.ts
+|   |   |   |       
+|   |   |   \---navbar-no-menu-lp
+|   |   |           navbar-no-menu-lp.css
+|   |   |           navbar-no-menu-lp.html
+|   |   |           navbar-no-menu-lp.spec.ts
+|   |   |           navbar-no-menu-lp.ts
+|   |   |           
+|   |   +---rubric-feedback
+|   |   |       rubric-feedback.css
+|   |   |       
+|   |   +---student
+|   |   |   \---my-classes-card-student
+|   |   |           my-classes-card-student.css
+|   |   |           my-classes-card-student.html
+|   |   |           my-classes-card-student.spec.ts
+|   |   |           my-classes-card-student.ts
+|   |   |           
+|   |   +---submission-details
+|   |   |   \---tokenized-transcript
+|   |   |           tokenized-transcript.css
+|   |   |           tokenized-transcript.html
+|   |   |           tokenized-transcript.ts
+|   |   |           
+|   |   +---teacher
+|   |   |   +---essay-images
+|   |   |   |       essay-images.css
+|   |   |   |       essay-images.html
+|   |   |   |       essay-images.spec.ts
+|   |   |   |       essay-images.ts
+|   |   |   |       
+|   |   |   +---my-classes-card
+|   |   |   |       my-classes-card.css
+|   |   |   |       my-classes-card.html
+|   |   |   |       my-classes-card.spec.ts
+|   |   |   |       my-classes-card.ts
+|   |   |   |       
+|   |   |   \---rubric-designer-modal
+|   |   |           rubric-designer-modal.css
+|   |   |           rubric-designer-modal.html
+|   |   |           rubric-designer-modal.ts
+|   |   |           
+|   |   \---writing-corrections-legend
+|   |           writing-corrections-legend.css
+|   |           writing-corrections-legend.html
+|   |           writing-corrections-legend.ts
+|   |           
+|   +---constants
+|   |       correction-legend.default.ts
+|   |       
+|   +---layouts
+|   |   +---auth-layout
+|   |   |       auth-layout.css
+|   |   |       auth-layout.html
+|   |   |       auth-layout.spec.ts
+|   |   |       auth-layout.ts
+|   |   |       
+|   |   +---dashboard-layout
+|   |   |       dashboard-layout.css
+|   |   |       dashboard-layout.html
+|   |   |       dashboard-layout.spec.ts
+|   |   |       dashboard-layout.ts
+|   |   |       
+|   |   +---landing-page-layout
+|   |   |       landing-page-layout.css
+|   |   |       landing-page-layout.html
+|   |   |       landing-page-layout.spec.ts
+|   |   |       landing-page-layout.ts
+|   |   |       
+|   |   \---tnc-pp-layout
+|   |           tnc-pp-layout.css
+|   |           tnc-pp-layout.html
+|   |           tnc-pp-layout.spec.ts
+|   |           tnc-pp-layout.ts
+|   |           
+|   +---models
+|   |       correction-legend.model.ts
+|   |       dashboard-submission.model.ts
+|   |       feedback-annotation.model.ts
+|   |       markers-data.ts
+|   |       ocr-token.model.ts
+|   |       rubric-grid.model.ts
+|   |       submission-feedback.model.ts
+|   |       
+|   +---pages
+|   |   +---auth
+|   |   |   |   auth.routes.ts
+|   |   |   |   
+|   |   |   +---login-pages
+|   |   |   |       login-pages.css
+|   |   |   |       login-pages.html
+|   |   |   |       login-pages.spec.ts
+|   |   |   |       login-pages.ts
+|   |   |   |       
+|   |   |   \---register-pages
+|   |   |           register-pages.css
+|   |   |           register-pages.html
+|   |   |           register-pages.spec.ts
+|   |   |           register-pages.ts
+|   |   |           
+|   |   +---landing-page
+|   |   |   |   landing-page.css
+|   |   |   |   landing-page.html
+|   |   |   |   landing-page.route.ts
+|   |   |   |   landing-page.spec.ts
+|   |   |   |   landing-page.ts
+|   |   |   |   
+|   |   |   +---pp-page
+|   |   |   |       pp-page.css
+|   |   |   |       pp-page.html
+|   |   |   |       pp-page.spec.ts
+|   |   |   |       pp-page.ts
+|   |   |   |       
+|   |   |   \---tnc-page
+|   |   |           tnc-page.css
+|   |   |           tnc-page.html
+|   |   |           tnc-page.spec.ts
+|   |   |           tnc-page.ts
+|   |   |           
+|   |   +---pricing
+|   |   |       pricing.css
+|   |   |       pricing.html
+|   |   |       pricing.ts
+|   |   |       
+|   |   +---students
+|   |   |   |   student.routes.ts
+|   |   |   |   
+|   |   |   +---dashboard-student-pages
+|   |   |   |       dashboard-student-pages.css
+|   |   |   |       dashboard-student-pages.html
+|   |   |   |       dashboard-student-pages.spec.ts
+|   |   |   |       dashboard-student-pages.ts
+|   |   |   |       
+|   |   |   +---handwritten-ocr-page
+|   |   |   |       handwritten-ocr-page.css
+|   |   |   |       handwritten-ocr-page.html
+|   |   |   |       handwritten-ocr-page.ts
+|   |   |   |       
+|   |   |   +---join-class-link-pages
+|   |   |   |       join-class-link-pages.css
+|   |   |   |       join-class-link-pages.html
+|   |   |   |       join-class-link-pages.ts
+|   |   |   |       
+|   |   |   +---my-class-student-pages
+|   |   |   |   |   my-class-student-pages.css
+|   |   |   |   |   my-class-student-pages.html
+|   |   |   |   |   my-class-student-pages.spec.ts
+|   |   |   |   |   my-class-student-pages.ts
+|   |   |   |   |   
+|   |   |   |   +---detail-my-class-student-pages
+|   |   |   |   |   |   detail-my-class-student-pages.css
+|   |   |   |   |   |   detail-my-class-student-pages.html
+|   |   |   |   |   |   detail-my-class-student-pages.spec.ts
+|   |   |   |   |   |   detail-my-class-student-pages.ts
+|   |   |   |   |   |   
+|   |   |   |   |   +---my-submission-page
+|   |   |   |   |   |       my-submission-page.css
+|   |   |   |   |   |       my-submission-page.html
+|   |   |   |   |   |       my-submission-page.spec.ts
+|   |   |   |   |   |       my-submission-page.ts
+|   |   |   |   |   |       
+|   |   |   |   |   \---upload-essay-form
+|   |   |   |   |           upload-essay-form.css
+|   |   |   |   |           upload-essay-form.html
+|   |   |   |   |           upload-essay-form.spec.ts
+|   |   |   |   |           upload-essay-form.ts
+|   |   |   |   |           
+|   |   |   |   \---join-class-form
+|   |   |   |           join-class-form.css
+|   |   |   |           join-class-form.html
+|   |   |   |           join-class-form.spec.ts
+|   |   |   |           join-class-form.ts
+|   |   |   |           
+|   |   |   +---my-notification-student-pages
+|   |   |   |       my-notification-student-pages.css
+|   |   |   |       my-notification-student-pages.html
+|   |   |   |       my-notification-student-pages.spec.ts
+|   |   |   |       my-notification-student-pages.ts
+|   |   |   |       
+|   |   |   \---my-profile-student-pages
+|   |   |           my-profile-student-pages.css
+|   |   |           my-profile-student-pages.html
+|   |   |           my-profile-student-pages.spec.ts
+|   |   |           my-profile-student-pages.ts
+|   |   |           
+|   |   \---teachers
+|   |       |   teacher.routes.ts
+|   |       |   
+|   |       +---dashboard-teacher-pages
+|   |       |       dashboard-teacher-pages.css
+|   |       |       dashboard-teacher-pages.html
+|   |       |       dashboard-teacher-pages.spec.ts
+|   |       |       dashboard-teacher-pages.ts
+|   |       |       
+|   |       +---my-classes-pages
+|   |       |   |   my-classes-pages.css
+|   |       |   |   my-classes-pages.html
+|   |       |   |   my-classes-pages.spec.ts
+|   |       |   |   my-classes-pages.ts
+|   |       |   |   
+|   |       |   +---detail-my-classes-pages
+|   |       |   |   |   detail-my-classes-pages.css
+|   |       |   |   |   detail-my-classes-pages.html
+|   |       |   |   |   detail-my-classes-pages.spec.ts
+|   |       |   |   |   detail-my-classes-pages.ts
+|   |       |   |   |   
+|   |       |   |   +---assignment-form
+|   |       |   |   |       assignment-form.css
+|   |       |   |   |       assignment-form.html
+|   |       |   |   |       assignment-form.spec.ts
+|   |       |   |   |       assignment-form.ts
+|   |       |   |   |       
+|   |       |   |   +---dialog-qr-classes
+|   |       |   |   |       dialog-qr-classes.css
+|   |       |   |   |       dialog-qr-classes.html
+|   |       |   |   |       dialog-qr-classes.spec.ts
+|   |       |   |   |       dialog-qr-classes.ts
+|   |       |   |   |       
+|   |       |   |   +---dialog-view-submissions
+|   |       |   |   |       dialog-view-submissions.css
+|   |       |   |   |       dialog-view-submissions.html
+|   |       |   |   |       dialog-view-submissions.spec.ts
+|   |       |   |   |       dialog-view-submissions.ts
+|   |       |   |   |       
+|   |       |   |   +---student-profile-pages
+|   |       |   |   |       student-profile-pages.css
+|   |       |   |   |       student-profile-pages.html
+|   |       |   |   |       student-profile-pages.spec.ts
+|   |       |   |   |       student-profile-pages.ts
+|   |       |   |   |       
+|   |       |   |   \---student-submission-pages
+|   |       |   |       |   student-submission-pages.css
+|   |       |   |       |   student-submission-pages.html
+|   |       |   |       |   student-submission-pages.spec.ts
+|   |       |   |       |   student-submission-pages.ts
+|   |       |   |       |   
+|   |       |   |       +---rubric-form
+|   |       |   |       |       rubric-form.css
+|   |       |   |       |       rubric-form.html
+|   |       |   |       |       rubric-form.spec.ts
+|   |       |   |       |       rubric-form.ts
+|   |       |   |       |       
+|   |       |   |       \---rubric-modal
+|   |       |   |           \---components
+|   |       |   \---my-classes-form
+|   |       |           my-classes-form.css
+|   |       |           my-classes-form.html
+|   |       |           my-classes-form.spec.ts
+|   |       |           my-classes-form.ts
+|   |       |           
+|   |       +---my-notification-pages
+|   |       |       my-notification-pages.css
+|   |       |       my-notification-pages.html
+|   |       |       my-notification-pages.spec.ts
+|   |       |       my-notification-pages.ts
+|   |       |       
+|   |       +---my-profile-pages
+|   |       |       my-profile-pages.css
+|   |       |       my-profile-pages.html
+|   |       |       my-profile-pages.spec.ts
+|   |       |       my-profile-pages.ts
+|   |       |       
+|   |       \---report-pages
+|   |               report-pages.css
+|   |               report-pages.html
+|   |               report-pages.spec.ts
+|   |               report-pages.ts
+|   |               
+|   +---pipe
+|   |       truncate.pipe.ts
+|   |       
+|   +---services
+|   |       alert.service.ts
+|   |       annotation-state.service.ts
+|   |       cache.service.ts
+|   |       class-management.service.spec.ts
+|   |       debounce.service.ts
+|   |       device.service.ts
+|   |       error-handler.service.ts
+|   |       join-intent.service.ts
+|   |       notification-realtime.service.ts
+|   |       qr-generator.service.ts
+|   |       qr-scanner.service.ts
+|   |       role.service.ts
+|   |       student-dashboard-data.service.ts
+|   |       student-dashboard-state.service.ts
+|   |       teacher-dashboard-data.service.ts
+|   |       teacher-dashboard-state.service.ts
+|   |       
+|   +---shared
+|   |   +---app-bar-back-button
+|   |   |       app-bar-back-button.css
+|   |   |       app-bar-back-button.html
+|   |   |       app-bar-back-button.spec.ts
+|   |   |       app-bar-back-button.ts
+|   |   |       
+|   |   +---bottomsheet-dialog
+|   |   |       bottomsheet-dialog.css
+|   |   |       bottomsheet-dialog.html
+|   |   |       bottomsheet-dialog.spec.ts
+|   |   |       bottomsheet-dialog.ts
+|   |   |       
+|   |   +---chart-storage
+|   |   |       chart-storage.css
+|   |   |       chart-storage.html
+|   |   |       chart-storage.spec.ts
+|   |   |       chart-storage.ts
+|   |   |       
+|   |   \---modal-dialog
+|   |           modal-dialog.css
+|   |           modal-dialog.html
+|   |           modal-dialog.spec.ts
+|   |           modal-dialog.ts
+|   |           
+|   \---utils
+|           correction-legend-mapping.util.ts
+|           dynamic-ai-feedback.util.ts
+|           grading-display.util.ts
+|           legend-aligned-feedback.util.ts
+|           rubric-grid.util.ts
+|           writing-corrections-highlight.util.ts
+|           
+\---environments
+        environment.prod.ts
+        environment.ts
+        
