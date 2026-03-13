@@ -118,12 +118,20 @@ export class ClassApiService {
     return resp.data;
   }
 
-  async getClassStudents(classId: string): Promise<BackendClassStudent[]> {
+  async getClassStudents(
+    classId: string,
+    options?: { forceRefresh?: boolean }
+  ): Promise<BackendClassStudent[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = `class-students-${classId}`;
-    const cached = this.cache.get<BackendClassStudent[]>(cacheKey);
-    if (cached) {
-      return cached;
+
+    if (!options?.forceRefresh) {
+      const cached = this.cache.get<BackendClassStudent[]>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    } else {
+      this.cache.delete(cacheKey);
     }
 
     const resp = await firstValueFrom(
@@ -132,7 +140,7 @@ export class ClassApiService {
       )
     );
     const data = resp?.data || [];
-    
+
     // Cache for 3 minutes
     this.cache.set(cacheKey, data, 3 * 60 * 1000);
     return data;
@@ -150,12 +158,16 @@ export class ClassApiService {
     this.cache.delete('my-teacher-classes');
   }
 
-  async getClassSummary(classId: string): Promise<BackendClassSummary> {
+  async getClassSummary(classId: string, options?: { forceRefresh?: boolean }): Promise<BackendClassSummary> {
     const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = `class-summary-${classId}`;
-    const cached = this.cache.get<BackendClassSummary>(cacheKey);
-    if (cached) {
-      return cached;
+    if (!options?.forceRefresh) {
+      const cached = this.cache.get<BackendClassSummary>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    } else {
+      this.cache.delete(cacheKey);
     }
 
     const resp = await firstValueFrom(
@@ -168,6 +180,10 @@ export class ClassApiService {
     // Cache for 1 minute (summary data changes frequently)
     this.cache.set(cacheKey, data, 60 * 1000);
     return data;
+  }
+
+  invalidateClassStudents(classId: string): void {
+    this.cache.delete(`class-students-${classId}`);
   }
 
   invalidateClassSummary(classId: string): void {

@@ -49,6 +49,7 @@ export class DetailMyClassesPages {
   private realtimeSub: Subscription | null = null;
   private pollId: number | null = null;
   private pendingSubmissionCountRefresh = false;
+  private lastAssignmentsPollAtMs = 0;
   isButtonFabOpen = false;
   openSheetAssignment = false;
   openSheetQr = false;
@@ -125,6 +126,8 @@ export class DetailMyClassesPages {
     await this.loadStudents();
     await this.loadAssignments();
 
+    this.realtime.connect();
+
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
       if (!n || n.type !== 'assignment_submitted') return;
@@ -170,8 +173,17 @@ export class DetailMyClassesPages {
       } catch {
         // ignore
       }
-      void this.loadAssignments();
-    }, 60000);
+
+      // Refresh class summary + students more frequently so newly joined students show up without reload.
+      void this.loadClassSummary(true);
+      void this.loadStudents(true);
+
+      const now = Date.now();
+      if (!this.lastAssignmentsPollAtMs || now - this.lastAssignmentsPollAtMs >= 60000) {
+        this.lastAssignmentsPollAtMs = now;
+        void this.loadAssignments();
+      }
+    }, 15000);
   }
 
   private async refreshAssignmentSubmissionCount(assignmentId: string): Promise<void> {
@@ -236,11 +248,11 @@ export class DetailMyClassesPages {
     }
   }
 
-  private async loadClassSummary() {
+  private async loadClassSummary(forceRefresh = false) {
     const classId = this.classId;
     if (!classId) return;
     try {
-      this.classSummary = await this.classApi.getClassSummary(classId);
+      this.classSummary = await this.classApi.getClassSummary(classId, { forceRefresh });
     } catch {
       this.classSummary = null;
     }
@@ -685,11 +697,11 @@ export class DetailMyClassesPages {
     });
   }
 
-  private async loadStudents() {
+  private async loadStudents(forceRefresh = false) {
     const classId = this.classId;
     if (!classId) return;
     try {
-      const students = await this.classApi.getClassStudents(classId);
+      const students = await this.classApi.getClassStudents(classId, { forceRefresh });
       this.students = (students || []).map((s) => this.mapStudent(s));
       this.applyStudentStats();
     } catch (err: any) {
