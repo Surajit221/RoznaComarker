@@ -32,6 +32,8 @@ import { SubmissionApiService, type BackendSubmission } from '../../../../../api
 
 import { FeedbackApiService, type BackendFeedback } from '../../../../../api/feedback-api.service';
 
+import { RubricApiService } from '../../../../../api/rubric-api.service';
+
 
 
 import { PdfApiService } from '../../../../../api/pdf-api.service';
@@ -117,11 +119,15 @@ import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../.
 
 import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
 
+
+import type { RubricItem } from '../../../../../models/submission-feedback.model';
+
+
 import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-legend.default';
 
 
 
-import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
+import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 
 
 
@@ -240,6 +246,8 @@ export class StudentSubmissionPages {
 
 
   private feedbackApi = inject(FeedbackApiService);
+
+  private rubricApi = inject(RubricApiService);
 
 
 
@@ -541,13 +549,37 @@ export class StudentSubmissionPages {
     if (!file) return;
     if (this.isRubricUploading) return;
 
+    const name = String((file as any)?.name || '').toLowerCase();
+    const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+    if (ext !== '.docx' && ext !== '.xlsx') {
+      this.alert.showWarning('Unsupported file', 'Please upload a DOCX or XLSX rubric template.');
+      return;
+    }
+
     this.isRubricUploading = true;
     try {
-      const updated = await this.feedbackApi.uploadRubricFile(submissionId, file);
-      this.currentFeedback = updated;
-      this.hydrateRubricDesignerFromFeedback();
-      this.recomputeRubricFeedbackItems();
-      this.alert.showToast('Rubric attached', 'success');
+      this.alert.showToast('Analyzing rubric file...', 'info');
+      const parsed = await this.rubricApi.parseRubricTemplate(file);
+
+      const levels = Array.isArray(parsed?.levels) ? parsed.levels : [];
+      const criteria = Array.isArray(parsed?.criteria) ? parsed.criteria : [];
+
+      const designer: RubricDesigner = {
+        title: typeof parsed?.title === 'string' && parsed.title.trim().length
+          ? parsed.title
+          : `Rubric: ${this.submissionTitle}`,
+        levels: levels.map((l: any) => ({
+          title: String(l?.name || ''),
+          maxPoints: Number(l?.score) || 0
+        })),
+        criteria: criteria.map((c: any) => ({
+          title: String(c?.title || ''),
+          cells: (Array.isArray(c?.descriptions) ? c.descriptions : []).map((x: any) => String(x ?? ''))
+        }))
+      };
+
+      this.applyRubricDesignerToState(designer);
+      this.alert.showToast('Rubric parsed', 'success');
     } catch (err: any) {
       this.alert.showError('Attach rubric failed', err?.error?.message || err?.message || 'Please try again');
     } finally {
