@@ -123,7 +123,7 @@
         <input
           #rubricFileInput
           type="file"
-          accept="application/json,.json,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
+          accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
           class="hidden"
           (change)="onRubricFileSelected($event)"
         />
@@ -137,7 +137,7 @@
             [disabled]="isAttaching"
             (click)="rubricFileInput.click()"
           >
-            @if (isAttaching) { Attaching... } @else { Attach }
+            @if (isAttaching) { Analyzing rubric file... } @else { Attach }
           </button>
 
           <button type="button" class="btn-primary w-full" [disabled]="isSaving" (click)="onSaveRubric()">

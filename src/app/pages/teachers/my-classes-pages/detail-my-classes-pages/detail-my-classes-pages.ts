@@ -9,6 +9,7 @@ import { DeviceService } from '../../../../services/device.service';
 import { AppBarBackButton } from '../../../../shared/app-bar-back-button/app-bar-back-button';
 import { BottomsheetDialog } from '../../../../shared/bottomsheet-dialog/bottomsheet-dialog';
 import { AssignmentApiService, type BackendAssignment } from '../../../../api/assignment-api.service';
+import { RubricApiService } from '../../../../api/rubric-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassStudent, type BackendClassSummary } from '../../../../api/class-api.service';
 import { SubmissionApiService } from '../../../../api/submission-api.service';
@@ -40,6 +41,7 @@ export class DetailMyClassesPages {
   device = inject(DeviceService);
   private route = inject(ActivatedRoute);
   private assignmentApi = inject(AssignmentApiService);
+  private rubricApi = inject(RubricApiService);
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
   private submissionApi = inject(SubmissionApiService);
@@ -264,14 +266,36 @@ export class DetailMyClassesPages {
     if (!file) return;
     if (this.isRubricAttaching) return;
 
+    const name = String((file as any)?.name || '').toLowerCase();
+    const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+    if (ext !== '.docx' && ext !== '.xlsx') {
+      this.alert.showWarning('Unsupported file', 'Please upload a DOCX or XLSX rubric template.');
+      return;
+    }
+
     this.isRubricAttaching = true;
     try {
-      const updated = await this.assignmentApi.uploadRubricFile(assignmentId, file);
-      if (updated && updated._id) {
-        this.assignmentsById[updated._id] = updated;
-      }
-      this.selectedRubricDesigner = this.parseRubricDesignerFromAssignment(updated as any);
-      this.alert.showToast('Rubric attached', 'success');
+      this.alert.showToast('Analyzing rubric file...', 'info');
+      const parsed = await this.rubricApi.parseRubricTemplate(file);
+
+      const levels = Array.isArray(parsed?.levels) ? parsed.levels : [];
+      const criteria = Array.isArray(parsed?.criteria) ? parsed.criteria : [];
+
+      this.selectedRubricDesigner = {
+        title: typeof parsed?.title === 'string' && parsed.title.trim().length
+          ? parsed.title
+          : (this.selectedRubricDefaultTitle || 'Rubric'),
+        levels: levels.map((l: any) => ({
+          title: String(l?.name || ''),
+          maxPoints: Number(l?.score) || 0
+        })),
+        criteria: criteria.map((c: any) => ({
+          title: String(c?.title || ''),
+          cells: (Array.isArray(c?.descriptions) ? c.descriptions : []).map((x: any) => String(x ?? ''))
+        }))
+      };
+
+      this.alert.showToast('Rubric parsed', 'success');
     } catch (err: any) {
       this.alert.showError('Attach rubric failed', err?.error?.message || err?.message || 'Please try again');
     } finally {
