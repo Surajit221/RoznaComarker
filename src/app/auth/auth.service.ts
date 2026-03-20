@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
+import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signOut } from '@angular/fire/auth';
+import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from '@angular/fire/auth';
 
 import { environment } from '../../environments/environment';
 
@@ -72,6 +72,7 @@ function decodeJwtPayload(token: string): any | null {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly backendJwtKey = 'backend_jwt';
+  private readonly injector = inject(EnvironmentInjector);
 
   constructor(private auth: Auth, private http: HttpClient) {}
 
@@ -118,8 +119,26 @@ export class AuthService {
 
   async loginWithGoogle() {
     const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(this.auth, provider);
+    const cred = await runInInjectionContext(this.injector, () => signInWithPopup(this.auth, provider));
     const token = await cred.user.getIdToken();
+    if (!token) {
+      throw new Error('Failed to get Firebase ID token');
+    }
+    const resp = await this.exchangeWithBackend(token);
+    this.persistBackendSession(resp);
+    return resp;
+  }
+
+  async startGoogleRedirect() {
+    const provider = new GoogleAuthProvider();
+    await runInInjectionContext(this.injector, () => signInWithRedirect(this.auth, provider));
+  }
+
+  async completeGoogleRedirectIfPresent() {
+    const result = await runInInjectionContext(this.injector, () => getRedirectResult(this.auth));
+    if (!result?.user) return null;
+
+    const token = await result.user.getIdToken();
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
@@ -148,7 +167,7 @@ export class AuthService {
 
   async logout() {
     localStorage.removeItem(this.backendJwtKey);
-    await signOut(this.auth);
+    await runInInjectionContext(this.injector, () => signOut(this.auth));
   }
 
   getBackendJwt(): string | null {

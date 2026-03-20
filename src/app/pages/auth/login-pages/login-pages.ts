@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AlertService } from '../../../services/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -13,7 +13,7 @@ import { JoinIntentService } from '../../../services/join-intent.service';
   templateUrl: './login-pages.html',
   styleUrl: './login-pages.css',
 })
-export class LoginPages {
+export class LoginPages implements OnInit {
   loginForm: FormGroup;
   showPassword = false;
   device = inject(DeviceService);
@@ -33,6 +33,42 @@ export class LoginPages {
       role: ['', Validators.required],
       remember: [false],
     });
+  }
+
+  async ngOnInit() {
+    try {
+      const resp = await this.auth.completeGoogleRedirectIfPresent();
+      if (!resp) return;
+
+      const role = this.getSelectedRole();
+      const backendRole = resp?.user?.role;
+      if (!role) {
+        this.alert.showWarning('Select role', 'Please select Teacher or Student to continue.');
+        return;
+      }
+
+      if (backendRole !== role) {
+        try {
+          await this.auth.setMyRole(role);
+          this.navigateAfterLogin(role);
+          return;
+        } catch {
+          await this.auth.logout();
+          if (backendRole === 'teacher' || backendRole === 'student') {
+            this.loginForm.patchValue({ role: backendRole });
+          }
+          this.alert.showError(
+            'Role mismatch',
+            `This account is registered as ${backendRole || 'a different role'}. Please select the correct role and try again.`
+          );
+          return;
+        }
+      }
+
+      this.navigateAfterLogin(role);
+    } catch (err: any) {
+      this.alert.showError('Google login failed', err?.message || 'Please try again');
+    }
   }
 
   togglePassword() {
@@ -199,6 +235,17 @@ export class LoginPages {
       }
       this.navigateAfterLogin(role);
     } catch (err: any) {
+      const raw = String(err?.message || err?.code || err || '');
+      if (raw.toLowerCase().includes('cross-origin-opener-policy') || raw.toLowerCase().includes('window.close')) {
+        try {
+          await this.auth.startGoogleRedirect();
+          return;
+        } catch (e: any) {
+          this.alert.showError('Google login failed', e?.message || 'Please try again');
+          return;
+        }
+      }
+
       this.alert.showError('Google login failed', err?.message || 'Please try again');
     } finally {
       this.isLoading = false;
