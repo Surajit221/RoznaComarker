@@ -81,6 +81,17 @@ export class LoginPages implements OnInit {
     return null;
   }
 
+  private resolveBackendRole(role: unknown): 'teacher' | 'student' | null {
+    if (role === 'teacher' || role === 'student') return role;
+    return null;
+  }
+
+  private resolvePostLoginRole(preferred: 'teacher' | 'student' | null, backendRole: unknown): 'teacher' | 'student' | null {
+    const resolved = this.resolveBackendRole(backendRole);
+    if (resolved) return resolved;
+    return preferred;
+  }
+
   private navigateByRole(role: 'teacher' | 'student') {
     if (role === 'student') {
       this.router.navigate(['/student/my-classes']);
@@ -134,14 +145,9 @@ export class LoginPages implements OnInit {
       return;
     }
 
-    const redirect = this.getPostLoginRedirect();
+    // Always clear any stored redirects. We want a consistent post-login UX:
+    // redirect the authenticated user to their dashboard.
     this.clearPostLoginRedirect();
-
-    if (redirect) {
-      this.router.navigateByUrl(redirect);
-      return;
-    }
-
     this.navigateByRole(role);
   }
 
@@ -149,8 +155,8 @@ export class LoginPages implements OnInit {
     if (this.isLoading) return;
     if (this.loginForm.invalid) return;
 
-    const role = this.getSelectedRole();
-    if (!role) return;
+    const selectedRole = this.getSelectedRole();
+    if (!selectedRole) return;
 
     const email = this.loginForm.value.email;
     const password = this.loginForm.value.password;
@@ -159,18 +165,19 @@ export class LoginPages implements OnInit {
     try {
       const resp = await this.auth.loginWithEmail(email, password);
       const backendRole = resp?.user?.role;
-      if (backendRole !== role) {
-        await this.auth.logout();
-        if (backendRole === 'teacher' || backendRole === 'student') {
-          this.loginForm.patchValue({ role: backendRole });
-        }
-        this.alert.showError(
-          'Role mismatch',
-          `This account is registered as ${backendRole || 'a different role'}. Please select the correct role and try again.`
-        );
+
+      const resolvedRole = this.resolvePostLoginRole(selectedRole, backendRole);
+      if (!resolvedRole) {
+        this.alert.showError('Login failed', 'Unable to determine account role.');
         return;
       }
-      this.navigateAfterLogin(role);
+
+      if (this.resolveBackendRole(backendRole) && backendRole !== selectedRole) {
+        this.loginForm.patchValue({ role: resolvedRole });
+        this.alert.showWarning('Role updated', `You logged in as ${resolvedRole}. Redirecting to your dashboard.`);
+      }
+
+      this.navigateAfterLogin(resolvedRole);
     } catch (err: any) {
       this.alert.showError('Login failed', err?.message || 'Please check your credentials and try again');
     } finally {
@@ -206,8 +213,8 @@ export class LoginPages implements OnInit {
   async onGoogleLogin() {
     if (this.isLoading) return;
 
-    const role = this.getSelectedRole();
-    if (!role) {
+    const selectedRole = this.getSelectedRole();
+    if (!selectedRole) {
       this.alert.showWarning('Select role', 'Please select Teacher or Student before continuing.');
       return;
     }
@@ -216,24 +223,28 @@ export class LoginPages implements OnInit {
     try {
       const resp = await this.auth.loginWithGoogle();
       const backendRole = resp?.user?.role;
-      if (backendRole !== role) {
+
+      const resolvedRole = this.resolvePostLoginRole(selectedRole, backendRole);
+      if (!resolvedRole) {
+        this.alert.showError('Google login failed', 'Unable to determine account role.');
+        return;
+      }
+
+      // If backend didn't have a role yet, set it to the selected role.
+      if (!this.resolveBackendRole(backendRole)) {
         try {
-          await this.auth.setMyRole(role);
-          this.navigateAfterLogin(role);
-          return;
+          await this.auth.setMyRole(selectedRole);
         } catch {
-          await this.auth.logout();
-          if (backendRole === 'teacher' || backendRole === 'student') {
-            this.loginForm.patchValue({ role: backendRole });
-          }
-          this.alert.showError(
-            'Role mismatch',
-            `This account is registered as ${backendRole || 'a different role'}. Please select the correct role and try again.`
-          );
-          return;
+          // ignore; navigate anyway
         }
       }
-      this.navigateAfterLogin(role);
+
+      if (this.resolveBackendRole(backendRole) && backendRole !== selectedRole) {
+        this.loginForm.patchValue({ role: resolvedRole });
+        this.alert.showWarning('Role updated', `You logged in as ${resolvedRole}. Redirecting to your dashboard.`);
+      }
+
+      this.navigateAfterLogin(resolvedRole);
     } catch (err: any) {
       const raw = String(err?.message || err?.code || err || '');
       if (raw.toLowerCase().includes('cross-origin-opener-policy') || raw.toLowerCase().includes('window.close')) {
