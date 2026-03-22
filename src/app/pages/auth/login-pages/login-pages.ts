@@ -34,6 +34,7 @@ export class LoginPages implements OnInit {
   showPassword = false;
   device = inject(DeviceService);
   isLoading = false;
+  private readonly preferredRoleKey = 'preferred_role';
 
   constructor(
     private fb: FormBuilder,
@@ -62,7 +63,7 @@ export class LoginPages implements OnInit {
       const resp = await this.auth.completeGoogleRedirectIfPresent();
       if (!resp) return;
 
-      const role = this.getSelectedRole();
+      const role = this.getSelectedRole() || this.getPreferredRole();
       const backendRole = resp?.user?.role;
       if (!role) {
         this.alert.showWarning('Select role', 'Please select Teacher or Student to continue.');
@@ -72,6 +73,7 @@ export class LoginPages implements OnInit {
       if (backendRole !== role) {
         try {
           await this.auth.setMyRole(role);
+          this.setPreferredRole(null);
           this.navigateAfterLogin(role);
           return;
         } catch {
@@ -87,6 +89,7 @@ export class LoginPages implements OnInit {
         }
       }
 
+      this.setPreferredRole(null);
       this.navigateAfterLogin(role);
     } catch (err: any) {
       this.alert.showError('Google login failed', err?.message || 'Please try again');
@@ -127,6 +130,27 @@ export class LoginPages implements OnInit {
     const role = this.loginForm.value.role;
     if (role === 'teacher' || role === 'student') return role;
     return null;
+  }
+
+  private setPreferredRole(role: 'teacher' | 'student' | null) {
+    try {
+      if (!role) {
+        localStorage.removeItem(this.preferredRoleKey);
+        return;
+      }
+      localStorage.setItem(this.preferredRoleKey, role);
+    } catch {
+    }
+  }
+
+  private getPreferredRole(): 'teacher' | 'student' | null {
+    try {
+      const role = localStorage.getItem(this.preferredRoleKey);
+      if (role === 'teacher' || role === 'student') return role;
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   private resolveBackendRole(role: unknown): 'teacher' | 'student' | null {
@@ -299,32 +323,29 @@ export class LoginPages implements OnInit {
       return;
     }
 
+    this.setPreferredRole(selectedRole);
+
     this.isLoading = true;
     try {
       const resp = await this.auth.loginWithGoogle();
       const backendRole = resp?.user?.role;
 
-      const resolvedRole = this.resolvePostLoginRole(selectedRole, backendRole);
-      if (!resolvedRole) {
-        this.alert.showError('Google login failed', 'Unable to determine account role.');
-        return;
-      }
-
-      // If backend didn't have a role yet, set it to the selected role.
-      if (!this.resolveBackendRole(backendRole)) {
+      const normalizedBackendRole = this.resolveBackendRole(backendRole);
+      if (normalizedBackendRole && normalizedBackendRole !== selectedRole) {
         try {
           await this.auth.setMyRole(selectedRole);
         } catch {
-          // ignore; navigate anyway
+          await this.auth.logout();
+          this.alert.showError(
+            'Role mismatch',
+            `This account is registered as ${normalizedBackendRole}. Please select the correct role and try again.`
+          );
+          return;
         }
       }
 
-      if (this.resolveBackendRole(backendRole) && backendRole !== selectedRole) {
-        this.loginForm.patchValue({ role: resolvedRole });
-        this.alert.showWarning('Role updated', `You logged in as ${resolvedRole}. Redirecting to your dashboard.`);
-      }
-
-      this.navigateAfterLogin(resolvedRole);
+      this.setPreferredRole(null);
+      this.navigateAfterLogin(selectedRole);
     } catch (err: any) {
       const raw = String(err?.message || err?.code || err || '');
       if (raw.toLowerCase().includes('cross-origin-opener-policy') || raw.toLowerCase().includes('window.close')) {
