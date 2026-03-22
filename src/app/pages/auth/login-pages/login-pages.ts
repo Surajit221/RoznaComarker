@@ -3,9 +3,25 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AlertService } from '../../../services/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
+import { NgZone } from '@angular/core';
 import { DeviceService } from '../../../services/device.service';
 import { AuthService } from '../../../auth/auth.service';
 import { JoinIntentService } from '../../../services/join-intent.service';
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const payload = parts[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
 
 @Component({
   selector: 'app-login-pages',
@@ -25,7 +41,8 @@ export class LoginPages implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private auth: AuthService,
-    private joinIntent: JoinIntentService
+    private joinIntent: JoinIntentService,
+    private zone: NgZone
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -37,6 +54,11 @@ export class LoginPages implements OnInit {
 
   async ngOnInit() {
     try {
+      // If the user is already authenticated and somehow reached /login, immediately send them away.
+      // This also fixes the "URL changes but UI stays on login" symptom when navigation happens
+      // outside Angular's zone (common with some auth SDK promise chains).
+      this.redirectIfAlreadyLoggedIn();
+
       const resp = await this.auth.completeGoogleRedirectIfPresent();
       if (!resp) return;
 
@@ -71,6 +93,32 @@ export class LoginPages implements OnInit {
     }
   }
 
+  private redirectIfAlreadyLoggedIn() {
+    const token = (() => {
+      try {
+        return localStorage.getItem('backend_jwt');
+      } catch {
+        return null;
+      }
+    })();
+    if (!token) return;
+
+    const payload = decodeJwtPayload(token);
+    const role = payload?.role === 'teacher' || payload?.role === 'student' ? payload.role : null;
+    if (!role) return;
+
+    // Prefer query-param redirect (e.g. /login?redirect=/student/my-classes)
+    // then stored localStorage redirect.
+    const redirect = this.getPostLoginRedirect();
+    if (redirect) {
+      this.clearPostLoginRedirect();
+      void this.safeNavigateByUrl(redirect);
+      return;
+    }
+
+    void this.safeNavigateByUrl(role === 'student' ? '/student/my-classes' : '/teacher/my-classes');
+  }
+
   togglePassword() {
     this.showPassword = !this.showPassword;
   }
@@ -98,6 +146,19 @@ export class LoginPages implements OnInit {
     } else {
       this.router.navigate(['/teacher/my-classes']);
     }
+  }
+
+  private async safeNavigateByUrl(url: string) {
+    // Run navigation inside Angular zone to ensure view updates.
+    // Also handle "same URL" navigations (Angular won't re-run guards/resolvers by default).
+    const current = this.router.url;
+
+    return this.zone.run(async () => {
+      if (current === url) {
+        await this.router.navigateByUrl('/', { skipLocationChange: true });
+      }
+      return this.router.navigateByUrl(url, { replaceUrl: true });
+    });
   }
 
   private getPostLoginRedirect(): string | null {
@@ -145,10 +206,29 @@ export class LoginPages implements OnInit {
       return;
     }
 
-    // Always clear any stored redirects. We want a consistent post-login UX:
-    // redirect the authenticated user to their dashboard.
+    // Prefer redirect query-param/localStorage captured by guards.
+    // This is required to send the user back to the originally requested page.
+    const redirect = this.getPostLoginRedirect();
     this.clearPostLoginRedirect();
-    this.navigateByRole(role);
+
+    if (redirect) {
+      // Basic role-aware safety: if someone logs in as student but redirect points to /teacher/*,
+      // ignore it and go to the correct dashboard.
+      if (role === 'student' && redirect.startsWith('/teacher')) {
+        void this.safeNavigateByUrl('/student/my-classes');
+        return;
+      }
+      if (role === 'teacher' && redirect.startsWith('/student')) {
+        void this.safeNavigateByUrl('/teacher/my-classes');
+        return;
+      }
+
+      void this.safeNavigateByUrl(redirect);
+      return;
+    }
+
+    // Fallback: role dashboard.
+    void this.safeNavigateByUrl(role === 'student' ? '/student/my-classes' : '/teacher/my-classes');
   }
 
   async onSubmit() {
