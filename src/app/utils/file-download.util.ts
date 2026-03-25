@@ -67,8 +67,12 @@ export function triggerBlobDownload(blob: Blob, options: DownloadOptions): void 
     }, 60000);
 
   } catch (err) {
-    // Final fallback: try direct navigation
-    window.location.href = objectUrl;
+    // Final fallback: try opening in new tab instead of navigation
+    try {
+      window.open(objectUrl, '_blank');
+    } catch {
+      // ignore final fallback failure
+    }
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
   }
 }

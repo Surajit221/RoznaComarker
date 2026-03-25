@@ -7,49 +7,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
-    <script>
-      (function () {
-        try {
-          var url = new URL(window.location.href);
-          var routePrefix = '/student/my-classes/detail/my-submissions/';
-
-          var path = String(url.pathname || '');
-          var hash = String(url.hash || '');
-          var routeSource = path.indexOf(routePrefix) >= 0
-            ? path
-            : (hash.indexOf(routePrefix) >= 0 ? hash : '');
-
-          if (!routeSource) return;
-
-          var hardReload = url.searchParams.get('hardReload');
-          if (hardReload === '1') {
-            url.searchParams.delete('hardReload');
-            try {
-              var next = url.pathname + url.search + url.hash;
-              window.history.replaceState({}, '', next);
-            } catch (e) {
-            }
-            setTimeout(function () {
-              window.location.replace(url.pathname + url.search + url.hash);
-            }, 0);
-            return;
-          }
-
-          var sourceParts = String(routeSource || '').split('/').filter(Boolean);
-          var assignmentId = sourceParts.length ? sourceParts[sourceParts.length - 1] : '';
-          var refresh = url.searchParams.get('refresh');
-          if (!assignmentId || !refresh) return;
-
-          var key = 'forceSubmissionReload:' + assignmentId + ':' + refresh;
-          if (sessionStorage.getItem(key) !== '1') return;
-          sessionStorage.removeItem(key);
-          setTimeout(function () {
-            window.location.replace(url.pathname + url.search + url.hash);
-          }, 0);
-        } catch (e) {
-        }
-      })();
-    </script>
   </head>
 
   <body class="font-sans bg-[#F3F3F3] text-[#302e2e]">
