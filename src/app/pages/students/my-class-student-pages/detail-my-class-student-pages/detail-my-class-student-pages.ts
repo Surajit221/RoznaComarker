@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { HttpEventType } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
@@ -23,6 +23,9 @@ import { Subscription } from 'rxjs';
   styleUrl: './detail-my-class-student-pages.css',
 })
 export class DetailMyClassStudentPages {
+  @ViewChild('uploadFormDialog') uploadFormDialog?: UploadEssayForm;
+  @ViewChild('uploadFormSheet') uploadFormSheet?: UploadEssayForm;
+
   showDialog = false;
   openSheet = false;
   device = inject(DeviceService);
@@ -325,6 +328,9 @@ export class DetailMyClassStudentPages {
       this.selectedFiles = [];
       this.selectedAssignmentId = null;
 
+      this.uploadFormDialog?.reset();
+      this.uploadFormSheet?.reset();
+
       const refreshToken = String(Date.now());
       const tree = this.router.createUrlTree(['/student/my-classes/detail/my-submissions', assignmentId], {
         queryParams: {
@@ -352,6 +358,7 @@ export class DetailMyClassStudentPages {
     this.uploadErrorMessage = null;
     this.uploadSuccessMessage = null;
     this.uploadedSubmission = null;
+    this.uploadFormDialog?.reset();
   }
 
   onOpenSheet() {
@@ -368,6 +375,7 @@ export class DetailMyClassStudentPages {
     this.uploadErrorMessage = null;
     this.uploadSuccessMessage = null;
     this.uploadedSubmission = null;
+    this.uploadFormSheet?.reset();
   }
 
   handleGoBack() {
