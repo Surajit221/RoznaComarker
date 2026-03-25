@@ -240,7 +240,14 @@ export class DetailMyClassStudentPages {
     this.selectedFiles = files;
   }
 
-  async uploadFiles() {
+  async uploadFiles(event?: Event) {
+    try {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+    } catch {
+      // ignore
+    }
+
     const assignmentId = this.selectedAssignmentId;
     if (!assignmentId) {
       this.alert.showWarning('Select assignment', 'Please select an assignment before uploading.');
@@ -319,21 +326,14 @@ export class DetailMyClassStudentPages {
       this.selectedAssignmentId = null;
 
       const refreshToken = String(Date.now());
-      try {
-        sessionStorage.setItem(`forceSubmissionReload:${assignmentId}:${refreshToken}`, '1');
-      } catch {
-        // ignore storage failures
-      }
-
       const tree = this.router.createUrlTree(['/student/my-classes/detail/my-submissions', assignmentId], {
         queryParams: {
           classId: this.classId || undefined,
-          refresh: refreshToken,
-          hardReload: 1
+          refresh: refreshToken
         }
       });
       const url = this.router.serializeUrl(tree);
-      window.location.assign(url);
+      void this.router.navigateByUrl(url);
 
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Please try again';

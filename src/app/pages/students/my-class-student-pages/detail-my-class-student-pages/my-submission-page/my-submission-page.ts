@@ -5367,20 +5367,6 @@ export class MySubmissionPage {
 
     this.lastRefreshToken = this.route.snapshot.queryParamMap.get('refresh');
 
-    const refreshToken = this.lastRefreshToken;
-    if (this.assignmentId && refreshToken) {
-      const key = `forceSubmissionReload:${this.assignmentId}:${refreshToken}`;
-      try {
-        if (sessionStorage.getItem(key) === '1') {
-          sessionStorage.removeItem(key);
-          window.location.reload();
-          return;
-        }
-      } catch {
-        // ignore storage failures
-      }
-    }
-
     this.refreshParamSub?.unsubscribe();
     this.refreshParamSub = this.route.queryParamMap.subscribe((params) => {
       const next = params.get('refresh');

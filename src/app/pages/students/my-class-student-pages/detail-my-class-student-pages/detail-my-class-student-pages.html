@@ -124,9 +124,9 @@
       </button>
       @if (selectedFiles.length > 0) {
       <button
-        type="submit"
+        type="button"
         class="btn-primary"
-        (click)="uploadFiles()"
+        (click)="uploadFiles($event)"
         [disabled]="isLoading"
         [class.opacity-50]="isLoading"
       >
