@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, inject, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, inject, Output, ViewChild } from '@angular/core';
 import { DeviceService } from '../../../../../services/device.service';
 
 @Component({
@@ -12,6 +12,7 @@ export class UploadEssayForm {
   @Output() filesSelected = new EventEmitter<File[]>();
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   device = inject(DeviceService)
+  private cdr = inject(ChangeDetectorRef);
 
   isDragging = false;
   files: { file: File; name: string; size: number; preview?: string }[] = [];
@@ -21,7 +22,9 @@ export class UploadEssayForm {
   private readonly allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'application/pdf']);
   private readonly allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
 
-  triggerFileInput() {
+  triggerFileInput(event?: Event) {
+    const target = event?.target as HTMLElement | null;
+    if (target && target.tagName === 'INPUT') return;
     this.fileInput.nativeElement.click();
   }
 
@@ -45,11 +48,16 @@ export class UploadEssayForm {
   }
 
   onFilesSelected(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
     const input = event.target as HTMLInputElement;
     const selectedFiles = input.files;
     if (selectedFiles && selectedFiles.length > 0) {
+      console.log('File selected:', selectedFiles[0]?.name);
       this.handleFiles(selectedFiles);
     }
+
+    input.value = '';
   }
 
   handleFiles(fileList: FileList) {
@@ -81,13 +89,29 @@ export class UploadEssayForm {
       this.fileInput.nativeElement.value = '';
     }
 
+    console.log('State updated:', this.files.map((f) => f.name));
     this.filesSelected.emit(this.files.map(f => f.file));
+    this.cdr.detectChanges();
   }
 
   removeFile(event: Event, index: number) {
     event.stopPropagation();
     this.files.splice(index, 1);
     this.filesSelected.emit(this.files.map(f => f.file));
+    this.cdr.detectChanges();
+  }
+
+  reset() {
+    this.files = [];
+    this.validationError = null;
+    this.isDragging = false;
+
+    if (this.fileInput && this.fileInput.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+
+    this.filesSelected.emit([]);
+    this.cdr.detectChanges();
   }
 
   private isFileAllowed(file: File): boolean {
