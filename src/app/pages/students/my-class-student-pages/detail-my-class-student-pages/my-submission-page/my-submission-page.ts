@@ -167,6 +167,7 @@ import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../.
 
 
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
+import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 
 
 
@@ -4979,234 +4980,22 @@ export class MySubmissionPage {
 
 
   async downloadPdf() {
-
-
-
-
-
-
-
     const submissionId = this.submission?._id;
-
-
-
-
-
-
-
     if (!submissionId) {
-
-
-
       this.alert.showWarning('No submission', 'Please upload a submission first.');
-
-
-
       return;
-
-
-
     }
-
-
-
-
-
-
-
     if (this.isPdfDownloading) return;
-
-
-
     this.isPdfDownloading = true;
-
-
-
-
-
-
-
     try {
-
-
-
       const blob = await this.pdfApi.downloadSubmissionPdf(submissionId);
-
-
-
-      const objectUrl = URL.createObjectURL(blob);
-
-
-
-      this.objectUrls.push(objectUrl);
-
-
-
-
-
-
-
-      const a = document.createElement('a');
-
-
-
-      a.href = objectUrl;
-
-
-
-      a.download = 'submission-feedback.pdf';
-
-
-
-      document.body.appendChild(a);
-
-
-
-      a.click();
-
-
-
-      a.remove();
-
-
-
-
-
-
-
-      const ua = navigator.userAgent || '';
-
-
-
-      const isIos = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
-
-
-
-      if (isIos) {
-
-
-
-        window.open(objectUrl, '_blank', 'noopener,noreferrer');
-
-
-
-      }
-
-
-
-
-
-
-
-      // Revoke after download starts to prevent long-lived object URLs.
-
-
-
-
-
-
-
-      setTimeout(() => {
-
-
-
-
-
-
-
-        try {
-
-
-
-
-
-
-
-          URL.revokeObjectURL(objectUrl);
-
-
-
-
-
-
-
-        } catch {
-
-
-
-
-
-
-
-          // ignore
-
-
-
-
-
-
-
-        } finally {
-
-
-
-
-
-
-
-          this.removeObjectUrl(objectUrl);
-
-
-
-
-
-
-
-        }
-
-
-
-
-
-
-
-      }, 60000);
-
-
-
+      triggerBlobDownload(blob, { filename: 'submission-feedback.pdf', mimeType: 'application/pdf' });
     } catch (err: any) {
-
-
-
       this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
-
-
-
     } finally {
-
-
-
       this.isPdfDownloading = false;
-
-
-
     }
-
-
-
-
-
-
-
   }
-
-
-
-
-
-
-
-
 
 
 
