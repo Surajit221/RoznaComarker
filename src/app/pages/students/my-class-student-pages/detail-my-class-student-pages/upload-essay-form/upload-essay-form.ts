@@ -45,6 +45,8 @@ export class UploadEssayForm {
   }
 
   onFilesSelected(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
     const input = event.target as HTMLInputElement;
     const selectedFiles = input.files;
     if (selectedFiles && selectedFiles.length > 0) {

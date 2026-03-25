@@ -5048,25 +5048,59 @@ export class MySubmissionPage {
 
 
   scrollToAiFeedback() {
-
-
-
     const el = document.getElementById('ai-feedback-section-mobile') || document.getElementById('ai-feedback-section');
-
-
-
     if (!el) return;
-
-
-
-
-
-
-
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
 
 
+
+
+
+
+  getOcrTextForFileId(fileId: string): string {
+    const pages = Array.isArray(this.submission?.ocrPages) ? this.submission!.ocrPages : [];
+    const filePages = pages.filter((p: any) => p && p.fileId === fileId);
+    
+    if (filePages.length > 0) {
+      return filePages
+        .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
+        .map((t: string) => t.trim())
+        .filter((t: string) => t.length)
+        .join('\n\n');
+    }
+    
+    // Fallback: if no file-specific pages, return combined text for single file submissions
+    if (this.submissionFileIds.length === 1 && this.submissionFileIds[0] === fileId) {
+      const combined = this.submission?.combinedOcrText && String(this.submission.combinedOcrText).trim() 
+        ? String(this.submission.combinedOcrText) 
+        : '';
+      if (combined) return combined;
+      
+      const fromTranscript = this.submission?.transcriptText && String(this.submission.transcriptText).trim() 
+        ? String(this.submission.transcriptText) 
+        : '';
+      if (fromTranscript) return fromTranscript;
+      
+      const fromOcr = this.submission?.ocrText && String(this.submission.ocrText).trim() 
+        ? String(this.submission.ocrText) 
+        : '';
+      if (fromOcr) return fromOcr;
+    }
+    
+    return '';
+  }
+
+  getAnnotationsForFileId(fileId: string): FeedbackAnnotation[] {
+    return this.annotations.filter(a => (a as any).fileId === fileId || !(a as any).fileId);
+  }
+
+  get hasAnyTranscribedText(): boolean {
+    return this.submissionFileIds.some((id) => {
+      const text = this.getOcrTextForFileId(id);
+      return text.length > 0;
+    });
   }
 
 
