@@ -355,16 +355,16 @@ export class StudentSubmissionPages {
     this.rubricDesignerTitle = typeof designer.title === 'string' ? designer.title : `Rubric: ${this.submissionTitle}`;
     this.rubricLevels = levelsRaw.length
       ? levelsRaw.map((l: any) => ({
-          title: String(l?.title || ''),
-          maxPoints: Number(l?.maxPoints) || 0
-        }))
+        title: String(l?.title || ''),
+        maxPoints: Number(l?.maxPoints) || 0
+      }))
       : Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: null }));
 
     this.rubricCriteriaRows = criteriaRaw.length
       ? criteriaRaw.map((c: any) => ({
-          title: String(c?.title || ''),
-          cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
-        }))
+        title: String(c?.title || ''),
+        cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
+      }))
       : [{ title: '', cells: this.rubricLevels.map(() => '') }];
 
     this.rubricDesignerForModal = this.rubricDesignerFromState;
@@ -1092,23 +1092,23 @@ export class StudentSubmissionPages {
 
 
 
-          const title = String((l as any)?.title || '');
+        const title = String((l as any)?.title || '');
 
 
 
-          const rawPoints = this.coercePointsInput((l as any)?.maxPoints);
+        const rawPoints = this.coercePointsInput((l as any)?.maxPoints);
 
 
 
-          const maxPoints = !title.trim().length && rawPoints === 0 ? null : (rawPoints ?? null);
+        const maxPoints = !title.trim().length && rawPoints === 0 ? null : (rawPoints ?? null);
 
 
 
-          return { title, maxPoints };
+        return { title, maxPoints };
 
 
 
-        })
+      })
 
 
 
@@ -1128,15 +1128,15 @@ export class StudentSubmissionPages {
 
 
 
-          title: String(c?.title || ''),
+        title: String(c?.title || ''),
 
 
 
-          cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
+        cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
 
 
 
-        }))
+      }))
 
 
 
@@ -2462,11 +2462,11 @@ export class StudentSubmissionPages {
 
 
 
-          ? this.currentFeedback?.detailedFeedback?.areasForImprovement
+        ? this.currentFeedback?.detailedFeedback?.areasForImprovement
 
 
 
-          : []);
+        : []);
 
 
 
@@ -2506,11 +2506,11 @@ export class StudentSubmissionPages {
 
 
 
-          ? this.currentFeedback?.detailedFeedback?.strengths
+        ? this.currentFeedback?.detailedFeedback?.strengths
 
 
 
-          : []);
+        : []);
 
 
 
@@ -2532,7 +2532,7 @@ export class StudentSubmissionPages {
 
   essayImageUrl: string | null = null;
 
-uploadData: any = null;
+  uploadData: any = null;
 
   submissionFileUrls: string[] = [];
 
@@ -2933,13 +2933,7 @@ uploadData: any = null;
 
 
       this.alert.showWarning('No submission', 'Please select a submission first.');
-
-
-
       return;
-
-
-
     }
 
 
@@ -2957,45 +2951,15 @@ uploadData: any = null;
 
 
     console.log('Generate AI clicked for', submission._id);
-
-
-
     console.log('Generating dynamic AI Feedback for submission', submission._id);
-
-
-
     this.isLoading = true;
-
-
-
     try {
-
-
-
       const updated = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
-
-
-
       this.currentFeedback = updated;
-
-
-
       console.log('TEACHER FEEDBACK LOADED:', updated);
-
-
-
       this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
-
-
-
       this.hydrateRubricEditFormFromFeedback();
-
-
-
       this.ensureFixedRubricScoresAndComments();
-
-
-
       this.recomputeRubricFeedbackItems();
 
 
@@ -3005,17 +2969,8 @@ uploadData: any = null;
 
 
       if (!updated?.rubricDesigner) {
-
-
-
         const d = this.buildDefaultRubricDesignerFromFeedback(this.currentFeedback as SubmissionFeedback);
-
-
-
         this.currentFeedback = { ...updated, rubricDesigner: d };
-
-
-
       }
 
 
@@ -3025,61 +2980,18 @@ uploadData: any = null;
 
 
       // Persist the fixed rubric titles/scores/comments + rubric designer so students
-
-
-
       // see the exact same rubric content after AI generation.
-
-
-
       {
-
-
-
         const base = this.currentFeedback as SubmissionFeedback;
-
-
-
         const payload: SubmissionFeedback = {
-
-
-
           ...base,
-
-
-
           submissionId: submission._id,
-
-
-
           rubricDesigner: (base as any).rubricDesigner,
-
-
-
           rubricScores: (base as any).rubricScores,
-
-
-
           overriddenByTeacher: Boolean((base as any).overriddenByTeacher)
-
-
-
         };
-
-
-
-
-
-
-
         const saved = await this.feedbackApi.upsertSubmissionFeedback(submission._id, payload);
-
-
-
         this.currentFeedback = saved;
-
-
-
       }
 
 
@@ -3089,17 +3001,8 @@ uploadData: any = null;
 
 
       this.hydrateRubricDesignerFromFeedback();
-
-
-
       this.hydrateRubricEditFormFromFeedback();
-
-
-
       this.syncRubricDesignerStateFromRubricScores();
-
-
-
       this.recomputeRubricFeedbackItems();
 
 
@@ -3109,35 +3012,30 @@ uploadData: any = null;
 
 
       this.alert.showToast('AI feedback generated', 'success');
-
-
-
     } catch (err: any) {
-
-
-
       this.alert.showError('Generate AI Feedback failed', err?.error?.message || err?.message || 'Please try again');
-
-
-
     } finally {
-
-
-
       this.isLoading = false;
-
-
-
     }
-
-
-
   }
 
-
-
-
-
+  async downloadPdfForCurrentSubmission() {
+    const submission = this.currentSubmission;
+    if (!submission) {
+      this.alert.showWarning('No submission', 'Please select a submission first.');
+      return;
+    }
+    if (this.isPdfDownloading) return;
+    this.isPdfDownloading = true;
+    try {
+      const blob = await this.pdfApi.downloadSubmissionPdf(submission._id);
+      triggerBlobDownload(blob, { filename: 'submission-feedback.pdf', mimeType: 'application/pdf' });
+    } catch (err: any) {
+      this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isPdfDownloading = false;
+    }
+  }
 
   get studentDisplayId(): string {
 
