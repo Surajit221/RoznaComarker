@@ -251,41 +251,24 @@
             border-radius: 3px;
         }
 
-        .transcript-content::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-
         /* Responsive adjustments for mobile */
         @media (max-width: 640px) {
             .submission-thumb {
-                width: 56px;
-                height: 56px;
-                border-radius: 12px;
-            }
-
-            .transcribed-text {
-                font-size: 0.95rem;
-                line-height: 1.7;
-            }
-
-            .transcript-content {
-                max-height: 300px;
-            }
-
-            .image-section {
-                height: 50vh !important;
-                max-height: 350px !important;
+                width: 64px;
+                height: 64px;
+                border-radius: 14px;
             }
         }
 
         /* Tablet adjustments */
         @media (min-width: 641px) and (max-width: 1024px) {
             .transcribed-text {
-                font-size: 1rem;
+                font-size: 1.125rem;
+                line-height: 1.8;
             }
 
             .image-section {
-                height: 55vh !important;
-                max-height: 450px !important;
+                height: 60vh !important;
+                max-height: 600px !important;
             }
         }

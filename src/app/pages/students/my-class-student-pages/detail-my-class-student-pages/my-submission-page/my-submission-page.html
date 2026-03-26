@@ -1650,59 +1650,23 @@
 
 
 
-      <div class="grid grid-cols-2 gap-2 justify-center items-center">
+      @if(isUploadedFile){
 
 
 
-        <button
+      <div class="flex flex-row justify-between items-center">
 
 
 
-          class=""
+        <p class="text-2xl font-bold">Student's Uploaded File</p>
 
 
 
-          [ngClass]="{ 'btn-warning-sm': activeTab === 'uploaded-file' }"
+        <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
 
 
 
-          (click)="onTabSelected('uploaded-file')"
-
-
-
-        >
-
-
-
-          Uploaded File
-
-
-
-        </button>
-
-
-
-        <button
-
-
-
-          class=""
-
-
-
-          [ngClass]="{ 'btn-warning-sm': activeTab === 'transcribed-text' }"
-
-
-
-          (click)="onTabSelected('transcribed-text')"
-
-
-
-        >
-
-
-
-          Transcribed Text
+          View Student Transcribed Text
 
 
 
@@ -1711,14 +1675,6 @@
 
 
       </div>
-
-
-
-
-
-
-
-      @if(activeTab === 'uploaded-file'){
 
 
 
@@ -1743,13 +1699,13 @@
 
         </a>
       </div>
-      } @else {
+    	  } @else {
       <!-- Sequential Image + Transcribed Text Layout for Mobile -->
-      <div class="flex flex-col gap-6">
+      <div class="flex flex-col gap-8">
         @for (url of submissionFileUrls; track $index) {
-        <div class="submission-item flex flex-col gap-3">
-          <!-- Image Section - 50% viewport height for mobile -->
-          <div class="image-section w-full rounded-2xl overflow-hidden bg-gray-50" style="height: 50vh; max-height: 400px;">
+        <div class="submission-item flex flex-col gap-4">
+          <!-- Image Section - 60% viewport height -->
+          <div class="image-section w-full rounded-2xl overflow-hidden bg-gray-50" style="height: 60vh; max-height: 600px;">
             <app-image-annotation-overlay
               [imageUrl]="url || 'img/default-img.png'"
               [annotations]="getAnnotationsForFileId(submissionFileIds[$index])"
@@ -1758,26 +1714,26 @@
             ></app-image-annotation-overlay>
           </div>
           
-          <!-- Transcribed Text Section for Mobile -->
+          <!-- Transcribed Text Section -->
           @if (getOcrTextForFileId(submissionFileIds[$index]); as fileText) {
-          <div class="transcribed-text-section bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-100">
-            <div class="flex items-center gap-2 mb-3">
-              <i class="fas fa-file-alt text-blue-500 text-sm"></i>
-              <h4 class="text-sm font-semibold text-gray-800">Transcribed Text - Page {{ $index + 1 }}</h4>
+          <div class="transcribed-text-section bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100">
+            <div class="flex items-center gap-2 mb-4">
+              <i class="fas fa-file-alt text-blue-500"></i>
+              <h4 class="text-lg font-semibold text-gray-800">Transcribed Text - Page {{ $index + 1 }}</h4>
             </div>
-            <div class="transcript-content">
-              <p class="transcribed-text font-serif text-gray-700 leading-relaxed whitespace-pre-wrap text-sm" style="font-family: 'Georgia', 'Cambria', 'Times New Roman', serif; line-height: 1.7;">
+            <div class="transcript-content prose prose-gray max-w-none">
+              <p class="transcribed-text font-serif text-gray-700 leading-relaxed whitespace-pre-wrap" style="font-family: 'Georgia', 'Cambria', 'Times New Roman', serif; font-size: 1.125rem; line-height: 1.8;">
                 {{ fileText }}
               </p>
             </div>
           </div>
           } @else {
-          <div class="transcribed-text-section bg-gray-50 rounded-xl p-4 border border-gray-100">
+          <div class="transcribed-text-section bg-gray-50 rounded-2xl p-6 border border-gray-100">
             <div class="flex items-center gap-2 mb-2">
-              <i class="fas fa-clock text-amber-500 text-sm"></i>
-              <h4 class="text-sm font-semibold text-gray-700">Transcribed Text - Page {{ $index + 1 }}</h4>
+              <i class="fas fa-clock text-amber-500"></i>
+              <h4 class="text-lg font-semibold text-gray-700">Transcribed Text - Page {{ $index + 1 }}</h4>
             </div>
-            <p class="text-gray-500 italic text-sm" style="font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;">
+            <p class="text-gray-500 italic" style="font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;">
               @if (isOcrPending || isOcrRefreshing) {
               OCR is processing this image...
               } @else if (ocrErrorMessage) {
@@ -1793,7 +1749,34 @@
       </div>
       }
 
-      } @if(activeTab === 'transcribed-text'){
+      } @else {
+
+
+
+      <div class="flex flex-row justify-between items-center">
+
+
+
+        <p class="text-2xl font-bold">Student's Transcribed Text</p>
+
+
+
+        <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
+
+
+
+          View Student Uploaded File
+
+
+
+        </button>
+
+
+
+      </div>
+
+
+
       <div class="w-full overflow-x-hidden">
         <div class="flex flex-col gap-4">
 
