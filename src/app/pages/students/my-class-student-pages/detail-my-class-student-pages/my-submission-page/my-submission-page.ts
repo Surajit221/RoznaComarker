@@ -5110,13 +5110,20 @@ export class MySubmissionPage {
 
 
   openRubricDialog() {
-
-
-
+    // Refresh assignment data to get latest rubric
+    this.refreshAssignmentForRubric();
     this.showRubricDialog = true;
+  }
 
-
-
+  private async refreshAssignmentForRubric() {
+    if (!this.assignment?._id) return;
+    
+    try {
+      const updatedAssignment = await this.assignmentApi.getAssignmentById(this.assignment._id);
+      this.assignment = updatedAssignment;
+    } catch (err: any) {
+      console.warn('Failed to refresh assignment for rubric:', err);
+    }
   }
 
 

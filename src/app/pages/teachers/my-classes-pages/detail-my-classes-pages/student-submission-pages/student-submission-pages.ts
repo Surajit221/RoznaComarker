@@ -457,9 +457,21 @@ export class StudentSubmissionPages {
         : (assignmentRaw && typeof assignmentRaw === 'object' ? String(assignmentRaw._id || assignmentRaw.id || '') : '');
 
       if (assignmentId && assignmentId.trim().length) {
-        const updated = await this.assignmentApi.updateAssignmentRubrics(assignmentId.trim(), {
-          rubricDesigner: designer
-        });
+        // Update assignment rubrics in the same format as assignment creation
+        const rubricsPayload = {
+          rubrics: {
+            criteria: designer.criteria.map(c => ({
+              name: c.title,
+              levels: designer.levels.map((lvl, i) => ({
+                title: lvl.title,
+                score: lvl.maxPoints,
+                description: c.cells[i] || ''
+              }))
+            }))
+          }
+        };
+
+        const updated = await this.assignmentApi.updateAssignmentRubrics(assignmentId.trim(), rubricsPayload);
         if (updated && updated._id) {
           const state: any = this.teacherDashboardState as any;
           if (!state.assignmentsById || typeof state.assignmentsById !== 'object') {
