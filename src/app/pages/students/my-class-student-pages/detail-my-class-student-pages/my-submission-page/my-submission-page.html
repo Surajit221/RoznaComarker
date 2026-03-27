@@ -321,9 +321,8 @@
 
     <app-app-bar-back-button [title]="classTitle" (back)="toBack()"></app-app-bar-back-button>
 
-    <div class="w-full flex justify-end gap-2">
+    <div class="w-full flex justify-between gap-2 mb-5">
       <button type="button" class="btn-info-sm" (click)="scrollToAiFeedback()">View AI Feedback</button>
-      <button type="button" class="btn-warning-sm" (click)="openRubricDialog()">View Rubric</button>
       <button type="button" class="btn-primary-sm" [disabled]="isPdfDownloading" (click)="downloadPdf()">
         @if (isPdfDownloading) {
         <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
@@ -562,7 +561,7 @@
     <!-- Shared AI Feedback mobile template -->
     <ng-template #aiFeedbackMobile>
       <div class="flex flex-col gap-4" id="ai-feedback-section-mobile">
-        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
+        <div class="w-full bg-white p-4 rounded-3xl flex flex-col gap-6">
           <div class="flex flex-row justify-between items-center">
             <p class="text-2xl font-bold">AI Feedback</p>
             <button class="btn-warning-sm w-fit" (click)="openRubricDialog()">View Rubric</button>
