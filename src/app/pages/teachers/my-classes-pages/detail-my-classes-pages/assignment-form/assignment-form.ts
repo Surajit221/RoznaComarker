@@ -10,10 +10,12 @@ import {
 import { DeviceService } from '../../../../../services/device.service';
 import { AlertService } from '../../../../../services/alert.service';
 import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
+import { RubricDesignerModal } from '../../../../../components/teacher/rubric-designer-modal/rubric-designer-modal';
+import type { RubricDesigner } from '../../../../../models/submission-feedback.model';
 
 @Component({
   selector: 'app-assignment-form',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RubricDesignerModal],
   templateUrl: './assignment-form.html',
   styleUrl: './assignment-form.css',
 })
@@ -29,6 +31,9 @@ export class AssignmentForm {
   private alert = inject(AlertService);
 
   isSubmitting = false;
+  isRubricDialogOpen = false;
+  rubricDesignerForModal: RubricDesigner | null = null;
+  isRubricSaving = false;
 
   constructor(private fb: FormBuilder) {
     this.classForm = this.createForm();
@@ -57,12 +62,18 @@ export class AssignmentForm {
         startDate: dateOnly,
         message: a.instructions || ''
       });
+      
+      // Load existing rubric if present
+      this.loadRubricFromAssignment(a);
       return;
     }
 
     this.classForm.reset();
     const today = new Date().toISOString().split('T')[0];
     this.classForm.get('startDate')?.setValue(today);
+    
+    // Reset rubric for new assignment
+    this.rubricDesignerForModal = null;
   }
 
   createForm(): FormGroup {
@@ -119,13 +130,29 @@ export class AssignmentForm {
 
       const deadline = deadlineDate.toISOString();
 
+      const payload: any = {
+        title,
+        deadline,
+        instructions,
+        writingType
+      };
+      
+      // Include rubric if it exists
+      if (this.rubricDesignerForModal) {
+        payload.rubrics = {
+          criteria: this.rubricDesignerForModal.criteria.map(c => ({
+            name: c.title,
+            levels: this.rubricDesignerForModal!.levels.map((lvl, i) => ({
+              title: lvl.title,
+              score: lvl.maxPoints,
+              description: c.cells[i] || ''
+            }))
+          }))
+        };
+      }
+
       if (this.assignment?._id) {
-        const updated = await this.assignmentApi.updateAssignment(this.assignment._id, {
-          title,
-          deadline,
-          instructions,
-          writingType
-        });
+        const updated = await this.assignmentApi.updateAssignment(this.assignment._id, payload);
         this.updated.emit(updated);
         this.closeDialog();
         return;
@@ -137,13 +164,8 @@ export class AssignmentForm {
         return;
       }
 
-      const created = await this.assignmentApi.createAssignment({
-        title,
-        classId,
-        deadline,
-        instructions,
-        writingType
-      });
+      payload.classId = classId;
+      const created = await this.assignmentApi.createAssignment(payload);
 
       this.created.emit(created);
       this.closeDialog();
@@ -163,6 +185,104 @@ export class AssignmentForm {
   closeDialog() {
     this.closed.emit();
     this.onReset();
+  }
+
+  openRubricDesignerDialog() {
+    this.isRubricDialogOpen = true;
+  }
+
+  closeRubricDesignerDialog() {
+    this.isRubricDialogOpen = false;
+  }
+
+  private loadRubricFromAssignment(assignment: BackendAssignment) {
+    const rubrics = (assignment as any)?.rubrics;
+    const rubric = (assignment as any)?.rubric;
+    
+    if (rubrics) {
+      this.rubricDesignerForModal = this.parseRubricDesignerFromRubricsField(rubrics, assignment.title);
+    } else if (rubric) {
+      this.rubricDesignerForModal = this.parseLegacyRubricDesigner(rubric, assignment.title);
+    } else {
+      this.rubricDesignerForModal = null;
+    }
+  }
+
+  private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: string): RubricDesigner | null {
+    const obj = value && typeof value === 'object' ? value : null;
+    const criteriaRaw = Array.isArray(obj?.criteria) ? obj.criteria : null;
+    if (!criteriaRaw) return null;
+
+    const first = criteriaRaw[0] && typeof criteriaRaw[0] === 'object' ? criteriaRaw[0] : null;
+    const levelsRaw = Array.isArray((first as any)?.levels) ? (first as any).levels : [];
+    if (!levelsRaw.length) return null;
+
+    const levels = levelsRaw.map((l: any) => ({
+      title: typeof l?.title === 'string' ? String(l.title) : '',
+      maxPoints: Number(l?.score) || 0
+    }));
+
+    const criteria = criteriaRaw.map((c: any) => {
+      const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
+      return {
+        title: typeof c?.name === 'string' ? String(c.name) : '',
+        cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
+      };
+    });
+
+    return {
+      title: `Rubric: ${assignmentTitle}`,
+      levels,
+      criteria
+    };
+  }
+
+  private parseLegacyRubricDesigner(value: any, assignmentTitle: string): RubricDesigner | null {
+    if (!value) return null;
+    let obj;
+    if (typeof value === 'string') {
+      try {
+        obj = JSON.parse(value);
+      } catch {
+        return null;
+      }
+    } else {
+      obj = value;
+    }
+    
+    if (!obj || typeof obj !== 'object') return null;
+
+    const levels = Array.isArray(obj.levels) ? obj.levels : null;
+    const criteria = Array.isArray(obj.criteria) ? obj.criteria : null;
+    if (!levels || !criteria) return null;
+
+    return {
+      title: typeof obj.title === 'string' ? obj.title : `Rubric: ${assignmentTitle}`,
+      levels: levels.map((l: any) => ({
+        title: typeof l?.title === 'string' ? String(l.title) : '',
+        maxPoints: Number(l?.maxPoints) || 0
+      })),
+      criteria: criteria.map((c: any) => ({
+        title: typeof c?.title === 'string' ? String(c.title) : '',
+        cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
+      }))
+    };
+  }
+
+  async onRubricDesignerSave(designer: RubricDesigner) {
+    if (!designer) return;
+    if (this.isRubricSaving) return;
+
+    this.isRubricSaving = true;
+    try {
+      this.rubricDesignerForModal = designer;
+      this.alert.showToast('Rubric saved successfully', 'success');
+      this.closeRubricDesignerDialog();
+    } catch (err: any) {
+      this.alert.showError('Failed to save rubric', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRubricSaving = false;
+    }
   }
 
   private markAllFieldsAsTouched(): void {
