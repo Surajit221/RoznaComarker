@@ -1,4 +1,4 @@
-<!-- Hidden file input — lives OUTSIDE the drop zone -->
+<!-- File input fully detached from the drop zone DOM tree -->
 <input
   #fileInput
   type="file"
@@ -10,22 +10,22 @@
 
 <!-- Drop zone -->
 <div
-  class="relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition cursor-pointer select-none"
+  class="relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition-colors duration-200 cursor-pointer select-none"
   [ngClass]="{
-    'border-blue-600 bg-blue-50': isDragging,
+    'border-blue-500 bg-blue-50': isDragging,
     'border-gray-300 hover:border-blue-400': !isDragging
   }"
   (dragover)="onDragOver($event)"
   (dragleave)="onDragLeave($event)"
   (drop)="onDrop($event)"
-  (click)="onDropZoneClick($event)"
-  (touchend)="onDropZoneTouchEnd($event)"
+  (click)="openFilePicker($event)"
+  (touchend)="openFilePicker($event)"
 >
   @if (files.length === 0) {
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20" viewBox="0 0 24 24" fill="none">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 mb-3" viewBox="0 0 24 24" fill="none">
       <path
         d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15"
-        stroke="#E7E7E7"
+        stroke="#D1D5DB"
         stroke-width="1.5"
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -33,28 +33,21 @@
     </svg>
 
     @if (device.isDesktop()) {
-      <div class="flex flex-col justify-center items-center">
-        <p class="text-center text-xl font-bold text-[#E7E7E7]">Upload Image, PDF or Audio File</p>
-        <p class="text-center text-base text-[#E7E7E7]">Drop file or click here to choose file</p>
-      </div>
-    }
-    @if (device.isMobile() || device.isTablet()) {
-      <div class="flex flex-col justify-center items-center">
-        <p class="text-center text-lg font-semibold text-[#E7E7E7]">Upload Image, PDF or Audio File</p>
-        <p class="text-center text-sm text-[#E7E7E7]">Tap here to choose file</p>
-      </div>
+      <p class="text-center text-xl font-bold text-gray-300">Upload Image or PDF</p>
+      <p class="text-center text-base text-gray-300 mt-1">Drop files or click here to browse</p>
+    } @else {
+      <p class="text-center text-lg font-semibold text-gray-300">Upload Image or PDF</p>
+      <p class="text-center text-sm text-gray-300 mt-1">Tap here to choose files</p>
     }
   } @else {
-    @if (device.isDesktop()) {
-      <div class="flex flex-col justify-center items-center">
-        <p class="text-center text-base font-semibold text-gray-500">Click to add more files</p>
-      </div>
-    }
-    @if (device.isMobile() || device.isTablet()) {
-      <div class="flex flex-col justify-center items-center">
-        <p class="text-center text-sm font-semibold text-gray-500">Tap to add more files</p>
-      </div>
-    }
+    <div class="flex flex-col items-center gap-1">
+      <i class="bx bx-plus-circle text-4xl text-gray-300"></i>
+      @if (device.isDesktop()) {
+        <p class="text-center text-base font-semibold text-gray-400">Click to add more files</p>
+      } @else {
+        <p class="text-center text-sm font-semibold text-gray-400">Tap to add more files</p>
+      }
+    </div>
   }
 </div>
 
@@ -67,33 +60,54 @@
 <!-- Preview list -->
 @if (files.length > 0) {
   <div
-    class="mt-6 w-full overflow-y-auto space-y-3"
+    class="mt-4 w-full overflow-y-auto space-y-3"
     [ngClass]="{
       'max-h-[350px]': device.isMobile() || device.isTablet(),
-      'max-h-[250px]': device.isDesktop()
+      'max-h-[260px]': device.isDesktop()
     }"
   >
-    @for (file of files; track $index) {
-      <div class="flex items-center justify-between bg-white border-2 border-dashed border-[#E7E7E7] rounded-xl p-4">
-        <div class="flex items-center space-x-3">
+    @for (file of files; track file.name) {
+      <div class="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+        <div class="flex items-center gap-3 min-w-0">
+
+          <!-- Image preview -->
           @if (file.preview) {
-            <img [src]="file.preview" alt="preview" class="w-12 h-12 object-cover rounded-lg border" />
+            <img
+              [src]="file.preview"
+              alt="preview"
+              class="w-12 h-12 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+            />
+          } @else {
+            <!-- PDF icon -->
+            <div class="w-12 h-12 flex items-center justify-center rounded-lg border border-gray-200 bg-red-50 flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-red-400" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z"
+                  stroke="#F87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                />
+                <path d="M14 2V8H20" stroke="#F87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M16 13H8" stroke="#F87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M16 17H8" stroke="#F87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M10 9H8" stroke="#F87171" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
           }
-          <div>
-            <p class="text-sm font-medium text-gray-700 truncate max-w-[200px] sm:max-w-[380px]">
+
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-700 truncate max-w-[180px] sm:max-w-[340px]">
               {{ file.name }}
             </p>
-            <p class="text-xs text-gray-400">{{ (file.size / 1024).toFixed(1) }} KB</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ (file.size / 1024).toFixed(1) }} KB</p>
           </div>
         </div>
 
-        <!-- IMPORTANT: type="button" prevents any form submission -->
         <button
           type="button"
           (click)="removeFile($event, $index)"
-          class="text-red-500 hover:text-red-600 text-sm font-medium"
+          class="flex-shrink-0 ml-2 text-red-400 hover:text-red-600 transition-colors"
+          aria-label="Remove file"
         >
-          <i class="bx bxs-trash text-2xl"></i>
+          <i class="bx bxs-trash text-xl"></i>
         </button>
       </div>
     }
