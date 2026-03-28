@@ -129,6 +129,7 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 
 
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
+import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 
 
 
@@ -2966,55 +2967,38 @@ export class StudentSubmissionPages {
     console.log('Generating dynamic AI Feedback for submission', submission._id);
     this.isLoading = true;
     try {
-      const updated = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
-      this.currentFeedback = updated;
-      console.log('TEACHER FEEDBACK LOADED:', updated);
-      this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
-      this.hydrateRubricEditFormFromFeedback();
-      this.ensureFixedRubricScoresAndComments();
-      this.recomputeRubricFeedbackItems();
+      const res: AiRubricStructuredResponse = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
 
-
-
-
-
-
-
-      if (!updated?.rubricDesigner) {
-        const d = this.buildDefaultRubricDesignerFromFeedback(this.currentFeedback as SubmissionFeedback);
-        this.currentFeedback = { ...updated, rubricDesigner: d };
+      if (!this.currentFeedback) {
+        this.currentFeedback = this.buildEmptyFeedback(submission._id);
       }
 
-
-
-
-
-
-
-      // Persist the fixed rubric titles/scores/comments + rubric designer so students
-      // see the exact same rubric content after AI generation.
-      {
-        const base = this.currentFeedback as SubmissionFeedback;
-        const payload: SubmissionFeedback = {
-          ...base,
-          submissionId: submission._id,
-          rubricDesigner: (base as any).rubricDesigner,
-          rubricScores: (base as any).rubricScores,
-          overriddenByTeacher: Boolean((base as any).overriddenByTeacher)
+      const fb: any = this.currentFeedback as any;
+      if (!fb.rubricScores || typeof fb.rubricScores !== 'object') {
+        fb.rubricScores = {
+          CONTENT: { score: 0, maxScore: 5, comment: '' },
+          ORGANIZATION: { score: 0, maxScore: 5, comment: '' },
+          GRAMMAR: { score: 0, maxScore: 5, comment: '' },
+          VOCABULARY: { score: 0, maxScore: 5, comment: '' },
+          MECHANICS: { score: 0, maxScore: 5, comment: '' }
         };
-        const saved = await this.feedbackApi.upsertSubmissionFeedback(submission._id, payload);
-        this.currentFeedback = saved;
       }
 
+      // ONLY patch score + text fields. Titles/layout are derived from fixed categories.
+      fb.rubricScores.GRAMMAR.score = res.grammar.score;
+      fb.rubricScores.GRAMMAR.comment = res.grammar.text;
 
+      fb.rubricScores.ORGANIZATION.score = res.structure.score;
+      fb.rubricScores.ORGANIZATION.comment = res.structure.text;
 
+      fb.rubricScores.CONTENT.score = res.content.score;
+      fb.rubricScores.CONTENT.comment = res.content.text;
 
+      // UI maps "Overall Rubric Score" to MECHANICS in rubricScoresToFeedbackItems().
+      fb.rubricScores.MECHANICS.score = res.overall.score;
+      fb.rubricScores.MECHANICS.comment = res.overall.text;
 
-
-
-      this.hydrateRubricDesignerFromFeedback();
-      this.hydrateRubricEditFormFromFeedback();
-      this.syncRubricDesignerStateFromRubricScores();
+      this.ensureFixedRubricScoresAndComments();
       this.recomputeRubricFeedbackItems();
 
 

@@ -6,6 +6,18 @@ import { environment } from '../../environments/environment';
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
 import type { SubmissionFeedback } from '../models/submission-feedback.model';
 
+export type AiRubricField = {
+  score: number;
+  text: string;
+};
+
+export type AiRubricStructuredResponse = {
+  grammar: AiRubricField;
+  structure: AiRubricField;
+  content: AiRubricField;
+  overall: AiRubricField;
+};
+
 type BackendResponse<T> = {
   success: boolean;
   data: T;
@@ -100,10 +112,10 @@ export class FeedbackApiService {
     return resp.data;
   }
 
-  async generateAiSubmissionFeedback(submissionId: string): Promise<SubmissionFeedback> {
+  async generateAiSubmissionFeedback(submissionId: string): Promise<AiRubricStructuredResponse> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<SubmissionFeedback>>(
+      this.http.post<BackendResponse<AiRubricStructuredResponse>>(
         `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-ai`,
         {}
       )
