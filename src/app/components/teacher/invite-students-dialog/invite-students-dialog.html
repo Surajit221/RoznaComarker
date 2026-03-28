@@ -1,0 +1,205 @@
+<ng-container>
+  @if(device.isDesktop()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" *ngIf="open">
+    <div class="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold">Invite Students</h2>
+        <button 
+          type="button" 
+          class="text-gray-500 hover:text-gray-700 text-2xl"
+          (click)="onClose()"
+        >
+          <i class="bx bx-x"></i>
+        </button>
+      </div>
+
+      <div class="mb-6">
+        <p class="text-gray-600 mb-2">Invite students to join <strong>{{ classTitle }}</strong></p>
+        <div class="bg-gray-50 p-4 rounded-xl space-y-2">
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-bold pl-2">Class Link:</label>
+            <div class="relative flex-1">
+              <input
+                type="text"
+                class="input-text bg-white text-sm pr-20"
+                [value]="shareLink"
+                readonly
+              />
+              <button
+                type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700 text-sm"
+                (click)="copyClassLink()"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm font-bold pl-2">Class Code:</label>
+            <div class="relative flex-1">
+              <input
+                type="text"
+                class="input-text bg-white text-sm pr-20"
+                [value]="classCode"
+                readonly
+              />
+              <button
+                type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700 text-sm"
+                (click)="copyClassCode()"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form [formGroup]="inviteForm" (ngSubmit)="onSubmit()" class="space-y-4">
+        <div class="flex flex-col gap-1">
+          <label for="emails" class="text-sm font-bold pl-2">Email Addresses</label>
+          <textarea
+            id="emails"
+            formControlName="emails"
+            class="input-text h-32 resize-none"
+            placeholder="Enter email addresses separated by commas&#10;Example: student1@example.com, student2@example.com"
+            [class.input-error]="emailsControl?.invalid && emailsControl?.touched"
+          ></textarea>
+          @if (emailsControl?.invalid && emailsControl?.touched) {
+            <div class="text-red-500 text-sm mt-1">
+              @if (emailsControl?.errors?.['required']) {
+                <span>Email addresses are required</span>
+              }
+              @if (emailsControl?.errors?.['pattern']) {
+                <span>Please enter valid email addresses separated by commas</span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4">
+          <button
+            type="button"
+            class="btn-danger"
+            (click)="onClose()"
+            [disabled]="isSubmitting"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="btn-primary"
+            [disabled]="inviteForm.invalid || isSubmitting"
+          >
+            @if (isSubmitting) {
+              <i class="bx bx-loader-alt animate-spin mr-2"></i>
+            }
+            Send Invitations
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  } @if(device.isMobile() || device.isTablet()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50" *ngIf="open">
+    <div class="bg-white rounded-t-3xl p-6 w-full max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Invite Students</h2>
+        <button 
+          type="button" 
+          class="text-gray-500 hover:text-gray-700 text-xl"
+          (click)="onClose()"
+        >
+          <i class="bx bx-x"></i>
+        </button>
+      </div>
+
+      <div class="mb-6">
+        <p class="text-gray-600 mb-2 text-sm">Invite students to join <strong>{{ classTitle }}</strong></p>
+        <div class="bg-gray-50 p-3 rounded-xl space-y-2">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-bold">Class Link:</label>
+            <div class="relative">
+              <input
+                type="text"
+                class="input-text bg-white text-xs pr-16"
+                [value]="shareLink"
+                readonly
+              />
+              <button
+                type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700 text-xs"
+                (click)="copyClassLink()"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-bold">Class Code:</label>
+            <div class="relative">
+              <input
+                type="text"
+                class="input-text bg-white text-xs pr-16"
+                [value]="classCode"
+                readonly
+              />
+              <button
+                type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700 text-xs"
+                (click)="copyClassCode()"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form [formGroup]="inviteForm" (ngSubmit)="onSubmit()" class="space-y-4">
+        <div class="flex flex-col gap-1">
+          <label for="emails" class="text-sm font-bold pl-2">Email Addresses</label>
+          <textarea
+            id="emails"
+            formControlName="emails"
+            class="input-text h-24 resize-none text-sm"
+            placeholder="Enter emails separated by commas&#10;student1@example.com, student2@example.com"
+            [class.input-error]="emailsControl?.invalid && emailsControl?.touched"
+          ></textarea>
+          @if (emailsControl?.invalid && emailsControl?.touched) {
+            <div class="text-red-500 text-xs mt-1">
+              @if (emailsControl?.errors?.['required']) {
+                <span>Email addresses are required</span>
+              }
+              @if (emailsControl?.errors?.['pattern']) {
+                <span>Please enter valid email addresses</span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="flex flex-col gap-3 pt-2">
+          <button
+            type="submit"
+            class="btn-primary-sm w-full"
+            [disabled]="inviteForm.invalid || isSubmitting"
+          >
+            @if (isSubmitting) {
+              <i class="bx bx-loader-alt animate-spin mr-2"></i>
+            }
+            Send Invitations
+          </button>
+          <button
+            type="button"
+            class="btn-danger-sm w-full"
+            (click)="onClose()"
+            [disabled]="isSubmitting"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  }
+</ng-container>

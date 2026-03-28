@@ -211,4 +211,54 @@ export class ClassApiService {
       this.cache.delete('my-teacher-classes');
     }
   }
+
+  async inviteStudents(classId: string, emails: string[]): Promise<{
+    classId: string;
+    className: string;
+    results: Array<{
+      email: string;
+      status: 'invited' | 'already_joined' | 'already_invited' | 'error';
+      message: string;
+      invitationId?: string;
+      token?: string;
+      joinUrl?: string;
+      joinCode?: string;
+      expiresAt?: string;
+    }>;
+    summary: {
+      total: number;
+      invited: number;
+      already_joined: number;
+      already_invited: number;
+      errors: number;
+    };
+  }> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<any>>(`${apiBaseUrl}/classes/${encodeURIComponent(classId)}/invite`, {
+        emails
+      })
+    );
+    
+    // Clear relevant caches after inviting
+    this.invalidateClassStudents(classId);
+    this.invalidateClassSummary(classId);
+    
+    return resp.data;
+  }
+
+  async getClassInvitations(classId: string): Promise<Array<{
+    email: string;
+    status: 'pending' | 'accepted' | 'expired';
+    invitedAt: string;
+    expiresAt: string;
+    acceptedAt?: string;
+    token: string;
+  }>> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<any[]>>(`${apiBaseUrl}/classes/${encodeURIComponent(classId)}/invitations`)
+    );
+    return resp.data || [];
+  }
 }

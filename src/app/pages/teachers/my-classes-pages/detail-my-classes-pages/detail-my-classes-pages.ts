@@ -5,6 +5,7 @@ import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
 import { AssignmentForm } from './assignment-form/assignment-form';
 import { DialogQrClasses } from './dialog-qr-classes/dialog-qr-classes';
 import { DialogViewSubmissions } from './dialog-view-submissions/dialog-view-submissions';
+import { InviteStudentsDialog } from '../../../../components/teacher/invite-students-dialog/invite-students-dialog';
 import { DeviceService } from '../../../../services/device.service';
 import { AppBarBackButton } from '../../../../shared/app-bar-back-button/app-bar-back-button';
 import { BottomsheetDialog } from '../../../../shared/bottomsheet-dialog/bottomsheet-dialog';
@@ -27,6 +28,7 @@ import { Subscription } from 'rxjs';
     AssignmentForm,
     DialogQrClasses,
     DialogViewSubmissions,
+    InviteStudentsDialog,
     AppBarBackButton,
     BottomsheetDialog,
     RubricDesignerModal,
@@ -38,6 +40,7 @@ export class DetailMyClassesPages {
   showDialog = false;
   showDialogSubmission = false;
   showDialogQRClasses = false;
+  showInviteDialog = false;
   device = inject(DeviceService);
   private route = inject(ActivatedRoute);
   private assignmentApi = inject(AssignmentApiService);
@@ -132,12 +135,26 @@ export class DetailMyClassesPages {
 
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
-      if (!n || n.type !== 'assignment_submitted') return;
-      const classId = this.classId;
-      const eventClassId = n?.data?.classId ? String(n.data.classId) : '';
-      if (!classId || !eventClassId || eventClassId !== classId) return;
-      const assignmentId = n?.data?.assignmentId ? String(n.data.assignmentId) : '';
-      this.scheduleSubmissionCountRefresh(assignmentId);
+      if (!n) return;
+      
+      if (n.type === 'assignment_submitted') {
+        const classId = this.classId;
+        const eventClassId = n?.data?.classId ? String(n.data.classId) : '';
+        if (!classId || !eventClassId || eventClassId !== classId) return;
+        const assignmentId = n?.data?.assignmentId ? String(n.data.assignmentId) : '';
+        this.scheduleSubmissionCountRefresh(assignmentId);
+      }
+      
+      if (n.type === 'student_joined' || n.event === 'student_joined') {
+        const classId = this.classId;
+        const eventClassId = n?.data?.classId || n?.classId ? String(n?.data?.classId || n?.classId) : '';
+        if (!classId || !eventClassId || eventClassId !== classId) return;
+        
+        // Refresh students list and class summary when a student joins
+        void this.loadStudents(true);
+        void this.loadClassSummary(true);
+        void this.loadAssignments();
+      }
     });
 
     this.startPolling();
@@ -910,5 +927,46 @@ export class DetailMyClassesPages {
 
   copyClassCode() {
     this.copyToClipboard(this.classCode);
+  }
+
+  onInviteStudents() {
+    this.showInviteDialog = true;
+  }
+
+  onCloseInviteDialog() {
+    this.showInviteDialog = false;
+  }
+
+  async onSendInvitations(emails: string[]) {
+    const classId = this.classId;
+    if (!classId) {
+      this.alert.showError('Missing class', 'Unable to invite students: class id is missing.');
+      return;
+    }
+
+    try {
+      const result = await this.classApi.inviteStudents(classId, emails);
+      
+      const { summary } = result;
+      let message = `Invitation process completed:\n`;
+      message += `• ${summary.invited} invited successfully\n`;
+      message += `• ${summary.already_joined} already joined\n`;
+      message += `• ${summary.already_invited} already invited\n`;
+      message += `• ${summary.errors} errors`;
+
+      if (summary.errors > 0) {
+        this.alert.showWarning('Invitations sent with errors', message);
+      } else {
+        this.alert.showSuccess('Invitations sent', message);
+      }
+
+      // Refresh students list to get updated data
+      await this.loadStudents();
+      await this.loadClassSummary();
+
+    } catch (err: any) {
+      const message = err?.error?.message || err?.message || 'Please try again';
+      this.alert.showError('Failed to send invitations', message);
+    }
   }
 }
