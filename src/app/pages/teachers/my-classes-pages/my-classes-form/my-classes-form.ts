@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -17,16 +17,16 @@ import { ClassApiService, type BackendClass } from '../../../../api/class-api.se
   templateUrl: './my-classes-form.html',
   styleUrl: './my-classes-form.css',
 })
-export class MyClassesForm {
+export class MyClassesForm implements OnChanges {
   classForm: FormGroup;
   device = inject(DeviceService);
   private classApi = inject(ClassApiService);
   private alert = inject(AlertService);
+  isSubmitting = false;
 
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() classId: string | null = null;
-  @Input() initialName = '';
-  @Input() initialDescription = '';
+  @Input() classData: BackendClass | null = null;
 
   @Output() created = new EventEmitter<BackendClass>();
   @Output() updated = new EventEmitter<BackendClass>();
@@ -38,17 +38,14 @@ export class MyClassesForm {
   }
 
   ngOnInit(): void {
-    const today = new Date().toISOString().split('T')[0];
-    this.classForm.get('startDate')?.setValue(today);
+    this.applyModeDefaults();
+    this.patchFromClassData();
+  }
 
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    this.classForm.get('endDate')?.setValue(nextWeek.toISOString().split('T')[0]);
-
-    if (this.mode === 'edit') {
-      this.classForm.get('role')?.setValue('teacher');
-      this.classForm.get('className')?.setValue(this.initialName || '');
-      this.classForm.get('message')?.setValue(this.initialDescription || '');
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['mode'] || changes['classData']) {
+      this.applyModeDefaults();
+      this.patchFromClassData();
     }
   }
 
@@ -56,13 +53,55 @@ export class MyClassesForm {
     return this.fb.group(
       {
         className: ['', [Validators.required, Validators.minLength(3)]],
-        role: ['', Validators.required],
-        startDate: ['', Validators.required],
-        endDate: ['', Validators.required],
-        message: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
+        subjectLevel: [''],
+        startDate: [''],
+        endDate: [''],
+        description: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]]
       },
       { validators: this.dateValidator }
     );
+  }
+
+  private applyModeDefaults(): void {
+    if (this.mode === 'edit') return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    this.classForm.patchValue({
+      className: '',
+      subjectLevel: '',
+      startDate: today,
+      endDate: nextWeek.toISOString().split('T')[0],
+      description: ''
+    }, { emitEvent: false });
+  }
+
+  private patchFromClassData(): void {
+    const classData = this.classData;
+    if (!classData || !classData._id) return;
+
+    this.classForm.patchValue(
+      {
+        className: classData.name || '',
+        subjectLevel: classData.subjectLevel || '',
+        startDate: this.normalizeDateInput(classData.startDate),
+        endDate: this.normalizeDateInput(classData.endDate),
+        description: classData.description || ''
+      },
+      { emitEvent: false }
+    );
+  }
+
+  private normalizeDateInput(value?: string | null): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (!Number.isFinite(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   dateValidator(form: AbstractControl) {
@@ -94,9 +133,18 @@ export class MyClassesForm {
       return;
     }
 
+    if (this.isSubmitting) return;
+
+    this.isSubmitting = true;
+
     try {
-      const name = this.classForm.value.className;
-      const description = this.classForm.value.message;
+      const payload = {
+        name: this.classForm.value.className,
+        subjectLevel: this.classForm.value.subjectLevel || null,
+        startDate: this.classForm.value.startDate || null,
+        endDate: this.classForm.value.endDate || null,
+        description: this.classForm.value.description || null
+      };
 
       if (this.mode === 'edit') {
         if (!this.classId) {
@@ -104,17 +152,14 @@ export class MyClassesForm {
           return;
         }
 
-        const updated = await this.classApi.updateClass(this.classId, {
-          name,
-          description
-        });
+        const updated = await this.classApi.updateClass(this.classId, payload);
 
         this.updated.emit(updated);
         this.closeDialog();
         return;
       }
 
-      const created = await this.classApi.createClass({ name, description });
+      const created = await this.classApi.createClass(payload);
 
       this.created.emit(created);
       this.closeDialog();
@@ -122,12 +167,15 @@ export class MyClassesForm {
     } catch (err: any) {
       const title = this.mode === 'edit' ? 'Failed to update class' : 'Failed to create class';
       this.alert.showError(title, err?.message || 'Please try again');
+    } finally {
+      this.isSubmitting = false;
     }
   }
 
   onReset(): void {
     this.classForm.reset();
-    this.ngOnInit();
+    this.applyModeDefaults();
+    this.patchFromClassData();
   }
 
   closeDialog() {

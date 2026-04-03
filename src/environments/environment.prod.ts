@@ -1,16 +1,20 @@
+const origin = (typeof window !== 'undefined' && window.location && window.location.origin)
+  ? window.location.origin
+  : '';
+
 export const environment = {
 
     production: true,
 
-    apiUrl: 'http://82.112.234.151:5000',
+    apiUrl: origin,
 
-    API_URL: 'http://82.112.234.151:5000/api',
+    API_URL: `${origin}/api`,
 
-    UPLOADS_URL: 'http://82.112.234.151:5000/uploads',
+    UPLOADS_URL: `${origin}/uploads`,
 
-    FRONTEND_URL: 'http://82.112.234.151:4200',
+    FRONTEND_URL: origin,
 
-    apiBaseUrl: 'http://82.112.234.151:5000/api',
+    apiBaseUrl: `${origin}/api`,
 
     firebase: {
 

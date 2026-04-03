@@ -69,10 +69,8 @@
     <h2 class="text-3xl font-bold text-center mb-8">Update Class</h2>
     <app-my-classes-form
       mode="edit"
-      [classId]="selectedClass?.id || null"
-      [initialName]="selectedClass?.title || ''"
-      [initialDescription]="selectedClass?.description || ''"
-      (updated)="onClassUpdated()"
+      [classData]="selectedClass"
+      (updated)="onClassUpdated($event)"
       (closed)="closeEditDialog()"
     ></app-my-classes-form>
   </app-modal-dialog>
@@ -81,7 +79,7 @@
     <h2 class="text-3xl font-bold text-center mb-3">Delete Class?</h2>
     <p class="text-center text-gray-600 mb-8">
       This will remove
-      <span class="font-bold">{{ selectedClass?.title }}</span>
+      <span class="font-bold">{{ selectedClass?.name }}</span>
       from your active classes.
     </p>
     <div class="flex justify-center items-center gap-3">
@@ -166,10 +164,8 @@
     <h2 class="text-2xl font-bold text-center mb-3">Update Class</h2>
     <app-my-classes-form
       mode="edit"
-      [classId]="selectedClass?.id || null"
-      [initialName]="selectedClass?.title || ''"
-      [initialDescription]="selectedClass?.description || ''"
-      (updated)="onClassUpdated()"
+      [classData]="selectedClass"
+      (updated)="onClassUpdated($event)"
       (closed)="closeEditDialog()"
     ></app-my-classes-form>
   </app-modal-dialog>
@@ -177,7 +173,7 @@
   <app-modal-dialog [open]="showDeleteDialog" (closed)="closeDeleteDialog()" maxWidthClass="max-w-[420px]">
     <h2 class="text-2xl font-bold text-center mb-2">Delete Class?</h2>
     <p class="text-center text-gray-600 mb-6">
-      Delete <span class="font-bold">{{ selectedClass?.title }}</span>?
+      Delete <span class="font-bold">{{ selectedClass?.name }}</span>?
     </p>
     <div class="grid grid-cols-1 justify-center items-center gap-3 mb-3">
       <button type="button" class="btn-danger-sm" (click)="confirmDeleteClass()">Yes, Delete</button>

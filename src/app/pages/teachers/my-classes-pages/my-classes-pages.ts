@@ -24,7 +24,9 @@ export class MyClassesPages {
 
   showEditDialog = false;
   showDeleteDialog = false;
-  selectedClass: { id: string; title: string; description: string } | null = null;
+  selectedClass: BackendClass | null = null;
+
+  private classesById = new Map<string, BackendClass>();
 
   private classApi = inject(ClassApiService);
   private alert = inject(AlertService);
@@ -63,6 +65,12 @@ export class MyClassesPages {
     await this.loadClasses();
     this.setupSearchDebounce();
 
+    this.classApi.classUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((updated) => {
+        void this.onExternalClassUpdated(updated);
+      });
+
     const shouldOpenCreate = this.route.snapshot.queryParamMap.get('create') === '1';
     if (shouldOpenCreate) {
       this.onAddClasses();
@@ -71,6 +79,42 @@ export class MyClassesPages {
         queryParamsHandling: 'merge',
         replaceUrl: true
       });
+    }
+  }
+
+  private async onExternalClassUpdated(updated: BackendClass): Promise<void> {
+    if (!updated || !updated._id) return;
+
+    this.classesById.set(updated._id, updated);
+
+    if (updated.isActive === false) {
+      this.classes = (this.classes || []).filter((x) => x.id !== updated._id);
+      this.filteredClasses = (this.filteredClasses || []).filter((x) => x.id !== updated._id);
+      if (this.selectedClass?._id === updated._id) {
+        this.selectedClass = null;
+      }
+      return;
+    }
+
+    const idx = (this.classes || []).findIndex((x) => x.id === updated._id);
+    if (idx < 0) {
+      if (this.showEditDialog || this.showDeleteDialog) {
+        if (this.selectedClass?._id === updated._id) {
+          this.selectedClass = updated;
+        }
+      }
+      return;
+    }
+
+    const nextItem = await this.mapClassToCardItem(updated);
+    const next = [...this.classes];
+    next[idx] = nextItem;
+    this.classes = next;
+
+    this.filterClasses(this.searchTerm);
+
+    if (this.selectedClass?._id === updated._id) {
+      this.selectedClass = updated;
     }
   }
 
@@ -118,7 +162,7 @@ export class MyClassesPages {
       const summary = await this.classApi.getClassSummary(c._id);
       return {
         id: c._id,
-        image: 'img/default-img.png',
+        image: c.bannerUrl || '',
         title: c.name,
         students: summary.studentsCount || 0,
         assignments: summary.assignmentsCount || 0,
@@ -130,7 +174,7 @@ export class MyClassesPages {
       // Fallback if summary fails
       return {
         id: c._id,
-        image: 'img/default-img.png',
+        image: c.bannerUrl || '',
         title: c.name,
         students: 0,
         assignments: 0,
@@ -146,6 +190,12 @@ export class MyClassesPages {
     this.isLoading = true;
     try {
       const classes = await this.classApi.getMyTeacherClasses();
+
+      this.classesById = new Map<string, BackendClass>();
+      for (const c of classes || []) {
+        if (c && c._id) this.classesById.set(c._id, c);
+      }
+
       const classCards = await Promise.all(
         (classes || []).map((c) => this.mapClassToCardItem(c))
       );
@@ -164,9 +214,7 @@ export class MyClassesPages {
     }
   }
 
-  async onClassCreated(created: BackendClass) {
-    const newClassCard = await this.mapClassToCardItem(created);
-    this.classes = [newClassCard, ...this.classes];
+  async onClassCreated(_created: BackendClass) {
     await this.loadClasses();
   }
 
@@ -178,7 +226,8 @@ export class MyClassesPages {
   }
 
   onEditRequested(payload: { id: string; title: string; description: string }) {
-    this.selectedClass = { ...payload };
+    const found = this.classesById.get(payload.id) || null;
+    this.selectedClass = found;
     this.showEditDialog = true;
   }
 
@@ -188,7 +237,8 @@ export class MyClassesPages {
   }
 
   onDeleteRequested(payload: { id: string; title: string }) {
-    this.selectedClass = { id: payload.id, title: payload.title, description: '' };
+    const found = this.classesById.get(payload.id) || null;
+    this.selectedClass = found;
     this.showDeleteDialog = true;
   }
 
@@ -197,15 +247,15 @@ export class MyClassesPages {
     this.selectedClass = null;
   }
 
-  async onClassUpdated() {
+  onClassUpdated(_updated: BackendClass) {
     this.closeEditDialog();
-    await this.loadClasses();
   }
 
   async confirmDeleteClass() {
-    if (!this.selectedClass?.id) return;
+    const id = this.selectedClass?._id;
+    if (!id) return;
     try {
-      await this.classApi.deleteClass(this.selectedClass.id);
+      await this.classApi.deleteClass(id);
       this.alert.showSuccess('Class deleted', 'Your class has been removed');
       this.closeDeleteDialog();
       await this.loadClasses();

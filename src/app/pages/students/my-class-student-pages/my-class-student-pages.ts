@@ -125,7 +125,7 @@ export class MyClassStudentPages {
       const summary: BackendClassSummary = await this.classApi.getClassSummary(c?._id);
       return {
         id: c?._id,
-        image: 'img/default-img.png',
+        image: summary?.bannerUrl || 'img/default-img.png',
         title: c?.name || '',
         teacher: teacherName,
         students: summary.studentsCount || 0,

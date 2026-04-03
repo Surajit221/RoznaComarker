@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { CacheService } from '../services/cache.service';
@@ -15,6 +15,10 @@ export type BackendClass = {
   _id: string;
   name: string;
   description?: string;
+  subjectLevel?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  bannerUrl?: string;
   teacher: string;
   joinCode: string;
   qrCodeUrl?: string;
@@ -34,6 +38,10 @@ export type BackendClassSummary = {
   id: string;
   name: string;
   description: string;
+  subjectLevel?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  bannerUrl?: string;
   joinCode: string;
   gradingScale?: 'score_0_100' | 'grade_a_f' | 'pass_fail' | string;
   teacher: {
@@ -49,6 +57,9 @@ export type BackendClassSummary = {
 
 @Injectable({ providedIn: 'root' })
 export class ClassApiService {
+  private readonly classUpdatedSubject = new Subject<BackendClass>();
+  readonly classUpdated$ = this.classUpdatedSubject.asObservable();
+
   constructor(
     private http: HttpClient,
     private cache: CacheService
@@ -56,6 +67,42 @@ export class ClassApiService {
 
   private getApiBaseUrl(): string {
     return `${environment.apiUrl}/api`;
+  }
+
+  private resolvePublicUrl(raw?: string | null): string {
+    const u = String(raw || '').trim();
+    if (!u) return '';
+
+    if (
+      u.startsWith('http://') ||
+      u.startsWith('https://') ||
+      u.startsWith('blob:') ||
+      u.startsWith('data:')
+    ) {
+      return u;
+    }
+
+    const base = String(environment.apiUrl || '').trim().replace(/\/+$/, '');
+    if (!base) return u;
+
+    if (u.startsWith('/')) return `${base}${u}`;
+    return `${base}/${u}`;
+  }
+
+  private resolveBannerInClass(c: BackendClass): BackendClass {
+    if (!c) return c;
+    return {
+      ...c,
+      bannerUrl: this.resolvePublicUrl(c.bannerUrl)
+    };
+  }
+
+  private resolveBannerInSummary(s: BackendClassSummary): BackendClassSummary {
+    if (!s) return s;
+    return {
+      ...s,
+      bannerUrl: this.resolvePublicUrl(s.bannerUrl)
+    };
   }
 
   async getMyTeacherClasses(): Promise<BackendClass[]> {
@@ -69,14 +116,24 @@ export class ClassApiService {
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendClass[]>>(`${apiBaseUrl}/classes/mine`)
     );
-    const data = resp?.data || [];
+    const data = (resp?.data || []).map((c) => this.resolveBannerInClass(c));
     
     // Cache for 2 minutes
     this.cache.set(cacheKey, data, 2 * 60 * 1000);
     return data;
   }
 
-  async createClass(payload: { name: string; description?: string }): Promise<BackendClass> {
+  async getClasses(): Promise<BackendClass[]> {
+    return this.getMyTeacherClasses();
+  }
+
+  async createClass(payload: {
+    name: string;
+    description?: string;
+    subjectLevel?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  }): Promise<BackendClass> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendClass>>(`${apiBaseUrl}/classes`, payload)
@@ -84,17 +141,27 @@ export class ClassApiService {
     
     // Clear cache after creating new class
     this.cache.delete('my-teacher-classes');
+
+    if (resp?.data) {
+      this.classUpdatedSubject.next(this.resolveBannerInClass(resp.data));
+    }
     
-    return resp.data;
+    return this.resolveBannerInClass(resp.data);
   }
 
   async updateClass(
     classId: string,
-    payload: { name?: string; description?: string | null }
+    payload: {
+      name?: string;
+      description?: string | null;
+      subjectLevel?: string | null;
+      startDate?: string | null;
+      endDate?: string | null;
+    }
   ): Promise<BackendClass> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
-      this.http.patch<BackendResponse<BackendClass>>(
+      this.http.put<BackendResponse<BackendClass>>(
         `${apiBaseUrl}/classes/${encodeURIComponent(classId)}`,
         payload
       )
@@ -102,7 +169,37 @@ export class ClassApiService {
 
     this.clearClassCache(classId);
     this.cache.delete('my-teacher-classes');
-    return resp.data;
+    if (resp?.data) {
+      this.classUpdatedSubject.next(this.resolveBannerInClass(resp.data));
+    }
+    return this.resolveBannerInClass(resp.data);
+  }
+
+  async uploadClassBanner(
+    classId: string,
+    file: File
+  ): Promise<{ fileUrl: string; fileName: string }> {
+    const apiBaseUrl = this.getApiBaseUrl();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const resp = await firstValueFrom(
+      this.http.post<{ success: boolean; fileUrl: string; fileName: string; message?: string }>(
+        `${apiBaseUrl}/classes/${encodeURIComponent(classId)}/banner`,
+        formData
+      )
+    );
+
+    if (!resp?.success || !resp?.fileUrl) {
+      throw new Error(resp?.message || 'Banner upload failed');
+    }
+
+    return { fileUrl: resp.fileUrl, fileName: resp.fileName };
+  }
+
+  async uploadBanner(classId: string, file: File): Promise<{ fileUrl: string; fileName: string }> {
+    return this.uploadClassBanner(classId, file);
   }
 
   async deleteClass(classId: string): Promise<BackendClass> {
@@ -175,7 +272,7 @@ export class ClassApiService {
         `${apiBaseUrl}/classes/${encodeURIComponent(classId)}/summary`
       )
     );
-    const data = resp.data;
+    const data = this.resolveBannerInSummary(resp.data);
     
     // Cache for 1 minute (summary data changes frequently)
     this.cache.set(cacheKey, data, 60 * 1000);

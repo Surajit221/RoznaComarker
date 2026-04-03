@@ -2629,16 +2629,11 @@ export class StudentSubmissionPages {
 
 
 
-
-
-
     try {
 
-
+      await this.ensureWritingCorrectionsLegendLoaded();
 
       const apiBaseUrl = `${environment.apiUrl}/api`;
-
-
 
       const resp = await firstValueFrom(
 
@@ -2984,18 +2979,14 @@ export class StudentSubmissionPages {
         };
       }
 
-      // ONLY patch score + text fields. Titles/layout are derived from fixed categories.
-      fb.rubricScores.GRAMMAR.score = res.grammar.score;
+      // Only patch the feedback text fields. Preserve the existing scores and titles.
       fb.rubricScores.GRAMMAR.comment = res.grammar.text;
 
-      fb.rubricScores.ORGANIZATION.score = res.structure.score;
       fb.rubricScores.ORGANIZATION.comment = res.structure.text;
 
-      fb.rubricScores.CONTENT.score = res.content.score;
       fb.rubricScores.CONTENT.comment = res.content.text;
 
       // UI maps "Overall Rubric Score" to MECHANICS in rubricScoresToFeedbackItems().
-      fb.rubricScores.MECHANICS.score = res.overall.score;
       fb.rubricScores.MECHANICS.comment = res.overall.text;
 
       this.ensureFixedRubricScoresAndComments();
