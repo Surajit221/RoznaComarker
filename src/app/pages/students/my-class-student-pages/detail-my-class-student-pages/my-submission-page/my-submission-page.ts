@@ -20,7 +20,7 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 import type { OcrWord } from '../../../../../models/ocr-token.model';
 import type { CorrectionLegend } from '../../../../../models/correction-legend.model';
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
-import { applyLegendToIssues } from '../../../../../utils/correction-legend-mapping.util';
+import { applyLegendToAnnotations, applyLegendToIssues } from '../../../../../utils/correction-legend-mapping.util';
 import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
@@ -225,6 +225,12 @@ export class MySubmissionPage {
       keys.has('VOCABULARY') ||
       keys.has('MECHANICS')
     );
+  }
+
+  private getAcademicLegendForColors(): CorrectionLegend {
+    return this.isAcademicLegend(this.writingCorrectionsLegend)
+      ? (this.writingCorrectionsLegend as CorrectionLegend)
+      : DEFAULT_CORRECTION_LEGEND;
   }
 
   get correctionLegendItems(): Array<{ symbol: string; label: string; color: string }> {
@@ -1008,6 +1014,8 @@ export class MySubmissionPage {
     const requestedFileId = this.activeFileId;
 
     try {
+      await this.ensureWritingCorrectionsLegendLoaded();
+
       const apiBaseUrl = `${environment.apiUrl}/api`;
       const body = requestedFileId ? { fileId: requestedFileId } : {};
       const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, body));
@@ -1046,44 +1054,45 @@ export class MySubmissionPage {
             if (!correctionId) return null;
             if (seenCorrectionIds.has(correctionId)) return null;
             seenCorrectionIds.add(correctionId);
+
             const rawWordIds = Array.isArray(c?.wordIds) ? c.wordIds : [];
             const wordIds = rawWordIds
               .map((x: any) => (typeof x === 'string' && x.trim() ? x.trim() : (typeof x === 'number' && Number.isFinite(x) ? String(x) : '')))
               .filter((id: string) => Boolean(id) && knownWordIds.has(id));
+
             const bboxList = Array.isArray(c?.bboxList) ? c.bboxList : [];
             if (!wordIds.length && !bboxList.length) return null;
+
             return {
               _id: correctionId,
               submissionId,
-              page: c?.page,
+              page: typeof c?.page === 'number' && Number.isFinite(c.page) ? c.page : 1,
               wordIds,
               bboxList,
               group: typeof c?.category === 'string' ? c.category : (typeof c?.group === 'string' ? c.group : ''),
-              symbol: c?.symbol,
-              color: c?.color || '#FF0000',
-              message: c?.message,
-              suggestedText: c?.suggestedText,
-              startChar: c?.startChar,
-              endChar: c?.endChar,
+              symbol: typeof c?.symbol === 'string' ? c.symbol : '',
+              color: typeof c?.color === 'string' && c.color.trim() ? c.color.trim() : '#FF0000',
+              message: typeof c?.message === 'string' ? c.message : '',
+              suggestedText: typeof c?.suggestedText === 'string' ? c.suggestedText : '',
+              startChar: typeof c?.startChar === 'number' ? c.startChar : undefined,
+              endChar: typeof c?.endChar === 'number' ? c.endChar : undefined,
               source: 'AI' as const,
               editable: Boolean(c?.editable)
             } satisfies FeedbackAnnotation;
           })
           .filter(Boolean) as FeedbackAnnotation[];
 
-        if (seq !== this.loadOcrCorrectionsSeq) return;
-        if (requestedFileId && requestedFileId !== this.activeFileId) return;
-
-        this.annotations = nextAnnotations;
-        this.recomputeLegendAligned();
-      } else {
-        this.annotations = [];
-        this.recomputeLegendAligned();
+        const academicLegend = this.getAcademicLegendForColors();
+        this.annotations = applyLegendToAnnotations(nextAnnotations, academicLegend);
       }
+
+      this.recomputeLegendAligned();
+      return true;
     } catch (err) {
       this.annotations = [];
       this.recomputeLegendAligned();
       this.alert.showWarning('OCR corrections unavailable', 'Word highlights may be limited.');
+      return false;
     }
   }
 

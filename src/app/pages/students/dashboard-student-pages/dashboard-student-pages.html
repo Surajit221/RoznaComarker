@@ -5,16 +5,19 @@
     <div class="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4 animate-fade-in-down">
       <div class="flex flex-col gap-1">
         <h1 class="text-3xl lg:text-4xl font-bold text-[#203864]">
-          Hello, {{ (greetingName$ | async) || '' }}! <span class="inline-block animate-wave origin-[70%_70%]">👋</span>
+          Dashboard
         </h1>
-        <p class="text-[#7A7A7A] text-lg">Ready to write your next masterpiece?</p>
+        <p class="text-[#7A7A7A] text-lg">Overview of your classes and writing progress.</p>
       </div>
 
-      <button
-        (click)="toJoinClass()"
-        class="btn-primary flex items-center gap-2 shadow-[0px_6px_0_#136C6D] hover:shadow-[0px_8px_0_#136C6D] hover:-translate-y-1 transition-all">
-        <span>Join New Class</span>
-      </button>
+      <div class="flex gap-3">
+        <button
+          (click)="toJoinClass()"
+          class="btn-primary flex items-center gap-2 shadow-[0px_6px_0_#136C6D] hover:shadow-[0px_8px_0_#136C6D] hover:-translate-y-1 transition-all">
+          <i class='bx bx-plus text-xl'></i>
+          <span>Join New Class</span>
+        </button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -198,6 +201,7 @@
       </div>
 
     </div>
+
   </div>
   }
 </ng-container>
@@ -206,11 +210,11 @@
   @if(device.isMobile() || device.isTablet()){
     <div class="w-full min-h-screen pb-10 font-sans text-[#474747]">
 
-      <div class=" pt-6 pb-6  mb-6">
+      <div class="pt-6 pb-6 rounded-b-[2.5rem] mb-6">
         <div class="flex flex-row justify-between items-center mb-4">
           <div class="flex flex-col">
-            <h1 class="text-2xl font-bold text-[#203864]">Hi, {{ (greetingFirstName$ | async) || '' }}! <span class="text-xl">👋</span></h1>
-            <p class="text-sm text-[#7A7A7A]">Let's check your progress.</p>
+            <h1 class="text-2xl font-bold text-[#203864]">Dashboard</h1>
+            <p class="text-sm text-[#7A7A7A]">Overview of your classes and progress.</p>
           </div>
         </div>
 

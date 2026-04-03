@@ -23,18 +23,18 @@
         <label for="role" class="text-sm font-bold pl-2">Subject / Level</label>
         <div class="w-full">
           <div class="relative w-full">
-            <select formControlName="role" class="input-text appearance-none pr-10 cursor-pointer"
-              [class.input-error]="isFieldInvalid('role')">
+            <select formControlName="subjectLevel" class="input-text appearance-none pr-10 cursor-pointer"
+              [class.input-error]="isFieldInvalid('subjectLevel')">
               <option value="" disabled>Select Subject / Level</option>
-              <option value="teacher">Easy</option>
-              <option value="student">Medium</option>
-              <option value="student">Intermediate</option>
-              <option value="student">Hard</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="all">All Levels</option>
             </select>
             <i
               class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"></i>
           </div>
-          @if (isFieldInvalid('role')) {
+          @if (isFieldInvalid('subjectLevel')) {
           <div class="text-red-500 text-sm mt-1">Please select Subject / Level</div>
           }
         </div>
@@ -79,19 +79,19 @@
       <div class="flex flex-col gap-1">
         <label for="role" class="text-sm font-bold pl-2">Description</label>
         <div class="w-full">
-          <textarea formControlName="message" class="input-text h-32 resize-none" placeholder="Type your message..."
-            [class.input-error]="isFieldInvalid('message')"></textarea>
-          @if (isFieldInvalid('message')) {
+          <textarea formControlName="description" class="input-text h-32 resize-none" placeholder="Type your description..."
+            [class.input-error]="isFieldInvalid('description')"></textarea>
+          @if (isFieldInvalid('description')) {
           <div class="text-red-500 text-sm mt-1">
-            @if (classForm.get('message')?.errors?.['required']) {
-            <span>Message is required</span>
-            } @if (classForm.get('message')?.errors?.['minlength']) {
-            <span>Message must be at least 10 characters</span>
+            @if (classForm.get('description')?.errors?.['required']) {
+            <span>Description is required</span>
+            } @if (classForm.get('description')?.errors?.['minlength']) {
+            <span>Description must be at least 10 characters</span>
             }
           </div>
           }
           <div class="text-sm text-gray-500 mt-1">
-            {{ classForm.get('message')?.value?.length || 0 }}/500 characters
+            {{ classForm.get('description')?.value?.length || 0 }}/500 characters
           </div>
         </div>
       </div>
@@ -99,7 +99,9 @@
 
     <div class="flex justify-center items-center gap-3">
       <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
-      <button type="submit" class="btn-primary" [disabled]="classForm.invalid">Submit</button>
+      <button type="submit" class="btn-primary" [disabled]="classForm.invalid || isSubmitting">
+        {{ isSubmitting ? 'Saving...' : 'Submit' }}
+      </button>
     </div>
   </form>
   }
@@ -129,18 +131,18 @@
       <label for="role" class="text-sm font-bold pl-2">Subject / Level</label>
       <div class="w-full">
         <div class="relative w-full">
-          <select formControlName="role" class="input-text appearance-none pr-10 cursor-pointer"
-            [class.input-error]="isFieldInvalid('role')">
+          <select formControlName="subjectLevel" class="input-text appearance-none pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('subjectLevel')">
             <option value="" disabled>Select Subject / Level</option>
-            <option value="teacher">Easy</option>
-            <option value="student">Medium</option>
-            <option value="student">Intermediate</option>
-            <option value="student">Hard</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+            <option value="all">All Levels</option>
           </select>
           <i
             class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"></i>
         </div>
-        @if (isFieldInvalid('role')) {
+        @if (isFieldInvalid('subjectLevel')) {
         <div class="text-red-500 text-sm mt-1">Please select Subject / Level</div>
         }
       </div>
@@ -181,25 +183,27 @@
     <div class="flex flex-col gap-1">
       <label for="role" class="text-sm font-bold pl-2">Description</label>
       <div class="w-full">
-        <textarea formControlName="message" class="input-text h-32 resize-none" placeholder="Type your message..."
-          [class.input-error]="isFieldInvalid('message')"></textarea>
-        @if (isFieldInvalid('message')) {
+        <textarea formControlName="description" class="input-text h-32 resize-none" placeholder="Type your description..."
+          [class.input-error]="isFieldInvalid('description')"></textarea>
+        @if (isFieldInvalid('description')) {
         <div class="text-red-500 text-sm mt-1">
-          @if (classForm.get('message')?.errors?.['required']) {
-          <span>Message is required</span>
-          } @if (classForm.get('message')?.errors?.['minlength']) {
-          <span>Message must be at least 10 characters</span>
+          @if (classForm.get('description')?.errors?.['required']) {
+          <span>Description is required</span>
+          } @if (classForm.get('description')?.errors?.['minlength']) {
+          <span>Description must be at least 10 characters</span>
           }
         </div>
         }
         <div class="text-sm text-gray-500 mt-1">
-          {{ classForm.get('message')?.value?.length || 0 }}/500 characters
+          {{ classForm.get('description')?.value?.length || 0 }}/500 characters
         </div>
       </div>
     </div>
 
     <div class="grid grid-cols-1 justify-center items-center gap-3 mb-3">
-      <button type="submit" class="btn-primary-sm" [disabled]="classForm.invalid">Submit</button>
+      <button type="submit" class="btn-primary-sm" [disabled]="classForm.invalid || isSubmitting">
+        {{ isSubmitting ? 'Saving...' : 'Submit' }}
+      </button>
       <button type="button" class="btn-danger-sm" (click)="closeDialog()">Cancel</button>
     </div>
   </form>

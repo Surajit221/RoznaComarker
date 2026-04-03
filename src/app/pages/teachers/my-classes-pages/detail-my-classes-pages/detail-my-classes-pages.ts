@@ -70,6 +70,8 @@ export class DetailMyClassesPages {
   classId: string | null = null;
   isLoading = false;
 
+  isBannerUploading = false;
+
   classSummary: BackendClassSummary | null = null;
 
   get classTitle(): string {
@@ -273,7 +275,53 @@ export class DetailMyClassesPages {
     try {
       this.classSummary = await this.classApi.getClassSummary(classId, { forceRefresh });
     } catch {
-      this.classSummary = null;
+      if (!this.classSummary) {
+        this.classSummary = null;
+      }
+    }
+  }
+
+  async onBannerSelected(event: Event): Promise<void> {
+    const classId = this.classId;
+    if (!classId) return;
+
+    const input = event && event.target ? (event.target as HTMLInputElement) : null;
+    const file = input && input.files && input.files.length ? input.files[0] : null;
+    if (!file) return;
+
+    const prevUrl = this.classSummary?.bannerUrl || '';
+    const previewUrl = URL.createObjectURL(file);
+
+    if (this.classSummary) {
+      this.classSummary = { ...this.classSummary, bannerUrl: previewUrl };
+    }
+
+    this.isBannerUploading = true;
+    try {
+      const uploaded = await this.classApi.uploadBanner(classId, file);
+
+      this.classApi.invalidateTeacherClassesList();
+      if (this.classId) {
+        this.classApi.invalidateClassSummary(this.classId);
+      }
+
+      await this.loadClassSummary(true);
+      this.alert.showToast('Banner updated', 'success');
+    } catch (err: any) {
+      if (this.classSummary) {
+        this.classSummary = { ...this.classSummary, bannerUrl: prevUrl };
+      }
+      this.alert.showError('Failed to update banner', err?.message || 'Please try again');
+    } finally {
+      this.isBannerUploading = false;
+      try {
+        URL.revokeObjectURL(previewUrl);
+      } catch {
+        // ignore
+      }
+      if (input) {
+        input.value = '';
+      }
     }
   }
 
