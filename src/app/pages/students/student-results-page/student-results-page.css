@@ -1,0 +1,214 @@
+/* StudentResultsPage */
+.srp-wrap {
+  min-height: 80vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+}
+
+.srp-card {
+  background: #fff;
+  border: 1px solid #E7E7E7;
+  border-radius: 24px;
+  padding: 2.5rem 2rem;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.07);
+}
+
+.srp-trophy   { font-size: 3rem; }
+.srp-headline { margin: 0; font-size: 1.5rem; font-weight: 700; color: #1F2937; }
+.srp-subtitle { margin: 0; font-size: 0.9375rem; color: #6B7280; }
+
+.srp-score-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 0.5rem 0;
+}
+.srp-stat { display: flex; flex-direction: column; align-items: center; gap: 0.125rem; }
+.srp-stat-value { font-size: 2rem; font-weight: 700; color: #008081; line-height: 1; }
+.srp-stat-label { font-size: 0.75rem; color: #9CA3AF; font-weight: 500; }
+.srp-stat-divider {
+  width: 1px; height: 40px; background: #E7E7E7;
+}
+
+.srp-breakdown {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.srp-breakdown-item {
+  border: 1px solid #E7E7E7;
+  border-radius: 16px;
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: #F9FAFB;
+}
+
+.srp-breakdown-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #047857;
+}
+
+.srp-breakdown-value-warn {
+  color: #B45309;
+}
+
+.srp-breakdown-label {
+  font-size: 0.8125rem;
+  color: #6B7280;
+  font-weight: 500;
+}
+
+.srp-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #9CA3AF;
+}
+
+.srp-btn-back {
+  margin-top: 0.5rem;
+  width: 100%;
+  background: #008081;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 0.875rem 1.5rem;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 150ms;
+}
+.srp-btn-back:hover { background: #006e6f; }
+
+/* ── Per-card breakdown ───────────────────────────────────── */
+.srp-card { max-width: 600px; text-align: left; }
+
+.srp-per-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+.srp-section-title {
+  margin: 0 0 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #374151;
+  text-align: left;
+}
+.srp-result-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  border-radius: 12px;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid #E7E7E7;
+}
+.srp-result-correct { background: #f0fdf4; border-color: #bbf7d0; }
+.srp-result-wrong   { background: #fef2f2; border-color: #fecaca; }
+.srp-result-icon {
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+.srp-result-correct .srp-result-icon { color: #16a34a; }
+.srp-result-wrong   .srp-result-icon { color: #dc2626; }
+.srp-result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+.srp-result-question {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1F2937;
+}
+.srp-result-answer {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #6B7280;
+}
+.srp-result-correct-answer { color: #374151; }
+.srp-answer-correct { color: #16a34a; font-weight: 500; }
+.srp-answer-wrong   { color: #dc2626; font-weight: 500; }
+.srp-no-answer      { color: #9CA3AF; }
+
+.srp-review-card {
+  border: 1px solid #E7E7E7;
+  border-radius: 12px;
+  padding: 0.75rem 0.875rem;
+  background: #F9FAFB;
+}
+.srp-review-front {
+  margin: 0 0 0.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1F2937;
+}
+.srp-review-back {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #6B7280;
+  line-height: 1.5;
+}
+
+.srp-all-correct {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #047857;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 0.625rem 1rem;
+  width: 100%;
+  text-align: center;
+}
+
+/* ── Action buttons ──────────────────────────────────────── */
+.srp-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.srp-btn-retry {
+  width: 100%;
+  background: rgba(0,128,129,0.1);
+  color: #008081;
+  border: 1px solid rgba(0,128,129,0.3);
+  border-radius: 14px;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+}
+.srp-btn-retry:hover { background: rgba(0,128,129,0.2); }
+
+@media (max-width: 480px) {
+  .srp-card { padding: 2rem 1.25rem; }
+  .srp-headline { font-size: 1.25rem; }
+  .srp-stat-value { font-size: 1.5rem; }
+  .srp-breakdown { grid-template-columns: 1fr; }
+}

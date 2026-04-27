@@ -1,0 +1,81 @@
+<div class="swr-wrap" *ngIf="hasState && submission">
+
+  <!-- SCORE CARD -->
+  <div class="swr-score-card">
+    <div class="swr-trophy">🎉</div>
+    <h1 class="swr-headline">Worksheet Complete!</h1>
+    <p class="swr-subtitle" *ngIf="worksheetTitle">{{ worksheetTitle }}</p>
+
+    <div class="swr-score-ring-wrap">
+      <div class="swr-score-ring">
+        <span class="swr-score-val">{{ percentage }}%</span>
+        <span class="swr-score-label">Score</span>
+      </div>
+    </div>
+
+    <p class="swr-score-word">{{ scoreLabel }}</p>
+
+    <div class="swr-stats-row">
+      <div class="swr-stat">
+        <span class="swr-stat-val">{{ submission!.totalPointsEarned }}</span>
+        <span class="swr-stat-lbl">Points earned</span>
+      </div>
+      <div class="swr-stat-div"></div>
+      <div class="swr-stat">
+        <span class="swr-stat-val">{{ submission!.totalPointsPossible }}</span>
+        <span class="swr-stat-lbl">Total points</span>
+      </div>
+      <div class="swr-stat-div" *ngIf="submission!.timeTaken > 0"></div>
+      <div class="swr-stat" *ngIf="submission!.timeTaken > 0">
+        <span class="swr-stat-val">{{ formattedTime }}</span>
+        <span class="swr-stat-lbl">Time taken</span>
+      </div>
+    </div>
+
+    <p class="swr-teacher-note" *ngIf="assignmentId">Your teacher has received your submission.</p>
+  </div>
+
+  <!-- ANSWERS BREAKDOWN -->
+  @if (gradedAnswers.length > 0) {
+    <div class="swr-breakdown">
+      <h2 class="swr-section-heading">Your Answers</h2>
+
+      @for (a of gradedAnswers; track a.questionId; let qi = $index) {
+        <div class="swr-q-row"
+             [class.swr-correct]="a.isCorrect"
+             [class.swr-wrong]="!a.isCorrect">
+
+          <div class="swr-q-icon">{{ a.isCorrect ? '✓' : '✗' }}</div>
+
+          <div class="swr-q-body">
+            <p class="swr-q-num">Answer {{ qi + 1 }}
+              <span class="swr-q-section-tag">{{ a.sectionId }}</span>
+            </p>
+
+            <div class="swr-answer-row">
+              <p class="swr-your-answer">
+                <strong>Your answer:</strong>
+                <span [class.swr-ans-correct]="a.isCorrect"
+                      [class.swr-ans-wrong]="!a.isCorrect">
+                  {{ a.studentAnswer || '(no answer)' }}
+                </span>
+              </p>
+            </div>
+
+            @if (a.aiGradingFeedback) {
+              <p class="swr-feedback">💡 {{ a.aiGradingFeedback }}</p>
+            }
+
+            <p class="swr-points">{{ a.pointsEarned }} pt{{ a.pointsEarned === 1 ? '' : 's' }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- BACK BUTTON -->
+  <div class="swr-actions">
+    <button class="swr-btn-back" (click)="goBack()">← Back to My Classes</button>
+  </div>
+
+</div>

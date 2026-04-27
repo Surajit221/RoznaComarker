@@ -1,0 +1,15 @@
+<div class="pb-shell">
+  <div class="pb-copy">
+    <div>
+      <p class="pb-label">Progress Tracker</p>
+      <h3 class="pb-title">{{ completed }} / {{ total }} {{ title }}</h3>
+    </div>
+    <span class="pb-pill">{{ percentage | number : '1.0-0' }}%</span>
+  </div>
+
+  <div class="progress-bar-container pb-track" aria-hidden="true">
+    <div class="progress-bar-fill pb-fill" [style.width.%]="percentage"></div>
+  </div>
+
+  <p class="pb-subtitle">{{ subtitle }}</p>
+</div>

@@ -107,9 +107,14 @@
         <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
           <div class="flex flex-row justify-between items-center">
             <p class="text-2xl font-bold">{{ assignmentsCount }} Assignments</p>
-            <button type="button" class="btn-primary" (click)="onAddAssignment()">
-              Create New Assignment
-            </button>
+            <div class="flex flex-row gap-2">
+              <button type="button" class="learning-tools-btn" (click)="openLearningTools()">
+                Learning Tools
+              </button>
+              <button type="button" class="btn-primary" (click)="onAddAssignment()">
+                Create New Assignment
+              </button>
+            </div>
           </div>
           <div class="max-h-[480px] overflow-y-auto">
             <div class="flex flex-col gap-3">
@@ -156,13 +161,15 @@
                       >
                         Edit
                       </button>
-                      <button
-                        type="button"
-                        class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
-                        (click)="onOpenRubric(item.id)"
-                      >
-                        Rubric
-                      </button>
+                      @if (!item.resourceType || item.resourceType === 'essay') {
+                        <button
+                          type="button"
+                          class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
+                          (click)="onOpenRubric(item.id)"
+                        >
+                          Rubric
+                        </button>
+                      }
                       <button
                         type="button"
                         class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
@@ -170,6 +177,15 @@
                       >
                         Delete
                       </button>
+                      @if (item.resourceType === 'worksheet' && item.resourceId) {
+                        <button
+                          type="button"
+                          class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                          (click)="openWorksheetPreview(item.resourceId)"
+                        >
+                          Preview
+                        </button>
+                      }
                     </div>
                   </div>
                 </div>
@@ -307,6 +323,25 @@
   }
 </ng-container>
 
+<!-- Learning Tools components (shared across both desktop and mobile) -->
+<app-learning-tools-picker
+  [(show)]="showLearningTools"
+  (toolSelected)="onToolSelected($event)">
+</app-learning-tools-picker>
+
+<app-worksheet-assign-modal
+  [(show)]="showWorksheetModal"
+  [classId]="classId"
+  [preselectedWorksheetId]="preselectedWorksheetId"
+  (assigned)="loadAssignments()">
+</app-worksheet-assign-modal>
+
+<app-flashcard-assign-modal
+  [(show)]="showFlashcardModal"
+  [classId]="classId"
+  [preselectedSetId]="flashcardPreselectedSetId">
+</app-flashcard-assign-modal>
+
 <ng-container>
   @if (device.isMobile() || device.isTablet()) {
   <app-app-bar-back-button
@@ -402,9 +437,12 @@
     <div class="flex flex-col gap-3">
       <div class="w-full flex flex-row justify-between items-center pt-4">
         <p class="font-bold text-lg pt-4">{{ assignmentsCount }} Assignments</p>
-        <button class="btn-primary-sm w-fit" (click)="onOpenCreateNewAssignment()">
-          + Assignment
-        </button>
+        <div class="flex flex-row gap-2">
+          <button class="learning-tools-btn-sm" (click)="openLearningTools()">Tools</button>
+          <button class="btn-primary-sm w-fit" (click)="onOpenCreateNewAssignment()">
+            + Assignment
+          </button>
+        </div>
       </div>
       <div class="overflow-y-auto">
         @for (item of assignments; track item.id) {
@@ -436,8 +474,8 @@
             <p class="text-base font-bold mb-1 leading-5">
               {{ item.title }}
             </p>
-            <div class="flex flex-row items-center gap-4">
-              <p class="text-xs underline cursor-pointer" (click)="onOpenSheetSubmission(item.id)">
+            <div class="flex flex-row flex-wrap items-center gap-2 mt-1">
+              <p class="text-xs underline cursor-pointer mr-1" (click)="onOpenSheetSubmission(item.id)">
                 View Submissions
               </p>
               <button
@@ -447,13 +485,24 @@
               >
                 Edit
               </button>
-              <button
-                type="button"
-                class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
-                (click)="onOpenRubric(item.id)"
-              >
-                Rubric
-              </button>
+              @if (!item.resourceType || item.resourceType === 'essay') {
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
+                  (click)="onOpenRubric(item.id)"
+                >
+                  Rubric
+                </button>
+              }
+              @if (item.resourceType === 'worksheet' && item.resourceId) {
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                  (click)="openWorksheetPreview(item.resourceId)"
+                >
+                  Preview
+                </button>
+              }
               <button
                 type="button"
                 class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
@@ -577,3 +626,16 @@
   ></app-invite-students-dialog>
   }
 </ng-container>
+
+@if (showWorksheetPreview && previewWorksheetIdForViewer) {
+  <div class="wv-teacher-overlay" (click)="showWorksheetPreview = false">
+    <div class="wv-teacher-modal" (click)="$event.stopPropagation()">
+      <app-worksheet-viewer
+        [worksheetId]="previewWorksheetIdForViewer"
+        [assignmentId]="null"
+        mode="preview"
+        (closed)="showWorksheetPreview = false">
+      </app-worksheet-viewer>
+    </div>
+  </div>
+}

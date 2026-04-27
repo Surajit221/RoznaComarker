@@ -1,0 +1,153 @@
+<!-- LOADING SKELETON -->
+<div class="sfp-loading" *ngIf="isLoading">
+  <div class="sfp-spinner"></div>
+  <p class="sfp-loading-text">Loading flashcards…</p>
+</div>
+
+<!-- ERROR STATE -->
+<div class="sfp-error" *ngIf="!isLoading && hasError">
+  <p class="sfp-error-icon">⚠️</p>
+  <p class="sfp-error-msg">{{ errorMessage }}</p>
+  <button class="sfp-btn-retry" (click)="retry()">↺ Retry</button>
+  <button class="sfp-btn-back" (click)="goBackToClass()">← Back to class</button>
+</div>
+
+<!-- STUDY SCREEN -->
+<div class="sfp-screen" *ngIf="!isLoading && !hasError">
+
+  <!-- HEADER -->
+  <div class="sfp-header">
+    <button class="sfp-btn-back-deck" (click)="goBackToClass()">← Back to class</button>
+    <h3 class="sfp-set-name">{{ set?.title }}</h3>
+    <span class="sfp-card-counter">{{ answeredCount + 1 }} / {{ cards.length }}</span>
+  </div>
+
+  <!-- ── Q&A MODE ────────────────────────────────────────── -->
+  <ng-container *ngIf="template === 'qa'">
+    <div class="sfp-card-wrapper" [ngClass]="slideOutClass || slideInClass">
+      <div class="sfp-card-scene sfp-qa-scene">
+        <div class="sfp-card-object" [class.is-flipped]="isFlipped">
+
+          <!-- FRONT: question + textarea + Check Answer button -->
+          <div class="sfp-card-face sfp-card-front">
+            <span class="sfp-face-label">QUESTION</span>
+            <p class="sfp-card-term">{{ currentCard?.front }}</p>
+            <div class="sfp-answer-input-wrapper" *ngIf="!isFlipped">
+              <textarea class="sfp-answer-input"
+                        placeholder="Type your answer…"
+                        [value]="studentAnswer"
+                        (input)="onAnswerInput($event)"
+                        [disabled]="isGrading"
+                        rows="3"></textarea>
+              <button class="sfp-btn-reveal"
+                      [disabled]="isGrading || !studentAnswer.trim()"
+                      [class.sfp-btn-grading]="isGrading"
+                      (click)="checkAnswer()">
+                <span *ngIf="!isGrading">Check answer</span>
+                <span *ngIf="isGrading" class="sfp-grading-spinner">Grading…</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- BACK: correct answer + AI result badge OR fallback manual buttons -->
+          <div class="sfp-card-face sfp-card-back sfp-qa-back">
+            <span class="sfp-face-label">CORRECT ANSWER</span>
+            <p class="sfp-card-definition">{{ currentCard?.back }}</p>
+            <div class="sfp-your-answer-box">
+              <span class="sfp-your-answer-label">YOUR ANSWER:</span>
+              <p class="sfp-your-answer-text">{{ studentAnswer || '(no answer given)' }}</p>
+            </div>
+
+            <!-- AI grading result -->
+            <ng-container *ngIf="gradeResult">
+              <div class="sfp-grade-badge"
+                   [class.sfp-badge-correct]="gradeResult === 'correct'"
+                   [class.sfp-badge-wrong]="gradeResult === 'wrong'">
+                {{ gradeResult === 'correct' ? '✓ Correct!' : '✗ Incorrect' }}
+              </div>
+              <button class="sfp-btn-next-card"
+                      (click)="advanceAfterGrade(); $event.stopPropagation()">
+                Next →
+              </button>
+            </ng-container>
+
+            <!-- Fallback: shown only when AI call failed (gradeResult is null after flip) -->
+            <div class="sfp-self-grade-buttons" *ngIf="!gradeResult">
+              <button class="sfp-btn-wrong"  (click)="markWrong();   $event.stopPropagation()">✗ Got it wrong</button>
+              <button class="sfp-btn-correct" (click)="markCorrect(); $event.stopPropagation()">✓ Got it right</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ── TERM-DEF / CONCEPT MODE ────────────────────────── -->
+  <ng-container *ngIf="template !== 'qa'">
+    <div class="sfp-card-wrapper" [ngClass]="slideOutClass || slideInClass">
+      <div class="sfp-card-scene"
+           (click)="flipCard()"
+           role="button"
+           tabindex="0"
+           [attr.aria-label]="isFlipped ? 'Card flipped — showing answer' : 'Click to reveal answer'"
+           (keydown.enter)="flipCard()"
+           (keydown.space)="flipCard(); $event.preventDefault()">
+        <div class="sfp-card-object" [class.is-flipped]="isFlipped">
+
+          <div class="sfp-card-face sfp-card-front">
+            <span class="sfp-face-label">{{ template === 'concept' ? 'CONCEPT' : 'TERM' }}</span>
+            <p class="sfp-card-term">{{ currentCard?.front }}</p>
+            <p class="sfp-flip-hint">Click to {{ template === 'concept' ? 'see explanation' : 'reveal answer' }}</p>
+          </div>
+
+          <div class="sfp-card-face sfp-card-back">
+            <span class="sfp-face-label">{{ template === 'concept' ? 'EXPLANATION' : 'DEFINITION' }}</span>
+            <p class="sfp-card-definition">{{ currentCard?.back }}</p>
+            <p class="sfp-card-term-small" *ngIf="template !== 'concept'">{{ currentCard?.front }}</p>
+            <button class="sfp-audio-btn" (click)="speak(); $event.stopPropagation()" title="Listen">🔊</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="sfp-actions">
+      <button class="sfp-btn-learning"
+              [disabled]="!isFlipped || isSliding"
+              [class.sfp-btn-disabled]="!isFlipped"
+              (click)="markLearning(); $event.stopPropagation()">
+        {{ template === 'concept' ? 'Need to review' : 'Still learning' }}
+      </button>
+      <button class="sfp-btn-know"
+              [disabled]="!isFlipped || isSliding"
+              [class.sfp-btn-disabled]="!isFlipped"
+              (click)="markKnown(); $event.stopPropagation()">
+        {{ template === 'concept' ? 'Got it' : 'I know' }}
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- PROGRESS -->
+  <div class="sfp-progress">
+    <div class="sfp-progress-labels">
+      <span>Progress ({{ progress | number:'1.0-0' }}%)</span>
+      <span class="sfp-legend-group">
+        <span class="sfp-legend-item learning">
+          ● {{ template === 'qa' ? 'Incorrect' : (template === 'concept' ? 'Need review' : 'Still learning') }}
+          ({{ learningCount }})
+        </span>
+        <span class="sfp-legend-item know">
+          ● {{ template === 'qa' ? 'Correct' : (template === 'concept' ? 'Got it' : 'I know') }}
+          ({{ knownCount }})
+        </span>
+      </span>
+    </div>
+    <div class="sfp-progress-track">
+      <div class="sfp-segment know"     [style.width.%]="(knownCount / cards.length) * 100"></div>
+      <div class="sfp-segment learning" [style.width.%]="(learningCount / cards.length) * 100"></div>
+    </div>
+  </div>
+
+</div>

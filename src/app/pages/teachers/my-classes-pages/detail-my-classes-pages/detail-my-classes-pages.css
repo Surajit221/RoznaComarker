@@ -1,0 +1,58 @@
+.wv-teacher-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.wv-teacher-modal {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 1000px;
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 640px) {
+  /* Match the student worksheet mobile view: full-screen, no chrome */
+  .wv-teacher-overlay {
+    padding: 0;
+    background: #f1f5f9;
+  }
+  .wv-teacher-modal {
+    border-radius: 0;
+    max-width: 100%;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    box-shadow: none;
+    /* Let the whole modal scroll (header + body together) like the
+       student worksheet page where the dark teal header scrolls away
+       with the content instead of being pinned at the top. */
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wv-teacher-modal ::ng-deep app-worksheet-viewer {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 0;
+  }
+  .wv-teacher-modal ::ng-deep .wv-root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+  .wv-teacher-modal ::ng-deep .wv-body {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+}

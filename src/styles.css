@@ -1,6 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import 'tailwindcss';
 
+:root {
+  --color-primary:      #008081;
+  --color-primary-dark: #136C6D;
+  --color-primary-bg:   #e6f4f4;
+  --color-warning:      #FFC300;
+  --color-warning-dark: #DBB12A;
+  --color-navy:         #203864;
+  --color-navy-dark:    #152E5E;
+  --color-danger:       #EE4E4E;
+  --color-danger-dark:  #E63D3D;
+  --color-text:         #374151;
+  --color-text-muted:   #6B7280;
+  --color-border:       #E7E7E7;
+  --color-surface:      #F3F3F3;
+  --color-white:        #FFFFFF;
+  --font-main:          'Poppins', sans-serif;
+  --radius-sm:          0.5rem;
+  --radius-md:          0.75rem;
+  --radius-lg:          1rem;
+  --radius-xl:          1.25rem;
+}
+
 @theme {
   --font-sans: 'Poppins', 'sans-serif';
 }
@@ -119,5 +141,13 @@
   /* 3. Style Badge Kecil */
   .stat-card {
     @apply p-3 rounded-xl border-2 border-[#E7E7E7] bg-white flex flex-col items-center transition-all cursor-default;
+  }
+
+  .learning-tools-btn {
+    @apply bg-transparent text-base font-semibold text-[#008081] py-3 px-5 rounded-xl border-2 border-[#008081] hover:bg-[#008081] hover:text-white cursor-pointer transition-colors;
+  }
+
+  .learning-tools-btn-sm {
+    @apply bg-transparent text-sm font-semibold text-[#008081] py-2 px-3 rounded-xl border-2 border-[#008081] hover:bg-[#008081] hover:text-white cursor-pointer transition-colors;
   }
 }

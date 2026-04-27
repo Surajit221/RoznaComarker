@@ -1,0 +1,187 @@
+/* ── Wrapper ──────────────────────────────────────────────── */
+.sfp-wrap {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  font-family: var(--font-main, system-ui);
+  min-height: 100dvh;
+  box-sizing: border-box;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.sfp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.sfp-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sfp-badge {
+  background: rgba(0,128,129,.12);
+  color: #008081;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
+/* ── Error ────────────────────────────────────────────────── */
+.sfp-error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Skeleton ─────────────────────────────────────────────── */
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.skel { background: #e5e7eb; border-radius: 10px; animation: pulse 1.4s ease-in-out infinite; }
+.skel-title { height: 28px; width: 60%; }
+.skel-card  { height: 240px; margin-bottom: 1rem; }
+.skel-bar   { height: 12px; width: 100%; }
+
+/* ── Progress ─────────────────────────────────────────────── */
+.sfp-progress-wrap {
+  height: 6px; background: #e5e7eb; border-radius: 99px;
+  overflow: hidden; margin-bottom: 0.5rem;
+}
+.sfp-progress-bar {
+  height: 100%; background: #008081; border-radius: 99px;
+  transition: width 0.35s ease;
+}
+.sfp-count {
+  font-size: 0.8125rem; color: #6b7280;
+  text-align: right; margin: 0 0 1rem;
+}
+
+/* ── Card flip ────────────────────────────────────────────── */
+.sfp-card-scene {
+  perspective: 1000px;
+  cursor: pointer;
+  margin-bottom: 1.25rem;
+  outline: none;
+}
+.sfp-card-scene:focus-visible .sfp-card {
+  box-shadow: 0 0 0 3px rgba(0,128,129,.4);
+}
+.sfp-card {
+  position: relative;
+  height: 240px;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+.sfp-card.flipped { transform: rotateY(180deg); }
+.sfp-card-face {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 1.5rem;
+  border-radius: 16px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 1.5px solid #e5e7eb;
+}
+.sfp-front { background: #fff; }
+.sfp-back  { background: #f0fafa; border-color: rgba(0,128,129,.2); transform: rotateY(180deg); }
+.sfp-card-text {
+  font-size: 1.125rem; color: #1f2937; text-align: center;
+  margin: 0 0 0.75rem; line-height: 1.5;
+}
+.sfp-tap-hint {
+  font-size: 0.75rem; color: #9ca3af; position: absolute; bottom: 1rem;
+}
+.sfp-speak-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.25rem; position: absolute; bottom: 1rem; right: 1rem;
+}
+
+/* ── Grade buttons ────────────────────────────────────────── */
+.sfp-grade-row {
+  display: flex; gap: 0.75rem; margin-bottom: 1.5rem;
+}
+.sfp-btn {
+  flex: 1; padding: 0.75rem;
+  border: none; border-radius: 10px;
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  transition: opacity .15s;
+}
+.sfp-learning { background: #fef3c7; color: #92400e; }
+.sfp-know     { background: #d1fae5; color: #065f46; }
+.sfp-btn:hover { opacity: .85; }
+
+/* ── Results screen ───────────────────────────────────────── */
+.sfp-results {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2rem 0; gap: 0.75rem;
+}
+.sfp-score-ring {
+  width: 120px; height: 120px; border-radius: 50%;
+  border: 6px solid #008081;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  margin-bottom: 0.5rem;
+}
+.sfp-score-num  { font-size: 1.75rem; font-weight: 800; color: #008081; line-height: 1; }
+.sfp-score-label { font-size: 0.75rem; color: #6b7280; }
+.sfp-results-title { font-size: 1.375rem; font-weight: 700; color: #1f2937; margin: 0; }
+.sfp-results-sub   { font-size: 0.875rem; color: #6b7280; margin: 0; }
+
+/* Submitting */
+.sfp-submitting {
+  display: flex; align-items: center; gap: .5rem;
+  color: #6b7280; font-size: .875rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.sfp-spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid #e5e7eb; border-top-color: #008081;
+  animation: spin .7s linear infinite;
+}
+
+/* Banners */
+.sfp-banner {
+  width: 100%; border-radius: 10px;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem; text-align: center;
+}
+.sfp-saved { background: #d1fae5; color: #065f46; }
+.sfp-warn  { background: #fef3c7; color: #92400e; }
+.sfp-info  { background: #eff6ff; color: #1e40af; display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+.sfp-banner-sub { font-size: .8rem; opacity: .85; }
+.sfp-signin-btn {
+  background: #1d4ed8; color: #fff;
+  border: none; border-radius: 8px;
+  padding: .4rem .875rem; font-size: .825rem;
+  cursor: pointer; font-weight: 600;
+}
+
+.sfp-again-btn {
+  margin-top: 0.5rem;
+  background: #008081; color: #fff;
+  border: none; border-radius: 10px;
+  padding: .7rem 1.5rem; font-size: .9rem;
+  font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.sfp-again-btn:hover { background: #136c6d; }
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .sfp-wrap { padding: 1.25rem 1rem; }
+  .sfp-card { height: 200px; }
+  .sfp-title { font-size: 1.05rem; }
+}

@@ -340,7 +340,7 @@ export class StudentDashboardStateService {
 
   constructor(private data: StudentDashboardDataService, private realtime: NotificationRealtimeService) {
     this.realtime.notifications$.subscribe((n: any) => {
-      if (!n || n.type !== 'assignment_uploaded') return;
+      if (!n || !['assignment_uploaded', 'assignment_removed'].includes(String(n.type || ''))) return;
       this.scheduleRefresh();
     });
 

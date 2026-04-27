@@ -28,6 +28,28 @@ export const routes: Routes = [
   },
 
   {
+    path: 'flashcards',
+    loadChildren: () =>
+      import('./pages/flashcards/flashcard.routes').then((m) => m.FLASHCARD_ROUTES),
+  },
+
+  /** Worksheet creation and management pages (teacher only, guarded in WORKSHEET_ROUTES) */
+  {
+    path: 'worksheets',
+    loadChildren: () =>
+      import('./pages/worksheets/worksheet.routes').then((m) => m.WORKSHEET_ROUTES),
+  },
+
+  /** Public shared flashcard player (no auth guard) */
+  {
+    path: 'shared/flashcards/:shareToken',
+    loadComponent: () =>
+      import('./pages/students/shared-flashcard-player/shared-flashcard-player').then(
+        (m) => m.SharedFlashcardPlayer
+      ),
+  },
+
+  {
     path: '**',
     redirectTo: 'login',
     pathMatch: 'full',

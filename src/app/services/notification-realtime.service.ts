@@ -22,8 +22,26 @@ export class NotificationRealtimeService {
     const token = this.auth.getBackendJwt();
     if (!token) return;
 
-    const url = `${environment.apiUrl}/api/notifications/stream?token=${encodeURIComponent(token)}`;
+    // Exchange the long-lived JWT for a one-time SSE token via Authorization
+    // header so the JWT never appears in URLs, logs, or browser history.
+    fetch(`${environment.apiUrl}/api/auth/sse-token`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((resp) => (resp.ok ? resp.json() : Promise.reject(resp.status)))
+      .then((data: { sseToken?: string }) => {
+        if (this.source) return; // reconnect raced
+        const sseToken = data && data.sseToken;
+        if (!sseToken) return;
+        const url = `${environment.apiUrl}/api/notifications/stream?sseToken=${encodeURIComponent(sseToken)}`;
+        this.openEventSource(url);
+      })
+      .catch(() => {
+        // Silent fail; UI will operate without realtime updates.
+      });
+  }
 
+  private openEventSource(url: string): void {
     this.source = new EventSource(url);
 
     this.source.addEventListener('notification', (ev: MessageEvent) => {

@@ -1,0 +1,140 @@
+<div class="report-wrap">
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <span>⚠ {{ errorMsg }}</span>
+    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- HEADER -->
+  <div class="report-header">
+    <button class="btn-back" (click)="goBack()">← Back</button>
+    <div class="report-tabs">
+      <button class="tab-btn"
+              [class.active]="activeTab === 'participants'"
+              (click)="activeTab = 'participants'">
+        Participants
+      </button>
+      <button class="tab-btn"
+              [class.active]="activeTab === 'cards'"
+              (click)="activeTab = 'cards'">
+        Cards
+      </button>
+    </div>
+    <button class="btn-outline" (click)="downloadReport()" [disabled]="!report || isPdfDownloading">
+      @if (isPdfDownloading) {
+        <span class="fc-pdf-spinner" aria-hidden="true"></span> Generating...
+      } @else {
+        ↓ Download PDF
+      }
+    </button>
+  </div>
+
+  <!-- SKELETON -->
+  <div class="report-skeleton" *ngIf="isLoading">
+    <div class="skel skel-stats"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && report">
+
+    <!-- STATS ROW -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-icon">👥</span>
+        <span class="stat-label">SUBMISSIONS</span>
+        <span class="stat-value">{{ report.totalSubmissions }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">📊</span>
+        <span class="stat-label">AVERAGE SCORE</span>
+        <span class="stat-value">{{ report.averageScore | number:'1.0-0' }}%</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⏱</span>
+        <span class="stat-label">MEDIAN TIME</span>
+        <span class="stat-value">{{ report.medianTimeTaken | formatTime }}</span>
+      </div>
+    </div>
+
+    <p class="stats-note">
+      ℹ Only the first submission from each participant is recorded
+    </p>
+
+    <!-- ── PARTICIPANTS TAB ── -->
+    <ng-container *ngIf="activeTab === 'participants'">
+
+      <div class="participants-toolbar">
+        <input class="search-input"
+               placeholder="Search by name..."
+               [value]="searchTerm"
+               (input)="onSearch($event)" />
+        <div class="filter-tabs">
+          <button class="filter-btn" [class.active]="filterStatus === 'all'"
+                  (click)="filterStatus = 'all'">
+            All ({{ report.totalSubmissions }})
+          </button>
+          <button class="filter-btn" [class.active]="filterStatus === 'completed'"
+                  (click)="filterStatus = 'completed'">
+            Completed
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredParticipants.length === 0">
+        No results found
+      </div>
+
+      <div class="participants-table" *ngIf="filteredParticipants.length > 0">
+        <div class="table-head">
+          <span>Participant</span>
+          <span>Score</span>
+          <span>Time</span>
+          <span>Date</span>
+          <span>Status</span>
+        </div>
+        <div class="participant-row"
+             *ngFor="let p of filteredParticipants; trackBy: trackById">
+          <div class="p-name-cell">
+            <div class="avatar-circle">{{ p.userName | initials }}</div>
+            <span class="p-name">{{ p.userName }}</span>
+          </div>
+          <span class="p-score">{{ p.score | number:'1.0-0' }}%</span>
+          <span class="p-time">{{ p.timeTaken | formatTime }}</span>
+          <span class="p-date">{{ p.submittedAt | date:'dd MMM yyyy' }}</span>
+          <span class="badge" [ngClass]="'badge-' + p.status">{{ p.status }}</span>
+        </div>
+      </div>
+
+    </ng-container>
+
+    <!-- ── CARDS TAB ── -->
+    <ng-container *ngIf="activeTab === 'cards'">
+      <div class="cards-table">
+        <div class="table-head">
+          <span>Term</span>
+          <span>Correct %</span>
+        </div>
+        <div class="card-stat-row"
+             *ngFor="let c of report?.cards; trackBy: trackById">
+          <span class="card-front-text">{{ c.front }}</span>
+          <div class="mini-progress-wrap">
+            <div class="mini-progress-bar">
+              <div class="mini-bar-fill"
+                   [style.width.%]="c.correctPercentage">
+              </div>
+            </div>
+            <span class="correct-pct">{{ c.correctPercentage | number:'1.0-0' }}%</span>
+          </div>
+        </div>
+        <div class="empty-state" *ngIf="!report?.cards?.length">
+          No card data available
+        </div>
+      </div>
+    </ng-container>
+
+  </ng-container>
+
+</div>

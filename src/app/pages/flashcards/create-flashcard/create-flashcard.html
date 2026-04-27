@@ -1,0 +1,137 @@
+<!-- ANIMATED PROGRESS BAR -->
+<div class="top-progress-bar" [class.active]="isGenerating">
+  <div class="progress-fill" [class.animating]="isGenerating"></div>
+</div>
+
+<div class="create-wrap">
+  <div class="create-panel">
+
+    <!-- HEADER -->
+    <div class="panel-header">
+      <button class="btn-back" (click)="goBack()">← Back</button>
+      <div class="panel-icon">⊡</div>
+      <a class="tutorial-link" href="#" target="_blank" rel="noopener">▶ Tutorial</a>
+    </div>
+
+    <h2 class="panel-title">Create Flashcards</h2>
+    <p class="panel-subtitle">Create a set of flashcards based on topic or source materials.</p>
+
+    <!-- INPUT TABS -->
+    <div class="input-tabs">
+      <button [class.active]="activeTab === 'topic'"   (click)="setTab('topic')">Topic</button>
+      <button [class.active]="activeTab === 'text'"    (click)="setTab('text')">Text</button>
+      <button [class.active]="activeTab === 'webpage'" (click)="setTab('webpage')">Webpage</button>
+      <button [class.active]="activeTab === 'file'"    (click)="setTab('file')">Files</button>
+    </div>
+
+    <!-- INPUT AREA -->
+    <div class="input-area" [formGroup]="createForm">
+      <ng-container [ngSwitch]="activeTab">
+        <textarea *ngSwitchCase="'topic'" formControlName="content"
+          class="content-input" rows="4"
+          placeholder="Enter a topic (e.g. Solar system, Photosynthesis)"></textarea>
+        <textarea *ngSwitchCase="'text'" formControlName="content"
+          class="content-input" rows="6"
+          placeholder="Paste your study material here…"></textarea>
+        <input *ngSwitchCase="'webpage'" formControlName="content"
+          class="content-input url-input" type="url"
+          placeholder="https://…" />
+        <div *ngSwitchCase="'file'" class="file-dropzone"
+             [class.drag-over]="isDragOver"
+             (dragover)="onDragOver($event)"
+             (dragleave)="isDragOver = false"
+             (drop)="onFileDrop($event)"
+             (click)="fileInput.click()">
+          <input #fileInput type="file" hidden (change)="onFileSelect($event)" />
+          <span class="drop-icon">📁</span>
+          <p *ngIf="!createForm.get('content')?.value">Drag &amp; drop a file here, or click to browse</p>
+          <p *ngIf="createForm.get('content')?.value" class="file-name">
+            {{ createForm.get('content')?.value }}
+          </p>
+        </div>
+      </ng-container>
+
+      <div class="content-error"
+           *ngIf="createForm.get('content')?.invalid && createForm.get('content')?.touched">
+        Please enter at least 3 characters.
+      </div>
+
+      <div class="input-actions">
+        <button class="icon-btn" title="Clear input" (click)="clearInput()">↺</button>
+      </div>
+    </div>
+
+    <!-- TEMPLATE SECTION -->
+    <div class="template-section" [formGroup]="createForm">
+      <div class="template-header">
+        <span class="section-label">Template</span>
+      </div>
+      <select formControlName="template" class="fc-select">
+        <option value="term-def">Term and definition</option>
+        <option value="qa">Question and answer</option>
+        <option value="concept">Concept explanation</option>
+      </select>
+      <div class="template-preview">
+        <div class="preview-col">
+          <strong>Front</strong>
+          <ul>
+            <li>Select a single key term central to the topic</li>
+            <li>Present only the term, no extra explanation</li>
+          </ul>
+        </div>
+        <div class="preview-col">
+          <strong>Back</strong>
+          <ul>
+            <li>Clear, concise definition (1–3 sentences)</li>
+            <li>Optionally add an example or clarification</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS ROW -->
+    <div class="settings-row" [formGroup]="createForm">
+      <div class="setting-group">
+        <label>Number of cards</label>
+        <select formControlName="cardCount" class="fc-select">
+          <option value="auto">Automatic</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+      <div class="setting-group">
+        <label>Add image to cards</label>
+        <select formControlName="addImage" class="fc-select">
+          <option value="later">I will add images later</option>
+          <option value="auto">Generate images automatically</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- LANGUAGE -->
+    <div class="language-row" [formGroup]="createForm">
+      <label>Output language</label>
+      <select formControlName="language" class="fc-select">
+        <option value="English">English</option>
+        <option value="Bengali">Bengali</option>
+        <option value="Spanish">Spanish</option>
+        <option value="French">French</option>
+        <option value="Arabic">Arabic</option>
+      </select>
+    </div>
+
+    <!-- GENERATE BUTTON -->
+    <button class="btn-primary btn-generate"
+            [disabled]="isGenerating || createForm.invalid"
+            (click)="generateFlashcards()">
+      <span *ngIf="!isGenerating">✦ Generate Flashcards</span>
+      <span *ngIf="isGenerating" class="loading-dots">
+        <span>.</span><span>.</span><span>.</span>
+      </span>
+    </button>
+
+  </div>
+</div>

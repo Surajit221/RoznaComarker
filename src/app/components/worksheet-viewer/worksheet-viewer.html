@@ -1,0 +1,361 @@
+<!-- ── SUBMITTED SUCCESS SCREEN ────────────────────────── -->
+@if (isSubmitted()) {
+  <div class="wv-success-screen">
+    <div class="wv-success-card">
+      <div class="wv-success-icon">✓</div>
+      <h2 class="wv-success-title">Worksheet Submitted!</h2>
+      <p class="wv-success-subtitle">{{ worksheet()?.title }}</p>
+      <div class="wv-success-score">
+        <span class="wv-score-pct">{{ progressPercent() }}%</span>
+        <span class="wv-score-pts">{{ totalScore() }} / {{ totalPossible() }} pts</span>
+      </div>
+      <div class="wv-success-actions">
+        @if (submittedSubmissionId()) {
+          <button class="wv-btn-dl-pdf"
+                  [disabled]="isPdfDownloading()"
+                  (click)="downloadMyPdf()">
+            @if (isPdfDownloading()) {
+              <span class="wv-pdf-spinner" aria-hidden="true"></span>
+              Generating PDF...
+            } @else {
+              ↓ Download My Worksheet PDF
+            }
+          </button>
+        }
+        <button class="wv-btn-done" (click)="onClose()">Done</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- LOADING -->
+@if (!isSubmitted() && isLoading()) {
+  <div class="wv-loading">
+    <div class="wv-spinner"></div>
+    <p class="wv-loading-text">Loading worksheet…</p>
+  </div>
+}
+
+<!-- ERROR -->
+@if (!isLoading() && loadError()) {
+  <div class="wv-error-state">
+    <p class="wv-error-icon">⚠️</p>
+    <p class="wv-error-msg">{{ loadError() }}</p>
+    <button class="wv-btn-back-link" (click)="closed.emit()">← Go Back</button>
+  </div>
+}
+
+<!-- WORKSHEET VIEWER -->
+@if (!isSubmitted() && !isLoading() && !loadError() && worksheet()) {
+  <div class="wv-root">
+
+    <!-- ══ DARK TEAL HEADER ══ -->
+    <div class="wv-header">
+      <div class="wv-header-top-bar">
+        <button class="wv-btn-back" (click)="closed.emit()">← Back</button>
+        <button class="wv-btn-close" (click)="closed.emit()">×</button>
+      </div>
+      <div class="wv-header-body">
+        <div class="wv-header-left">
+          @if (worksheet()!.subject) {
+            <span class="wv-subject-pill">{{ worksheet()!.subject | uppercase }}</span>
+          }
+          <h1 class="wv-title">{{ worksheet()!.title }}</h1>
+          @if (worksheet()!.description) {
+            <p class="wv-description">{{ worksheet()!.description }}</p>
+          }
+          <div class="wv-tags">
+            @for (tag of worksheet()!.tags || []; track tag) {
+              <span class="wv-tag-pill">{{ tag }}</span>
+            }
+          </div>
+        </div>
+        <div class="wv-header-right">
+          <label class="wv-field-label">Student name</label>
+          <input class="wv-name-input"
+                 [(ngModel)]="studentNameValue"
+                 placeholder="Enter student name"
+                 [readOnly]="mode === 'preview'" />
+          <label class="wv-field-label">Date</label>
+          <input class="wv-date-input" type="text" [value]="worksheetDate" readonly />
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SCROLLABLE BODY ══ -->
+    <div class="wv-body">
+
+      <!-- PROGRESS TRACKER -->
+      <div class="wv-card wv-progress-card">
+        <div class="wv-progress-header">
+          <div>
+            <p class="wv-section-label">PROGRESS TRACKER</p>
+            <h3 class="wv-progress-title">{{ completedActivities() }} / 4 Activities Completed</h3>
+          </div>
+          <span class="wv-pct-badge">{{ progressPercent() }}%</span>
+        </div>
+        <div class="wv-progress-bar-wrap">
+          <div class="wv-progress-bar-fill" [style.width.%]="progressPercent()"></div>
+        </div>
+        <p class="wv-progress-hint">Start with any activity and watch the progress bar fill up.</p>
+      </div>
+
+      <!-- CONCEPT EXPLANATION -->
+      @if (worksheet()!.conceptExplanation) {
+        <div class="wv-card wv-concept-card">
+          <div class="wv-concept-header">
+            <div>
+              <p class="wv-section-label">CONCEPT EXPLANATION</p>
+              <h3 class="wv-concept-title">{{ worksheet()!.conceptExplanation!.title }}</h3>
+            </div>
+            @if (worksheet()!.conceptExplanation!.chainSummary) {
+              <span class="wv-chain-summary-badge">{{ worksheet()!.conceptExplanation!.chainSummary }}</span>
+            }
+          </div>
+          <p class="wv-concept-body">{{ worksheet()!.conceptExplanation!.body }}</p>
+          <div class="wv-chain-items">
+            @for (item of worksheet()!.conceptExplanation!.items; track item.name; let last = $last) {
+              <div class="wv-chain-item">
+                <span class="wv-chain-emoji">{{ item.emoji }}</span>
+                <span class="wv-chain-name">{{ item.name }}</span>
+                <span class="wv-chain-role">{{ item.role }}</span>
+              </div>
+              @if (!last) { <span class="wv-chain-arrow">→</span> }
+            }
+          </div>
+        </div>
+      }
+
+      <!-- ACTIVITIES ROW 1 -->
+      <div class="wv-activities-row">
+
+        <!-- ACTIVITY 1: Ordering/Sequencing -->
+        @if (worksheet()!.activity1) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity1!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity1!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a1Score() }} / {{ a1Total() }}</span>
+            </div>
+
+            <div class="wv-slots-grid">
+              @for (slot of a1Slots(); track trackByIndex($index); let i = $index) {
+                <div class="wv-slot"
+                     [class.active]="a1ActiveSlot() === i"
+                     [class.filled]="!!slot"
+                     [class.correct]="a1Checked() && !!slot && slot.correctOrder === i + 1"
+                     [class.wrong]="a1Checked() && !!slot && slot.correctOrder !== i + 1"
+                     (click)="slot ? removeFromSlot(i) : selectSlot(i)">
+                  @if (slot) {
+                    <span class="wv-slot-emoji">{{ slot.emoji }}</span>
+                    <span class="wv-slot-name">{{ slot.name }}</span>
+                  } @else {
+                    <span class="wv-slot-hint">
+                      @if (a1ActiveSlot() === i) { ← Tap a card } @else { Tap a card below to fill this step. }
+                    </span>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (a1Available().length > 0) {
+              <div class="wv-available-cards">
+                @for (item of a1Available(); track item.id) {
+                  <div class="wv-avail-card"
+                       [class.glow]="a1ActiveSlot() !== null"
+                       (click)="placeItemInSlot(item)">
+                    <span>{{ item.emoji }}</span>
+                    <span>{{ item.name }}</span>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (!a1Checked()) {
+              <button class="wv-btn-check"
+                      [disabled]="a1Available().length > 0"
+                      (click)="checkActivity1()">
+                Check Order
+              </button>
+            } @else {
+              <p class="wv-feedback" [class.all-correct]="a1Score() === a1Total()">
+                {{ a1Score() === a1Total() ? '🎉 Perfect order!' : a1Score() + ' / ' + a1Total() + ' correct' }}
+              </p>
+            }
+          </div>
+        }
+
+        <!-- ACTIVITY 2: Classification -->
+        @if (worksheet()!.activity2) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity2!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity2!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a2Score() }} / {{ a2Total() }}</span>
+            </div>
+
+            <div class="wv-mystery-grid">
+              @for (item of worksheet()!.activity2!.items; track item.id) {
+                <div class="wv-mystery-card">
+                  <p class="wv-mystery-label">MYSTERY ROLE</p>
+                  <div class="wv-mystery-info">
+                    <span class="wv-mystery-emoji">{{ item.emoji }}</span>
+                    <div>
+                      <p class="wv-mystery-name">{{ item.name }}</p>
+                      <p class="wv-mystery-desc">{{ item.description }}</p>
+                    </div>
+                  </div>
+                  <div class="wv-cat-btns">
+                    @for (cat of worksheet()!.activity2!.categories; track cat) {
+                      <button class="wv-cat-btn"
+                              [class]="getA2ButtonClass(item, cat)"
+                              [disabled]="!!a2Revealed()[item.id]"
+                              (click)="classifyItem(item.id, cat)">
+                        {{ cat }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- ACTIVITIES ROW 2 -->
+      <div class="wv-activities-row">
+
+        <!-- ACTIVITY 3: Quick Quiz -->
+        @if (worksheet()!.activity3) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity3!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity3!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a3Score() }} / {{ a3Total() }}</span>
+            </div>
+
+            <div class="wv-mcq-list">
+              @for (q of worksheet()!.activity3!.questions; track q.id; let qi = $index) {
+                <div class="wv-mcq-question">
+                  <div class="wv-q-badge">Q{{ qi + 1 }}</div>
+                  <p class="wv-q-text">{{ q.text }}</p>
+                  <div class="wv-mcq-options">
+                    @for (opt of q.options; track opt; let oi = $index) {
+                      <button class="wv-mcq-btn"
+                              [class]="getA3OptionClass(q, opt)"
+                              (click)="selectMCQ(q.id, opt)">
+                        <span class="wv-opt-letter">{{ OPTION_LETTERS[oi] }}</span>
+                        <span>{{ opt }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- ACTIVITY 4: Fill in the Blanks -->
+        @if (worksheet()!.activity4) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity4!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity4!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a4Score() }} / {{ a4Total() }}</span>
+            </div>
+
+            <div class="wv-word-bank">
+              @for (word of worksheet()!.activity4!.wordBank; track word) {
+                <button class="wv-word-chip"
+                        [class.used]="isWordUsed(word)"
+                        [disabled]="isWordUsed(word)"
+                        (click)="placeWord(word)">
+                  {{ word }}
+                </button>
+              }
+            </div>
+
+            <div class="wv-sentences">
+              @for (sentence of worksheet()!.activity4!.sentences; track sentence.id) {
+                <div class="wv-sentence">
+                  @for (part of sentence.parts; track trackByIndex($index)) {
+                    @if (part.type === 'text') {
+                      <span class="wv-sent-text">{{ part.value }}</span>
+                    } @else {
+                      <button class="wv-blank-chip"
+                              [class.active]="a4SelectedBlank() === part.blankId"
+                              [class.filled]="!!a4Blanks()[part.blankId!]"
+                              [class.correct]="a4Checked() && a4Blanks()[part.blankId!].toLowerCase() === (part.correctAnswer ?? '').toLowerCase()"
+                              [class.wrong]="a4Checked() && !!a4Blanks()[part.blankId!] && a4Blanks()[part.blankId!].toLowerCase() !== (part.correctAnswer ?? '').toLowerCase()"
+                              (click)="selectBlank(part.blankId!)">
+                        {{ getBlankDisplay(part.blankId!) }}
+                      </button>
+                    }
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="wv-a4-actions">
+              <button class="wv-btn-reset" (click)="resetActivity4()">Reset</button>
+              <button class="wv-btn-check-answers" (click)="checkActivity4()" [disabled]="a4Checked()">
+                Check Answers
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- SCORE + FEEDBACK PANEL -->
+      <div class="wv-card wv-score-panel">
+        <div class="wv-score-header">
+          <div>
+            <p class="wv-section-label">SCORE + FEEDBACK</p>
+            <h3 class="wv-score-title">Finish all 4 activities to unlock the final score</h3>
+            <p class="wv-score-hint">Your score will appear here once every activity is checked.</p>
+          </div>
+          <span class="wv-total-badge">{{ totalScore() }} / {{ totalPossible() }}</span>
+        </div>
+
+        <div class="wv-stats-grid">
+          <div class="wv-stat-card">
+            <p class="wv-stat-value">{{ completedActivities() }}</p>
+            <p class="wv-stat-label">Activities complete</p>
+          </div>
+          <div class="wv-stat-card">
+            <p class="wv-stat-value">{{ progressPercent() }}%</p>
+            <p class="wv-stat-label">Current score</p>
+          </div>
+          <div class="wv-stat-card">
+            <p class="wv-stat-value">{{ studentNameValue || 'Student' }}</p>
+            <p class="wv-stat-label">Worksheet owner</p>
+          </div>
+        </div>
+
+        <div class="wv-score-actions">
+          @if (mode === 'preview') {
+            <button class="wv-btn-done" (click)="closed.emit()">Close Preview</button>
+          } @else {
+            <button class="wv-btn-retry" (click)="onRetry()">Retry Worksheet</button>
+            <button class="wv-btn-done" [disabled]="isSubmitting()" (click)="onDone()">
+              {{ isSubmitting() ? 'Submitting…' : 'Done' }}
+            </button>
+          }
+        </div>
+      </div>
+
+    </div><!-- /wv-body -->
+  </div><!-- /wv-root -->
+}

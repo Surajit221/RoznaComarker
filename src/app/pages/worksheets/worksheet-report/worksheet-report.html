@@ -1,0 +1,128 @@
+<div class="report-wrap">
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <span>⚠ {{ errorMsg }}</span>
+    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- HEADER -->
+  <div class="report-header">
+    <button class="btn-back" (click)="goBack()">← Back</button>
+    <h2 class="report-title">{{ worksheet?.title ?? 'Worksheet Submissions' }}</h2>
+    <button class="btn-dl-report"
+            [disabled]="isPdfReportDownloading"
+            (click)="downloadReportPdf()">
+      @if (isPdfReportDownloading) {
+        <span class="pdf-spinner" aria-hidden="true"></span> Generating...
+      } @else {
+        ↓ Download Report
+      }
+    </button>
+  </div>
+
+  <!-- SKELETON -->
+  <div class="report-skeleton" *ngIf="isLoading">
+    <div class="skel skel-stats"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+
+    <!-- STATS ROW -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-icon">👥</span>
+        <span class="stat-label">SUBMISSIONS</span>
+        <span class="stat-value">{{ totalSubmissions }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">📊</span>
+        <span class="stat-label">AVERAGE SCORE</span>
+        <span class="stat-value">{{ averageScore | number:'1.0-0' }}%</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⏱</span>
+        <span class="stat-label">AVERAGE TIME</span>
+        <span class="stat-value">{{ averageTime | formatTime }}</span>
+      </div>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="participants-toolbar">
+      <input
+        class="search-input"
+        placeholder="Search by student name..."
+        [value]="searchTerm"
+        (input)="onSearch($event)" />
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state" *ngIf="filteredSubmissions.length === 0">
+      <div class="empty-icon">📋</div>
+      <p>{{ searchTerm ? 'No results found' : 'No submissions yet' }}</p>
+    </div>
+
+    <!-- TABLE — desktop -->
+    <div class="participants-table" *ngIf="filteredSubmissions.length > 0">
+      <div class="table-head">
+        <span>Student</span>
+        <span>Score</span>
+        <span>Time</span>
+        <span>Date</span>
+        <span>PDF</span>
+      </div>
+      <div class="participant-row"
+           *ngFor="let s of filteredSubmissions; trackBy: trackById">
+        <div class="p-name-cell">
+          <div class="avatar-circle">{{ getStudentInitials(s) }}</div>
+          <span class="p-name">{{ getStudentName(s) }}</span>
+        </div>
+        <span class="p-score">{{ s.percentage | number:'1.0-0' }}%</span>
+        <span class="p-time">{{ s.timeTaken | formatTime }}</span>
+        <span class="p-date">{{ s.submittedAt | date:'dd MMM yyyy' }}</span>
+        <span>
+          <button class="btn-dl-row"
+                  [disabled]="downloadingSubmissionId === s._id"
+                  (click)="downloadStudentPdf(s)">
+            @if (downloadingSubmissionId === s._id) {
+              <span class="pdf-spinner" aria-hidden="true"></span>
+            } @else {
+              ↓ PDF
+            }
+          </button>
+        </span>
+      </div>
+    </div>
+
+    <!-- CARDS — mobile -->
+    <div class="mobile-cards" *ngIf="filteredSubmissions.length > 0">
+      <div class="mobile-card"
+           *ngFor="let s of filteredSubmissions; trackBy: trackById">
+        <div class="mc-row mc-top">
+          <div class="p-name-cell">
+            <div class="avatar-circle">{{ getStudentInitials(s) }}</div>
+            <span class="p-name">{{ getStudentName(s) }}</span>
+          </div>
+          <button class="btn-dl-row"
+                  [disabled]="downloadingSubmissionId === s._id"
+                  (click)="downloadStudentPdf(s)">
+            @if (downloadingSubmissionId === s._id) {
+              <span class="pdf-spinner" aria-hidden="true"></span>
+            } @else {
+              ↓ PDF
+            }
+          </button>
+        </div>
+        <div class="mc-row mc-stats">
+          <span class="mc-stat"><span class="mc-stat-label">Score</span> {{ s.percentage | number:'1.0-0' }}%</span>
+          <span class="mc-stat"><span class="mc-stat-label">Time</span> {{ s.timeTaken | formatTime }}</span>
+          <span class="mc-stat"><span class="mc-stat-label">Date</span> {{ s.submittedAt | date:'dd MMM yy' }}</span>
+        </div>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

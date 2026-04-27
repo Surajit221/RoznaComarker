@@ -1,0 +1,216 @@
+/* === Backdrop — matches modal-dialog: bg-black/50 backdrop-blur-sm === */
+.lt-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* === Modal panel — matches modal-dialog: bg-white rounded-3xl shadow-lg p-6 text-gray-700 === */
+.lt-modal {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  color: #374151;
+  z-index: 1000;
+  animation: lt-modal-in 0.2s ease-out forwards;
+  position: relative;
+}
+
+@keyframes lt-modal-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.lt-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+/* text-gray-700 bold — matches rubric-designer-modal title */
+.lt-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 4px 0;
+}
+
+/* text-gray-500 — matches subtitle/hint text across modals */
+.lt-subtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Close icon — text-gray-400 hover:text-gray-600, matches commented-out close in modal-dialog */
+.lt-close-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 4px;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.lt-close-btn:hover {
+  color: #374151;
+}
+
+/* Section label — small uppercase gray, matches common pattern */
+.lt-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin: 0 0 10px 0;
+}
+
+.lt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* Cards — match focus-card-label: border-2 border-[#E7E7E7] bg-white rounded-2xl */
+.lt-card {
+  position: relative;
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  border-radius: 1rem;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+
+/* Active card — matches focus-card-input:checked + focus-card-label: border-[#008081] bg-[#E6F2F2] */
+.lt-card--active {
+  border-color: #008081;
+  background: #E6F2F2;
+  box-shadow: 0px 4px 0 #008081;
+}
+
+.lt-card--active:hover {
+  background: #d0ecec;
+  border-color: #008081;
+}
+
+/* Disabled/soon cards — slightly dimmed */
+.lt-card--soon {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* "soon" badge — light gray pill matching the project's muted labels */
+.lt-soon-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #E7E7E7;
+  color: #6b7280;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+.lt-card-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+/* text-gray-700 — matches card text across the project */
+.lt-card-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Footer hint — teal primary #008081 */
+.lt-footer-hint {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #008081;
+  margin: 4px 0 0 0;
+}
+
+/* Back button in header */
+.lt-back-btn {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.lt-back-btn:hover { background: #e5e7eb; }
+
+/* Flashcard choice grid (2 equal columns) */
+.lt-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+  padding-bottom: 4px;
+}
+
+.lt-choice-card {
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  border-radius: 1rem;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.lt-choice-card:hover {
+  border-color: #008081;
+  background: #E6F2F2;
+  box-shadow: 0 4px 0 #008081;
+}
+
+.lt-choice-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.lt-choice-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.lt-choice-desc {
+  font-size: 0.73rem;
+  color: #6b7280;
+  line-height: 1.4;
+}

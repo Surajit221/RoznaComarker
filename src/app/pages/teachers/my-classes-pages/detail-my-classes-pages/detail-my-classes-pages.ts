@@ -9,7 +9,11 @@ import { InviteStudentsDialog } from '../../../../components/teacher/invite-stud
 import { DeviceService } from '../../../../services/device.service';
 import { AppBarBackButton } from '../../../../shared/app-bar-back-button/app-bar-back-button';
 import { BottomsheetDialog } from '../../../../shared/bottomsheet-dialog/bottomsheet-dialog';
-import { AssignmentApiService, type BackendAssignment } from '../../../../api/assignment-api.service';
+import {
+  AssignmentApiService,
+  type BackendAssignment,
+  type BackendFlashcardAssignmentSubmission,
+} from '../../../../api/assignment-api.service';
 import { RubricApiService } from '../../../../api/rubric-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassStudent, type BackendClassSummary } from '../../../../api/class-api.service';
@@ -19,6 +23,11 @@ import { RubricDesignerModal } from '../../../../components/teacher/rubric-desig
 import type { RubricDesigner } from '../../../../models/submission-feedback.model';
 import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
 import { Subscription } from 'rxjs';
+import { LearningToolsPicker } from '../../../../components/teacher/learning-tools-picker/learning-tools-picker';
+import { WorksheetAssignModal } from '../../../../components/teacher/worksheet-assign-modal/worksheet-assign-modal';
+import { FlashcardAssignModal } from '../../../../components/teacher/flashcard-assign-modal/flashcard-assign-modal';
+import { WorksheetViewerComponent } from '../../../../components/worksheet-viewer/worksheet-viewer';
+import { ResourceStateService } from '../../../../services/resource-state.service';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -32,11 +41,25 @@ import { Subscription } from 'rxjs';
     AppBarBackButton,
     BottomsheetDialog,
     RubricDesignerModal,
+    LearningToolsPicker,
+    WorksheetAssignModal,
+    FlashcardAssignModal,
+    WorksheetViewerComponent,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
 })
 export class DetailMyClassesPages {
+  showLearningTools = false;
+  showWorksheetModal = false;
+  showFlashcardModal = false;
+  showWorksheetPreview = false;
+  previewWorksheetIdForViewer: string | null = null;
+  /** Preselected flashcard set ID when returning from create-flow */
+  flashcardPreselectedSetId: string | null = null;
+  /** Preselected worksheet ID when returning from worksheet create page */
+  preselectedWorksheetId: string | null = null;
+
   showDialog = false;
   showDialogSubmission = false;
   showDialogQRClasses = false;
@@ -123,6 +146,8 @@ export class DetailMyClassesPages {
     submitted: number;
     total: number;
     status: 'pending' | 'in-progress' | 'completed';
+    resourceType?: 'essay' | 'flashcard' | 'worksheet';
+    resourceId?: string;
   }> = [];
 
   private studentSubmissionStatsById: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
@@ -132,6 +157,22 @@ export class DetailMyClassesPages {
     await this.loadClassSummary();
     await this.loadStudents();
     await this.loadAssignments();
+
+    /** Auto-open flashcard assign modal when returning from flashcard create flow */
+    const openAssign = this.route.snapshot.queryParamMap.get('openAssignModal') === 'true';
+    const presetId   = this.route.snapshot.queryParamMap.get('preselectedSetId') || null;
+    if (openAssign) {
+      this.flashcardPreselectedSetId = presetId;
+      this.showFlashcardModal = true;
+    }
+
+    /** Auto-open worksheet assign modal when returning from worksheet create flow */
+    const openWorksheetAssign = this.route.snapshot.queryParamMap.get('openWorksheetAssignModal') === 'true';
+    const presetWorksheetId   = this.route.snapshot.queryParamMap.get('preselectedWorksheetId') || null;
+    if (openWorksheetAssign) {
+      this.preselectedWorksheetId = presetWorksheetId;
+      this.showWorksheetModal = true;
+    }
 
     this.realtime.connect();
 
@@ -218,7 +259,8 @@ export class DetailMyClassesPages {
     }
 
     try {
-      const submissions = await this.submissionApi.getSubmissionsByAssignment(assignmentId);
+      const assignment = this.assignmentsById[assignmentId];
+      const submissions = await this.getAssignmentSubmissionRecords(assignmentId, assignment);
       const totalStudents = this.studentsCount;
 
       const nextAssignments = [...this.assignments];
@@ -230,33 +272,15 @@ export class DetailMyClassesPages {
       this.assignments = nextAssignments;
 
       // Keep student progress stats reasonably fresh for the UI.
-      const getStudentIdFromSubmission = (submission: any): string => {
-        const s = submission && submission.student ? submission.student : null;
-        if (!s) return '';
-        if (typeof s === 'string') return s;
-        if (typeof s === 'object') {
-          const candidate = (s._id || s.id || s.studentId) as any;
-          return typeof candidate === 'string' ? candidate : '';
-        }
-        return '';
-      };
-
-      const getSubmissionTimestampMs = (submission: any): number => {
-        const raw = submission?.submittedAt || submission?.updatedAt || submission?.createdAt;
-        if (!raw) return 0;
-        const t = new Date(raw).getTime();
-        return Number.isFinite(t) ? t : 0;
-      };
-
       const statsByStudent = { ...(this.studentSubmissionStatsById || {}) } as Record<string, { assignmentIds: Set<string>; lastActivityMs: number }>;
       for (const sub of submissions || []) {
-        const studentId = getStudentIdFromSubmission(sub);
+        const studentId = this.getStudentIdFromAnySubmission(sub);
         if (!studentId) continue;
         if (!statsByStudent[studentId]) {
           statsByStudent[studentId] = { assignmentIds: new Set<string>(), lastActivityMs: 0 };
         }
         statsByStudent[studentId].assignmentIds.add(assignmentId);
-        const t = getSubmissionTimestampMs(sub);
+        const t = this.getSubmissionTimestampMs(sub);
         if (t > statsByStudent[studentId].lastActivityMs) {
           statsByStudent[studentId].lastActivityMs = t;
         }
@@ -379,7 +403,9 @@ export class DetailMyClassesPages {
       dueDate,
       submitted: 0,
       total: 0,
-      status
+      status,
+      resourceType: a.resourceType,
+      resourceId: a.resourceId,
     };
   }
 
@@ -403,39 +429,22 @@ export class DetailMyClassesPages {
       const totalStudents = this.studentsCount;
       const statsByStudent: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
 
-      const getStudentIdFromSubmission = (submission: any): string => {
-        const s = submission && submission.student ? submission.student : null;
-        if (!s) return '';
-        if (typeof s === 'string') return s;
-        if (typeof s === 'object') {
-          const candidate = (s._id || s.id || s.studentId) as any;
-          return typeof candidate === 'string' ? candidate : '';
-        }
-        return '';
-      };
-
-      const getSubmissionTimestampMs = (submission: any): number => {
-        const raw = submission?.submittedAt || submission?.updatedAt || submission?.createdAt;
-        if (!raw) return 0;
-        const t = new Date(raw).getTime();
-        return Number.isFinite(t) ? t : 0;
-      };
-
       await Promise.all(
         this.assignments.map(async (item) => {
           try {
-            const submissions = await this.submissionApi.getSubmissionsByAssignment(item.id);
+            const assignment = this.assignmentsById[item.id];
+            const submissions = await this.getAssignmentSubmissionRecords(item.id, assignment);
             item.submitted = (submissions || []).length;
             item.total = totalStudents;
 
             for (const sub of submissions || []) {
-              const studentId = getStudentIdFromSubmission(sub);
+              const studentId = this.getStudentIdFromAnySubmission(sub);
               if (!studentId) continue;
               if (!statsByStudent[studentId]) {
                 statsByStudent[studentId] = { assignmentIds: new Set<string>(), lastActivityMs: 0 };
               }
               statsByStudent[studentId].assignmentIds.add(item.id);
-              const t = getSubmissionTimestampMs(sub);
+              const t = this.getSubmissionTimestampMs(sub);
               if (t > statsByStudent[studentId].lastActivityMs) {
                 statsByStudent[studentId].lastActivityMs = t;
               }
@@ -828,6 +837,8 @@ export class DetailMyClassesPages {
     }
   }
 
+  private resourceState = inject(ResourceStateService);
+
   constructor(private router: Router) {}
 
   toMyClasses() {
@@ -842,6 +853,41 @@ export class DetailMyClassesPages {
     });
   }
 
+  openLearningTools() {
+    this.showLearningTools = true;
+  }
+
+  onToolSelected(tool: string) {
+    if (tool === 'flashcards:create') {
+      this.showLearningTools = false;
+      this.router.navigate(['/flashcards/create'], {
+        queryParams: { returnToClassId: this.classId ?? undefined },
+      });
+      return;
+    }
+
+    if (tool === 'flashcards') {
+      this.showLearningTools = false;
+      this.flashcardPreselectedSetId = null;
+      this.showFlashcardModal = true;
+      return;
+    }
+
+    if (tool === 'worksheet:create') {
+      this.showLearningTools = false;
+      this.router.navigate(['/worksheets/create'], {
+        queryParams: { returnToClassId: this.classId ?? undefined },
+      });
+      return;
+    }
+
+    if (tool === 'worksheet:assign' || tool === 'worksheet') {
+      this.showLearningTools = false;
+      this.preselectedWorksheetId = null;
+      this.showWorksheetModal = true;
+    }
+  }
+
   onAddAssignment() {
     this.selectedAssignmentForEdit = null;
     this.showDialog = true;
@@ -850,6 +896,14 @@ export class DetailMyClassesPages {
   onEditAssignment(assignmentId: string) {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
+    if (found.resourceType === 'flashcard' && found.resourceId) {
+      this.router.navigate(['/flashcards', found.resourceId, 'edit']);
+      return;
+    }
+    if (found.resourceType === 'worksheet' && found.resourceId) {
+      this.router.navigate(['/worksheets', found.resourceId, 'edit']);
+      return;
+    }
     this.selectedAssignmentForEdit = found;
     this.showDialog = true;
   }
@@ -857,6 +911,14 @@ export class DetailMyClassesPages {
   onOpenEditAssignmentSheet(assignmentId: string) {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
+    if (found.resourceType === 'flashcard' && found.resourceId) {
+      this.router.navigate(['/flashcards', found.resourceId, 'edit']);
+      return;
+    }
+    if (found.resourceType === 'worksheet' && found.resourceId) {
+      this.router.navigate(['/worksheets', found.resourceId, 'edit']);
+      return;
+    }
     this.selectedAssignmentForEdit = found;
     this.openSheetAssignment = true;
     document.body.classList.add('overflow-hidden');
@@ -886,6 +948,7 @@ export class DetailMyClassesPages {
       this.classApi.invalidateTeacherClassesList();
 
       this.alert.showSuccess('Deleted', 'Assignment deleted successfully.');
+      this.resourceState.notifyAssignmentDeleted(assignmentId);
     } catch (err: any) {
       this.assignments = prevAssignments;
       this.assignmentsById = prevAssignmentsById;
@@ -894,6 +957,20 @@ export class DetailMyClassesPages {
   }
 
   onOpenSubmission(assignmentId: string) {
+    const assignment = this.assignmentsById[assignmentId];
+    if (assignment?.resourceType === 'flashcard' && assignment.resourceId) {
+      this.router.navigate(['/flashcards', assignment.resourceId, 'report'], {
+        queryParams: { assignmentId }
+      });
+      return;
+    }
+    if (assignment?.resourceType === 'worksheet' && assignment.resourceId) {
+      this.router.navigate(['/worksheets', assignment.resourceId, 'report'], {
+        queryParams: { assignmentId }
+      });
+      return;
+    }
+
     this.selectedAssignmentId = assignmentId;
     this.showDialogSubmission = true;
   }
@@ -944,9 +1021,54 @@ export class DetailMyClassesPages {
   }
 
   onOpenSheetSubmission(assignmentId?: string) {
+    const resolvedAssignmentId = assignmentId || null;
+    if (resolvedAssignmentId) {
+      const assignment = this.assignmentsById[resolvedAssignmentId];
+      if (assignment?.resourceType === 'flashcard' && assignment.resourceId) {
+        document.body.classList.remove('overflow-hidden');
+        this.router.navigate(['/flashcards', assignment.resourceId, 'report'], {
+          queryParams: { assignmentId: resolvedAssignmentId }
+        });
+        return;
+      }
+      if (assignment?.resourceType === 'worksheet' && assignment.resourceId) {
+        document.body.classList.remove('overflow-hidden');
+        this.router.navigate(['/worksheets', assignment.resourceId, 'report'], {
+          queryParams: { assignmentId: resolvedAssignmentId }
+        });
+        return;
+      }
+    }
+
     document.body.classList.add('overflow-hidden');
-    this.selectedAssignmentId = assignmentId || null;
+    this.selectedAssignmentId = resolvedAssignmentId;
     this.openSheetSubmission = true;
+  }
+
+  private async getAssignmentSubmissionRecords(assignmentId: string, assignment?: BackendAssignment): Promise<any[]> {
+    if (assignment?.resourceType === 'flashcard') {
+      return this.assignmentApi.getFlashcardAssignmentSubmissions(assignmentId);
+    }
+
+    return this.submissionApi.getSubmissionsByAssignment(assignmentId);
+  }
+
+  private getStudentIdFromAnySubmission(submission: any): string {
+    const studentCandidate = submission && submission.student ? submission.student : submission?.userId;
+    if (!studentCandidate) return '';
+    if (typeof studentCandidate === 'string') return studentCandidate;
+    if (typeof studentCandidate === 'object') {
+      const candidate = (studentCandidate._id || studentCandidate.id || studentCandidate.studentId) as any;
+      return typeof candidate === 'string' ? candidate : '';
+    }
+    return '';
+  }
+
+  private getSubmissionTimestampMs(submission: BackendFlashcardAssignmentSubmission | any): number {
+    const raw = submission?.submittedAt || submission?.updatedAt || submission?.createdAt;
+    if (!raw) return 0;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
   }
 
   handleGoBack() {
@@ -983,6 +1105,11 @@ export class DetailMyClassesPages {
 
   onCloseInviteDialog() {
     this.showInviteDialog = false;
+  }
+
+  openWorksheetPreview(resourceId: string): void {
+    this.previewWorksheetIdForViewer = resourceId;
+    this.showWorksheetPreview = true;
   }
 
   async onSendInvitations(emails: string[]) {

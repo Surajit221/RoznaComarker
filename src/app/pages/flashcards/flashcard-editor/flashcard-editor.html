@@ -1,0 +1,104 @@
+<!-- SAVE MODAL OVERLAY -->
+<div class="modal-overlay" *ngIf="showSaveModal" (click)="closeSaveModal()">
+  <div class="modal-box" (click)="$event.stopPropagation()" [formGroup]="saveModalForm">
+    <h3 class="modal-title">Save Flashcard Set</h3>
+
+    <div class="modal-field">
+      <label>Set title</label>
+      <div class="title-row">
+        <input formControlName="title" class="modal-input" placeholder="Enter a title…" />
+        <button class="btn-ai" [disabled]="isNaming" (click)="generateTitle()">
+          <span *ngIf="!isNaming">✨ AI Name</span>
+          <span *ngIf="isNaming" class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+        </button>
+      </div>
+      <div class="field-error" *ngIf="saveModalForm.get('title')?.invalid && saveModalForm.get('title')?.touched">
+        Title is required.
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label>Visibility</label>
+      <select formControlName="visibility" class="modal-select">
+        <option value="public">🌐 Public</option>
+        <option value="private">🔒 Private</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeSaveModal()">Cancel</button>
+      <button class="btn-primary" [disabled]="isSaving" (click)="confirmSave()">
+        <span *ngIf="!isSaving">Save</span>
+        <span *ngIf="isSaving" class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- EDITOR LAYOUT -->
+<div class="editor-wrap">
+
+  <!-- STICKY HEADER -->
+  <div class="editor-header">
+    <button class="btn-back" (click)="cancel()">← Discard</button>
+    <span class="editor-title">Edit Flashcards</span>
+    <div class="header-actions">
+      <button class="btn-cancel" (click)="cancel()">Cancel</button>
+      <button class="btn-primary" (click)="openSaveModal()">✔ Save</button>
+    </div>
+  </div>
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <span>⚠ {{ errorMsg }}</span>
+    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- SKELETON -->
+  <ng-container *ngIf="isLoading">
+    <div class="skel-card" *ngFor="let i of [1,2,3]; trackBy: trackByIndex">
+      <div class="skel skel-front"></div>
+      <div class="skel skel-back"></div>
+    </div>
+  </ng-container>
+
+  <!-- CARD LIST -->
+  <div class="card-list" *ngIf="!isLoading" [formGroup]="editorForm">
+    <div class="card-item" *ngFor="let ctrl of cardsArray.controls; let i = index; trackBy: trackByIndex"
+         [formGroup]="asGroup(ctrl)">
+
+      <div class="card-number">#{{ i + 1 }}</div>
+
+      <div class="card-fields">
+        <div class="field-col">
+          <label>Front</label>
+          <textarea autoResize formControlName="front" class="card-textarea"
+                    placeholder="Term / question…" rows="2"></textarea>
+          <div class="field-error" *ngIf="asGroup(ctrl).get('front')?.invalid && asGroup(ctrl).get('front')?.touched">
+            Front is required.
+          </div>
+        </div>
+        <div class="field-col">
+          <label>Back</label>
+          <textarea autoResize formControlName="back" class="card-textarea"
+                    placeholder="Definition / answer…" rows="2"></textarea>
+          <div class="field-error" *ngIf="asGroup(ctrl).get('back')?.invalid && asGroup(ctrl).get('back')?.touched">
+            Back is required.
+          </div>
+        </div>
+      </div>
+
+      <div class="card-controls">
+        <button class="ctrl-btn" title="Move up"    [disabled]="i === 0" (click)="moveUp(i)">↑</button>
+        <button class="ctrl-btn" title="Move down"  [disabled]="i === cardsArray.length - 1" (click)="moveDown(i)">↓</button>
+        <button class="ctrl-btn insert-btn" title="Insert card below" (click)="insertAfter(i)">+</button>
+        <button class="ctrl-btn danger-btn" title="Delete card" (click)="removeCard(i)">✕</button>
+      </div>
+    </div>
+
+    <!-- ADD CARD BUTTON -->
+    <button class="btn-add-card" (click)="addCard()">
+      + Add Card
+    </button>
+  </div>
+</div>

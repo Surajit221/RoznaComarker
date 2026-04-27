@@ -1,0 +1,123 @@
+@if (show) {
+<div class="lt-backdrop" (click)="onBackdropClick($event)">
+  <div class="lt-modal" role="dialog" aria-modal="true">
+
+    <!-- Header -->
+    <div class="lt-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        @if (activeView !== 'tools') {
+          <button class="lt-back-btn" (click)="backToTools()" aria-label="Back">&#8592;</button>
+        }
+        <div>
+          <h2 class="lt-title">
+            {{ activeView === 'flashcard-choice' ? 'Flashcard Set' : activeView === 'worksheet-choice' ? 'Worksheet' : 'Learning Tools' }}
+          </h2>
+          <p class="lt-subtitle">
+            {{ activeView !== 'tools' ? 'How would you like to proceed?' : 'Create activities for your students' }}
+          </p>
+        </div>
+      </div>
+      <button class="lt-close-btn" (click)="close()" aria-label="Close">✕</button>
+    </div>
+
+    @if (activeView === 'tools') {
+
+      <!-- Activities Section -->
+      <p class="lt-section-label">ACTIVITIES</p>
+      <div class="lt-grid">
+
+        <!-- Flashcards — active -->
+        <button class="lt-card lt-card--active" (click)="selectTool('flashcards')">
+          <span class="lt-card-icon">🃏</span>
+          <span class="lt-card-label">Flashcards</span>
+        </button>
+
+        <!-- Worksheet — active -->
+        <button class="lt-card lt-card--active" (click)="selectTool('worksheet')">
+          <span class="lt-card-icon">✏️</span>
+          <span class="lt-card-label">Worksheet</span>
+        </button>
+
+        <!-- Quiz — soon -->
+        <div class="lt-card lt-card--soon">
+          <span class="lt-soon-badge">soon</span>
+          <span class="lt-card-icon">❓</span>
+          <span class="lt-card-label">Quiz</span>
+        </div>
+
+      </div>
+
+      <!-- Content Section -->
+      <p class="lt-section-label">CONTENT</p>
+      <div class="lt-grid">
+
+        <div class="lt-card lt-card--soon">
+          <span class="lt-soon-badge">soon</span>
+          <span class="lt-card-icon">📄</span>
+          <span class="lt-card-label">Summary Note</span>
+        </div>
+
+        <div class="lt-card lt-card--soon">
+          <span class="lt-soon-badge">soon</span>
+          <span class="lt-card-icon">📋</span>
+          <span class="lt-card-label">Lesson Plan</span>
+        </div>
+
+        <div class="lt-card lt-card--soon">
+          <span class="lt-soon-badge">soon</span>
+          <span class="lt-card-icon">⭐</span>
+          <span class="lt-card-label">AI Speech</span>
+        </div>
+
+      </div>
+
+      <!-- Footer hint -->
+      <p class="lt-footer-hint">Pick a tool to continue →</p>
+
+    }
+
+    @if (activeView === 'flashcard-choice') {
+
+      <!-- Flashcard choice: Create New vs Assign Existing -->
+      <div class="lt-choice-grid">
+
+        <button class="lt-choice-card" (click)="chooseCreate()">
+          <span class="lt-choice-icon">&#43;</span>
+          <span class="lt-choice-title">Create New Set</span>
+          <span class="lt-choice-desc">Build a new flashcard set using AI&nbsp;or manually</span>
+        </button>
+
+        <button class="lt-choice-card" (click)="chooseAssign()">
+          <span class="lt-choice-icon">📚</span>
+          <span class="lt-choice-title">Assign Existing Set</span>
+          <span class="lt-choice-desc">Pick one of your saved flashcard sets</span>
+        </button>
+
+      </div>
+
+    }
+
+    @if (activeView === 'worksheet-choice') {
+
+      <!-- Worksheet choice: Create New vs Assign Existing -->
+      <div class="lt-choice-grid">
+
+        <button class="lt-choice-card" (click)="worksheetCreate()">
+          <span class="lt-choice-icon">✨</span>
+          <span class="lt-choice-title">Create New Worksheet</span>
+          <span class="lt-choice-desc">Generate questions with AI from a topic or text</span>
+        </button>
+
+        <button class="lt-choice-card" (click)="worksheetAssign()">
+          <span class="lt-choice-icon">📋</span>
+          <span class="lt-choice-title">Assign Existing Worksheet</span>
+          <span class="lt-choice-desc">Pick from your saved worksheets</span>
+        </button>
+
+      </div>
+
+    }
+
+  </div>
+</div>
+}

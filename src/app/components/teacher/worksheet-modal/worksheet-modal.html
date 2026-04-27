@@ -1,0 +1,221 @@
+@if (show) {
+<div class="ws-backdrop" (click)="onBackdropClick($event)">
+  <div class="ws-modal" role="dialog" aria-modal="true">
+    <div class="ws-header">
+      <div class="ws-toolbar">
+        <button type="button" class="ws-back-btn" (click)="goBack()">← Back</button>
+        <div class="ws-toolbar-actions">
+          <button type="button" class="ws-download-btn" (click)="downloadWorksheet()" title="Print or save as PDF">
+            ⬇ Download
+          </button>
+          <button type="button" class="ws-close-btn" (click)="closeAll()" aria-label="Close">✕</button>
+        </div>
+      </div>
+
+      <div class="ws-hero">
+        <div class="ws-hero-copy">
+          <span class="ws-badge">Grade 3 Science</span>
+          <h2 class="ws-title">The Food Chain</h2>
+          <p class="ws-subtitle">
+            Discover how energy travels from the sun to plants and animals through a simple food chain.
+          </p>
+          <div class="ws-hero-tags">
+            <span class="ws-hero-tag">☀️ Energy source</span>
+            <span class="ws-hero-tag">🌿 Producer</span>
+            <span class="ws-hero-tag">🦅 Top predator</span>
+          </div>
+        </div>
+
+        <div class="ws-form-card">
+          <div class="ws-input-group">
+            <label class="ws-label" for="studentName">Student name</label>
+            <input id="studentName" type="text" class="input-text ws-input" placeholder="Enter student name" [(ngModel)]="studentName" />
+          </div>
+
+          <div class="ws-input-group">
+            <label class="ws-label" for="worksheetDate">Date</label>
+            <input id="worksheetDate" type="date" class="input-text ws-input" [(ngModel)]="worksheetDate" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ws-body">
+      <app-progress-bar [completed]="completedActivities" [total]="totalActivities" [subtitle]="progressSubtitle"></app-progress-bar>
+
+      <section class="ws-panel ws-panel--concept">
+        <div class="ws-panel-top">
+          <div>
+            <p class="ws-section-label">Concept Explanation</p>
+            <h3 class="ws-section-title">How a food chain works</h3>
+          </div>
+          <span class="ws-section-pill">Sun → Plant → Animal</span>
+        </div>
+
+        <p class="ws-concept-copy">
+          A food chain shows how living things get energy. The sun gives energy to plants. Animals get energy by
+          eating plants or by eating other animals.
+        </p>
+
+        <div class="ws-flow">
+          @for (step of foodChainBuilderSteps; track trackByStep($index, step)) {
+            <div class="ws-flow-node">
+              <span class="ws-flow-emoji">{{ step.emoji }}</span>
+              <span class="ws-flow-name">{{ step.label }}</span>
+              <span class="ws-flow-role">{{ step.role }}</span>
+            </div>
+
+            @if ($index < foodChainBuilderSteps.length - 1) {
+              <span class="ws-flow-arrow">→</span>
+            }
+          }
+        </div>
+      </section>
+
+      <div class="ws-grid">
+        <section class="ws-panel">
+          <app-food-chain-builder [steps]="foodChainBuilderSteps" (resultChange)="onBuilderResultChange($event)"></app-food-chain-builder>
+        </section>
+
+        <section class="ws-panel">
+          <div class="ws-panel-top ws-panel-top--activity">
+            <div>
+              <p class="ws-section-label">Interactive Activity</p>
+              <h3 class="ws-section-title">Activity 2: Who Am I?</h3>
+              <p class="ws-section-copy">Guess whether each mystery card is a producer, consumer, or decomposer, then reveal the answer.</p>
+            </div>
+            <span class="ws-score-pill">{{ whoAmIScore }} / {{ whoAmICards.length }}</span>
+          </div>
+
+          <div class="ws-match-grid">
+            @for (card of whoAmICards; track trackByCard($index, card)) {
+              <app-match-card [card]="card" [options]="roleOptions" (roleSelected)="onRoleSelected($event)" (reveal)="onRevealCard($event)"></app-match-card>
+            }
+          </div>
+
+          @if (whoAmICompleted) {
+            <div class="ws-inline-feedback" [class.ws-inline-feedback--perfect]="whoAmIScore === whoAmICards.length" [class.ws-inline-feedback--retry]="whoAmIScore !== whoAmICards.length">
+              <div>
+                <p class="ws-inline-feedback-title">
+                  @if (whoAmIScore === whoAmICards.length) {
+                    You matched every role correctly.
+                  } @else {
+                    You got {{ whoAmIScore }} role{{ whoAmIScore === 1 ? '' : 's' }} right.
+                  }
+                </p>
+                <p class="ws-inline-feedback-copy">Flip through the cards again and see how each role helps the food chain work.</p>
+              </div>
+              <button type="button" class="learning-tools-btn" (click)="retryWhoAmI()">Try Again</button>
+            </div>
+          }
+        </section>
+
+        <section class="ws-panel">
+          <app-quiz [questions]="quizQuestions" (resultChange)="onQuizResultChange($event)"></app-quiz>
+        </section>
+
+        <section class="ws-panel">
+          <div class="ws-panel-top ws-panel-top--activity">
+            <div>
+              <p class="ws-section-label">Interactive Activity</p>
+              <h3 class="ws-section-title">Activity 4: Fill in the Blanks</h3>
+              <p class="ws-section-copy">Use the word bank to complete each science sentence.</p>
+            </div>
+            <span class="ws-score-pill">{{ fillBlankSubmitted ? fillBlankScore : 0 }} / {{ fillBlankPrompts.length }}</span>
+          </div>
+
+          <div class="ws-sentences">
+            @for (prompt of fillBlankPrompts; track trackByPrompt($index, prompt)) {
+              <div class="ws-sentence">
+                <span>{{ prompt.before }}</span>
+                <button
+                  type="button"
+                  class="ws-blank"
+                  [class.ws-blank--active]="getFillBlankState($index) === 'active'"
+                  [class.ws-blank--filled]="getFillBlankState($index) === 'filled'"
+                  [class.ws-blank--correct]="getFillBlankState($index) === 'correct'"
+                  [class.ws-blank--wrong]="getFillBlankState($index) === 'wrong'"
+                  (click)="selectFillBlank($index)"
+                >
+                  {{ fillBlankSelections[$index]?.label || 'choose a word' }}
+                </button>
+                <span>{{ prompt.after }}</span>
+
+                @if (fillBlankSelections[$index] && !fillBlankSubmitted) {
+                  <button type="button" class="ws-clear-blank" (click)="clearFillBlank($index)">✕</button>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="ws-word-bank">
+            <p class="ws-word-bank-label">Word Bank</p>
+            <div class="ws-word-bank-chips">
+              @for (word of availableFillBlankWords; track trackByWord($index, word)) {
+                <button type="button" class="ws-word-chip" (click)="placeFillBlankWord(word)">{{ word.label }}</button>
+              }
+
+              @if (!availableFillBlankWords.length) {
+                <span class="ws-word-bank-empty">All words are placed. Now check your answers.</span>
+              }
+            </div>
+          </div>
+
+          <div class="ws-actions">
+            <button type="button" class="learning-tools-btn" (click)="resetFillBlanks()">Reset</button>
+            <button type="button" class="btn-primary" [disabled]="!isFillBlankReady" (click)="submitFillBlanks()">Check Answers</button>
+          </div>
+
+          @if (fillBlankSubmitted) {
+            <div class="ws-inline-feedback" [class.ws-inline-feedback--perfect]="fillBlankScore === fillBlankPrompts.length" [class.ws-inline-feedback--retry]="fillBlankScore !== fillBlankPrompts.length">
+              <div>
+                <p class="ws-inline-feedback-title">
+                  @if (fillBlankScore === fillBlankPrompts.length) {
+                    Excellent! Every sentence is complete.
+                  } @else {
+                    Good effort! You filled {{ fillBlankScore }} blank{{ fillBlankScore === 1 ? '' : 's' }} correctly.
+                  }
+                </p>
+                <p class="ws-inline-feedback-copy">Words like producer, consumer, and energy help explain every food chain.</p>
+              </div>
+            </div>
+          }
+        </section>
+      </div>
+
+      <section class="ws-panel ws-panel--summary">
+        <div class="ws-panel-top ws-panel-top--summary">
+          <div>
+            <p class="ws-section-label">Score + Feedback</p>
+            <h3 class="ws-section-title">{{ allActivitiesCompleted ? 'Worksheet complete!' : 'Finish all 4 activities to unlock the final score' }}</h3>
+            <p class="ws-section-copy">
+              {{ allActivitiesCompleted ? encouragementMessage : 'Your score will appear here once every activity is checked.' }}
+            </p>
+          </div>
+          <span class="ws-summary-badge">{{ totalScore }} / {{ maxScore }}</span>
+        </div>
+
+        <div class="ws-summary-grid">
+          <div class="stat-card ws-stat-card">
+            <span class="ws-stat-value">{{ completedActivities }}</span>
+            <span class="ws-stat-label">Activities complete</span>
+          </div>
+          <div class="stat-card ws-stat-card">
+            <span class="ws-stat-value">{{ scorePercentage }}%</span>
+            <span class="ws-stat-label">Current score</span>
+          </div>
+          <div class="stat-card ws-stat-card">
+            <span class="ws-stat-value">{{ studentName || 'Student' }}</span>
+            <span class="ws-stat-label">Worksheet owner</span>
+          </div>
+        </div>
+
+        <div class="ws-summary-actions">
+          <button type="button" class="learning-tools-btn" (click)="retryWorksheet()">Retry Worksheet</button>
+          <button type="button" class="btn-primary" (click)="closeAll()">Done</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+}

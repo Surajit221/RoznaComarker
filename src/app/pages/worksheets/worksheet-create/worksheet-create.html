@@ -1,0 +1,119 @@
+<!-- WORKSHEET CREATE PAGE -->
+<div class="wcp-wrap">
+
+  <!-- ── HEADER ─────────────────────────────────────────── -->
+  <div class="wcp-header">
+    <button class="wcp-back-btn" (click)="cancel()">← Back</button>
+    <div>
+      <h1 class="wcp-title">Create Worksheet</h1>
+      <p class="wcp-subtitle">AI generates 4 interactive activities from your topic.</p>
+    </div>
+  </div>
+
+  <!-- ── GENERATION FORM ────────────────────────────────── -->
+  @if (!draft || isGenerating) {
+    <div class="wcp-card">
+      <div class="wcp-section-label">TOPIC / SOURCE TEXT</div>
+      <textarea
+        class="wcp-textarea"
+        rows="5"
+        placeholder="Enter a topic or paste text to generate an interactive worksheet…"
+        [(ngModel)]="topic"
+        [disabled]="isGenerating">
+      </textarea>
+
+      <div class="wcp-form-row">
+        <div class="wcp-form-group">
+          <label class="wcp-label">Difficulty</label>
+          <select class="wcp-select" [(ngModel)]="difficulty" [disabled]="isGenerating">
+            @for (d of difficulties; track d) {
+              <option [value]="d">{{ d | titlecase }}</option>
+            }
+          </select>
+        </div>
+        <div class="wcp-form-group">
+          <label class="wcp-label">Language</label>
+          <select class="wcp-select" [(ngModel)]="language" [disabled]="isGenerating">
+            @for (l of languages; track l) {
+              <option [value]="l">{{ l }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <button
+        class="wcp-btn-generate"
+        [disabled]="isGenerating || !topic.trim()"
+        (click)="generate()">
+        @if (isGenerating) {
+          <span class="wcp-spinner"></span> Generating…
+        } @else {
+          ✨ Generate Worksheet
+        }
+      </button>
+    </div>
+  }
+
+  <!-- ── GENERATING SKELETON ────────────────────────────── -->
+  @if (isGenerating) {
+    <div class="wcp-card wcp-skeleton-card">
+      <div class="wcp-skel wcp-skel-title"></div>
+      <div class="wcp-skel wcp-skel-line"></div>
+      <div class="wcp-skel wcp-skel-line wcp-skel-short"></div>
+      <div class="wcp-skel wcp-skel-block"></div>
+      <div class="wcp-skel wcp-skel-line"></div>
+      <div class="wcp-skel wcp-skel-line wcp-skel-short"></div>
+    </div>
+  }
+
+  <!-- ── DRAFT PREVIEW ───────────────────────────────────── -->
+  @if (draft && !isGenerating) {
+    <div class="wcp-card wcp-draft-card">
+
+      <div class="wcp-draft-header">
+        <div>
+          <div class="wcp-section-label">WORKSHEET TITLE</div>
+          <input class="wcp-input-title" [(ngModel)]="draft.title" placeholder="Worksheet title" />
+          @if (draft.description) {
+            <p class="wcp-draft-desc">{{ draft.description }}</p>
+          }
+        </div>
+        <div class="wcp-draft-actions">
+          <button class="wcp-btn-regenerate" (click)="draft = null">↺ Regenerate</button>
+          <button class="wcp-btn-save" [disabled]="isSaving" (click)="save()">
+            @if (isSaving) { Saving… } @else { Save Worksheet }
+          </button>
+        </div>
+      </div>
+
+      <!-- ACTIVITY SUMMARY PILLS -->
+      <div class="wcp-activity-summary">
+        @for (a of activitySummary(); track a.label) {
+          <div class="wcp-activity-pill">
+            <span class="wcp-pill-count">{{ a.count }}</span>
+            <span class="wcp-pill-label">{{ a.label }}</span>
+          </div>
+        }
+      </div>
+
+      <!-- TAGS -->
+      @if (draft.tags && draft.tags.length) {
+        <div class="wcp-tags">
+          @for (tag of draft.tags; track tag) {
+            <span class="wcp-tag">{{ tag }}</span>
+          }
+        </div>
+      }
+
+      <!-- BOTTOM ACTIONS -->
+      <div class="wcp-bottom-actions">
+        <button class="wcp-btn-cancel" (click)="cancel()">Cancel</button>
+        <button class="wcp-btn-save" [disabled]="isSaving" (click)="save()">
+          @if (isSaving) { Saving… } @else { Save &amp; Continue → }
+        </button>
+      </div>
+
+    </div>
+  }
+
+</div>
