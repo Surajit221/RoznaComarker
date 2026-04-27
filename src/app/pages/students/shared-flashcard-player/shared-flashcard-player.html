@@ -1,0 +1,89 @@
+<div class="sfp-wrap">
+
+  <!-- Header -->
+  <div class="sfp-header">
+    <h1 class="sfp-title" *ngIf="!isLoading">{{ title }}</h1>
+    <div class="skel skel-title" *ngIf="isLoading"></div>
+    <div class="sfp-badge">Shared Set</div>
+  </div>
+
+  <!-- Error -->
+  <div class="sfp-error" *ngIf="errorMsg">
+    <span>{{ errorMsg }}</span>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div class="sfp-skeleton" *ngIf="isLoading && !errorMsg">
+    <div class="skel skel-card"></div>
+    <div class="skel skel-bar"></div>
+  </div>
+
+  <!-- Study UI -->
+  <ng-container *ngIf="!isLoading && !errorMsg && !isComplete">
+
+    <!-- Progress bar -->
+    <div class="sfp-progress-wrap">
+      <div class="sfp-progress-bar" [style.width.%]="progress"></div>
+    </div>
+    <p class="sfp-count">Card {{ currentIndex + 1 }} of {{ cards.length }}</p>
+
+    <!-- Card -->
+    <div class="sfp-card-scene" (click)="flip()" role="button" tabindex="0" (keydown.enter)="flip()" (keydown.space)="flip()">
+      <div class="sfp-card" [class.flipped]="isFlipped">
+        <div class="sfp-card-face sfp-front">
+          <p class="sfp-card-text">{{ currentCard?.front }}</p>
+          <span class="sfp-tap-hint">Tap to reveal answer</span>
+        </div>
+        <div class="sfp-card-face sfp-back">
+          <p class="sfp-card-text">{{ currentCard?.back }}</p>
+          <button class="sfp-speak-btn" (click)="speak(); $event.stopPropagation()" aria-label="Listen">🔊</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grade buttons (show only when card is flipped) -->
+    <div class="sfp-grade-row" *ngIf="isFlipped">
+      <button class="sfp-btn sfp-learning" (click)="grade('learning')">Still learning</button>
+      <button class="sfp-btn sfp-know" (click)="grade('know')">Got it!</button>
+    </div>
+
+  </ng-container>
+
+  <!-- Completion screen -->
+  <ng-container *ngIf="isComplete">
+    <div class="sfp-results">
+      <div class="sfp-score-ring">
+        <span class="sfp-score-num">{{ score }}%</span>
+        <span class="sfp-score-label">Score</span>
+      </div>
+      <h2 class="sfp-results-title">Nice work!</h2>
+      <p class="sfp-results-sub">You studied all {{ cards.length }} cards.</p>
+
+      <!-- Submitting spinner -->
+      <div class="sfp-submitting" *ngIf="isSubmitting">
+        <div class="sfp-spinner"></div>
+        <span>Saving progress…</span>
+      </div>
+
+      <!-- Banner: saved -->
+      <div class="sfp-banner sfp-saved" *ngIf="submitBanner === 'saved'">
+        ✓ Progress saved to your class assignment.
+      </div>
+
+      <!-- Banner: not enrolled -->
+      <div class="sfp-banner sfp-warn" *ngIf="submitBanner === 'not_enrolled'">
+        You are not enrolled in a class with this assignment.<br>
+        <span class="sfp-banner-sub">Join your teacher's class to save results.</span>
+      </div>
+
+      <!-- Banner: sign in required -->
+      <div class="sfp-banner sfp-info" *ngIf="submitBanner === 'sign_in'">
+        <span>Sign in to save your progress to your teacher.</span>
+        <button class="sfp-signin-btn" (click)="goToSignIn()">Sign in</button>
+      </div>
+
+      <button class="sfp-again-btn" (click)="studyAgain()">↺ Study again</button>
+    </div>
+  </ng-container>
+
+</div>

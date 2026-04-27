@@ -79,6 +79,9 @@ export class MyNotificationStudentPages {
     if (n?.type === 'assignment_uploaded') {
       return { icon: 'bxs-book', iconBg: 'bg-[#D7DBFF]', iconColor: 'text-[#2F2F9F]' };
     }
+    if (n?.type === 'assignment_removed') {
+      return { icon: 'bxs-trash', iconBg: 'bg-[#FFE3E3]', iconColor: 'text-[#B42318]' };
+    }
     if (n?.type === 'assignment_submitted') {
       return { icon: 'bxs-check-circle', iconBg: 'bg-[#B0F8D5]', iconColor: 'text-[#136C6D]' };
     }

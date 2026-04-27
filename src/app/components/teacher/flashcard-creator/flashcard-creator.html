@@ -1,0 +1,191 @@
+@if (show) {
+
+  <!-- ===== STEP: CONFIGURE / GENERATING (centered modal) ===== -->
+  @if (currentStep === 'configure' || currentStep === 'generating') {
+  <div class="fc-configure-backdrop" (click)="onBackdropClick($event)">
+    <div class="fc-modal" role="dialog" aria-modal="true">
+
+      <!-- Header -->
+      <div class="fc-header">
+        <button class="fc-back-btn" (click)="goBack()">← Back</button>
+        <div class="fc-header-center">
+          <h2 class="fc-title">Create Flashcards</h2>
+          <p class="fc-subtitle">AI-powered from topic or file</p>
+        </div>
+        <button class="fc-close-btn" (click)="closeAll()" aria-label="Close">✕</button>
+      </div>
+
+      <!-- Stepper -->
+      <div class="fc-stepper">
+        <span class="fc-step fc-step--active"></span>
+        <span class="fc-step-line"></span>
+        <span class="fc-step" [class.fc-step--active]="currentStep === 'generating'"></span>
+        <span class="fc-step-line"></span>
+        <span class="fc-step"></span>
+      </div>
+
+      @if (currentStep === 'configure') {
+        <!-- Tabs -->
+        <div class="fc-tabs">
+          <button class="fc-tab" [class.fc-tab--active]="activeTab === 'topic'" (click)="activeTab = 'topic'">Topic</button>
+          <button class="fc-tab" [class.fc-tab--active]="activeTab === 'text'" (click)="activeTab = 'text'">Text</button>
+          <button class="fc-tab" [class.fc-tab--active]="activeTab === 'file'" (click)="activeTab = 'file'">File</button>
+        </div>
+
+        <!-- Tab Content -->
+        @if (activeTab === 'topic') {
+          <div class="fc-tab-content">
+            <label class="fc-input-label">Enter a topic</label>
+            <textarea
+              class="fc-textarea"
+              rows="4"
+              placeholder="e.g. Photosynthesis, World War II, Algebra..."
+              [(ngModel)]="topicInput"
+            ></textarea>
+          </div>
+        }
+        @if (activeTab === 'text') {
+          <div class="fc-tab-content">
+            <label class="fc-input-label">Paste your content</label>
+            <textarea
+              class="fc-textarea fc-textarea--tall"
+              rows="6"
+              placeholder="Paste your notes or content here..."
+              [(ngModel)]="textInput"
+            ></textarea>
+          </div>
+        }
+        @if (activeTab === 'file') {
+          <div class="fc-tab-content">
+            <div class="fc-dropzone">
+              <span class="fc-dropzone-icon">📁</span>
+              <p class="fc-dropzone-text">Drop a PDF or DOCX file</p>
+              <p class="fc-dropzone-hint">Drag & drop or click to browse</p>
+            </div>
+          </div>
+        }
+
+        <!-- Dropdowns -->
+        <div class="fc-dropdowns">
+          <div class="fc-dropdown-group">
+            <label class="fc-input-label">Number of cards</label>
+            <select class="fc-select" [(ngModel)]="numberOfCards">
+              <option value="automatic">Automatic</option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="15">15</option>
+              <option value="20">20</option>
+            </select>
+          </div>
+          <div class="fc-dropdown-group">
+            <label class="fc-input-label">Language</label>
+            <select class="fc-select" [(ngModel)]="language">
+              <option value="english">English</option>
+              <option value="bangla">Bangla</option>
+              <option value="arabic">Arabic</option>
+              <option value="spanish">Spanish</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button class="fc-generate-btn" (click)="generate()">
+          ⚡ Generate Flashcards
+        </button>
+      }
+
+      <!-- Generating state -->
+      @if (currentStep === 'generating') {
+        <div class="fc-generating">
+          <div class="fc-spinner"></div>
+          <p class="fc-generating-text">Generating your flashcards...</p>
+          <p class="fc-generating-sub">This usually takes a few seconds</p>
+        </div>
+      }
+
+    </div>
+  </div>
+  }
+
+  <!-- ===== STEP: PREVIEW (right-side drawer) ===== -->
+  @if (currentStep === 'preview') {
+  <div class="fc-drawer-backdrop"></div>
+  <div class="fc-drawer" role="dialog" aria-modal="true">
+
+    <!-- Drawer Header -->
+    <div class="fc-drawer-header">
+      <div>
+        <h2 class="fc-drawer-title">Flashcard Preview</h2>
+        <p class="fc-drawer-subtitle">{{ totalCards }} cards generated</p>
+      </div>
+      <button class="fc-close-btn" (click)="closeAll()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Card Navigator -->
+    <div class="fc-navigator">
+      <span class="fc-nav-label">Card {{ currentCardIndex + 1 }} of {{ totalCards }}</span>
+      <div class="fc-nav-btns">
+        <button class="fc-nav-btn" (click)="prevCard()" [disabled]="currentCardIndex === 0">◀</button>
+        <button class="fc-nav-btn" (click)="nextCard()" [disabled]="currentCardIndex === totalCards - 1">▶</button>
+      </div>
+    </div>
+
+    <!-- Flashcard Display -->
+    @if (currentCard) {
+      <div class="fc-card-display">
+        @if (!currentCard.isEditing) {
+          <div class="fc-card-section">
+            <span class="fc-card-section-label">QUESTION</span>
+            <p class="fc-card-question">{{ currentCard.question }}</p>
+          </div>
+          <div class="fc-card-divider"></div>
+          <div class="fc-card-section">
+            <span class="fc-card-section-label">ANSWER</span>
+            <p class="fc-card-answer">{{ currentCard.answer }}</p>
+          </div>
+        } @else {
+          <div class="fc-card-section">
+            <span class="fc-card-section-label">QUESTION</span>
+            <textarea class="fc-edit-textarea" [(ngModel)]="currentCard.question" rows="3"></textarea>
+          </div>
+          <div class="fc-card-divider"></div>
+          <div class="fc-card-section">
+            <span class="fc-card-section-label">ANSWER</span>
+            <textarea class="fc-edit-textarea" [(ngModel)]="currentCard.answer" rows="4"></textarea>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Card Actions -->
+    <div class="fc-card-actions">
+      <button class="fc-action-btn fc-action-btn--edit" (click)="toggleEdit(currentCard!)">
+        {{ currentCard?.isEditing ? 'Done' : 'Edit card' }}
+      </button>
+      <button class="fc-action-btn fc-action-btn--delete" (click)="deleteCard(currentCardIndex)">Delete</button>
+    </div>
+
+    <div class="fc-drawer-divider"></div>
+
+    <!-- Attach to Assignment -->
+    <div class="fc-attach-section">
+      <p class="fc-attach-label">Attach to Assignment</p>
+      <p class="fc-attach-hint">Students will see these cards in their submission view.</p>
+      <select class="fc-select fc-select--full" [(ngModel)]="selectedAssignmentId">
+        <option [value]="null">Select an assignment...</option>
+        @for (a of mockAssignments; track a.id) {
+          <option [value]="a.id">{{ a.title }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- Save Button -->
+    <button class="fc-save-btn" (click)="saveToClass()">Save to Class</button>
+
+    <!-- Back link -->
+    <button class="fc-back-link" (click)="backToEditor()">← Back to editor</button>
+
+  </div>
+  }
+
+}

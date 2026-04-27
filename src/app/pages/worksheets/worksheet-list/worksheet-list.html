@@ -1,0 +1,110 @@
+<div class="lib-wrap">
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <span>⚠ {{ errorMsg }}</span>
+    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="lib-toolbar">
+    <div class="filter-wrapper">
+      <span class="filter-icon">⊟</span>
+      <input
+        class="filter-input"
+        placeholder="Filter by name…"
+        [value]="filterQuery"
+        (input)="onFilter($event)" />
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn-primary" (click)="navigateToCreate()">✦ Create New</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="lib-table">
+
+    <!-- HEADER -->
+    <div class="table-header">
+      <span class="col-name sortable" (click)="sort('title')">
+        Name <span class="sort-icon">{{ getSortIcon('title') }}</span>
+      </span>
+      <span class="col-type">Points</span>
+      <span class="col-modified sortable" (click)="sort('updatedAt')">
+        Modified <span class="sort-icon">{{ getSortIcon('updatedAt') }}</span>
+      </span>
+      <span class="col-actions"></span>
+    </div>
+
+    <!-- SKELETON -->
+    <ng-container *ngIf="isLoading">
+      <div class="skeleton-row" *ngFor="let i of skeletonRows; trackBy: trackByIndex">
+        <div class="skel skel-wide"></div>
+        <div class="skel skel-short"></div>
+        <div class="skel skel-medium"></div>
+        <div class="skel skel-xs"></div>
+      </div>
+    </ng-container>
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state" *ngIf="!isLoading && filteredWorksheets.length === 0">
+      <div class="empty-icon">📄</div>
+      <h3>No worksheets yet</h3>
+      <p>Create your first worksheet to get started.</p>
+      <button class="btn-primary" (click)="navigateToCreate()">✦ Create New</button>
+    </div>
+
+    <!-- ROWS -->
+    <div
+      class="table-row"
+      *ngFor="let ws of filteredWorksheets; trackBy: trackById"
+      (click)="navigateToReport(ws._id)">
+
+      <span class="col-name">
+        <span class="type-icon">📄</span>
+        <span class="set-title">{{ ws.title }}</span>
+        <span class="card-badge" *ngIf="ws.totalPoints !== undefined">
+          {{ ws.totalPoints }} pts
+        </span>
+      </span>
+
+      <span class="col-type">
+        <span class="visibility-tag">
+          📝 Worksheet
+        </span>
+      </span>
+
+      <span class="col-modified">
+        {{ ws.updatedAt | date: 'dd MMM yyyy, HH:mm' }}
+      </span>
+
+      <span class="col-actions" (click)="$event.stopPropagation()">
+        <button class="kebab-btn" (click)="openMenu($event, ws)">⋯</button>
+
+        <!-- CUSTOM DROPDOWN -->
+        <div class="dropdown-menu" *ngIf="activeMenuId === ws._id">
+          <button class="drop-item" (click)="navigateToEdit(ws._id)">Edit</button>
+          <button class="drop-item" (click)="openPreview($event, ws)">Preview</button>
+          <button class="drop-item" (click)="navigateToReport(ws._id)">View Submissions</button>
+          <div class="drop-divider"></div>
+          <button class="drop-item danger" (click)="deleteWorksheet(activeWorksheet)">Delete</button>
+        </div>
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+@if (showPreview && previewWorksheetId) {
+  <div class="wl-preview-overlay" (click)="closePreview()">
+    <div class="wl-preview-modal" (click)="$event.stopPropagation()">
+      <app-worksheet-viewer
+        [worksheetId]="previewWorksheetId"
+        [assignmentId]="null"
+        mode="preview"
+        (closed)="closePreview()">
+      </app-worksheet-viewer>
+    </div>
+  </div>
+}

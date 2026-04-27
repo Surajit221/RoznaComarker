@@ -49,8 +49,9 @@ export class DashboardLayout {
     return `${environment.apiUrl}${url}`;
   }
 
-  showAppBar = signal(false);
-  showBottomNav = signal(true);
+  showAppBar    = signal(false);
+  showBottomNav  = signal(true);
+  isFullScreen   = signal(false);
 
   device = inject(DeviceService);
   private auth = inject(AuthService);
@@ -120,6 +121,10 @@ export class DashboardLayout {
           this.showAppBar.set(false);
           this.showBottomNav.set(true);
         }
+
+        let route = this.router.routerState.snapshot.root;
+        while (route.firstChild) route = route.firstChild;
+        this.isFullScreen.set(!!route.data['fullScreen']);
       }
     });
 
@@ -211,6 +216,9 @@ export class DashboardLayout {
     }
     if (n?.type === 'assignment_uploaded') {
       return { icon: 'bxs-book', iconBg: 'bg-[#D7DBFF]', iconColor: 'text-[#2F2F9F]' };
+    }
+    if (n?.type === 'assignment_removed') {
+      return { icon: 'bxs-trash', iconBg: 'bg-[#FFE3E3]', iconColor: 'text-[#B42318]' };
     }
     return { icon: 'bxs-bell', iconBg: 'bg-[#F3F3F3]', iconColor: 'text-[#474747]' };
   }

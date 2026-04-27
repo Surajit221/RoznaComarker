@@ -1,0 +1,57 @@
+<div class="quiz-shell">
+  <div class="quiz-header">
+    <div>
+      <p class="quiz-kicker">Interactive Activity</p>
+      <h3 class="quiz-title">{{ title }}</h3>
+      <p class="quiz-subtitle">{{ subtitle }}</p>
+    </div>
+    <span class="quiz-score">{{ score }} / {{ questionStates.length }}</span>
+  </div>
+
+  <div class="quiz-list">
+    @for (question of questionStates; track trackByQuestion($index, question)) {
+      <div class="quiz-card">
+        <div class="quiz-card-top">
+          <span class="quiz-number">Q{{ $index + 1 }}</span>
+          <p class="quiz-prompt">{{ question.prompt }}</p>
+        </div>
+
+        <div class="quiz-options">
+          @for (option of question.options; track trackByOption($index, option)) {
+            <button
+              type="button"
+              class="quiz-option"
+              [class.quiz-option--selected]="isSelected(question, option.id) && !question.revealed"
+              [class.quiz-option--correct]="question.revealed && isCorrect(question, option.id)"
+              [class.quiz-option--wrong]="question.revealed && isSelected(question, option.id) && !isCorrect(question, option.id)"
+              (click)="selectOption(question.id, option.id)"
+            >
+              <span class="quiz-option-letter">{{ option.id | uppercase }}</span>
+              <span>{{ option.label }}</span>
+            </button>
+          }
+        </div>
+
+        @if (question.revealed) {
+          <div class="quiz-feedback" [class.quiz-feedback--correct]="question.selectedOptionId === question.answerId" [class.quiz-feedback--wrong]="question.selectedOptionId !== question.answerId">
+            <p class="quiz-feedback-title">
+              @if (question.selectedOptionId === question.answerId) {
+                Correct! Nice thinking.
+              } @else {
+                Not quite. The best answer is {{ question.answerId | uppercase }}.
+              }
+            </p>
+            <p class="quiz-feedback-copy">{{ question.explanation }}</p>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  @if (isComplete) {
+    <div class="quiz-footer">
+      <p class="quiz-footer-copy">You answered all quiz questions. Want another round?</p>
+      <button type="button" class="learning-tools-btn" (click)="resetQuiz()">Retry Quiz</button>
+    </div>
+  }
+</div>

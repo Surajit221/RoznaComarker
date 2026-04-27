@@ -3006,24 +3006,6 @@ export class StudentSubmissionPages {
     }
   }
 
-  async downloadPdfForCurrentSubmission() {
-    const submission = this.currentSubmission;
-    if (!submission) {
-      this.alert.showWarning('No submission', 'Please select a submission first.');
-      return;
-    }
-    if (this.isPdfDownloading) return;
-    this.isPdfDownloading = true;
-    try {
-      const blob = await this.pdfApi.downloadSubmissionPdf(submission._id);
-      triggerBlobDownload(blob, { filename: 'submission-feedback.pdf', mimeType: 'application/pdf' });
-    } catch (err: any) {
-      this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
-    } finally {
-      this.isPdfDownloading = false;
-    }
-  }
-
   get studentDisplayId(): string {
 
 
@@ -5546,6 +5528,30 @@ export class StudentSubmissionPages {
   }
 
 
+
+  async downloadPdfForCurrentSubmission(): Promise<void> {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) {
+      this.alert.showWarning('No submission', 'Please select a submission first.');
+      return;
+    }
+    if (this.isPdfDownloading) return;
+    this.isPdfDownloading = true;
+    try {
+      const blob = await this.pdfApi.downloadSubmissionPdf(submissionId);
+      const studentName = this.currentSubmission && (this.currentSubmission as any).student
+        ? String((this.currentSubmission as any).student.displayName || (this.currentSubmission as any).student.email || '').trim()
+        : '';
+      const filename = studentName
+        ? `submission-${studentName.replace(/\s+/g, '-').toLowerCase()}.pdf`
+        : 'submission-feedback.pdf';
+      triggerBlobDownload(blob, { filename, mimeType: 'application/pdf' });
+    } catch (err: any) {
+      this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isPdfDownloading = false;
+    }
+  }
 
 
 

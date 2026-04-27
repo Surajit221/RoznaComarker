@@ -14,6 +14,8 @@ import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassSummary } from '../../../../api/class-api.service';
 import { TeacherDashboardStateService } from '../../../../services/teacher-dashboard-state.service';
 import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
+import { AssignmentStateService } from '../../../../services/assignment-state.service';
+import { WorksheetApiService } from '../../../../api/worksheet-api.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -40,8 +42,11 @@ export class DetailMyClassStudentPages {
   private realtime = inject(NotificationRealtimeService);
 
   private realtimeSub: Subscription | null = null;
+  private completionSub: Subscription | null = null;
   private assignmentsPollId: number | null = null;
   private pendingAssignmentsRefresh = false;
+  private assignmentState = inject(AssignmentStateService);
+  private worksheetApi    = inject(WorksheetApiService);
 
   classId: string | null = null;
   isLoading = false;
@@ -74,6 +79,8 @@ export class DetailMyClassStudentPages {
     submitted: number;
     total: number;
     status: 'waiting' | 'pending' | 'in-progress' | 'completed';
+    resourceType?: string;
+    resourceId?: string;
   }> = [];
 
   constructor(private router: Router) {}
@@ -85,11 +92,20 @@ export class DetailMyClassStudentPages {
 
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
-      if (!n || n.type !== 'assignment_uploaded') return;
+      if (!n || !['assignment_uploaded', 'assignment_removed'].includes(String(n.type || ''))) return;
       const classId = this.classId;
       const eventClassId = n?.data?.classId ? String(n.data.classId) : '';
       if (!classId || !eventClassId || eventClassId !== classId) return;
       this.scheduleAssignmentsRefresh();
+    });
+
+    /** GAP 1 — flip assignment status badge instantly after student submits */
+    this.completionSub?.unsubscribe();
+    this.completionSub = this.assignmentState.completed$.subscribe((assignmentId) => {
+      const a = this.assignments.find((x) => x.id === assignmentId);
+      if (a) {
+        a.status = 'completed';
+      }
     });
 
     this.startAssignmentsPolling();
@@ -98,6 +114,8 @@ export class DetailMyClassStudentPages {
   ngOnDestroy() {
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = null;
+    this.completionSub?.unsubscribe();
+    this.completionSub = null;
 
     if (this.assignmentsPollId !== null) {
       window.clearInterval(this.assignmentsPollId);
@@ -154,11 +172,26 @@ export class DetailMyClassStudentPages {
     let total = 1; // Each assignment has 1 total submission slot
 
     try {
-      // Get submission status for this assignment
-      const submission = await this.submissionApi.getMySubmissionByAssignmentId(a._id);
-      if (submission) {
-        submitted = 1;
-        status = 'completed';
+      if (a.resourceType === 'flashcard') {
+        /** Check FlashcardSubmission for flashcard-type assignments */
+        const sub = await this.assignmentApi.getMyFlashcardSubmission(a._id);
+        if (sub) {
+          submitted = 1;
+          status = 'completed';
+        }
+      } else if (a.resourceType === 'worksheet' && a.resourceId) {
+        /** Check WorksheetSubmission for worksheet-type assignments */
+        const sub = await this.worksheetApi.getMySubmissionByAssignment(a.resourceId, a._id);
+        if (sub) {
+          submitted = 1;
+          status = 'completed';
+        }
+      } else {
+        const submission = await this.submissionApi.getMySubmissionByAssignmentId(a._id);
+        if (submission) {
+          submitted = 1;
+          status = 'completed';
+        }
       }
     } catch (err) {
       // No submission found, keep default status
@@ -175,7 +208,9 @@ export class DetailMyClassStudentPages {
       dueDate,
       submitted,
       total,
-      status
+      status,
+      resourceType: a.resourceType,
+      resourceId: a.resourceId,
     };
   }
 
@@ -380,5 +415,62 @@ export class DetailMyClassStudentPages {
 
   handleGoBack() {
     this.router.navigate(['/student/my-classes']); // arahkan ke halaman spesifik
+  }
+
+  /** Navigate to the results page for a completed flashcard assignment */
+  viewResult(item: { id: string; resourceType?: string; resourceId?: string }): void {
+    this.assignmentApi.getMyFlashcardSubmission(item.id).then((sub) => {
+      if (!sub) return;
+      this.router.navigate(['/student/results'], {
+        state: {
+          assignmentId:    item.id,
+          flashcardSetId:  item.resourceId ?? (sub as any).flashcardSetId ?? '',
+          template:        (sub as any).template ?? 'term-def',
+          score:           sub.score,
+          total:           (sub as any).totalCards ?? 100,
+          cardResults:     (sub as any).cardResults ?? [],
+          cards:           (sub as any).cards ?? [],
+          timeTaken:       sub.timeTaken,
+          classId:         this.classId ?? '',
+          type:            'flashcard' as const,
+        },
+      });
+    }).catch(() => {});
+  }
+
+  /** Open the student flashcard player for a flashcard-type assignment */
+  openFlashcardPlayer(resourceId: string, assignmentId: string): void {
+    this.router.navigate(['/student/flashcard-player', resourceId], {
+      queryParams: { assignmentId, classId: this.classId ?? undefined },
+    });
+  }
+
+  /** Navigate to the full-page worksheet viewer */
+  openWorksheetViewer(resourceId: string, assignmentId: string): void {
+    this.router.navigate(['/student/worksheet', resourceId], {
+      queryParams: { assignmentId, classId: this.classId ?? undefined },
+    });
+  }
+
+  /** Navigate to the results page for a completed worksheet assignment */
+  viewWorksheetResult(item: { id: string; resourceType?: string; resourceId?: string }): void {
+    if (!item.resourceId) return;
+    this.worksheetApi
+      .getMySubmissionByAssignment(item.resourceId, item.id)
+      .then((sub) => {
+        if (!sub) {
+          this.openWorksheetViewer(item.resourceId!, item.id);
+          return;
+        }
+        this.router.navigate(['/student/worksheet-results'], {
+          state: {
+            submission:     sub,
+            worksheetTitle: sub.worksheet?.title ?? '',
+            classId:        this.classId ?? '',
+            assignmentId:   item.id,
+          },
+        });
+      })
+      .catch(() => this.openWorksheetViewer(item.resourceId!, item.id));
   }
 }

@@ -9,6 +9,12 @@ import { MyProfileStudentPages } from './my-profile-student-pages/my-profile-stu
 import { HandwrittenOcrPage } from './handwritten-ocr-page/handwritten-ocr-page';
 import { JoinClassLinkPages } from './join-class-link-pages/join-class-link-pages';
 import { StudentGuard } from '../../auth/student.guard';
+/* Issue 3 — student learning tool routes */
+import { StudentFlashcardPlayer } from './student-flashcard-player/student-flashcard-player';
+import { StudentWorksheetViewer } from './student-worksheet-viewer/student-worksheet-viewer';
+import { StudentResultsPage } from './student-results-page/student-results-page';
+import { StudentWorksheetResultsPage } from './student-worksheet-results/student-worksheet-results';
+import { StudentWorksheetPageComponent } from './student-worksheet-page/student-worksheet-page';
 
 export const STUDENT_ROUTE: Routes = [
   {
@@ -25,6 +31,12 @@ export const STUDENT_ROUTE: Routes = [
       { path: 'join-class', component: JoinClassLinkPages },
       { path: 'classroom/:classId', component: DetailMyClassStudentPages },
       { path: 'handwritten-ocr', component: HandwrittenOcrPage },
+      /* ── Learning tool routes (Issue 3) ─────────────────── */
+      { path: 'flashcard-player/:flashcardSetId', component: StudentFlashcardPlayer },
+      { path: 'worksheet-viewer/:worksheetId',    component: StudentWorksheetViewer },
+      { path: 'worksheet/:worksheetId',           component: StudentWorksheetPageComponent },
+      { path: 'results',                          component: StudentResultsPage },
+      { path: 'worksheet-results',                component: StudentWorksheetResultsPage },
     ],
   },
 ];

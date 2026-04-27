@@ -1,0 +1,87 @@
+<div class="we-wrap">
+  <div class="we-header">
+    <button class="we-btn-back" (click)="cancel()">← Back to Worksheets</button>
+    <h1 class="we-title">Edit Worksheet</h1>
+  </div>
+
+  <!-- LOADING SKELETON -->
+  @if (isLoading) {
+    <div class="we-card">
+      <div class="we-skeleton-row"></div>
+      <div class="we-skeleton-row we-sk-short"></div>
+      <div class="we-skeleton-row"></div>
+    </div>
+  }
+
+  <!-- FORM -->
+  @if (!isLoading && worksheet) {
+    <div class="we-card">
+      <div class="we-form">
+
+        <div class="we-field">
+          <label class="we-label" for="ws-title">Title</label>
+          <input
+            id="ws-title"
+            type="text"
+            class="we-input"
+            placeholder="Worksheet title"
+            [(ngModel)]="title"
+            [disabled]="isSaving" />
+        </div>
+
+        <div class="we-field">
+          <label class="we-label" for="ws-desc">Description</label>
+          <textarea
+            id="ws-desc"
+            class="we-textarea"
+            rows="3"
+            placeholder="Optional description"
+            [(ngModel)]="description"
+            [disabled]="isSaving">
+          </textarea>
+        </div>
+
+        <div class="we-field">
+          <label class="we-label" for="ws-subject">Subject</label>
+          <input
+            id="ws-subject"
+            type="text"
+            class="we-input"
+            placeholder="e.g. Science, Math"
+            [(ngModel)]="subject"
+            [disabled]="isSaving" />
+        </div>
+
+        <div class="we-row">
+          <div class="we-field">
+            <label class="we-label" for="ws-lang">Language</label>
+            <select id="ws-lang" class="we-select" [(ngModel)]="language" [disabled]="isSaving">
+              @for (lang of languages; track lang) {
+                <option [value]="lang">{{ lang }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="we-field">
+            <label class="we-label" for="ws-diff">Difficulty</label>
+            <select id="ws-diff" class="we-select" [(ngModel)]="difficulty" [disabled]="isSaving">
+              @for (d of difficulties; track d) {
+                <option [value]="d">{{ d | titlecase }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="we-actions">
+          <button class="we-btn-cancel" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+          <button
+            class="we-btn-save"
+            (click)="save()"
+            [disabled]="isSaving || !title.trim()">
+            @if (isSaving) { Saving… } @else { Save Changes }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

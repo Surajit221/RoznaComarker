@@ -1,0 +1,82 @@
+<div class="fcb-shell">
+  <div class="fcb-header">
+    <div>
+      <p class="fcb-kicker">Interactive Activity</p>
+      <h3 class="fcb-title">{{ title }}</h3>
+      <p class="fcb-subtitle">{{ subtitle }}</p>
+    </div>
+    <span class="fcb-score">{{ submitted ? score : 0 }} / {{ steps.length }}</span>
+  </div>
+
+  <div class="fcb-slots">
+    @for (slot of slots; track $index) {
+      <button
+        type="button"
+        class="fcb-slot"
+        [class.fcb-slot--active]="getSlotState($index) === 'active'"
+        [class.fcb-slot--filled]="getSlotState($index) === 'filled'"
+        [class.fcb-slot--correct]="getSlotState($index) === 'correct'"
+        [class.fcb-slot--wrong]="getSlotState($index) === 'wrong'"
+        (click)="setActiveSlot($index)"
+      >
+        <span class="fcb-slot-step">Step {{ $index + 1 }}</span>
+
+        @if (slot) {
+          <span class="fcb-slot-content">
+            <span class="fcb-slot-emoji">{{ slot.emoji }}</span>
+            <span class="fcb-slot-text">
+              <strong>{{ slot.label }}</strong>
+              <span>{{ slot.role }}</span>
+            </span>
+          </span>
+
+          @if (!submitted) {
+            <span class="fcb-remove" (click)="$event.stopPropagation(); clearSlot($index)">✕</span>
+          }
+        } @else {
+          <span class="fcb-slot-placeholder">Tap a card below to fill this step.</span>
+        }
+      </button>
+    }
+  </div>
+
+  <div class="fcb-choice-area">
+    <p class="fcb-choice-label">Choose the next part of the food chain</p>
+
+    <div class="fcb-choices">
+      @for (step of availableSteps; track trackByStep($index, step)) {
+        <button type="button" class="fcb-choice" (click)="placeStep(step)">
+          <span class="fcb-choice-emoji">{{ step.emoji }}</span>
+          <span class="fcb-choice-copy">
+            <strong>{{ step.label }}</strong>
+            <span>{{ step.role }}</span>
+          </span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="fcb-actions">
+    <button type="button" class="learning-tools-btn" (click)="resetBuilder()">Reset</button>
+    <button type="button" class="btn-primary" [disabled]="!isReady" (click)="submitBuilder()">Check Answers</button>
+  </div>
+
+  @if (submitted) {
+    <div class="fcb-feedback" [class.fcb-feedback--perfect]="hasPerfectOrder" [class.fcb-feedback--retry]="!hasPerfectOrder">
+      <p class="fcb-feedback-title">
+        @if (hasPerfectOrder) {
+          Amazing! You built the whole food chain correctly.
+        } @else {
+          Nice try! You found {{ score }} correct step{{ score === 1 ? '' : 's' }}.
+        }
+      </p>
+      <p class="fcb-feedback-subtitle">
+        @if (hasPerfectOrder) {
+          Energy travels from the sun all the way to the eagle.
+        } @else {
+          Use the concept diagram above to compare each step and try again.
+        }
+      </p>
+    </div>
+  }
+</div>

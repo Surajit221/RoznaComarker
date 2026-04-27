@@ -1,0 +1,59 @@
+<div class="wam-backdrop" *ngIf="show" (click)="onBackdropClick($event)">
+  <div class="wam-panel" role="dialog" aria-modal="true">
+
+    <div class="wam-header">
+      <h2 class="wam-title">Assign Worksheet</h2>
+      <button class="wam-close" (click)="close()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div class="wam-loading" *ngIf="isLoading">
+      <div class="skel skel-row" *ngFor="let _ of [1,2,3]"></div>
+    </div>
+
+    <ng-container *ngIf="!isLoading">
+      <!-- No worksheets -->
+      <p class="wam-empty" *ngIf="worksheets.length === 0">
+        You have no saved worksheets yet.
+        <a [routerLink]="['/worksheets/create']">Create one</a> first.
+      </p>
+
+      <!-- Worksheet list -->
+      <div class="wam-list" *ngIf="worksheets.length > 0">
+        <button
+          class="wam-item"
+          *ngFor="let ws of worksheets"
+          [class.selected]="selectedId === ws._id"
+          (click)="selectedId = ws._id">
+          <span class="wam-item-title">{{ ws.title }}</span>
+          <span class="wam-item-meta">{{ ws.totalPoints }} points · {{ ws.estimatedMinutes ?? 20 }}min</span>
+          <span class="wam-check" *ngIf="selectedId === ws._id">✓</span>
+        </button>
+      </div>
+
+      <!-- Deadline -->
+      <div class="wam-deadline" *ngIf="worksheets.length > 0">
+        <label class="wam-label" for="wam-deadline">Deadline</label>
+        <input
+          id="wam-deadline"
+          class="wam-input"
+          type="date"
+          [min]="minDate"
+          [(ngModel)]="deadline"
+        />
+      </div>
+
+      <!-- Actions -->
+      <div class="wam-actions" *ngIf="worksheets.length > 0">
+        <button class="wam-cancel" (click)="close()" [disabled]="isSubmitting">Cancel</button>
+        <button
+          class="wam-submit"
+          (click)="submit()"
+          [disabled]="isSubmitting || !selectedId || !deadline">
+          {{ isSubmitting ? 'Assigning…' : 'Assign to class' }}
+        </button>
+      </div>
+    </ng-container>
+
+  </div>
+</div>

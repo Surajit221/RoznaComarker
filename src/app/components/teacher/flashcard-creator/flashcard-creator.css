@@ -1,0 +1,617 @@
+/* ===== Shared close button — text-gray-400 hover:text-gray-700 ===== */
+.fc-close-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 4px;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.fc-close-btn:hover {
+  color: #374151;
+}
+
+/* ===== Configure / Generating Modal — matches modal-dialog ===== */
+
+/* Backdrop: bg-black/50 backdrop-blur-sm */
+.fc-configure-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* Panel: bg-white rounded-3xl shadow-lg text-gray-700 */
+.fc-modal {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  color: #374151;
+  z-index: 1000;
+  animation: fc-modal-in 0.2s ease-out forwards;
+}
+
+@keyframes fc-modal-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.fc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* Back button — white bg, border-[#E7E7E7], hover teal */
+.fc-back-btn {
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  color: #374151;
+  padding: 6px 14px;
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+.fc-back-btn:hover {
+  border-color: #008081;
+  color: #008081;
+}
+
+.fc-header-center {
+  flex: 1;
+  text-align: center;
+}
+
+.fc-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 2px 0;
+}
+
+.fc-subtitle {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Stepper — inactive #E7E7E7, active #008081 (teal primary) */
+.fc-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 20px;
+}
+
+.fc-step {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #E7E7E7;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.fc-step--active {
+  background: #008081;
+}
+
+.fc-step-line {
+  flex: 1;
+  max-width: 60px;
+  height: 2px;
+  background: #E7E7E7;
+}
+
+/* Tabs — border-[#E7E7E7] bottom, active tab color #008081 */
+.fc-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #E7E7E7;
+  margin-bottom: 16px;
+}
+
+.fc-tab {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+  font-family: inherit;
+}
+
+.fc-tab--active {
+  color: #008081;
+  font-weight: 600;
+}
+
+.fc-tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #008081;
+  border-radius: 2px 2px 0 0;
+}
+
+.fc-tab-content {
+  margin-bottom: 16px;
+}
+
+/* Label — text-sm font-bold pl-2, matches assignment-form labels */
+.fc-input-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+  padding-left: 8px;
+}
+
+/* Textarea — matches input-text: border-2 border-[#E7E7E7] rounded-xl focus:#008081 */
+.fc-textarea {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  border-radius: 0.75rem;
+  padding: 12px 16px;
+  color: #374151;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.fc-textarea:focus {
+  border-color: #008081;
+  box-shadow: 0px 4px 0 #008081;
+}
+
+.fc-textarea::placeholder {
+  color: #E7E7E7;
+}
+
+.fc-textarea--tall {
+  min-height: 130px;
+}
+
+/* Dropzone — dashed border-[#E7E7E7], hover #008081 */
+.fc-dropzone {
+  border: 2px dashed #E7E7E7;
+  border-radius: 0.75rem;
+  padding: 28px 16px;
+  text-align: center;
+  background: #ffffff;
+  transition: border-color 0.15s;
+}
+
+.fc-dropzone:hover {
+  border-color: #008081;
+}
+
+.fc-dropzone-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.fc-dropzone-text {
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.fc-dropzone-hint {
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+/* Dropdowns */
+.fc-dropdowns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fc-dropdown-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Select — matches input-text style */
+.fc-select {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  border-radius: 0.75rem;
+  padding: 12px 16px;
+  color: #374151;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: auto;
+}
+
+.fc-select:focus {
+  border-color: #008081;
+  box-shadow: 0px 4px 0 #008081;
+}
+
+.fc-select--full {
+  width: 100%;
+}
+
+/* Generate button — matches btn-primary exactly */
+.fc-generate-btn {
+  width: 100%;
+  background: #008081;
+  border: 2px solid #136C6D;
+  box-shadow: 0px 4px 0 #136C6D;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.fc-generate-btn:hover {
+  background: #079696;
+}
+
+/* Generating state */
+.fc-generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 0;
+  gap: 12px;
+}
+
+/* Spinner — border-[#E7E7E7] track, teal #008081 head */
+.fc-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #E7E7E7;
+  border-top-color: #008081;
+  border-radius: 50%;
+  animation: fc-spin 0.7s linear infinite;
+}
+
+@keyframes fc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.fc-generating-text {
+  color: #374151;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.fc-generating-sub {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+/* ===== Preview Drawer — bg-white light panel ===== */
+
+/* Backdrop: bg-black/50 backdrop-blur-sm */
+.fc-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+}
+
+/* Drawer: bg-white, light shadow */
+.fc-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 420px;
+  background: #ffffff;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  padding: 24px;
+  box-sizing: border-box;
+  color: #374151;
+  animation: fc-drawer-in 0.3s ease forwards;
+}
+
+@media (max-width: 480px) {
+  .fc-drawer {
+    width: 100vw;
+  }
+}
+
+@keyframes fc-drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.fc-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.fc-drawer-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 4px 0;
+}
+
+.fc-drawer-subtitle {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Navigator */
+.fc-navigator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.fc-nav-label {
+  font-size: 0.82rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.fc-nav-btns {
+  display: flex;
+  gap: 6px;
+}
+
+/* Nav buttons — white bg, border-[#E7E7E7], hover teal */
+.fc-nav-btn {
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  color: #374151;
+  width: 32px;
+  height: 32px;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fc-nav-btn:hover:not(:disabled) {
+  background: #E6F2F2;
+  border-color: #008081;
+  color: #008081;
+}
+
+.fc-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Card display — bg-[#F3F3F3] border-[#E7E7E7], matches assignment row bg */
+.fc-card-display {
+  background: #F3F3F3;
+  border: 2px solid #E7E7E7;
+  border-radius: 0.75rem;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.fc-card-section {
+  margin-bottom: 4px;
+}
+
+/* Section labels — small uppercase text-gray-500 */
+.fc-card-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.fc-card-question {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.fc-card-answer {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Dividers — border-[#E7E7E7] */
+.fc-card-divider {
+  height: 1px;
+  background: #E7E7E7;
+  margin: 12px 0;
+}
+
+/* Edit textarea — matches input-text */
+.fc-edit-textarea {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  border-radius: 0.5rem;
+  padding: 8px 12px;
+  color: #374151;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.fc-edit-textarea:focus {
+  border-color: #008081;
+}
+
+/* Card Actions */
+.fc-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fc-action-btn {
+  padding: 8px;
+  border-radius: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+/* Edit card — matches the "Edit" button on assignment rows: border-gray-200 bg-white text-gray-700 */
+.fc-action-btn--edit {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.fc-action-btn--edit:hover {
+  background: #f9fafb;
+  border-color: #008081;
+  color: #008081;
+}
+
+/* Delete — matches btn-danger-sm style: red bg/border */
+.fc-action-btn--delete {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #EE4E4E;
+}
+
+.fc-action-btn--delete:hover {
+  background: #fee2e2;
+}
+
+/* Drawer divider */
+.fc-drawer-divider {
+  height: 1px;
+  background: #E7E7E7;
+  margin: 0 0 16px 0;
+}
+
+/* Attach Section */
+.fc-attach-section {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fc-attach-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0;
+}
+
+.fc-attach-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Save button — matches btn-primary exactly */
+.fc-save-btn {
+  width: 100%;
+  background: #008081;
+  border: 2px solid #136C6D;
+  box-shadow: 0px 4px 0 #136C6D;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.fc-save-btn:hover {
+  background: #079696;
+}
+
+/* Back link — outlined gray, hover teal border */
+.fc-back-link {
+  width: 100%;
+  background: transparent;
+  border: 2px solid #E7E7E7;
+  border-radius: 0.75rem;
+  color: #374151;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.fc-back-link:hover {
+  background: #f9fafb;
+  border-color: #008081;
+  color: #008081;
+}

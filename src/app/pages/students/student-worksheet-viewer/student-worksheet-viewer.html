@@ -1,0 +1,110 @@
+<!-- LOADING -->
+<div class="swv-loading" *ngIf="isLoading || isChecking">
+  <div class="swv-spinner"></div>
+  <p class="swv-loading-text">{{ isChecking ? 'Checking submission…' : 'Loading worksheet…' }}</p>
+</div>
+
+<!-- ERROR -->
+<div class="swv-error" *ngIf="!isLoading && !isChecking && hasError">
+  <p class="swv-error-icon">⚠️</p>
+  <p class="swv-error-msg">Could not load this worksheet.</p>
+  <button class="swv-btn-retry" (click)="retry()">↺ Retry</button>
+  <button class="swv-btn-link" (click)="goBackToClass()">← Back to class</button>
+</div>
+
+<!-- WORKSHEET -->
+<div class="swv-wrap" *ngIf="!isLoading && !isChecking && !hasError && worksheet">
+
+  <!-- STICKY PROGRESS HEADER -->
+  <div class="swv-sticky-header">
+    <button class="swv-btn-link swv-back" (click)="goBackToClass()">← Back</button>
+    <div class="swv-progress-info">
+      <span class="swv-progress-text">{{ answeredCount }}/{{ totalCount }} answered</span>
+      <div class="swv-progress-bar-wrap">
+        <div class="swv-progress-bar-fill" [style.width.%]="progressPercent"></div>
+      </div>
+    </div>
+    <span class="swv-timer">⏱ {{ formattedTime }}</span>
+  </div>
+
+  <!-- WORKSHEET HEADER -->
+  <div class="swv-header">
+    <h1 class="swv-title">{{ worksheet!.title }}</h1>
+    <p class="swv-desc" *ngIf="worksheet!.description">{{ worksheet!.description }}</p>
+  </div>
+
+  <!-- SECTIONS -->
+  <div class="swv-sections">
+    <div class="swv-section"
+         *ngFor="let section of worksheet!.sections; trackBy: trackBySection; let si = index">
+
+      <div class="swv-section-header" *ngIf="section.title">
+        <h2 class="swv-section-title">{{ section.title }}</h2>
+        <p class="swv-section-inst" *ngIf="section.instructions">{{ section.instructions }}</p>
+      </div>
+
+      <!-- QUESTIONS IN SECTION -->
+      <div class="swv-questions">
+        <div class="swv-question-card"
+             *ngFor="let q of section.questions; trackBy: trackByQuestion; let qi = index">
+
+          <p class="swv-q-number">Question {{ qi + 1 }}</p>
+          <p class="swv-q-text">{{ q.text }}</p>
+
+          <!-- MCQ -->
+          <div class="swv-options" *ngIf="q.type === 'multiple-choice'">
+            <label class="swv-option"
+                   *ngFor="let opt of q.options"
+                   [class.selected]="answers[q.id] === opt">
+              <input type="radio" [name]="'q_' + q.id" [value]="opt" [(ngModel)]="answers[q.id]" />
+              <span>{{ opt }}</span>
+            </label>
+          </div>
+
+          <!-- TRUE / FALSE -->
+          <div class="swv-tf-options" *ngIf="q.type === 'true-false'">
+            <button class="swv-tf-btn"
+                    [class.selected]="answers[q.id] === 'True'"
+                    (click)="answers[q.id] = 'True'">True</button>
+            <button class="swv-tf-btn"
+                    [class.selected]="answers[q.id] === 'False'"
+                    (click)="answers[q.id] = 'False'">False</button>
+          </div>
+
+          <!-- FILL IN THE BLANK -->
+          <div class="swv-fill-blank" *ngIf="q.type === 'fill-blank'">
+            <input class="swv-fill-input"
+                   type="text"
+                   placeholder="Fill in the blank…"
+                   [(ngModel)]="answers[q.id]" />
+          </div>
+
+          <!-- SHORT ANSWER -->
+          <div class="swv-open" *ngIf="q.type === 'short-answer'">
+            <textarea class="swv-textarea"
+                      rows="3"
+                      placeholder="Write your answer…"
+                      [(ngModel)]="answers[q.id]"></textarea>
+          </div>
+
+          <!-- Answered indicator -->
+          <div class="swv-answered-badge" *ngIf="(answers[q.id] ?? '').trim()">✓ Answered</div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBMIT ERROR -->
+  <div class="swv-submit-error" *ngIf="submitError">{{ submitError }}</div>
+
+  <!-- SUBMIT -->
+  <button class="swv-btn-submit"
+          [disabled]="!allAnswered || isSubmitting"
+          [class.disabled]="!allAnswered || isSubmitting"
+          (click)="submit()">
+    <span *ngIf="!isSubmitting">Submit Worksheet ({{ answeredCount }}/{{ totalCount }})</span>
+    <span *ngIf="isSubmitting">Grading your answers…</span>
+  </button>
+
+</div>

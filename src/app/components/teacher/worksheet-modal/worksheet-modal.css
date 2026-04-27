@@ -1,0 +1,718 @@
+.ws-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  overscroll-behavior: none;
+}
+
+.ws-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+  border-radius: 1.75rem;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+  color: #374151;
+  animation: ws-modal-in 0.24s ease-out forwards;
+}
+
+@keyframes ws-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ws-header {
+  flex-shrink: 0;
+  padding: 1.25rem 1.25rem 1.5rem;
+  background: linear-gradient(135deg, #008081 0%, #203864 100%);
+  color: #ffffff;
+}
+
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ws-back-btn {
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.ws-back-btn:hover,
+.ws-close-btn:hover,
+.ws-download-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.ws-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ws-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.9rem;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease;
+  white-space: nowrap;
+}
+
+.ws-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.ws-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr);
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.ws-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ws-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ws-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 2.6vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.ws-subtitle {
+  margin: 0;
+  max-width: 52ch;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.ws-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.ws-hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ws-form-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.1rem;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.ws-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ws-label {
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding-left: 0.5rem;
+}
+
+.ws-input {
+  background: #ffffff;
+  color: #374151;
+}
+
+.ws-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 1.25rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #f9fafb;
+}
+
+.ws-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.ws-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 2px solid #e7e7e7;
+  border-radius: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+  min-width: 0;
+}
+
+.ws-panel--concept,
+.ws-panel--summary {
+  gap: 1.1rem;
+}
+
+.ws-panel-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ws-panel-top--activity,
+.ws-panel-top--summary {
+  align-items: center;
+}
+
+/* Prevent left-side text from squeezing the pill/badge out of bounds */
+.ws-panel-top > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ws-section-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ws-section-title {
+  margin: 0 0 0.35rem;
+  color: #374151;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.ws-section-copy,
+.ws-concept-copy {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.ws-section-pill,
+.ws-score-pill,
+.ws-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+  width: fit-content;
+  min-width: 5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: #e6f2f2;
+  color: #008081;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.ws-summary-badge {
+  min-width: 6rem;
+  background: #203864;
+  color: #ffffff;
+}
+
+.ws-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ws-flow-node {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.9rem 1rem;
+  border: 2px solid #e7e7e7;
+  border-radius: 1.25rem;
+  background: #ffffff;
+}
+
+.ws-flow-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: #f3f3f3;
+  font-size: 1.5rem;
+}
+
+.ws-flow-name {
+  display: block;
+  color: #374151;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ws-flow-role {
+  display: block;
+  color: #6b7280;
+  font-size: 0.78rem;
+}
+
+.ws-flow-arrow {
+  color: #008081;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+/* ── Match Card Carousel ── */
+.ws-match-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  gap: 1rem;
+  min-width: 0;
+  padding-bottom: 0.5rem;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.ws-match-grid::-webkit-scrollbar {
+  height: 4px;
+}
+
+.ws-match-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ws-match-grid::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+
+/* Desktop (2-col layout): panel ~50% wide → show 2 cards, hint at 3rd */
+.ws-match-grid > app-match-card {
+  flex: 0 0 calc(50% - 0.5rem);
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+.ws-inline-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 2px solid #e7e7e7;
+}
+
+.ws-inline-feedback--perfect {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.ws-inline-feedback--retry {
+  border-color: #ffc300;
+  background: #fff7ed;
+}
+
+.ws-inline-feedback-title {
+  margin: 0 0 0.25rem;
+  color: #374151;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ws-inline-feedback-copy {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.ws-sentences {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ws-sentence {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 2px solid #e7e7e7;
+  border-radius: 1rem;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.ws-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8rem;
+  min-height: 3rem;
+  padding: 0.65rem 0.9rem;
+  border: 2px dashed #e7e7e7;
+  border-radius: 0.95rem;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ws-blank--active {
+  border-style: solid;
+  border-color: #008081;
+  background: #e6f2f2;
+  box-shadow: 0 4px 0 #008081;
+}
+
+.ws-blank--filled {
+  border-style: solid;
+  background: #ffffff;
+}
+
+.ws-blank--correct {
+  border-style: solid;
+  border-color: #16a34a;
+  background: #f0fdf4;
+  box-shadow: 0 4px 0 #16a34a;
+}
+
+.ws-blank--wrong {
+  border-style: solid;
+  border-color: #ee4e4e;
+  background: #fef2f2;
+  box-shadow: 0 4px 0 #ee4e4e;
+}
+
+.ws-clear-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #6b7280;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px #e7e7e7;
+}
+
+.ws-word-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.ws-word-bank-label {
+  margin: 0;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.ws-word-bank-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.ws-word-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 1rem;
+  border: 2px solid #e7e7e7;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.ws-word-chip:hover {
+  transform: translateY(-2px);
+  border-color: #008081;
+  background: #e6f2f2;
+}
+
+.ws-word-bank-empty {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.ws-actions,
+.ws-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.ws-actions .btn-primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ws-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.ws-stat-card {
+  min-height: 7.5rem;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 1.25rem;
+}
+
+.ws-stat-value {
+  color: #374151;
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ws-stat-label {
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Desktop narrow / large tablet (< 1024px) ── */
+@media (max-width: 1023px) {
+  .ws-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Panel is now full-width → show 3 cards per view */
+  .ws-match-grid > app-match-card {
+    flex: 0 0 calc(33.333% - 0.67rem);
+  }
+}
+
+/* ── Tablet (768px – 1023px) ── */
+@media (max-width: 900px) {
+  .ws-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Tablet: show 2 cards per view */
+  .ws-match-grid > app-match-card {
+    flex: 0 0 calc(50% - 0.5rem);
+  }
+}
+
+/* ── Mobile (< 768px) ── */
+@media (max-width: 767px) {
+  .ws-backdrop {
+    padding: 0.5rem;
+    align-items: flex-end;
+  }
+
+  .ws-modal {
+    width: 100%;
+    max-height: 96vh;
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+
+  /* ── Compact header: strip descriptive content to free up body space ── */
+  .ws-header {
+    padding: 0.875rem 1rem 1rem;
+  }
+
+  /* Hide non-essential header content on mobile */
+  .ws-subtitle,
+  .ws-hero-tags {
+    display: none;
+  }
+
+  .ws-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .ws-hero {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Form: side-by-side inputs — compact and non-wrapping */
+  .ws-form-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .ws-form-card .ws-label {
+    font-size: 0.7rem;
+    padding-left: 0.2rem;
+    white-space: nowrap;
+  }
+
+  .ws-form-card .ws-input {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.82rem;
+    border-radius: 0.75rem;
+  }
+
+  .ws-body {
+    padding: 1rem;
+  }
+
+  .ws-panel {
+    padding: 0.875rem;
+  }
+
+  /* Carousel: 1 card per view, full-width swipe */
+  .ws-match-grid > app-match-card {
+    flex: 0 0 100%;
+  }
+
+  .ws-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-panel-top,
+  .ws-inline-feedback,
+  .ws-actions,
+  .ws-summary-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ws-section-pill,
+  .ws-score-pill,
+  .ws-summary-badge {
+    align-self: flex-start;
+  }
+
+  .ws-flow-node {
+    width: 100%;
+  }
+
+  .ws-word-chip,
+  .ws-back-btn,
+  .ws-actions > button,
+  .ws-summary-actions > button,
+  .ws-inline-feedback .learning-tools-btn {
+    width: 100%;
+  }
+
+  .ws-flow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ws-flow-arrow {
+    transform: rotate(90deg);
+    display: block;
+  }
+}

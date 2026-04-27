@@ -21,4 +21,35 @@ export class PdfApiService {
       })
     );
   }
+
+  async downloadWorksheetSubmissionPdf(submissionId: string): Promise<Blob> {
+    const apiBaseUrl = this.getApiBaseUrl();
+
+    return firstValueFrom(
+      this.http.get(`${apiBaseUrl}/pdf/download-worksheet/${encodeURIComponent(submissionId)}`, {
+        responseType: 'blob'
+      })
+    );
+  }
+
+  async downloadWorksheetReportPdf(worksheetId: string): Promise<Blob> {
+    const apiBaseUrl = this.getApiBaseUrl();
+
+    return firstValueFrom(
+      this.http.get(`${apiBaseUrl}/pdf/worksheet-report/${encodeURIComponent(worksheetId)}`, {
+        responseType: 'blob'
+      })
+    );
+  }
+
+  async downloadFlashcardReportPdf(setId: string, assignmentId?: string): Promise<Blob> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const qs = assignmentId ? `?assignmentId=${encodeURIComponent(assignmentId)}` : '';
+
+    return firstValueFrom(
+      this.http.get(`${apiBaseUrl}/pdf/flashcard-report/${encodeURIComponent(setId)}${qs}`, {
+        responseType: 'blob'
+      })
+    );
+  }
 }

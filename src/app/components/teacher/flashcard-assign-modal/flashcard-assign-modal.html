@@ -1,0 +1,59 @@
+<div class="fam-backdrop" *ngIf="show" (click)="onBackdropClick($event)">
+  <div class="fam-panel" role="dialog" aria-modal="true">
+
+    <div class="fam-header">
+      <h2 class="fam-title">Assign Flashcard Set</h2>
+      <button class="fam-close" (click)="close()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div class="fam-loading" *ngIf="isLoading">
+      <div class="skel skel-row" *ngFor="let _ of [1,2,3]"></div>
+    </div>
+
+    <ng-container *ngIf="!isLoading">
+      <!-- No sets -->
+      <p class="fam-empty" *ngIf="sets.length === 0">
+        You have no flashcard sets yet.
+        <a [routerLink]="['/flashcards/create']">Create one</a> first.
+      </p>
+
+      <!-- Set list -->
+      <div class="fam-set-list" *ngIf="sets.length > 0">
+        <button
+          class="fam-set-item"
+          *ngFor="let set of sets"
+          [class.selected]="selectedSetId === set._id"
+          (click)="selectedSetId = set._id">
+          <span class="fam-set-title">{{ set.title }}</span>
+          <span class="fam-set-count">{{ set.cardCount ?? set.cards?.length ?? 0 }} cards</span>
+          <span class="fam-check" *ngIf="selectedSetId === set._id">✓</span>
+        </button>
+      </div>
+
+      <!-- Deadline picker -->
+      <div class="fam-deadline" *ngIf="sets.length > 0">
+        <label class="fam-label" for="fam-deadline">Deadline</label>
+        <input
+          id="fam-deadline"
+          class="fam-input"
+          type="date"
+          [min]="minDate"
+          [(ngModel)]="deadline"
+        />
+      </div>
+
+      <!-- Actions -->
+      <div class="fam-actions" *ngIf="sets.length > 0">
+        <button class="fam-cancel" (click)="close()" [disabled]="isSubmitting">Cancel</button>
+        <button
+          class="fam-submit"
+          (click)="submit()"
+          [disabled]="isSubmitting || !selectedSetId || !deadline">
+          {{ isSubmitting ? 'Assigning…' : 'Assign to class' }}
+        </button>
+      </div>
+    </ng-container>
+
+  </div>
+</div>

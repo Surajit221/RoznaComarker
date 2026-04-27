@@ -1,0 +1,155 @@
+/* StudentWorksheetResults styles */
+
+.swr-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+}
+
+/* ── Score card ──────────────────────────────────────────── */
+.swr-score-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 2.25rem 1.75rem;
+  border: 1px solid #E7E7E7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.swr-trophy   { font-size: 3rem; }
+.swr-headline { margin: 0; font-size: 1.625rem; font-weight: 800; color: #1F2937; text-align: center; }
+.swr-subtitle { margin: 0; font-size: 0.9375rem; color: #6B7280; text-align: center; }
+
+/* Score ring */
+.swr-score-ring-wrap { margin: 0.5rem 0; }
+.swr-score-ring {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  border: 6px solid #008081;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.swr-score-val   { font-size: 2rem; font-weight: 800; color: #008081; line-height: 1; }
+.swr-score-label { font-size: 0.75rem; font-weight: 600; color: #6B7280; }
+.swr-score-word  { margin: 0; font-size: 1.125rem; font-weight: 600; color: #374151; }
+
+/* Stats */
+.swr-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.swr-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+.swr-stat-val  { font-size: 1.375rem; font-weight: 700; color: #1F2937; }
+.swr-stat-lbl  { font-size: 0.75rem; color: #6B7280; }
+.swr-stat-div  { width: 1px; height: 36px; background: #E7E7E7; }
+
+.swr-teacher-note { margin: 0; font-size: 0.8125rem; color: #9CA3AF; text-align: center; }
+
+/* ── Breakdown ────────────────────────────────────────────── */
+.swr-breakdown { display: flex; flex-direction: column; gap: 1.25rem; }
+.swr-section-heading { margin: 0 0 0.25rem; font-size: 1.25rem; font-weight: 700; color: #1F2937; }
+.swr-section-block {
+  background: #fff;
+  border: 1px solid #E7E7E7;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.swr-section-title {
+  margin: 0;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #374151;
+  background: #F9FAFB;
+  border-bottom: 1px solid #E7E7E7;
+}
+
+/* Question rows */
+.swr-q-row {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #F3F3F3;
+}
+.swr-q-row:last-child { border-bottom: none; }
+.swr-correct { background: rgba(0,128,129,.04); }
+.swr-wrong   { background: rgba(220,38,38,.03); }
+
+.swr-q-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+.swr-correct .swr-q-icon { background: rgba(0,128,129,.15); color: #008081; }
+.swr-wrong   .swr-q-icon { background: rgba(220,38,38,.12); color: #DC2626; }
+
+.swr-q-body { flex: 1; display: flex; flex-direction: column; gap: 0.375rem; }
+.swr-q-num  { margin: 0; font-size: 0.7rem; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.05em; }
+.swr-q-section-tag { background: #e0f7f7; color: #0f766e; border-radius: 20px; padding: 0.1rem 0.45rem; font-size: 0.65rem; margin-left: 0.4rem; font-weight: 600; }
+.swr-q-text { margin: 0; font-size: 0.9375rem; font-weight: 600; color: #1F2937; }
+
+.swr-answer-row { display: flex; flex-direction: column; gap: 0.25rem; }
+.swr-your-answer, .swr-correct-answer {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #374151;
+}
+.swr-ans-correct { color: #008081; font-weight: 600; }
+.swr-ans-wrong   { color: #DC2626; font-weight: 600; }
+.swr-correct-answer { color: #008081; }
+
+.swr-feedback {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #6B7280;
+  background: #F9FAFB;
+  border-left: 3px solid #008081;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0 6px 6px 0;
+}
+
+.swr-points {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9CA3AF;
+}
+
+/* ── Back button ─────────────────────────────────────────── */
+.swr-actions { display: flex; justify-content: center; }
+.swr-btn-back {
+  background: #008081;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  transition: background 150ms;
+}
+.swr-btn-back:hover { background: #136c6d; }
+
+@media (max-width: 480px) {
+  .swr-wrap { padding: 1rem 0.875rem 4rem; }
+  .swr-headline { font-size: 1.375rem; }
+  .swr-stats-row { gap: 0.75rem; }
+}

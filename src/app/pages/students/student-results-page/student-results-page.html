@@ -1,0 +1,110 @@
+<div class="srp-wrap" *ngIf="hasState">
+
+  <!-- RESULT CARD -->
+  <div class="srp-card">
+    <div class="srp-trophy">🎉</div>
+
+    <h1 class="srp-headline">
+      {{ type === 'worksheet' ? 'Worksheet Submitted!' : 'Study Complete!' }}
+    </h1>
+    <p class="srp-subtitle" *ngIf="setTitle">{{ setTitle }}</p>
+
+    <!-- SCORE ROW (flashcard with numeric score) -->
+    <div class="srp-score-row" *ngIf="score !== null">
+      <div class="srp-stat">
+        <span class="srp-stat-value">{{ score }}%</span>
+        <span class="srp-stat-label">Score</span>
+      </div>
+      <div class="srp-stat-divider"></div>
+      <div class="srp-stat">
+        <span class="srp-stat-value">{{ total }}</span>
+        <span class="srp-stat-label">Cards</span>
+      </div>
+      <div class="srp-stat-divider" *ngIf="timeTaken > 0"></div>
+      <div class="srp-stat" *ngIf="timeTaken > 0">
+        <span class="srp-stat-value">{{ formattedTime }}</span>
+        <span class="srp-stat-label">Time</span>
+      </div>
+    </div>
+
+    <!-- KNEW WELL / NEED REVIEW breakdown -->
+    <div class="srp-breakdown" *ngIf="type === 'flashcard' && hasFlashcardBreakdown">
+      <div class="srp-breakdown-item">
+        <span class="srp-breakdown-value">{{ correctCount }}</span>
+        <span class="srp-breakdown-label">
+          {{ template === 'qa' ? 'Correct' : 'Knew well' }}
+        </span>
+      </div>
+      <div class="srp-breakdown-item">
+        <span class="srp-breakdown-value srp-breakdown-value-warn">{{ needsReviewCount }}</span>
+        <span class="srp-breakdown-label">
+          {{ template === 'qa' ? 'Incorrect' : 'Need review' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- WORKSHEET summary (no numeric score) -->
+    <div class="srp-score-row" *ngIf="score === null">
+      <div class="srp-stat">
+        <span class="srp-stat-value">{{ total }}</span>
+        <span class="srp-stat-label">Questions answered</span>
+      </div>
+    </div>
+
+    <!-- ── Q&A per-card breakdown ──────────────────────────── -->
+    <div class="srp-per-card" *ngIf="type === 'flashcard' && template === 'qa' && hasPerCardBreakdown">
+      <h3 class="srp-section-title">Your answers</h3>
+      <div *ngFor="let r of cardResultsWithContent"
+           class="srp-result-row"
+           [class.srp-result-correct]="r.known"
+           [class.srp-result-wrong]="!r.known">
+        <span class="srp-result-icon">{{ r.known ? '✓' : '✗' }}</span>
+        <div class="srp-result-content">
+          <p class="srp-result-question">{{ r.card?.front || 'Question' }}</p>
+          <p class="srp-result-answer srp-result-correct-answer">
+            <strong>Correct:</strong> {{ r.card?.back || '—' }}
+          </p>
+          <p class="srp-result-answer" *ngIf="r.studentAnswer">
+            <strong>Your answer:</strong>
+            <span [class.srp-answer-correct]="r.known" [class.srp-answer-wrong]="!r.known">
+              {{ r.studentAnswer }}
+            </span>
+          </p>
+          <p class="srp-result-answer srp-no-answer" *ngIf="!r.studentAnswer">
+            <em>(no answer given)</em>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Term-def / concept review list ─────────────────── -->
+    <div class="srp-per-card"
+         *ngIf="type === 'flashcard' && template !== 'qa' && hasPerCardBreakdown && wrongCards.length > 0">
+      <h3 class="srp-section-title">Cards to review ({{ wrongCards.length }})</h3>
+      <div *ngFor="let r of wrongCards" class="srp-review-card">
+        <p class="srp-review-front">{{ r.card?.front || '—' }}</p>
+        <p class="srp-review-back">{{ r.card?.back || '—' }}</p>
+      </div>
+    </div>
+
+    <div class="srp-all-correct"
+         *ngIf="type === 'flashcard' && template !== 'qa' && hasPerCardBreakdown && wrongCards.length === 0">
+      🌟 You got all cards right!
+    </div>
+
+    <p class="srp-note" *ngIf="assignmentId">Your teacher has been notified.</p>
+
+    <!-- ACTION BUTTONS -->
+    <div class="srp-actions">
+      <button class="srp-btn-retry"
+              *ngIf="type === 'flashcard' && canRetryWrong"
+              (click)="retryWrongCards()">
+        ↺ Retry wrong cards ({{ wrongCards.length }})
+      </button>
+      <button class="srp-btn-back" (click)="goToClasses()">
+        ← Back to My Classes
+      </button>
+    </div>
+  </div>
+
+</div>

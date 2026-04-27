@@ -1,0 +1,150 @@
+.mc-shell {
+  perspective: 1200px;
+}
+
+/* Grid-overlay technique: both faces share one grid cell so card
+   height = tallest face. No fixed min-height needed. */
+.mc-inner {
+  display: grid;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
+}
+
+.mc-shell--flipped .mc-inner {
+  transform: rotateY(180deg);
+}
+
+.mc-face {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 2px solid #e7e7e7;
+  border-radius: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.mc-face--back {
+  transform: rotateY(180deg);
+  justify-content: center;
+}
+
+.mc-face--correct {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.mc-face--wrong {
+  border-color: #ffc300;
+  background: #fff7ed;
+}
+
+.mc-badge,
+.mc-answer-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: #f3f3f3;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mc-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.mc-emoji,
+.mc-answer-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1.25rem;
+  background: #e6f2f2;
+  font-size: 1.75rem;
+}
+
+.mc-title,
+.mc-answer-title {
+  margin: 0 0 0.35rem;
+  color: #374151;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.mc-clue,
+.mc-answer-copy,
+.mc-answer-meta {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Vertical list: emoji + label in a row — fits any card width */
+.mc-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mc-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid #e7e7e7;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.mc-option:hover {
+  transform: translateY(-2px);
+  border-color: #008081;
+  background: #f9fafb;
+}
+
+.mc-option--selected {
+  border-color: #008081;
+  background: #e6f2f2;
+  box-shadow: 0 4px 0 #008081;
+}
+
+.mc-reveal-btn {
+  margin-top: auto;
+  width: 100%;
+}
+
+.mc-reveal-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 767px) {
+  .mc-face {
+    padding: 0.875rem;
+    gap: 0.75rem;
+  }
+}

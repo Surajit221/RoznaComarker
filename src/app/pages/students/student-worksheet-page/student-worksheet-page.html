@@ -1,0 +1,11 @@
+<div class="swp-page">
+  @if (worksheetId) {
+    <app-worksheet-viewer
+      [worksheetId]="worksheetId"
+      [assignmentId]="assignmentId"
+      mode="student"
+      [classId]="classId"
+      (closed)="onClosed()">
+    </app-worksheet-viewer>
+  }
+</div>

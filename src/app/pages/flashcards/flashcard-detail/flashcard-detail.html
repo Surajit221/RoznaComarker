@@ -1,0 +1,134 @@
+<div class="detail-wrap">
+
+  <!-- BREADCRUMB -->
+  <div class="breadcrumb">
+    <button class="crumb-link" (click)="goBack()">Flashcards</button>
+    <span class="crumb-sep">/</span>
+    <span class="crumb-current">{{ set?.title || '...' }}</span>
+  </div>
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <span>⚠ {{ errorMsg }}</span>
+    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- SKELETON -->
+  <div class="detail-skeleton" *ngIf="isLoading">
+    <div class="skel skel-title"></div>
+    <div class="skel skel-card-area"></div>
+    <div class="skel skel-bar"></div>
+  </div>
+
+  <!-- CONTENT -->
+  <ng-container *ngIf="!isLoading && set">
+
+    <!-- META ROW -->
+    <div class="meta-row">
+      <h1 class="detail-title">{{ set.title }}</h1>
+      <span class="card-count-badge">{{ cards.length }} cards</span>
+    </div>
+    <p class="detail-desc" *ngIf="set.description">{{ set.description }}</p>
+
+    <!-- PROGRESS BAR -->
+    <div class="progress-track">
+      <div class="progress-fill" [style.width.%]="progress"></div>
+    </div>
+    <div class="progress-label">{{ currentIndex + 1 }} / {{ cards.length }}</div>
+
+    <!-- FLIP CARD -->
+    <div class="card-stage" (click)="flip()">
+      <div class="flip-card" [class.flipped]="isFlipped">
+        <div class="flip-front">
+          <span class="side-label">Front</span>
+          <p class="card-text">{{ currentCard?.front }}</p>
+        </div>
+        <div class="flip-back">
+          <span class="side-label">Back</span>
+          <p class="card-text">{{ currentCard?.back }}</p>
+        </div>
+      </div>
+      <span class="flip-hint" *ngIf="!isFlipped">💡 Click to reveal answer</span>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div class="card-nav">
+      <button class="nav-btn" [disabled]="currentIndex === 0" (click)="prev()">← Prev</button>
+      <button class="nav-btn" [disabled]="currentIndex === cards.length - 1" (click)="next()">Next →</button>
+    </div>
+
+    <!-- ACTION BAR -->
+    <div class="action-bar">
+      <button class="btn-study" (click)="study()">▶ Study</button>
+
+      <div class="action-secondary">
+        <!-- SPEAK / STOP -->
+        <button class="action-icon-btn" [class.speaking]="isSpeaking"
+                [title]="isSpeaking ? 'Stop' : 'Listen'"
+                (click)="isSpeaking ? stopSpeech() : speak()">
+          {{ isSpeaking ? '⏹' : '🔊' }}
+        </button>
+
+        <button class="action-icon-btn" title="Edit set" (click)="edit()">✎</button>
+        <button class="action-icon-btn" title="Report" (click)="viewReport()">📊</button>
+        <button class="action-icon-btn" title="Share set" (click)="openShareModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button class="action-icon-btn" title="Export" (click)="exportCards()">⬇</button>
+
+        <!-- MORE MENU -->
+        <div class="more-menu-wrap">
+          <button class="action-icon-btn" title="More" (click)="toggleMoreMenu($event)">⋯</button>
+          <div class="more-dropdown" *ngIf="showMoreMenu">
+            <button class="drop-item" (click)="edit()">Edit set</button>
+            <button class="drop-item" (click)="viewReport()">View report</button>
+            <button class="drop-item" (click)="exportCards()">Export JSON</button>
+            <div class="drop-divider"></div>
+            <button class="drop-item danger" (click)="deleteSet()">Delete set</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THUMBNAIL STRIP -->
+    <div class="thumbnail-strip" *ngIf="cards.length > 1">
+      <button
+        class="thumb"
+        *ngFor="let card of cards; let i = index; trackBy: trackById"
+        [class.active]="i === currentIndex"
+        (click)="currentIndex = i; isFlipped = false">
+        {{ i + 1 }}
+      </button>
+    </div>
+
+  </ng-container>
+</div>
+
+<!-- SHARE MODAL (PART 2) -->
+<div class="share-backdrop" *ngIf="showShareModal" (click)="closeShareModal()"></div>
+<div class="share-modal" *ngIf="showShareModal" role="dialog" aria-modal="true">
+  <div class="share-modal-header">
+    <h3 class="share-modal-title">Share this flashcard set</h3>
+    <button class="share-close-btn" (click)="closeShareModal()" aria-label="Close">✕</button>
+  </div>
+
+  <div class="share-loading" *ngIf="shareLoading">
+    <div class="share-spinner"></div>
+    <span>Generating link…</span>
+  </div>
+
+  <ng-container *ngIf="!shareLoading && shareUrl">
+    <div class="share-url-row">
+      <input class="share-url-input" [value]="shareUrl" readonly aria-label="Share URL" />
+      <button class="share-copy-btn" [class.copied]="shareCopied" (click)="copyUrl()" [title]="shareCopied ? 'Copied!' : 'Copy link'">
+        {{ shareCopied ? '✓' : '📋' }}
+      </button>
+    </div>
+    <p class="share-hint">Anyone with this link can study this set.</p>
+    <p class="share-hint">Only students enrolled in your class can save results.</p>
+    <div class="share-modal-actions">
+      <button class="share-revoke-btn" (click)="revokeShare()">Revoke link</button>
+      <button class="share-done-btn" (click)="closeShareModal()">Done</button>
+    </div>
+  </ng-container>
+</div>

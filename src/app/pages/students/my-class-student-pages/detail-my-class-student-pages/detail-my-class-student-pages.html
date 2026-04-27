@@ -55,20 +55,44 @@
                   </div>
                 </div>
                 <div class="col-span-2 text-right">
-                  @if(item.status == 'waiting') {
-                  <p
-                    class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
-                    (click)="openUpload(item.id)"
-                  >
-                    Upload Essay
-                  </p>
+                  @if(item.resourceType === 'flashcard' && item.resourceId && item.status !== 'completed') {
+                    <p
+                      class="text-sm underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                      (click)="openFlashcardPlayer(item.resourceId, item.id)"
+                    >
+                      Start Flashcards &rarr;
+                    </p>
+                  } @else if(item.resourceType === 'flashcard' && item.status === 'completed') {
+                    <p
+                      class="text-sm underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                      (click)="viewResult(item)"
+                    >&#128202; View result</p>
+                  } @else if(item.resourceType === 'worksheet' && item.resourceId && item.status !== 'completed') {
+                    <p
+                      class="text-sm underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                      (click)="openWorksheetViewer(item.resourceId, item.id)"
+                    >
+                      Open Worksheet &rarr;
+                    </p>
+                  } @else if(item.resourceType === 'worksheet' && item.status === 'completed') {
+                    <p
+                      class="text-sm underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                      (click)="viewWorksheetResult(item)"
+                    >&#128202; View result</p>
+                  } @else if(item.status == 'waiting') {
+                    <p
+                      class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
+                      (click)="openUpload(item.id)"
+                    >
+                      Upload Essay
+                    </p>
                   } @else {
-                  <p
-                    class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
-                    (click)="toViewSubmission(item.id)"
-                  >
-                    View Submissions
-                  </p>
+                    <p
+                      class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
+                      (click)="toViewSubmission(item.id)"
+                    >
+                      View Submissions
+                    </p>
                   }
                 </div>
               </div>
@@ -199,20 +223,44 @@
             </p>
           </div>
           <div class="text-start mt-2">
-            @if(item.status == 'waiting') {
-            <p
-              class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
-              (click)="openUpload(item.id)"
-            >
-              Upload Essay
-            </p>
+            @if(item.resourceType === 'flashcard' && item.resourceId && item.status !== 'completed') {
+              <p
+                class="text-xs underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                (click)="openFlashcardPlayer(item.resourceId, item.id)"
+              >
+                Start Flashcards &rarr;
+              </p>
+            } @else if(item.resourceType === 'flashcard' && item.status === 'completed') {
+              <p
+                class="text-xs underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                (click)="viewResult(item)"
+              >&#128202; View result</p>
+            } @else if(item.resourceType === 'worksheet' && item.resourceId && item.status !== 'completed') {
+              <p
+                class="text-xs underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                (click)="openWorksheetViewer(item.resourceId, item.id)"
+              >
+                Open Worksheet &rarr;
+              </p>
+            } @else if(item.resourceType === 'worksheet' && item.status === 'completed') {
+              <p
+                class="text-xs underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
+                (click)="viewWorksheetResult(item)"
+              >&#128202; View result</p>
+            } @else if(item.status == 'waiting') {
+              <p
+                class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
+                (click)="openUpload(item.id)"
+              >
+                Upload Essay
+              </p>
             } @else {
-            <p
-              class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
-              (click)="toViewSubmission(item.id)"
-            >
-              View Submissions
-            </p>
+              <p
+                class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
+                (click)="toViewSubmission(item.id)"
+              >
+                View Submissions
+              </p>
             }
           </div>
         </div>
@@ -276,4 +324,5 @@
     </div>
   </app-bottomsheet-dialog>
   }
+
 </ng-container>

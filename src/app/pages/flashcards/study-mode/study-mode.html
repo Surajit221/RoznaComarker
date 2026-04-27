@@ -1,0 +1,84 @@
+<!-- LOADING STATE -->
+<div class="study-loading" *ngIf="isLoading">
+  <div class="spinner"></div>
+</div>
+
+<!-- STUDY SCREEN -->
+<div class="study-screen" *ngIf="!isLoading">
+
+  <!-- HEADER -->
+  <div class="study-header">
+    <button class="btn-back-deck" (click)="goBack()">← Back to deck</button>
+    <h3 class="set-name">{{ set?.title }}</h3>
+    <span class="card-counter">{{ answeredCount + 1 }} / {{ cards.length }}</span>
+  </div>
+
+  <!-- MAIN CARD (flip container — slide animation applied to wrapper) -->
+  <div class="study-card-wrapper" [ngClass]="slideOutClass || slideInClass">
+    <div class="card-scene"
+         (click)="flipCard()"
+         role="button"
+         tabindex="0"
+         [attr.aria-label]="isFlipped ? 'Card flipped — showing answer' : 'Click to reveal answer'"
+         (keydown.enter)="flipCard()"
+         (keydown.space)="flipCard(); $event.preventDefault()">
+
+      <div class="card-object" [class.is-flipped]="isFlipped">
+
+        <!-- FRONT FACE: Term -->
+        <div class="card-face card-front">
+          <span class="face-label">TERM</span>
+          <p class="card-term">{{ currentCard?.front }}</p>
+          <p class="flip-hint">Click to reveal answer</p>
+        </div>
+
+        <!-- BACK FACE: Definition -->
+        <div class="card-face card-back">
+          <span class="face-label">DEFINITION</span>
+          <p class="card-definition">{{ currentCard?.back }}</p>
+          <p class="card-term-small">{{ currentCard?.front }}</p>
+          <button class="audio-btn"
+                  (click)="speak(); $event.stopPropagation()"
+                  title="Listen">🔊</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS — disabled until card is flipped -->
+  <div class="study-actions">
+    <button class="btn-still-learning"
+            [disabled]="!isFlipped || isSliding"
+            [class.btn-disabled]="!isFlipped"
+            (click)="grade('learning'); $event.stopPropagation()">
+      Still learning
+    </button>
+    <button class="btn-i-know"
+            [disabled]="!isFlipped || isSliding"
+            [class.btn-disabled]="!isFlipped"
+            (click)="grade('know'); $event.stopPropagation()">
+      I know
+    </button>
+  </div>
+
+  <!-- PROGRESS SECTION -->
+  <div class="study-progress">
+    <div class="progress-labels">
+      <span>Progress ({{ progress | number:'1.0-0' }}%)</span>
+      <span class="legend-group">
+        <span class="legend-item learning">● Still learning ({{ learningCards.length }})</span>
+        <span class="legend-item know">● I know ({{ knownCards.length }})</span>
+      </span>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-segment know"
+           [style.width.%]="(knownCards.length / cards.length) * 100">
+      </div>
+      <div class="progress-segment learning"
+           [style.width.%]="(learningCards.length / cards.length) * 100">
+      </div>
+    </div>
+  </div>
+
+</div>
