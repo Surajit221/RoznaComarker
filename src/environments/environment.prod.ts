@@ -2,15 +2,15 @@ export const environment = {
 
     production: true,
 
-    apiUrl: 'http://localhost:5000',
+    apiUrl: 'http://82.112.234.151:5000',
 
-    API_URL: 'http://localhost:5000/api',
+    API_URL: 'http://82.112.234.151:5000/api',
 
-    UPLOADS_URL: 'http://localhost:5000/uploads',
+    UPLOADS_URL: 'http://82.112.234.151:5000/uploads',
 
-    FRONTEND_URL: 'http://localhost:4200',
+    FRONTEND_URL: 'http://82.112.234.151:4200',
 
-    apiBaseUrl: 'http://localhost:5000/api',
+    apiBaseUrl: 'http://82.112.234.151:5000/api',
 
     firebase: {
 
