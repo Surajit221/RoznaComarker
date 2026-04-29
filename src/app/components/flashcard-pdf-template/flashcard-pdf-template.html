@@ -1,0 +1,118 @@
+<!--
+  FlashcardPdfTemplate — off-screen PDF render only.
+  Mirrors student-results-page layout with srp-* classes plus PDF-specific
+  header/footer wrappers.
+-->
+<div class="fc-pdf-root">
+
+  <!-- ══ HEADER BANNER ══ -->
+  <div class="fc-pdf-header" [class]="'tier-' + scoreTier">
+    <div class="fc-pdf-header-left">
+      <p class="fc-pdf-eyebrow">FLASHCARD RESULTS</p>
+      <h1 class="fc-pdf-title">{{ data.setTitle || 'Flashcard Set' }}</h1>
+      <p class="fc-pdf-meta">
+        <strong>{{ data.studentName }}</strong>
+        <span class="fc-pdf-meta-sep">•</span>
+        <span>{{ data.date }}</span>
+      </p>
+    </div>
+    <div class="fc-pdf-header-right">
+      <div class="fc-pdf-big-score">{{ data.score }}%</div>
+      <div class="fc-pdf-big-score-label">{{ scoreLabel }}</div>
+    </div>
+  </div>
+
+  <!-- ══ SUMMARY BODY ══ -->
+  <div class="fc-pdf-body">
+
+    <!-- SCORE STATS ROW -->
+    <div class="fc-pdf-stats-card">
+      <div class="fc-pdf-stat">
+        <span class="fc-pdf-stat-value">{{ data.score }}%</span>
+        <span class="fc-pdf-stat-label">Score</span>
+      </div>
+      <div class="fc-pdf-stat-divider"></div>
+      <div class="fc-pdf-stat">
+        <span class="fc-pdf-stat-value">{{ data.total }}</span>
+        <span class="fc-pdf-stat-label">Cards</span>
+      </div>
+      <div class="fc-pdf-stat-divider" *ngIf="data.timeTaken > 0"></div>
+      <div class="fc-pdf-stat" *ngIf="data.timeTaken > 0">
+        <span class="fc-pdf-stat-value">{{ formattedTime }}</span>
+        <span class="fc-pdf-stat-label">Time</span>
+      </div>
+    </div>
+
+    <!-- CORRECT / NEEDS REVIEW BREAKDOWN -->
+    <div class="srp-breakdown fc-pdf-breakdown" *ngIf="hasPerCardBreakdown">
+      <div class="srp-breakdown-item">
+        <span class="srp-breakdown-value">{{ data.correctCount }}</span>
+        <span class="srp-breakdown-label">{{ isQa ? 'Correct' : 'Knew well' }}</span>
+      </div>
+      <div class="srp-breakdown-item">
+        <span class="srp-breakdown-value srp-breakdown-value-warn">{{ data.needsReviewCount }}</span>
+        <span class="srp-breakdown-label">{{ isQa ? 'Incorrect' : 'Need review' }}</span>
+      </div>
+    </div>
+
+    <!-- ── Q&A: per-card detail with student vs correct answer ── -->
+    <div class="srp-per-card fc-pdf-per-card" *ngIf="isQa && hasPerCardBreakdown">
+      <h3 class="srp-section-title">Your answers</h3>
+      <div *ngFor="let r of cardResultsWithContent"
+           class="srp-result-row"
+           [class.srp-result-correct]="r.known"
+           [class.srp-result-wrong]="!r.known">
+        <span class="srp-result-icon">{{ r.known ? '✓' : '✗' }}</span>
+        <div class="srp-result-content">
+          <p class="srp-result-question">{{ r.card?.front || 'Question' }}</p>
+          <p class="srp-result-answer srp-result-correct-answer">
+            <strong>Correct:</strong> {{ r.card?.back || '—' }}
+          </p>
+          <p class="srp-result-answer" *ngIf="r.studentAnswer">
+            <strong>Your answer:</strong>
+            <span [class.srp-answer-correct]="r.known" [class.srp-answer-wrong]="!r.known">
+              {{ r.studentAnswer }}
+            </span>
+          </p>
+          <p class="srp-result-answer srp-no-answer" *ngIf="!r.studentAnswer">
+            <em>(no answer given)</em>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── term-def / concept: full card list with status ── -->
+    <div class="srp-per-card fc-pdf-per-card" *ngIf="!isQa && hasPerCardBreakdown">
+      <h3 class="srp-section-title">All cards ({{ data.total }})</h3>
+      <div *ngFor="let r of cardResultsWithContent"
+           class="srp-result-row fc-pdf-termdef-row"
+           [class.srp-result-correct]="r.known"
+           [class.srp-result-wrong]="!r.known">
+        <span class="srp-result-icon">{{ r.known ? '✓' : '↻' }}</span>
+        <div class="srp-result-content">
+          <p class="srp-result-question">{{ r.card?.front || '—' }}</p>
+          <p class="srp-result-answer srp-result-correct-answer">
+            {{ r.card?.back || '—' }}
+          </p>
+          <p class="fc-pdf-status-tag"
+             [class.fc-pdf-status-known]="r.known"
+             [class.fc-pdf-status-review]="!r.known">
+            {{ r.known ? 'Knew well' : 'Need review' }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── No per-card data fallback ── -->
+    <div class="fc-pdf-no-detail" *ngIf="!hasPerCardBreakdown">
+      <p>Per-card breakdown is not available for this submission.</p>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="fc-pdf-footer">
+      <span>{{ data.setTitle }}</span>
+      <span>{{ data.studentName }} — {{ data.date }}</span>
+    </div>
+
+  </div>
+</div>

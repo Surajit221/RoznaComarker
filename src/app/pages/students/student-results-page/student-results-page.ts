@@ -8,6 +8,7 @@
  */
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   OnInit,
   inject,
@@ -15,6 +16,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import type { CardResult, FlashCard } from '../../../models/flashcard-set.model';
+import { FlashcardPdfRenderService } from '../../../components/flashcard-pdf-template/flashcard-pdf-render.service';
+import { AlertService } from '../../../services/alert.service';
 
 interface ResultState {
   score:             number | null;
@@ -41,7 +44,12 @@ interface ResultState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudentResultsPage implements OnInit {
-  private readonly router = inject(Router);
+  private readonly router       = inject(Router);
+  private readonly cdr          = inject(ChangeDetectorRef);
+  private readonly pdfRenderer  = inject(FlashcardPdfRenderService);
+  private readonly alert        = inject(AlertService);
+
+  isPdfDownloading = false;
 
   score:            number | null = null;
   total             = 0;
@@ -143,5 +151,38 @@ export class StudentResultsPage implements OnInit {
       },
       state: { retryCardIds: this.wrongCards.map(r => r.cardId) },
     });
+  }
+
+  async downloadPdf(): Promise<void> {
+    if (this.type !== 'flashcard' || this.isPdfDownloading) return;
+    this.isPdfDownloading = true;
+    this.cdr.markForCheck();
+    try {
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        month: '2-digit', day: '2-digit', year: 'numeric',
+      });
+      const safeTitle = (this.setTitle || 'flashcards').toLowerCase().replace(/\s+/g, '-');
+      await this.pdfRenderer.render(
+        {
+          setTitle:        this.setTitle || 'Flashcard Set',
+          studentName:     'Me',
+          date:            dateStr,
+          score:           this.score ?? 0,
+          total:           this.total,
+          timeTaken:       this.timeTaken,
+          template:        this.template,
+          correctCount:    this.correctCount ?? this.cardResults.filter(r => r.known).length,
+          needsReviewCount:this.needsReviewCount ?? this.cardResults.filter(r => !r.known).length,
+          cards:           this.cards,
+          cardResults:     this.cardResults,
+        },
+        `MyFlashcards_${safeTitle}.pdf`,
+      );
+    } catch (err: any) {
+      this.alert.showError('Failed to generate PDF', err?.error?.message ?? err?.message ?? 'Please try again');
+    } finally {
+      this.isPdfDownloading = false;
+      this.cdr.markForCheck();
+    }
   }
 }

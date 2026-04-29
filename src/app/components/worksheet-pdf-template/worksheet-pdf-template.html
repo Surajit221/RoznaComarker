@@ -1,0 +1,253 @@
+<!--
+  WorksheetPdfTemplate
+  Off-screen render only. Mirrors the wv-* layout from worksheet-viewer.html
+  with student answers + correct/wrong highlighting baked in (no interactivity).
+-->
+<div class="wv-pdf-root">
+
+  <!-- ══ HEADER (same gradient + layout as live UI) ══ -->
+  <div class="wv-header">
+    <div class="wv-header-body">
+      <div class="wv-header-left">
+        @if (worksheet.subject) {
+          <span class="wv-subject-pill">{{ worksheet.subject | uppercase }}</span>
+        }
+        <h1 class="wv-title">{{ worksheet.title }}</h1>
+        @if (worksheet.description) {
+          <p class="wv-description">{{ worksheet.description }}</p>
+        }
+        <div class="wv-tags">
+          @for (tag of worksheet.tags || []; track tag) {
+            <span class="wv-tag-pill">{{ tag }}</span>
+          }
+        </div>
+      </div>
+      <div class="wv-header-right">
+        <label class="wv-field-label">Student name</label>
+        <div class="wv-name-input wv-pdf-readonly">{{ studentName }}</div>
+        <label class="wv-field-label">Date</label>
+        <div class="wv-date-input wv-pdf-readonly">{{ formattedDate }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BODY ══ -->
+  <div class="wv-body wv-pdf-body">
+
+    <!-- SCORE BANNER -->
+    <div class="wv-card wv-pdf-score-banner" [class]="'tier-' + scoreTier">
+      <div class="wv-pdf-score-left">
+        <p class="wv-section-label">SCORE</p>
+        <h3 class="wv-pdf-score-value">
+          {{ data.totalPointsEarned }} / {{ data.totalPointsPossible }}
+          <span class="wv-pdf-score-pct">({{ data.percentage | number:'1.0-0' }}%)</span>
+        </h3>
+        <p class="wv-pdf-score-hint">
+          @if (scoreTier === 'high') { Great work! }
+          @else if (scoreTier === 'mid') { Keep practising. }
+          @else { Review and try again. }
+        </p>
+      </div>
+      <div class="wv-pdf-score-right">
+        @if (data.timeTaken !== undefined) {
+          <div><span class="wv-pdf-meta-label">Time</span> <span class="wv-pdf-meta-val">{{ formattedTime }}</span></div>
+        }
+      </div>
+    </div>
+
+    <!-- CONCEPT EXPLANATION -->
+    @if (worksheet.conceptExplanation) {
+      <div class="wv-card wv-concept-card">
+        <div class="wv-concept-header">
+          <div>
+            <p class="wv-section-label">CONCEPT EXPLANATION</p>
+            <h3 class="wv-concept-title">{{ worksheet.conceptExplanation.title }}</h3>
+          </div>
+          @if (worksheet.conceptExplanation.chainSummary) {
+            <span class="wv-chain-summary-badge">{{ worksheet.conceptExplanation.chainSummary }}</span>
+          }
+        </div>
+        <p class="wv-concept-body">{{ worksheet.conceptExplanation.body }}</p>
+        <div class="wv-chain-items">
+          @for (item of worksheet.conceptExplanation.items; track item.name; let last = $last) {
+            <div class="wv-chain-item">
+              <span class="wv-chain-emoji">{{ item.emoji }}</span>
+              <span class="wv-chain-name">{{ item.name }}</span>
+              <span class="wv-chain-role">{{ item.role }}</span>
+            </div>
+            @if (!last) { <span class="wv-chain-arrow">→</span> }
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ACTIVITY 1: Ordering -->
+    @if (hasA1 && worksheet.activity1) {
+      <div class="wv-card wv-activity-card wv-pdf-activity">
+        <div class="wv-activity-header">
+          <div class="wv-activity-header-text">
+            <p class="wv-section-label">ACTIVITY 1</p>
+            <h3 class="wv-activity-title">{{ worksheet.activity1.title }}</h3>
+            <p class="wv-activity-inst">{{ worksheet.activity1.instructions }}</p>
+          </div>
+          <span class="wv-score-badge">{{ a1Score }} / {{ a1Total }}</span>
+        </div>
+
+        <div class="wv-slots-grid">
+          @for (slot of a1ResolvedSlots; track trackByIndex($index); let i = $index) {
+            <div class="wv-slot" [class]="a1SlotClass(slot, i)">
+              @if (slot) {
+                <span class="wv-slot-emoji">{{ slot.emoji }}</span>
+                <span class="wv-slot-name">{{ slot.name }}</span>
+                @if (a1IsChecked && slot.correctOrder !== i + 1) {
+                  <span class="wv-pdf-correction">Correct: step {{ slot.correctOrder }}</span>
+                }
+              } @else {
+                <span class="wv-slot-hint">— not placed —</span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ACTIVITY 2: Classification -->
+    @if (hasA2 && worksheet.activity2) {
+      <div class="wv-card wv-activity-card wv-pdf-activity">
+        <div class="wv-activity-header">
+          <div class="wv-activity-header-text">
+            <p class="wv-section-label">ACTIVITY 2</p>
+            <h3 class="wv-activity-title">{{ worksheet.activity2.title }}</h3>
+            <p class="wv-activity-inst">{{ worksheet.activity2.instructions }}</p>
+          </div>
+          <span class="wv-score-badge">{{ a2Score }} / {{ a2Total }}</span>
+        </div>
+
+        <div class="wv-mystery-grid">
+          @for (item of worksheet.activity2.items; track item.id) {
+            <div class="wv-mystery-card">
+              <p class="wv-mystery-label">MYSTERY ROLE</p>
+              <div class="wv-mystery-info">
+                <span class="wv-mystery-emoji">{{ item.emoji }}</span>
+                <div>
+                  <p class="wv-mystery-name">{{ item.name }}</p>
+                  <p class="wv-mystery-desc">{{ item.description }}</p>
+                </div>
+              </div>
+              <div class="wv-cat-btns">
+                @for (cat of worksheet.activity2.categories; track cat) {
+                  <div class="wv-cat-btn" [class]="a2BtnClass(item, cat)">{{ cat }}</div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ACTIVITY 3: Quick Quiz -->
+    @if (hasA3 && worksheet.activity3) {
+      <div class="wv-card wv-activity-card wv-pdf-activity">
+        <div class="wv-activity-header">
+          <div class="wv-activity-header-text">
+            <p class="wv-section-label">ACTIVITY 3</p>
+            <h3 class="wv-activity-title">{{ worksheet.activity3.title }}</h3>
+            <p class="wv-activity-inst">{{ worksheet.activity3.instructions }}</p>
+          </div>
+          <span class="wv-score-badge">{{ a3Score }} / {{ a3Total }}</span>
+        </div>
+
+        <div class="wv-mcq-list">
+          @for (q of worksheet.activity3.questions; track q.id; let qi = $index) {
+            <div class="wv-mcq-question">
+              <div class="wv-q-badge">Q{{ qi + 1 }}</div>
+              <p class="wv-q-text">{{ q.text }}</p>
+              <div class="wv-mcq-options">
+                @for (opt of q.options; track opt; let oi = $index) {
+                  <div class="wv-mcq-btn" [class]="a3OptClass(q, opt)">
+                    <span class="wv-opt-letter">{{ OPTION_LETTERS[oi] }}</span>
+                    <span>{{ opt }}</span>
+                  </div>
+                }
+              </div>
+              @if (data.a3Answers[q.id] && data.a3Answers[q.id] !== q.correctAnswer) {
+                <p class="wv-pdf-correction-line">
+                  Correct answer: <strong>{{ q.correctAnswer }}</strong>
+                </p>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ACTIVITY 4: Fill in the Blanks -->
+    @if (hasA4 && worksheet.activity4) {
+      <div class="wv-card wv-activity-card wv-pdf-activity">
+        <div class="wv-activity-header">
+          <div class="wv-activity-header-text">
+            <p class="wv-section-label">ACTIVITY 4</p>
+            <h3 class="wv-activity-title">{{ worksheet.activity4.title }}</h3>
+            <p class="wv-activity-inst">{{ worksheet.activity4.instructions }}</p>
+          </div>
+          <span class="wv-score-badge">{{ a4Score }} / {{ a4Total }}</span>
+        </div>
+
+        <div class="wv-word-bank">
+          @for (word of worksheet.activity4.wordBank; track word) {
+            <div class="wv-word-chip">{{ word }}</div>
+          }
+        </div>
+
+        <div class="wv-sentences">
+          @for (sentence of worksheet.activity4.sentences; track sentence.id) {
+            <div class="wv-sentence">
+              @for (part of sentence.parts; track trackByIndex($index)) {
+                @if (part.type === 'text') {
+                  <span class="wv-sent-text">{{ part.value }}</span>
+                } @else {
+                  <span class="wv-blank-chip" [class]="a4BlankClass(part)">{{ a4BlankDisplay(part) }}</span>
+                  @if (data.a4Checked && part.correctAnswer && part.blankId && (data.a4Blanks?.[part.blankId] ?? '').toLowerCase() !== part.correctAnswer.toLowerCase()) {
+                    <span class="wv-pdf-blank-correction">({{ part.correctAnswer }})</span>
+                  }
+                }
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- FINAL SCORE PANEL -->
+    <div class="wv-card wv-score-panel">
+      <div class="wv-score-header">
+        <div>
+          <p class="wv-section-label">FINAL SCORE</p>
+          <h3 class="wv-score-title">{{ data.totalPointsEarned }} / {{ data.totalPointsPossible }} points</h3>
+        </div>
+        <span class="wv-total-badge">{{ data.percentage | number:'1.0-0' }}%</span>
+      </div>
+      <div class="wv-stats-grid">
+        <div class="wv-stat-card">
+          <p class="wv-stat-value">{{ data.totalPointsEarned }}</p>
+          <p class="wv-stat-label">Points earned</p>
+        </div>
+        <div class="wv-stat-card">
+          <p class="wv-stat-value">{{ data.percentage | number:'1.0-0' }}%</p>
+          <p class="wv-stat-label">Percentage</p>
+        </div>
+        <div class="wv-stat-card">
+          <p class="wv-stat-value">{{ studentName }}</p>
+          <p class="wv-stat-label">Worksheet owner</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="wv-pdf-footer">
+      <span>{{ worksheet.title }}</span>
+      <span>{{ studentName }} — {{ formattedDate }}</span>
+    </div>
+
+  </div>
+</div>

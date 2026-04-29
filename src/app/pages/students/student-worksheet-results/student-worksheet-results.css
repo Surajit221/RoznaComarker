@@ -1,13 +1,103 @@
 /* StudentWorksheetResults styles */
 
 .swr-wrap {
-  max-width: 680px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 2rem 1.25rem 5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   font-family: var(--font-main, 'Poppins', sans-serif);
+}
+
+/* ── Download PDF button ─────────────────────────────────── */
+.swr-pdf-row {
+  display: flex;
+  justify-content: center;
+}
+.swr-btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #008081;
+  color: #fff;
+  border: 2px solid #136C6D;
+  border-radius: 12px;
+  padding: 0.875rem 1.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  box-shadow: 0 3px 0 #136C6D;
+  transition: transform 100ms, box-shadow 100ms, background 150ms;
+}
+.swr-btn-pdf:hover:not(:disabled) { background: #136C6D; }
+.swr-btn-pdf:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #136C6D;
+}
+.swr-btn-pdf:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: 0 3px 0 #136C6D;
+}
+.swr-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: swr-spin 0.8s linear infinite;
+}
+.swr-spinner-dark {
+  width: 28px; height: 28px;
+  border: 3px solid #E7E7E7;
+  border-top-color: #008081;
+  border-radius: 50%;
+  animation: swr-spin 0.8s linear infinite;
+}
+@keyframes swr-spin { to { transform: rotate(360deg); } }
+
+/* ── Review block ────────────────────────────────────────── */
+.swr-review-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.swr-review-frame {
+  background: #fff;
+  border: 1px solid #E7E7E7;
+  border-radius: 20px;
+  overflow: hidden;
+  /* The worksheet viewer manages its own internal layout/scroll. */
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+.swr-review-frame app-worksheet-viewer {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 600px;
+}
+.swr-review-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #E7E7E7;
+  border-radius: 20px;
+  color: #6B7280;
+}
+.swr-review-error {
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #E7E7E7;
+  border-radius: 20px;
+  color: #DC2626;
 }
 
 /* ── Score card ──────────────────────────────────────────── */

@@ -16,9 +16,8 @@ import {
   WorksheetApiService,
   type Worksheet,
 } from '../../api/worksheet-api.service';
-import { PdfApiService } from '../../api/pdf-api.service';
 import { AlertService } from '../../services/alert.service';
-import { triggerBlobDownload } from '../../utils/file-download.util';
+import { WorksheetPdfRenderService } from '../worksheet-pdf-template/worksheet-pdf-render.service';
 
 @Component({
   selector: 'app-worksheet-viewer',
@@ -33,11 +32,24 @@ export class WorksheetViewerComponent implements OnInit {
   @Input() assignmentId: string | null = null;
   @Input() mode: 'preview' | 'student' = 'student';
   @Input() classId: string | null = null;
+  /** Read-only review mode: render full worksheet UI with submitted answers highlighted, no interactivity. */
+  @Input() reviewMode = false;
+  /** Flat AnswerResult[] from a WorksheetSubmission — only used when reviewMode is true. */
+  @Input() submittedAnswers: Array<{ questionId: string; sectionId: string; studentAnswer: string; isCorrect?: boolean }> | null = null;
+  /** Optional metadata used in review mode header + score banner. */
+  @Input() reviewMeta: {
+    studentName?: string;
+    date?: string;
+    totalPointsEarned?: number;
+    totalPointsPossible?: number;
+    percentage?: number;
+    timeTaken?: number;
+  } | null = null;
   @Output() closed = new EventEmitter<void>();
 
-  private readonly api     = inject(WorksheetApiService);
-  private readonly pdfApi  = inject(PdfApiService);
-  private readonly alert   = inject(AlertService);
+  private readonly api          = inject(WorksheetApiService);
+  private readonly alert        = inject(AlertService);
+  private readonly pdfRenderer  = inject(WorksheetPdfRenderService);
 
   readonly OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -48,6 +60,21 @@ export class WorksheetViewerComponent implements OnInit {
   isSubmitted  = signal(false);
   submittedSubmissionId = signal<string | null>(null);
   isPdfDownloading = signal(false);
+
+  get scoreTier(): 'high' | 'mid' | 'low' {
+    const p = this.reviewMeta?.percentage ?? 0;
+    if (p >= 70) return 'high';
+    if (p >= 40) return 'mid';
+    return 'low';
+  }
+
+  get reviewFormattedTime(): string {
+    const t = this.reviewMeta?.timeTaken ?? 0;
+    if (t <= 0) return '';
+    const m = Math.floor(t / 60);
+    const s = t % 60;
+    return m === 0 ? `${s}s` : `${m}m ${s}s`;
+  }
 
   studentNameValue = '';
   worksheetDate = new Date().toLocaleDateString('en-US', {
@@ -137,6 +164,7 @@ export class WorksheetViewerComponent implements OnInit {
         const items = [...(ws.activity1?.items ?? [])];
         this.a1Available.set(this.shuffle(items));
         this.a1Slots.set(new Array(items.length).fill(null));
+        if (this.reviewMode) this.hydrateFromSubmission(ws);
         this.isLoading.set(false);
       },
       error: () => {
@@ -150,10 +178,55 @@ export class WorksheetViewerComponent implements OnInit {
     return [...arr].sort(() => Math.random() - 0.5);
   }
 
+  /** Populate signals from a graded submission so review mode renders highlights. */
+  private hydrateFromSubmission(ws: Worksheet): void {
+    const a3: Record<string, string> = {};
+    const a4: Record<string, string> = {};
+    for (const a of this.submittedAnswers ?? []) {
+      if (!a) continue;
+      if (a.sectionId === 'activity3') a3[a.questionId] = a.studentAnswer ?? '';
+      else if (a.sectionId === 'activity4') a4[a.questionId] = a.studentAnswer ?? '';
+    }
+    this.a3Answers.set(a3);
+    this.a4Blanks.set(a4);
+    this.a4Checked.set(true);
+
+    // Activity 1: show items in their correct order (answer key) since
+    // student drag-and-drop state isn't stored in the submission.
+    const a1Items = ws.activity1?.items ?? [];
+    if (a1Items.length > 0) {
+      const sorted = [...a1Items].sort((a: any, b: any) => (a.correctOrder ?? 0) - (b.correctOrder ?? 0));
+      this.a1Slots.set(sorted);
+      this.a1Available.set([]);
+      this.a1Checked.set(true);
+    }
+
+    // Activity 2: show correct classifications (answer key) since
+    // student classification state isn't stored in the submission.
+    const a2Items = ws.activity2?.items ?? [];
+    if (a2Items.length > 0) {
+      const answers: Record<string, string> = {};
+      const revealed: Record<string, boolean> = {};
+      for (const item of a2Items) {
+        answers[(item as any).id] = (item as any).correctCategory ?? '';
+        revealed[(item as any).id] = true;
+      }
+      this.a2Answers.set(answers);
+      this.a2Revealed.set(revealed);
+    }
+
+    if (this.reviewMeta?.studentName) this.studentNameValue = this.reviewMeta.studentName;
+    if (this.reviewMeta?.date) this.worksheetDate = this.reviewMeta.date;
+  }
+
   /* ── Activity 1 methods ──────────────────── */
-  selectSlot(i: number): void { this.a1ActiveSlot.set(i); }
+  selectSlot(i: number): void {
+    if (this.reviewMode) return;
+    this.a1ActiveSlot.set(i);
+  }
 
   placeItemInSlot(item: any): void {
+    if (this.reviewMode) return;
     const idx = this.a1ActiveSlot();
     if (idx === null) return;
     const current = this.a1Slots()[idx];
@@ -164,16 +237,21 @@ export class WorksheetViewerComponent implements OnInit {
   }
 
   removeFromSlot(i: number): void {
+    if (this.reviewMode) return;
     const item = this.a1Slots()[i];
     if (!item) return;
     this.a1Slots.update(s => { const n = [...s]; n[i] = null; return n; });
     this.a1Available.update(av => [...av, item]);
   }
 
-  checkActivity1(): void { this.a1Checked.set(true); }
+  checkActivity1(): void {
+    if (this.reviewMode) return;
+    this.a1Checked.set(true);
+  }
 
   /* ── Activity 2 methods ──────────────────── */
   classifyItem(itemId: string, category: string): void {
+    if (this.reviewMode) return;
     if (this.a2Revealed()[itemId]) return;
     this.a2Answers.update(a => ({ ...a, [itemId]: category }));
     this.a2Revealed.update(r => ({ ...r, [itemId]: true }));
@@ -188,6 +266,7 @@ export class WorksheetViewerComponent implements OnInit {
 
   /* ── Activity 3 methods ──────────────────── */
   selectMCQ(questionId: string, answer: string): void {
+    if (this.reviewMode) return;
     if (this.a3Answers()[questionId]) return;
     this.a3Answers.update(a => ({ ...a, [questionId]: answer }));
   }
@@ -202,10 +281,12 @@ export class WorksheetViewerComponent implements OnInit {
 
   /* ── Activity 4 methods ──────────────────── */
   selectBlank(blankId: string): void {
+    if (this.reviewMode) return;
     this.a4SelectedBlank.set(this.a4SelectedBlank() === blankId ? null : blankId);
   }
 
   placeWord(word: string): void {
+    if (this.reviewMode) return;
     const blankId = this.a4SelectedBlank();
     if (!blankId) return;
     this.a4Blanks.update(b => ({ ...b, [blankId]: word }));
@@ -220,16 +301,33 @@ export class WorksheetViewerComponent implements OnInit {
     return this.a4Blanks()[blankId] || 'choose a word';
   }
 
-  checkActivity4(): void { this.a4Checked.set(true); }
+  checkActivity4(): void {
+    if (this.reviewMode) return;
+    this.a4Checked.set(true);
+  }
 
   resetActivity4(): void {
+    if (this.reviewMode) return;
     this.a4Blanks.set({});
     this.a4Checked.set(false);
     this.a4SelectedBlank.set(null);
   }
 
+  /** Helper for review mode: returns the correct fill-in-blank answer for a given part. */
+  a4PartCorrect(part: any): string {
+    return part?.correctAnswer ?? '';
+  }
+
+  /** Returns true when the student's blank answer is wrong (review mode display). */
+  a4PartWrong(part: any): boolean {
+    if (!part?.blankId || !part?.correctAnswer) return false;
+    const given = (this.a4Blanks()[part.blankId] ?? '').toLowerCase();
+    return given !== '' && given !== (part.correctAnswer ?? '').toLowerCase();
+  }
+
   /* ── Submit / Done ───────────────────────── */
   async onDone(): Promise<void> {
+    if (this.reviewMode) { this.closed.emit(); return; }
     if (this.mode === 'preview') { this.closed.emit(); return; }
     if (!this.assignmentId) { this.closed.emit(); return; }
 
@@ -279,13 +377,31 @@ export class WorksheetViewerComponent implements OnInit {
   onClose(): void { this.closed.emit(); }
 
   async downloadMyPdf(): Promise<void> {
-    const submissionId = this.submittedSubmissionId();
-    if (!submissionId || this.isPdfDownloading()) return;
+    const ws = this.worksheet();
+    if (!ws || this.isPdfDownloading()) return;
     this.isPdfDownloading.set(true);
     try {
-      const blob = await this.pdfApi.downloadWorksheetSubmissionPdf(submissionId);
-      const title = (this.worksheet()?.title ?? 'worksheet').toLowerCase().replace(/\s+/g, '-');
-      triggerBlobDownload(blob, { filename: `${title}.pdf`, mimeType: 'application/pdf' });
+      const title = (ws.title ?? 'worksheet').toLowerCase().replace(/\s+/g, '-');
+      const safeName = (this.studentNameValue || 'student').toLowerCase().replace(/\s+/g, '-');
+      await this.pdfRenderer.render(
+        {
+          worksheet: ws,
+          studentName: this.studentNameValue || 'Student',
+          date: this.worksheetDate,
+          a1Slots: this.a1Slots(),
+          a1Checked: this.a1Checked(),
+          a2Answers: this.a2Answers(),
+          a2Revealed: this.a2Revealed(),
+          a3Answers: this.a3Answers(),
+          a4Blanks: this.a4Blanks(),
+          a4Checked: this.a4Checked(),
+          totalPointsEarned: this.totalScore(),
+          totalPointsPossible: this.totalPossible(),
+          percentage: this.progressPercent(),
+          timeTaken: undefined,
+        },
+        `MyWorksheet_${title}_${safeName}.pdf`,
+      );
     } catch (err: any) {
       this.alert.showError('Failed to generate PDF', err?.error?.message ?? err?.message ?? 'Please try again');
     } finally {

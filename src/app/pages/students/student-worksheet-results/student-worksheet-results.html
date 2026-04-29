@@ -35,43 +35,51 @@
     <p class="swr-teacher-note" *ngIf="assignmentId">Your teacher has received your submission.</p>
   </div>
 
-  <!-- ANSWERS BREAKDOWN -->
-  @if (gradedAnswers.length > 0) {
-    <div class="swr-breakdown">
-      <h2 class="swr-section-heading">Your Answers</h2>
-
-      @for (a of gradedAnswers; track a.questionId; let qi = $index) {
-        <div class="swr-q-row"
-             [class.swr-correct]="a.isCorrect"
-             [class.swr-wrong]="!a.isCorrect">
-
-          <div class="swr-q-icon">{{ a.isCorrect ? '✓' : '✗' }}</div>
-
-          <div class="swr-q-body">
-            <p class="swr-q-num">Answer {{ qi + 1 }}
-              <span class="swr-q-section-tag">{{ a.sectionId }}</span>
-            </p>
-
-            <div class="swr-answer-row">
-              <p class="swr-your-answer">
-                <strong>Your answer:</strong>
-                <span [class.swr-ans-correct]="a.isCorrect"
-                      [class.swr-ans-wrong]="!a.isCorrect">
-                  {{ a.studentAnswer || '(no answer)' }}
-                </span>
-              </p>
-            </div>
-
-            @if (a.aiGradingFeedback) {
-              <p class="swr-feedback">💡 {{ a.aiGradingFeedback }}</p>
-            }
-
-            <p class="swr-points">{{ a.pointsEarned }} pt{{ a.pointsEarned === 1 ? '' : 's' }}</p>
-          </div>
-        </div>
+  <!-- DOWNLOAD PDF -->
+  <div class="swr-pdf-row">
+    <button class="swr-btn-pdf"
+            [disabled]="isPdfDownloading || isWorksheetLoading || !worksheet"
+            (click)="downloadMyPdf()">
+      @if (isPdfDownloading) {
+        <span class="swr-spinner" aria-hidden="true"></span>
+        Generating PDF…
+      } @else {
+        ↓ Download My Worksheet PDF
       }
-    </div>
-  }
+    </button>
+  </div>
+
+  <!-- REVIEW (full worksheet, read-only) -->
+  <div class="swr-review-block">
+    <h2 class="swr-section-heading">Review Your Answers</h2>
+
+    @if (isWorksheetLoading) {
+      <div class="swr-review-loading">
+        <div class="swr-spinner-dark" aria-hidden="true"></div>
+        <p>Loading your worksheet…</p>
+      </div>
+    } @else if (worksheet) {
+      <div class="swr-review-frame">
+        <app-worksheet-viewer
+          #reviewViewer
+          [worksheetId]="submission!.worksheetId"
+          [reviewMode]="true"
+          [submittedAnswers]="submission!.answers"
+          [reviewMeta]="{
+            studentName: studentName,
+            date: formattedDate,
+            totalPointsEarned: submission!.totalPointsEarned,
+            totalPointsPossible: submission!.totalPointsPossible,
+            percentage: submission!.percentage,
+            timeTaken: submission!.timeTaken
+          }"
+          (closed)="goBack()">
+        </app-worksheet-viewer>
+      </div>
+    } @else {
+      <p class="swr-review-error">Could not load the worksheet for review.</p>
+    }
+  </div>
 
   <!-- BACK BUTTON -->
   <div class="swr-actions">

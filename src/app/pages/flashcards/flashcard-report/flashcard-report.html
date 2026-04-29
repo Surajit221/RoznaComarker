@@ -94,6 +94,7 @@
           <span>Time</span>
           <span>Date</span>
           <span>Status</span>
+          <span>PDF</span>
         </div>
         <div class="participant-row"
              *ngFor="let p of filteredParticipants; trackBy: trackById">
@@ -105,6 +106,17 @@
           <span class="p-time">{{ p.timeTaken | formatTime }}</span>
           <span class="p-date">{{ p.submittedAt | date:'dd MMM yyyy' }}</span>
           <span class="badge" [ngClass]="'badge-' + p.status">{{ p.status }}</span>
+          <span>
+            <button class="btn-dl-row"
+                    [disabled]="participantDownloadingId === p.userId"
+                    (click)="downloadParticipantPdf(p)">
+              @if (participantDownloadingId === p.userId) {
+                <span class="fc-pdf-spinner" aria-hidden="true"></span>
+              } @else {
+                ↓ PDF
+              }
+            </button>
+          </span>
         </div>
       </div>
 
