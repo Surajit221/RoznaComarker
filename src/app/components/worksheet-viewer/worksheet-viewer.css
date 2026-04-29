@@ -598,3 +598,133 @@
   font-size: 0.9rem; font-weight: 700; cursor: pointer;
 }
 .wv-btn-done:disabled { opacity: 0.6; cursor: default; }
+
+/* ── Review mode (read-only) ───────────────── */
+/* Disable all interactivity on buttons, chips, slots, inputs */
+.wv-root.wv-review-mode :is(
+  .wv-mcq-btn, .wv-cat-btn, .wv-word-chip, .wv-blank-chip,
+  .wv-slot, .wv-avail-card, button, input, select, textarea
+) {
+  pointer-events: none;
+  cursor: default;
+}
+/* Suppress hover effects so review looks static */
+.wv-root.wv-review-mode .wv-mcq-btn:hover,
+.wv-root.wv-review-mode .wv-cat-btn:hover,
+.wv-root.wv-review-mode .wv-word-chip:hover,
+.wv-root.wv-review-mode .wv-blank-chip:hover,
+.wv-root.wv-review-mode .wv-avail-card:hover,
+.wv-root.wv-review-mode .wv-slot:hover {
+  background: inherit;
+  border-color: inherit;
+}
+/* Keep disabled buttons fully opaque */
+.wv-root.wv-review-mode .wv-mcq-btn:disabled,
+.wv-root.wv-review-mode .wv-blank-chip:disabled,
+.wv-root.wv-review-mode .wv-word-chip:disabled {
+  opacity: 1;
+}
+/* Force single-column stacking for activity rows in review */
+.wv-root.wv-review-mode .wv-activities-row {
+  grid-template-columns: 1fr;
+}
+/* When embedded in another page (e.g. results page) or captured for PDF,
+   grow with content instead of forcing an internal scroll region.
+   !important is needed so html2canvas sees the full height. */
+.wv-root.wv-review-mode {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  min-height: unset !important;
+}
+.wv-root.wv-review-mode .wv-body {
+  flex: none;
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+/* Read-only value display for header fields */
+.wv-readonly-value {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  padding: 0.4rem 0;
+  line-height: 1.3;
+}
+.wv-correct-answer-line {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: #15803d;
+  font-weight: 600;
+}
+.wv-blank-correction {
+  font-size: 0.78rem;
+  color: #15803d;
+  font-weight: 600;
+  margin: 0 0.25rem;
+}
+
+/* ── Review score banner ──────────────────── */
+.wv-review-score-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff8f0;
+}
+.wv-review-score-banner.wv-score-tier-high {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+.wv-review-score-banner.wv-score-tier-mid {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+.wv-review-score-banner.wv-score-tier-low {
+  border-left-color: #dc2626;
+  background: #fef2f2;
+}
+.wv-review-score-left { flex: 1; }
+.wv-review-score-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.15rem;
+}
+.wv-review-score-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+.wv-score-tier-high .wv-review-score-value { color: #16a34a; }
+.wv-score-tier-mid  .wv-review-score-value { color: #d97706; }
+.wv-score-tier-low  .wv-review-score-value { color: #dc2626; }
+.wv-review-score-pct {
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.wv-review-score-message {
+  display: block;
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin-top: 0.2rem;
+}
+.wv-review-score-right {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 1.5rem;
+}
+.wv-review-score-time {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+}

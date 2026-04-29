@@ -96,6 +96,13 @@
 
     <!-- ACTION BUTTONS -->
     <div class="srp-actions">
+      <button class="srp-btn-pdf"
+              *ngIf="type === 'flashcard'"
+              [disabled]="isPdfDownloading"
+              (click)="downloadPdf()">
+        <ng-container *ngIf="isPdfDownloading">Generating...</ng-container>
+        <ng-container *ngIf="!isPdfDownloading">↓ Download My Results (PDF)</ng-container>
+      </button>
       <button class="srp-btn-retry"
               *ngIf="type === 'flashcard' && canRetryWrong"
               (click)="retryWrongCards()">

@@ -18,6 +18,7 @@ import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
 import { PdfApiService } from '../../../api/pdf-api.service';
 import { AlertService } from '../../../services/alert.service';
 import { triggerBlobDownload } from '../../../utils/file-download.util';
+import { WorksheetPdfRenderService } from '../../../components/worksheet-pdf-template/worksheet-pdf-render.service';
 
 @Component({
   selector: 'app-worksheet-report',
@@ -33,8 +34,9 @@ export class WorksheetReport implements OnInit, OnDestroy {
   private readonly api    = inject(WorksheetApiService);
   private readonly cdr    = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
-  private readonly pdfApi   = inject(PdfApiService);
-  private readonly alert    = inject(AlertService);
+  private readonly pdfApi      = inject(PdfApiService);
+  private readonly alert       = inject(AlertService);
+  private readonly pdfRenderer = inject(WorksheetPdfRenderService);
 
   worksheet: Worksheet | null = null;
   submissions: WorksheetSubmission[] = [];
@@ -124,12 +126,34 @@ export class WorksheetReport implements OnInit, OnDestroy {
   async downloadStudentPdf(sub: WorksheetSubmission): Promise<void> {
     const submissionId = sub._id;
     if (!submissionId || this.downloadingSubmissionId === submissionId) return;
+    if (!this.worksheet) {
+      this.alert.showWarning('Worksheet not loaded', 'Please wait for the worksheet to finish loading.');
+      return;
+    }
     this.downloadingSubmissionId = submissionId;
     this.cdr.markForCheck();
     try {
-      const blob = await this.pdfApi.downloadWorksheetSubmissionPdf(submissionId);
-      const name = this.getStudentName(sub).replace(/\s+/g, '-').toLowerCase();
-      triggerBlobDownload(blob, { filename: `worksheet-${name}.pdf`, mimeType: 'application/pdf' });
+      const studentName = this.getStudentName(sub);
+      const safeName = studentName.replace(/\s+/g, '-').toLowerCase();
+      const safeTitle = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
+      const dateStr = sub.submittedAt
+        ? new Date(sub.submittedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+        : '';
+
+      await this.pdfRenderer.renderViewerOffscreen(
+        {
+          worksheet: this.worksheet,
+          worksheetId: sub.worksheetId,
+          studentName,
+          date: dateStr,
+          submittedAnswers: sub.answers ?? [],
+          totalPointsEarned: sub.totalPointsEarned,
+          totalPointsPossible: sub.totalPointsPossible,
+          percentage: sub.percentage,
+          timeTaken: sub.timeTaken,
+        },
+        `${safeName}_${safeTitle}.pdf`,
+      );
     } catch (err: any) {
       this.alert.showError('Failed to generate PDF', err?.error?.message ?? err?.message ?? 'Please try again');
     } finally {

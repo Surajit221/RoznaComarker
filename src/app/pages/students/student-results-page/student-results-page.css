@@ -206,6 +206,22 @@
 }
 .srp-btn-retry:hover { background: rgba(0,128,129,0.2); }
 
+.srp-btn-pdf {
+  width: 100%;
+  background: #fff;
+  color: #008081;
+  border: 1.5px solid #008081;
+  border-radius: 14px;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.srp-btn-pdf:not(:disabled):hover { background: #008081; color: #fff; }
+.srp-btn-pdf:disabled { opacity: 0.6; cursor: not-allowed; }
+
 @media (max-width: 480px) {
   .srp-card { padding: 2rem 1.25rem; }
   .srp-headline { font-size: 1.25rem; }

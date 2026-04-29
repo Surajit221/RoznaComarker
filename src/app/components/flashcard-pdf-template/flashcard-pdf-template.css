@@ -1,0 +1,158 @@
+/*
+ * PDF-only overrides for FlashcardPdfTemplate.
+ * Extends srp-* classes from student-results-page.css to:
+ *  - Lock width to A4 (794px) and disable centering/min-height
+ *  - Add a colored top header banner with the score
+ *  - Force print-color-adjust:exact on every element
+ *  - Add page-break hints
+ */
+
+.fc-pdf-root,
+.fc-pdf-root * {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.fc-pdf-root {
+  width: 794px;
+  background: #ffffff;
+  font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
+  display: block;
+  color: #1F2937;
+}
+
+/* Override .srp-wrap centering when this template is mounted */
+.fc-pdf-root .srp-wrap {
+  min-height: auto;
+  display: block;
+  padding: 0;
+}
+
+/* ── Header banner ──────────────────────────────── */
+.fc-pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+  color: #fff;
+  background: linear-gradient(135deg, #008081 0%, #0f766e 100%);
+}
+.fc-pdf-header.tier-high { background: linear-gradient(135deg, #047857 0%, #15803d 100%); }
+.fc-pdf-header.tier-mid  { background: linear-gradient(135deg, #b45309 0%, #d97706 100%); }
+.fc-pdf-header.tier-low  { background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%); }
+
+.fc-pdf-header-left { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.fc-pdf-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin: 0;
+}
+.fc-pdf-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0;
+  word-break: break-word;
+}
+.fc-pdf-meta {
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0;
+  opacity: 0.9;
+}
+.fc-pdf-meta-sep { margin: 0 0.4rem; opacity: 0.7; }
+
+.fc-pdf-header-right {
+  text-align: center;
+  min-width: 130px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 14px;
+  padding: 0.875rem 1rem;
+}
+.fc-pdf-big-score {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.fc-pdf-big-score-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+
+/* ── Body ───────────────────────────────────────── */
+.fc-pdf-body {
+  padding: 1.25rem 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fc-pdf-stats-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: #F9FAFB;
+  border: 1px solid #E7E7E7;
+  border-radius: 16px;
+}
+.fc-pdf-stat { display: flex; flex-direction: column; align-items: center; gap: 0.125rem; }
+.fc-pdf-stat-value { font-size: 1.6rem; font-weight: 700; color: #008081; line-height: 1; }
+.fc-pdf-stat-label { font-size: 0.75rem; color: #9CA3AF; font-weight: 500; }
+.fc-pdf-stat-divider { width: 1px; height: 36px; background: #E7E7E7; }
+
+/* ── Per-card section page-break safety ─────────── */
+.fc-pdf-per-card { display: flex; flex-direction: column; gap: 0.625rem; }
+.fc-pdf-per-card .srp-result-row {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.fc-pdf-termdef-row { gap: 0.75rem; }
+
+/* Status tag for term-def cards */
+.fc-pdf-status-tag {
+  display: inline-block;
+  margin: 0.4rem 0 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.fc-pdf-status-known {
+  background: #dcfce7;
+  color: #15803d;
+}
+.fc-pdf-status-review {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.fc-pdf-no-detail {
+  background: #F9FAFB;
+  border: 1px dashed #E7E7E7;
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  color: #6B7280;
+  font-size: 0.875rem;
+}
+
+/* Footer */
+.fc-pdf-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #9CA3AF;
+  padding: 0.75rem 0.25rem 0;
+  border-top: 1px solid #E7E7E7;
+  margin-top: 0.5rem;
+}

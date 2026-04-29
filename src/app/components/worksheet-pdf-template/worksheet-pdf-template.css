@@ -1,0 +1,149 @@
+/*
+ * PDF-only overrides for WorksheetPdfTemplate.
+ * Extends the wv-* classes from worksheet-viewer.css to:
+ *  - Lock width to A4 (794px) and disable scrolling/overflow
+ *  - Force background colors to print (html2canvas)
+ *  - Add score banner color tiers (green/orange/red)
+ *  - Add page-break hints for multi-page output
+ *  - Show correct-answer captions
+ */
+
+/* Force every nested element to print colors */
+.wv-pdf-root, .wv-pdf-root * {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* Root: A4 width, no overflow, plain document flow (not flex/scroll like live UI) */
+.wv-pdf-root {
+  width: 794px;
+  background: #f1f5f9;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  display: block !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Override .wv-body's flex:1 + overflow:auto */
+.wv-pdf-root .wv-body.wv-pdf-body {
+  flex: none;
+  overflow: visible;
+  display: block;
+  padding: 0.875rem 1.25rem 1.25rem;
+}
+.wv-pdf-root .wv-body.wv-pdf-body > * {
+  margin-bottom: 0.75rem;
+}
+
+/* Each activity card avoids being split mid-page */
+.wv-pdf-activity,
+.wv-pdf-score-banner,
+.wv-pdf-root .wv-score-panel,
+.wv-pdf-root .wv-concept-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Read-only header inputs (no <input> in PDF; render as styled divs) */
+.wv-pdf-readonly {
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 1.2em;
+}
+
+/* Score banner — colored by tier */
+.wv-pdf-score-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.wv-pdf-score-banner.tier-high { background: #f0fdf4; border-left: 6px solid #22c55e; }
+.wv-pdf-score-banner.tier-mid  { background: #fff7ed; border-left: 6px solid #f59e0b; }
+.wv-pdf-score-banner.tier-low  { background: #fef2f2; border-left: 6px solid #ef4444; }
+
+.wv-pdf-score-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0.25rem 0;
+}
+.wv-pdf-score-banner.tier-high .wv-pdf-score-value { color: #15803d; }
+.wv-pdf-score-banner.tier-mid  .wv-pdf-score-value { color: #b45309; }
+.wv-pdf-score-banner.tier-low  .wv-pdf-score-value { color: #b91c1c; }
+
+.wv-pdf-score-pct {
+  font-size: 1rem;
+  font-weight: 600;
+  color: inherit;
+  margin-left: 0.5rem;
+  opacity: 0.85;
+}
+.wv-pdf-score-hint {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+}
+.wv-pdf-score-right { text-align: right; font-size: 0.85rem; }
+.wv-pdf-meta-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+.wv-pdf-meta-val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Correction labels */
+.wv-pdf-correction {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: #15803d;
+  font-weight: 600;
+}
+.wv-pdf-correction-line {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: #15803d;
+  font-weight: 600;
+}
+.wv-pdf-blank-correction {
+  font-size: 0.78rem;
+  color: #15803d;
+  font-weight: 600;
+  margin: 0 0.25rem;
+}
+
+/* Footer */
+.wv-pdf-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  padding: 0.75rem 0.25rem 0;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 0.5rem;
+}
+
+/* Force activities to single column for PDF (live UI uses 2-col grid) */
+.wv-pdf-root .wv-activities-row {
+  grid-template-columns: 1fr;
+}
+.wv-pdf-root .wv-mcq-options {
+  grid-template-columns: 1fr 1fr;
+}
+.wv-pdf-root .wv-slots-grid {
+  grid-template-columns: repeat(3, 1fr);
+}

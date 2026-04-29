@@ -209,7 +209,7 @@
 }
 .table-head {
   display: grid;
-  grid-template-columns: 2fr 0.8fr 0.8fr 1fr 0.8fr;
+  grid-template-columns: 2fr 0.8fr 0.8fr 1fr 0.8fr 0.7fr;
   padding: 0.625rem 1rem;
   background: var(--color-surface, #F3F3F3);
   font-size: 0.75rem;
@@ -220,13 +220,33 @@
 }
 .participant-row {
   display: grid;
-  grid-template-columns: 2fr 0.8fr 0.8fr 1fr 0.8fr;
+  grid-template-columns: 2fr 0.8fr 0.8fr 1fr 0.8fr 0.7fr;
   align-items: center;
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--color-border, #E7E7E7);
   transition: background 120ms;
 }
 .participant-row:hover { background: var(--color-surface, #F3F3F3); }
+
+/* Per-row download button */
+.btn-dl-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.65rem;
+  background: #fff;
+  color: #008081;
+  border: 1px solid #008081;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  font-family: inherit;
+}
+.btn-dl-row:not(:disabled):hover { background: #008081; color: #fff; }
+.btn-dl-row:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .p-name-cell {
   display: flex;
@@ -336,9 +356,9 @@
   .stat-card { padding: 0.875rem 0.75rem; }
   .stat-value { font-size: 1.375rem; }
 
-  /* Participants table: drop Time + Date columns */
+  /* Participants table: drop Time + Date columns, keep PDF button */
   .table-head,
-  .participant-row { grid-template-columns: 2fr 0.75fr 0.9fr; }
+  .participant-row { grid-template-columns: 2fr 0.75fr 0.9fr 0.7fr; }
   .table-head > span:nth-child(4),
   .table-head > span:nth-child(5),
   .participant-row > .p-time,
@@ -350,9 +370,9 @@
   /* Stats: 1 column */
   .stats-row { grid-template-columns: 1fr; }
 
-  /* Participants: only Name + Score + Status */
+  /* Participants: only Name + Score + Status + PDF */
   .table-head,
-  .participant-row { grid-template-columns: 1fr 0.65fr 0.7fr; }
+  .participant-row { grid-template-columns: 1fr 0.65fr 0.7fr 0.6fr; }
   .table-head > span:nth-child(3),
   .table-head > span:nth-child(4),
   .participant-row > .p-time,

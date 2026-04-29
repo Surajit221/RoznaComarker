@@ -1,5 +1,5 @@
 <!-- ── SUBMITTED SUCCESS SCREEN ────────────────────────── -->
-@if (isSubmitted()) {
+@if (!reviewMode && isSubmitted()) {
   <div class="wv-success-screen">
     <div class="wv-success-card">
       <div class="wv-success-icon">✓</div>
@@ -46,38 +46,50 @@
 }
 
 <!-- WORKSHEET VIEWER -->
-@if (!isSubmitted() && !isLoading() && !loadError() && worksheet()) {
-  <div class="wv-root">
+@if ((reviewMode || !isSubmitted()) && !isLoading() && !loadError() && worksheet()) {
+  <div class="wv-root" [class.wv-review-mode]="reviewMode">
 
     <!-- ══ DARK TEAL HEADER ══ -->
     <div class="wv-header">
-      <div class="wv-header-top-bar">
-        <button class="wv-btn-back" (click)="closed.emit()">← Back</button>
-        <button class="wv-btn-close" (click)="closed.emit()">×</button>
-      </div>
+      @if (!reviewMode) {
+        <div class="wv-header-top-bar">
+          <button class="wv-btn-back" (click)="closed.emit()">← Back</button>
+          <button class="wv-btn-close" (click)="closed.emit()">×</button>
+        </div>
+      }
       <div class="wv-header-body">
         <div class="wv-header-left">
-          @if (worksheet()!.subject) {
+          @if (worksheet()!.subject && !reviewMode) {
             <span class="wv-subject-pill">{{ worksheet()!.subject | uppercase }}</span>
           }
           <h1 class="wv-title">{{ worksheet()!.title }}</h1>
           @if (worksheet()!.description) {
             <p class="wv-description">{{ worksheet()!.description }}</p>
           }
-          <div class="wv-tags">
-            @for (tag of worksheet()!.tags || []; track tag) {
-              <span class="wv-tag-pill">{{ tag }}</span>
-            }
-          </div>
+          @if (!reviewMode) {
+            <div class="wv-tags">
+              @for (tag of worksheet()!.tags || []; track tag) {
+                <span class="wv-tag-pill">{{ tag }}</span>
+              }
+            </div>
+          }
         </div>
         <div class="wv-header-right">
           <label class="wv-field-label">Student name</label>
-          <input class="wv-name-input"
-                 [(ngModel)]="studentNameValue"
-                 placeholder="Enter student name"
-                 [readOnly]="mode === 'preview'" />
+          @if (reviewMode) {
+            <span class="wv-readonly-value">{{ studentNameValue || 'Student' }}</span>
+          } @else {
+            <input class="wv-name-input"
+                   [(ngModel)]="studentNameValue"
+                   placeholder="Enter student name"
+                   [readOnly]="mode === 'preview'" />
+          }
           <label class="wv-field-label">Date</label>
-          <input class="wv-date-input" type="text" [value]="worksheetDate" readonly />
+          @if (reviewMode) {
+            <span class="wv-readonly-value">{{ worksheetDate }}</span>
+          } @else {
+            <input class="wv-date-input" type="text" [value]="worksheetDate" readonly />
+          }
         </div>
       </div>
     </div>
@@ -85,7 +97,32 @@
     <!-- ══ SCROLLABLE BODY ══ -->
     <div class="wv-body">
 
+      <!-- REVIEW SCORE BANNER (only in reviewMode when score data is provided) -->
+      @if (reviewMode && reviewMeta?.totalPointsPossible) {
+        <div class="wv-card wv-review-score-banner" [class]="'wv-score-tier-' + scoreTier">
+          <div class="wv-review-score-left">
+            <span class="wv-review-score-label">SCORE</span>
+            <span class="wv-review-score-value">
+              {{ reviewMeta!.totalPointsEarned }} / {{ reviewMeta!.totalPointsPossible }}
+              <span class="wv-review-score-pct">({{ reviewMeta!.percentage | number:'1.0-0' }}%)</span>
+            </span>
+            <span class="wv-review-score-message">
+              @if (scoreTier === 'high') { Great work! }
+              @else if (scoreTier === 'mid') { Keep practising. }
+              @else { Review and try again. }
+            </span>
+          </div>
+          @if (reviewFormattedTime) {
+            <div class="wv-review-score-right">
+              <span class="wv-review-score-label">TIME</span>
+              <span class="wv-review-score-time">{{ reviewFormattedTime }}</span>
+            </div>
+          }
+        </div>
+      }
+
       <!-- PROGRESS TRACKER -->
+      @if (!reviewMode) {
       <div class="wv-card wv-progress-card">
         <div class="wv-progress-header">
           <div>
@@ -99,9 +136,10 @@
         </div>
         <p class="wv-progress-hint">Start with any activity and watch the progress bar fill up.</p>
       </div>
+      }
 
       <!-- CONCEPT EXPLANATION -->
-      @if (worksheet()!.conceptExplanation) {
+      @if (worksheet()!.conceptExplanation && !reviewMode) {
         <div class="wv-card wv-concept-card">
           <div class="wv-concept-header">
             <div>
@@ -161,7 +199,7 @@
               }
             </div>
 
-            @if (a1Available().length > 0) {
+            @if (a1Available().length > 0 && !reviewMode) {
               <div class="wv-available-cards">
                 @for (item of a1Available(); track item.id) {
                   <div class="wv-avail-card"
@@ -174,13 +212,13 @@
               </div>
             }
 
-            @if (!a1Checked()) {
+            @if (!a1Checked() && !reviewMode) {
               <button class="wv-btn-check"
                       [disabled]="a1Available().length > 0"
                       (click)="checkActivity1()">
                 Check Order
               </button>
-            } @else {
+            } @else if (a1Checked()) {
               <p class="wv-feedback" [class.all-correct]="a1Score() === a1Total()">
                 {{ a1Score() === a1Total() ? '🎉 Perfect order!' : a1Score() + ' / ' + a1Total() + ' correct' }}
               </p>
@@ -252,12 +290,16 @@
                     @for (opt of q.options; track opt; let oi = $index) {
                       <button class="wv-mcq-btn"
                               [class]="getA3OptionClass(q, opt)"
+                              [disabled]="reviewMode"
                               (click)="selectMCQ(q.id, opt)">
                         <span class="wv-opt-letter">{{ OPTION_LETTERS[oi] }}</span>
                         <span>{{ opt }}</span>
                       </button>
                     }
                   </div>
+                  @if (reviewMode && a3Answers()[q.id] && a3Answers()[q.id] !== q.correctAnswer) {
+                    <p class="wv-correct-answer-line">Correct answer: <strong>{{ q.correctAnswer }}</strong></p>
+                  }
                 </div>
               }
             </div>
@@ -299,26 +341,33 @@
                               [class.filled]="!!a4Blanks()[part.blankId!]"
                               [class.correct]="a4Checked() && a4Blanks()[part.blankId!].toLowerCase() === (part.correctAnswer ?? '').toLowerCase()"
                               [class.wrong]="a4Checked() && !!a4Blanks()[part.blankId!] && a4Blanks()[part.blankId!].toLowerCase() !== (part.correctAnswer ?? '').toLowerCase()"
+                              [disabled]="reviewMode"
                               (click)="selectBlank(part.blankId!)">
                         {{ getBlankDisplay(part.blankId!) }}
                       </button>
+                      @if (reviewMode && a4PartWrong(part)) {
+                        <span class="wv-blank-correction">({{ a4PartCorrect(part) }})</span>
+                      }
                     }
                   }
                 </div>
               }
             </div>
 
-            <div class="wv-a4-actions">
-              <button class="wv-btn-reset" (click)="resetActivity4()">Reset</button>
-              <button class="wv-btn-check-answers" (click)="checkActivity4()" [disabled]="a4Checked()">
-                Check Answers
-              </button>
-            </div>
+            @if (!reviewMode) {
+              <div class="wv-a4-actions">
+                <button class="wv-btn-reset" (click)="resetActivity4()">Reset</button>
+                <button class="wv-btn-check-answers" (click)="checkActivity4()" [disabled]="a4Checked()">
+                  Check Answers
+                </button>
+              </div>
+            }
           </div>
         }
       </div>
 
       <!-- SCORE + FEEDBACK PANEL -->
+      @if (!reviewMode) {
       <div class="wv-card wv-score-panel">
         <div class="wv-score-header">
           <div>
@@ -355,6 +404,7 @@
           }
         </div>
       </div>
+      }
 
     </div><!-- /wv-body -->
   </div><!-- /wv-root -->
