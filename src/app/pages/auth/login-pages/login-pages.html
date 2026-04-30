@@ -110,6 +110,8 @@
           <div class="flex flex-row justify-center gap-3">
             <div
               class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
+              [class.opacity-50]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
+              [class.pointer-events-none]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
               (click)="onGoogleLogin()"
             >
               <img src="icons/ic_google.svg" alt="Google" />
@@ -235,6 +237,8 @@
       <div class="flex flex-row justify-center gap-3">
         <div
           class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
+          [class.opacity-50]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
+          [class.pointer-events-none]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
           (click)="onGoogleLogin()"
         >
           <img src="icons/ic_google.svg" alt="Google" />

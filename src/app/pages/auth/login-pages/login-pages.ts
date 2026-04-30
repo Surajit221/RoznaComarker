@@ -63,36 +63,21 @@ export class LoginPages implements OnInit {
       const resp = await this.auth.completeGoogleRedirectIfPresent();
       if (!resp) return;
 
-      const role = this.getSelectedRole() || this.getPreferredRole();
+      // The intended role was already sent to the backend during the exchange
+      // (saved to localStorage before redirect, retrieved by completeGoogleRedirectIfPresent).
+      // The backend either created the user with that role or validated the match.
       const backendRole = resp?.user?.role;
+      const role = this.resolveBackendRole(backendRole) || this.getSelectedRole() || this.getPreferredRole();
+
       if (!role) {
         this.alert.showWarning('Select role', 'Please select Teacher or Student to continue.');
         return;
       }
 
-      if (backendRole !== role) {
-        try {
-          await this.auth.setMyRole(role);
-          this.setPreferredRole(null);
-          this.navigateAfterLogin(role);
-          return;
-        } catch {
-          await this.auth.logout();
-          if (backendRole === 'teacher' || backendRole === 'student') {
-            this.loginForm.patchValue({ role: backendRole });
-          }
-          this.alert.showError(
-            'Role mismatch',
-            `This account is registered as ${backendRole || 'a different role'}. Please select the correct role and try again.`
-          );
-          return;
-        }
-      }
-
       this.setPreferredRole(null);
       this.navigateAfterLogin(role);
     } catch (err: any) {
-      this.alert.showError('Google login failed', err?.message || 'Please try again');
+      this.handleLoginError(err, 'Google login failed');
     }
   }
 
@@ -267,23 +252,13 @@ export class LoginPages implements OnInit {
 
     this.isLoading = true;
     try {
-      const resp = await this.auth.loginWithEmail(email, password);
+      const resp = await this.auth.loginWithEmail(email, password, selectedRole);
       const backendRole = resp?.user?.role;
 
-      const resolvedRole = this.resolvePostLoginRole(selectedRole, backendRole);
-      if (!resolvedRole) {
-        this.alert.showError('Login failed', 'Unable to determine account role.');
-        return;
-      }
-
-      if (this.resolveBackendRole(backendRole) && backendRole !== selectedRole) {
-        this.loginForm.patchValue({ role: resolvedRole });
-        this.alert.showWarning('Role updated', `You logged in as ${resolvedRole}. Redirecting to your dashboard.`);
-      }
-
+      const resolvedRole = this.resolveBackendRole(backendRole) || selectedRole;
       this.navigateAfterLogin(resolvedRole);
     } catch (err: any) {
-      this.alert.showError('Login failed', err?.message || 'Please check your credentials and try again');
+      this.handleLoginError(err, 'Login failed');
     } finally {
       this.isLoading = false;
     }
@@ -301,14 +276,12 @@ export class LoginPages implements OnInit {
 
     this.isLoading = true;
     try {
-      const resp = await this.auth.signupWithEmail(email, password);
+      const resp = await this.auth.signupWithEmail(email, password, role);
       const backendRole = resp?.user?.role;
-      if (backendRole !== role) {
-        await this.auth.setMyRole(role);
-      }
-      this.navigateAfterLogin(role);
+      const resolvedRole = this.resolveBackendRole(backendRole) || role;
+      this.navigateAfterLogin(resolvedRole);
     } catch (err: any) {
-      this.alert.showError('Signup failed', err?.message || 'Please try again');
+      this.handleLoginError(err, 'Signup failed');
     } finally {
       this.isLoading = false;
     }
@@ -327,30 +300,17 @@ export class LoginPages implements OnInit {
 
     this.isLoading = true;
     try {
-      const resp = await this.auth.loginWithGoogle();
+      const resp = await this.auth.loginWithGoogle(selectedRole);
       const backendRole = resp?.user?.role;
-
-      const normalizedBackendRole = this.resolveBackendRole(backendRole);
-      if (normalizedBackendRole && normalizedBackendRole !== selectedRole) {
-        try {
-          await this.auth.setMyRole(selectedRole);
-        } catch {
-          await this.auth.logout();
-          this.alert.showError(
-            'Role mismatch',
-            `This account is registered as ${normalizedBackendRole}. Please select the correct role and try again.`
-          );
-          return;
-        }
-      }
+      const resolvedRole = this.resolveBackendRole(backendRole) || selectedRole;
 
       this.setPreferredRole(null);
-      this.navigateAfterLogin(selectedRole);
+      this.navigateAfterLogin(resolvedRole);
     } catch (err: any) {
       const raw = String(err?.message || err?.code || err || '');
       if (raw.toLowerCase().includes('cross-origin-opener-policy') || raw.toLowerCase().includes('window.close')) {
         try {
-          await this.auth.startGoogleRedirect();
+          await this.auth.startGoogleRedirect(selectedRole);
           return;
         } catch (e: any) {
           this.alert.showError('Google login failed', e?.message || 'Please try again');
@@ -358,9 +318,28 @@ export class LoginPages implements OnInit {
         }
       }
 
-      this.alert.showError('Google login failed', err?.message || 'Please try again');
+      this.handleLoginError(err, 'Google login failed');
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  private handleLoginError(err: any, defaultTitle: string) {
+    const errorData = err?.error;
+
+    if (errorData?.actualRole) {
+      // Role mismatch — show which role the account actually is
+      if (errorData.actualRole === 'teacher' || errorData.actualRole === 'student') {
+        this.loginForm.patchValue({ role: errorData.actualRole });
+      }
+      this.alert.showError(
+        'Role mismatch',
+        `This account is registered as "${errorData.actualRole}". Please select "${errorData.actualRole}" and try again.`
+      );
+    } else if (err?.status === 403) {
+      this.alert.showError('Access denied', errorData?.message || 'You are not authorized.');
+    } else {
+      this.alert.showError(defaultTitle, errorData?.message || err?.message || 'Please try again');
     }
   }
 }
