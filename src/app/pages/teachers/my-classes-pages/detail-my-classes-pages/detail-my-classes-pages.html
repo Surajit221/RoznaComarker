@@ -688,3 +688,10 @@
     </div>
   </div>
 }
+
+<app-error-modal
+  [show]="errorModal.open"
+  [title]="errorModal.title"
+  [message]="errorModal.message"
+  (closed)="errorModal = { open: false, title: '', message: '' }"
+></app-error-modal>

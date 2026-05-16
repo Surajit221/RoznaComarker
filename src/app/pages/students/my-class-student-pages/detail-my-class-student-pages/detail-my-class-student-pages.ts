@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, ViewChild, inject } from '@angular/core';
-import { HttpEventType } from '@angular/common/http';
+import { HttpEventType, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
+import { ErrorModal } from '../../../../shared/ui/error-modal/error-modal';
 import { UploadEssayForm } from './upload-essay-form/upload-essay-form';
 import { DeviceService } from '../../../../services/device.service';
 import { BottomsheetDialog } from '../../../../shared/bottomsheet-dialog/bottomsheet-dialog';
@@ -20,7 +21,7 @@ import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
-  imports: [CommonModule, ModalDialog, UploadEssayForm, BottomsheetDialog, AppBarBackButton],
+  imports: [CommonModule, ModalDialog, UploadEssayForm, BottomsheetDialog, AppBarBackButton, ErrorModal],
   templateUrl: './detail-my-class-student-pages.html',
   styleUrl: './detail-my-class-student-pages.css',
 })
@@ -50,6 +51,8 @@ export class DetailMyClassStudentPages {
 
   classId: string | null = null;
   isLoading = false;
+
+  errorModal = { open: false, title: '', message: '' };
 
   classSummary: BackendClassSummary | null = null;
 
@@ -155,6 +158,14 @@ export class DetailMyClassStudentPages {
     try {
       this.classSummary = await this.classApi.getClassSummary(classId);
     } catch (err: any) {
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        const errorMessage = err?.error?.message || err?.message || '';
+        if (errorMessage.toLowerCase().includes('class not found')) {
+          this.alert.showError('Class not found', 'Your class data was reset. Please navigate to My Classes.');
+          this.router.navigate(['/student/my-classes']);
+          return;
+        }
+      }
       // keep page usable even if summary fails
       this.classSummary = null;
     }
@@ -232,7 +243,15 @@ export class DetailMyClassStudentPages {
       );
       this.assignments = assignmentCards;
     } catch (err: any) {
-      this.alert.showError('Failed to load assignments', err?.message || 'Please try again');
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        const errorMessage = err?.error?.message || err?.message || '';
+        if (errorMessage.toLowerCase().includes('class not found')) {
+          this.alert.showError('Class not found', 'Your class data was reset. Please navigate to My Classes.');
+          this.router.navigate(['/student/my-classes']);
+          return;
+        }
+      }
+      this.errorModal = { open: true, title: 'Failed to load assignments', message: err?.message || 'Please try again' };
     } finally {
       this.isLoading = false;
     }
@@ -379,7 +398,7 @@ export class DetailMyClassStudentPages {
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Please try again';
       this.uploadErrorMessage = message;
-      this.alert.showError('Upload failed', message);
+      this.errorModal = { open: true, title: 'Upload failed', message };
     } finally {
       this.isLoading = false;
     }
