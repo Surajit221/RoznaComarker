@@ -6,10 +6,10 @@
      [attr.aria-describedby]="'em-desc'">
   <div class="em-panel">
 
-    <!-- Solid red icon circle -->
+    <!-- Outlined red icon circle -->
     <div class="em-icon-circle">
       <svg class="em-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
            aria-hidden="true">
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -17,7 +17,12 @@
     </div>
 
     <h2 class="em-title" id="em-title">{{ title }}</h2>
-    <p class="em-message" id="em-desc">{{ message }}</p>
+    
+    <!-- Notification bar -->
+    <div class="em-notification-bar">
+      <span class="em-notification-text">{{ message }}</span>
+    </div>
+    
     <button class="em-ok-btn" (click)="close()" autofocus>OK</button>
 
   </div>
