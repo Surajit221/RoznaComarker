@@ -14,9 +14,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
-  ElementRef,
   OnInit,
-  ViewChild,
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -54,8 +52,6 @@ export class StudentWorksheetResultsPage implements OnInit {
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
   private readonly alert       = inject(AlertService);
   private readonly auth        = inject(AuthService);
-
-  @ViewChild('reviewViewer', { read: ElementRef }) reviewViewerEl!: ElementRef;
 
   submission: WorksheetSubmission | null = null;
   worksheetTitle = '';
@@ -287,10 +283,6 @@ export class StudentWorksheetResultsPage implements OnInit {
       this.alert.showWarning('Worksheet not ready', 'Please wait a moment for the worksheet to finish loading.');
       return;
     }
-    if (!this.reviewViewerEl?.nativeElement) {
-      this.alert.showWarning('Viewer not ready', 'Please wait for the worksheet to finish rendering.');
-      return;
-    }
     this.isPdfDownloading = true;
     this.cdr.markForCheck();
 
@@ -298,11 +290,21 @@ export class StudentWorksheetResultsPage implements OnInit {
       const studentName = this.studentName || 'Student';
       const safeName    = studentName.replace(/\s+/g, '-').toLowerCase();
       const safeTitle   = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
-      const safeDate    = this.formattedDate.replace(/\//g, '-');
+      const dateStr     = this.formattedDate;
 
-      await this.pdfRenderer.renderFromElement(
-        this.reviewViewerEl.nativeElement,
-        `${safeName}_${safeTitle}_${safeDate}.pdf`,
+      await this.pdfRenderer.renderViewerOffscreen(
+        {
+          worksheet: this.worksheet,
+          worksheetId: this.submission.worksheetId,
+          studentName,
+          date: dateStr,
+          submittedAnswers: (this.submission.answers as any[]) ?? [],
+          totalPointsEarned: this.submission.totalPointsEarned,
+          totalPointsPossible: this.submission.totalPointsPossible,
+          percentage: this.submission.percentage,
+          timeTaken: this.submission.timeTaken,
+        },
+        `${safeName}_${safeTitle}.pdf`,
       );
     } catch (err: any) {
       this.alert.showError(

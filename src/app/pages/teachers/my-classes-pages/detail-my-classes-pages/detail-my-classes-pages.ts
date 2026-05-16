@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
+import { ErrorModal } from '../../../../shared/ui/error-modal/error-modal';
 import { AssignmentForm } from './assignment-form/assignment-form';
 import { DialogQrClasses } from './dialog-qr-classes/dialog-qr-classes';
 import { DialogViewSubmissions } from './dialog-view-submissions/dialog-view-submissions';
@@ -45,6 +47,7 @@ import { ResourceStateService } from '../../../../services/resource-state.servic
     WorksheetAssignModal,
     FlashcardAssignModal,
     WorksheetViewerComponent,
+    ErrorModal,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
@@ -93,6 +96,8 @@ export class DetailMyClassesPages {
 
   classId: string | null = null;
   isLoading = false;
+
+  errorModal = { open: false, title: '', message: '' };
 
   isBannerUploading = false;
 
@@ -311,7 +316,15 @@ export class DetailMyClassesPages {
     if (!classId) return;
     try {
       this.classSummary = await this.classApi.getClassSummary(classId, { forceRefresh });
-    } catch {
+    } catch (err: any) {
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        const errorMessage = err?.error?.message || err?.message || '';
+        if (errorMessage.toLowerCase().includes('class not found')) {
+          this.alert.showError('Class not found', 'Your class data was reset. Please navigate to My Classes.');
+          this.router.navigate(['/teacher/my-classes']);
+          return;
+        }
+      }
       if (!this.classSummary) {
         this.classSummary = null;
       }
@@ -348,7 +361,7 @@ export class DetailMyClassesPages {
       if (this.classSummary) {
         this.classSummary = { ...this.classSummary, bannerUrl: prevUrl };
       }
-      this.alert.showError('Failed to update banner', err?.message || 'Please try again');
+      this.errorModal = { open: true, title: 'Failed to update banner', message: err?.message || 'Please try again' };
     } finally {
       this.isBannerUploading = false;
       try {
@@ -399,7 +412,7 @@ export class DetailMyClassesPages {
 
       this.alert.showToast('Rubric parsed', 'success');
     } catch (err: any) {
-      this.alert.showError('Attach rubric failed', err?.error?.message || err?.message || 'Please try again');
+      this.errorModal = { open: true, title: 'Attach rubric failed', message: err?.error?.message || err?.message || 'Please try again' };
     } finally {
       this.isRubricAttaching = false;
     }
@@ -481,7 +494,15 @@ export class DetailMyClassesPages {
       this.studentSubmissionStatsById = statsByStudent;
       this.applyStudentStats();
     } catch (err: any) {
-      this.alert.showError('Failed to load assignments', err?.message || 'Please try again');
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        const errorMessage = err?.error?.message || err?.message || '';
+        if (errorMessage.toLowerCase().includes('class not found')) {
+          this.alert.showError('Class not found', 'Your class data was reset. Please navigate to My Classes.');
+          this.router.navigate(['/teacher/my-classes']);
+          return;
+        }
+      }
+      this.errorModal = { open: true, title: 'Failed to load assignments', message: err?.message || 'Please try again' };
     } finally {
       this.isLoading = false;
     }
@@ -525,7 +546,7 @@ export class DetailMyClassesPages {
       }
     } catch (err: any) {
       const msg = err?.error?.message || err?.message || 'Please try again';
-      this.alert.showError('Failed to load rubric', msg);
+      this.errorModal = { open: true, title: 'Failed to load rubric', message: msg };
       return;
     }
 
@@ -564,7 +585,7 @@ export class DetailMyClassesPages {
       this.selectedRubricDesigner = this.normalizeRubricDesigner(designer, this.selectedRubricDefaultTitle);
       this.alert.showToast('Rubric generated', 'success');
     } catch (err: any) {
-      this.alert.showError('Generate Rubric failed', err?.error?.message || err?.message || 'Please try again');
+      this.errorModal = { open: true, title: 'Generate Rubric failed', message: err?.error?.message || err?.message || 'Please try again' };
     } finally {
       this.isRubricGenerating = false;
     }
@@ -590,7 +611,7 @@ export class DetailMyClassesPages {
       this.closeRubricDialog();
       await this.loadAssignments();
     } catch (err: any) {
-      this.alert.showError('Save rubric failed', err?.error?.message || err?.message || 'Please try again');
+      this.errorModal = { open: true, title: 'Save rubric failed', message: err?.error?.message || err?.message || 'Please try again' };
     }
   }
 
@@ -825,6 +846,14 @@ export class DetailMyClassesPages {
       this.students = (students || []).map((s) => this.mapStudent(s));
       this.applyStudentStats();
     } catch (err: any) {
+      if (err instanceof HttpErrorResponse && err.status === 404) {
+        const errorMessage = err?.error?.message || err?.message || '';
+        if (errorMessage.toLowerCase().includes('class not found')) {
+          this.alert.showError('Class not found', 'Your class data was reset. Please navigate to My Classes.');
+          this.router.navigate(['/teacher/my-classes']);
+          return;
+        }
+      }
       this.alert.showError('Failed to load students', err?.error?.message || err?.message || 'Please try again');
     }
   }
@@ -855,7 +884,7 @@ export class DetailMyClassesPages {
       this.alert.showSuccess('Removed', 'Student removed from the class.');
     } catch (err: any) {
       this.students = prevStudents;
-      this.alert.showError('Failed to remove student', err?.error?.message || err?.message || 'Please try again');
+      this.errorModal = { open: true, title: 'Failed to remove student', message: err?.error?.message || err?.message || 'Please try again' };
     }
   }
 
@@ -977,7 +1006,7 @@ export class DetailMyClassesPages {
     } catch (err: any) {
       this.assignments = prevAssignments;
       this.assignmentsById = prevAssignmentsById;
-      this.alert.showError('Failed to delete assignment', err?.error?.message || err?.message || 'Please try again');
+      this.errorModal = { open: true, title: 'Failed to delete assignment', message: err?.error?.message || err?.message || 'Please try again' };
     }
   }
 
@@ -1154,7 +1183,7 @@ export class DetailMyClassesPages {
   async onSendInvitations(emails: string[]) {
     const classId = this.classId;
     if (!classId) {
-      this.alert.showError('Missing class', 'Unable to invite students: class id is missing.');
+      this.errorModal = { open: true, title: 'Missing class', message: 'Unable to invite students: class id is missing.' };
       return;
     }
 
@@ -1180,7 +1209,7 @@ export class DetailMyClassesPages {
 
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Please try again';
-      this.alert.showError('Failed to send invitations', message);
+      this.errorModal = { open: true, title: 'Failed to send invitations', message };
     }
   }
 }

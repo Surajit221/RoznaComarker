@@ -46,9 +46,17 @@
                 [ngClass]="{ 'bg-[#F3F3F3]': item.status == 'waiting', 'bg-[#B0F8D5]': item.status == 'completed', 'bg-[#F5E1A3]': item.status == 'pending',  'bg-[#D7DBFF]': item.status == 'in-progress', }"
               >
                 <div class="col-span-5">
-                  <p class="text-xl font-bold">
-                    {{ item.title }}
-                  </p>
+                  <div class="flex items-center gap-2 mb-1">
+                    <p class="text-xl font-bold mb-0">
+                      {{ item.title }}
+                    </p>
+                    @if (item.resourceType === 'worksheet') {
+                      <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold">Worksheet</span>
+                    }
+                    @if (item.resourceType === 'flashcard') {
+                      <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
+                    }
+                  </div>
                   <div class="flex flex-row items-center gap-4">
                     <p class="text-gray-500 text-sm">{{ item.dueDate }}</p>
                     <p class="text-gray-500 text-sm">{{ item.status }}</p>
@@ -218,9 +226,17 @@
               <p class="text-gray-500 text-xs">{{ item.dueDate }}</p>
               <p class="text-gray-500 text-xs">{{ item.status }}</p>
             </div>
-            <p class="text-base font-bold leading-normal">
-              {{ item.title }}
-            </p>
+            <div class="flex items-center gap-2 mt-1">
+              <p class="text-base font-bold leading-normal mb-0">
+                {{ item.title }}
+              </p>
+              @if (item.resourceType === 'worksheet') {
+                <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold">Worksheet</span>
+              }
+              @if (item.resourceType === 'flashcard') {
+                <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
+              }
+            </div>
           </div>
           <div class="text-start mt-2">
             @if(item.resourceType === 'flashcard' && item.resourceId && item.status !== 'completed') {
@@ -326,3 +342,10 @@
   }
 
 </ng-container>
+
+<app-error-modal
+  [show]="errorModal.open"
+  [title]="errorModal.title"
+  [message]="errorModal.message"
+  (closed)="errorModal = { open: false, title: '', message: '' }"
+></app-error-modal>
