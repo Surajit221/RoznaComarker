@@ -61,7 +61,11 @@
   }
 
   .swal-popup-custom {
-    @apply rounded-3xl bg-red-200 shadow-xl p-6;
+    @apply rounded-3xl bg-white shadow-xl p-6;
+  }
+
+  .swal-error-popup {
+    @apply bg-[#FEF2F2] border-2 border-[#DC2626];
   }
 
   .swal-title-custom {
@@ -69,7 +73,7 @@
   }
 
   .swal-html-custom {
-    @apply text-base bg-red-400 text-gray-600;
+    @apply text-base text-gray-600;
   }
 
   .swal2-container {

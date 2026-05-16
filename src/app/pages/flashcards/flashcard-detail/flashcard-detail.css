@@ -119,17 +119,25 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
+  /* Hover lift effect */
+  transition: transform 200ms ease;
 }
+.card-stage:hover { transform: translateY(-2px); }
+
+/* Flip wrapper — height driven by the taller of front/back */
 .flip-card {
   width: 100%;
-  min-height: 240px;
+  max-width: 600px;
+  min-height: 320px;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: var(--radius-xl);
+  transition: transform 400ms ease;
+  border-radius: 16px;
+  /* Invisible spacer so wrapper height = visible face height */
 }
 .flip-card.flipped { transform: rotateY(180deg); }
 
+/* Both faces share absolute positioning — but height comes from GRID trick */
 .flip-front,
 .flip-back {
   position: absolute;
@@ -137,49 +145,254 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 2rem;
-  border-radius: var(--radius-xl);
+  gap: 0;
+  border-radius: 16px;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   text-align: center;
+  overflow: hidden;            /* image clips to border-radius */
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  border: 1.5px solid rgba(0,128,128,0.15);
 }
+
+/* ── Template A: with-image front ── */
 .flip-front {
   background: var(--color-white);
-  border: 2px solid var(--color-primary);
-  box-shadow: 0 4px 20px rgba(0, 128, 129, 0.12);
 }
+
+/* ── Template B: text-only front ── */
+.flip-front.template-text {
+  background: linear-gradient(135deg, #e6f4f4 0%, #cce8e8 60%, #b3dada 100%);
+  /* Radial glow for premium feel */
+  background-image:
+    radial-gradient(ellipse at 30% 20%, rgba(0,128,129,0.18) 0%, transparent 65%),
+    linear-gradient(135deg, #e6f4f4 0%, #cce8e8 60%, #b3dada 100%);
+}
+
 .flip-back {
   background: var(--color-navy);
-  border: 2px solid var(--color-navy);
+  border-color: var(--color-navy);
   transform: rotateY(180deg);
 }
 
+/* ─── IMAGE AREA (Bug 2 fix) ──────────────────────────────── */
+.card-image-wrap {
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px 14px 0 0;   /* matches card top corners exactly */
+  background: var(--color-surface);
+  aspect-ratio: 16 / 9;           /* 16:9 maintained always */
+  max-height: 200px;              /* desktop cap */
+}
+
+.card-image-wrap img.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;              /* never distorted, never floating */
+  display: block;
+  border-radius: 0;               /* radius comes from wrapper */
+}
+
+/* Overlay gradient at bottom of image for readability */
+.card-image-gradient {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 40%;
+  background: linear-gradient(to top, rgba(0,0,0,0.30) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Image placeholder (Bug 2 fix — when no image or load fails) */
+.card-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.card-image-placeholder .placeholder-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+/* Image loading shimmer */
+.card-image-shimmer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ─── CARD BODY (scrollable content zone) ─────────────────── */
+.card-body {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1.75rem;        /* at least 20px all sides */
+  min-height: 0;                  /* allow shrink */
+  box-sizing: border-box;
+}
+
+/* ─── SCROLLABLE EXPLANATION ZONE (Bug 1 fix) ─────────────── */
+.card-back-scroll {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  padding: 1.5rem 1.75rem 0;
+  box-sizing: border-box;
+  position: relative;
+  -webkit-overflow-scrolling: touch;  /* smooth mobile scroll */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.3) transparent;
+}
+.card-back-scroll::-webkit-scrollbar { width: 4px; }
+.card-back-scroll::-webkit-scrollbar-track { background: transparent; }
+.card-back-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 4px;
+}
+
+/* Fade gradient at bottom of scroll area — hints at more content */
+.card-back-fade {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to top, var(--color-navy) 0%, transparent 100%);
+  pointer-events: none;
+  flex-shrink: 0;
+  margin-top: -48px;   /* overlap last lines of text */
+}
+
+/* Label row inside card body */
 .side-label {
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.55;
+  letter-spacing: 0.12em;
+  opacity: 0.7;
+  flex-shrink: 0;
+  padding-top: 0.25rem;
 }
 .flip-front .side-label { color: var(--color-primary); }
 .flip-back  .side-label { color: var(--color-white); }
 
+/* Divider line under label */
+.side-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(0,128,128,0.18);
+  margin: 0.25rem 0 0.5rem;
+  flex-shrink: 0;
+}
+.flip-back .side-divider { background: rgba(255,255,255,0.18); }
+
+/* Large icon for template B */
+.card-subject-icon {
+  font-size: 2.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Card term/title */
 .card-text {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 1.375rem;           /* 22px desktop */
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 .flip-front .card-text { color: var(--color-text); }
 .flip-back  .card-text { color: var(--color-white); }
+
+/* Back explanation text (Bug 1 fix — no fixed height, never clipped) */
+.card-explanation {
+  margin: 0;
+  font-size: 1rem;               /* 16px desktop */
+  font-weight: 400;
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  color: rgba(255,255,255,0.9);
+  text-align: left;
+  width: 100%;
+  padding-bottom: 1.5rem;       /* space above fade overlay */
+}
 
 .flip-hint {
   font-size: 0.75rem;
   color: var(--color-text-muted);
   user-select: none;
   margin-top: 0.25rem;
+  padding-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+/* Template B: text-only card front special styles */
+.template-text .card-text {
+  font-size: 1.5rem;             /* bigger on text-only: 22–26px */
+  color: var(--color-navy);
+}
+.template-text .card-subject-icon { filter: drop-shadow(0 2px 4px rgba(0,128,128,0.25)); }
+.template-text .flip-hint         { color: var(--color-primary); opacity: 0.8; }
+
+/* Template A back: thumbnail strip */
+.card-back-thumb {
+  width: 100%;
+  height: 60px;
+  flex-shrink: 0;
+  overflow: hidden;
+  opacity: 0.7;
+}
+.card-back-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── Template selector toggle ─────────────────────────────── */
+.template-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  justify-content: center;
+}
+.template-btn {
+  background: var(--color-white);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 1rem;
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 150ms;
+}
+.template-btn.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 /* ── Navigation ─────────────────────────────────────────── */
@@ -225,6 +438,19 @@
   transition: background 150ms;
 }
 .btn-study:hover { background: var(--color-primary-dark); }
+.btn-assign {
+  background: var(--color-warning);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.625rem 1.5rem;
+  font-family: var(--font-main);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+}
+.btn-assign:hover { background: var(--color-warning-dark); }
 
 .action-secondary {
   display: flex;
@@ -314,15 +540,42 @@
   background: var(--color-primary);
   color: var(--color-white);
 }
+/* Dot style for >7 cards on mobile */
+.thumb.thumb-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-white);
+}
+.thumb.thumb-dot.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+.empty-state-icon { font-size: 3rem; opacity: 0.4; }
+.empty-state h3 { font-size: 1.125rem; font-weight: 700; color: var(--color-text); margin: 0; }
+.empty-state p { font-size: 0.875rem; color: var(--color-text-muted); margin: 0; }
 
 /* ── Responsive — Tablet ────────────────────────────────── */
 @media (max-width: 768px) {
   .detail-wrap { padding: 1rem; }
   .detail-title { font-size: 1.25rem; }
-  .flip-front,
-  .flip-back { padding: 1.5rem; }
-  .card-text { font-size: 1.0625rem; }
-  .flip-card { min-height: 200px; }
+  .card-body { padding: 1.25rem 1.5rem; }
+  .card-back-scroll { padding: 1.25rem 1.5rem 0; }
+  .card-text { font-size: 1.125rem; }
+  .card-explanation { font-size: 0.9375rem; }
+  .card-image-wrap { max-height: 160px; }
+  .flip-card { min-height: 280px; }
 }
 
 /* ── Responsive — Mobile ────────────────────────────────── */
@@ -330,31 +583,34 @@
   .detail-wrap { padding: 0.875rem 0.75rem; }
   .detail-title { font-size: 1.0625rem; }
 
-  /* Flip card: tighter padding, smaller minimum height */
-  .flip-front,
-  .flip-back { padding: 1.125rem 1rem; }
-  .flip-card { min-height: 170px; }
-  .card-text { font-size: 0.9375rem; }
+  /* Card: full width, tighter padding */
+  .flip-card { min-height: 240px; max-width: 100%; }
+  .card-body { padding: 1rem 1.25rem; }
+  .card-back-scroll { padding: 1rem 1.25rem 0; }
+  .card-text { font-size: 1rem; }          /* never below 16px (mobile) */
+  .card-explanation { font-size: 0.875rem; } /* 14px mobile minimum */
   .flip-hint { font-size: 0.6875rem; }
+  .card-image-wrap { max-height: 140px; }
 
   /* Breadcrumb: allow wrapping so it never truncates awkwardly */
   .breadcrumb { flex-wrap: wrap; gap: 0.25rem; }
   .crumb-current { max-width: 160px; }
 
-  /* Nav buttons: make them equal-width and touch-friendly */
+  /* Nav buttons: touch-friendly 44×44px targets */
   .card-nav { gap: 0.5rem; }
-  .nav-btn { flex: 1; text-align: center; padding: 0.625rem 0.5rem; }
+  .nav-btn { flex: 1; text-align: center; padding: 0.75rem 0.5rem; min-height: 44px; }
 
   /* Action bar: stack vertically on small screens */
   .action-bar { flex-direction: column; align-items: stretch; gap: 0.625rem; }
-  .btn-study { width: 100%; text-align: center; padding: 0.75rem; }
+  .btn-study, .btn-assign { width: 100%; text-align: center; padding: 0.75rem; }
   .action-secondary { justify-content: flex-end; }
+  .action-icon-btn { min-width: 44px; min-height: 44px; }
 
   /* More dropdown: prevent it from going off-screen */
   .more-dropdown { right: 0; min-width: 140px; }
 
-  /* Thumbnails: smaller to fit more on one row */
-  .thumb { width: 30px; height: 30px; font-size: 0.6875rem; }
+  /* Thumbnails: pagination dots on mobile > 7 cards handled in HTML */
+  .thumb { width: 30px; height: 30px; font-size: 0.6875rem; min-height: 30px; }
 
   /* Progress label: smaller */
   .progress-label { font-size: 0.6875rem; }
@@ -415,6 +671,16 @@
   border: 2px solid #e5e7eb;
   border-top-color: #008081;
   animation: spin .7s linear infinite;
+}
+
+/* QR section */
+.share-qr-section {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  margin-bottom: 1rem;
 }
 
 /* URL row */

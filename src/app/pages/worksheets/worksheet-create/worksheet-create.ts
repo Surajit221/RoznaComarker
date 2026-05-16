@@ -20,16 +20,27 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import {
   WorksheetApiService,
+  type Worksheet,
   type WorksheetDraft,
 } from '../../../api/worksheet-api.service';
-import { AlertService } from '../../../services/alert.service';
+import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
+import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
+import { WorksheetAssignInlineModal } from '../../../components/teacher/worksheet-assign-inline-modal/worksheet-assign-inline-modal';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
+
+const GRADE_MAP: Record<string, string[]> = {
+  'Early Learning': ['Pre-K', 'K'],
+  'Elementary':     ['1st', '2nd', '3rd', '4th', '5th'],
+  'Middle School':  ['6th', '7th', '8th'],
+  'High School':    ['9th', '10th', '11th', '12th'],
+  'University':     ['University', 'Adult'],
+};
 
 @Component({
   selector: 'app-worksheet-create',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ErrorModal, SuccessModal, WorksheetAssignInlineModal],
   templateUrl: './worksheet-create.html',
   styleUrl: './worksheet-create.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,26 +49,95 @@ export class WorksheetCreatePage implements OnDestroy {
   private readonly router   = inject(Router);
   private readonly route    = inject(ActivatedRoute);
   private readonly api      = inject(WorksheetApiService);
-  private readonly alert    = inject(AlertService);
   private readonly cdr      = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
 
   /* ── Form fields ─────────────────────────── */
-  topic      = '';
-  language   = 'English';
+  topic        = '';
+  language     = 'English';
   difficulty: Difficulty = 'medium';
+  subject      = '';
+  cefrLevel    = '';
+  gradeCategory = '';
+  gradeLevel   = '';
+  description  = '';
+  selectedTheme = '';
+  assignmentDeadline = '';
+
+  /* ── Activity Selection ───────────────────── */
+  availableActivityTypes = [
+    { id: 'ordering', label: 'Ordering/Sequencing', description: 'Arrange items in correct order' },
+    { id: 'classification', label: 'Classification', description: 'Categorize items into groups' },
+    { id: 'multipleChoice', label: 'Multiple Choice', description: 'Answer multiple choice questions' },
+    { id: 'fillBlanks', label: 'Fill in the Blanks', description: 'Complete sentences with missing words' },
+    { id: 'matching', label: 'Matching Pairs', description: 'Match related items together' },
+    { id: 'trueFalse', label: 'True/False', description: 'Determine if statements are true or false' },
+    { id: 'shortAnswer', label: 'Short Answer', description: 'Write brief responses to questions' },
+  ];
+  selectedActivityTypes: string[] = ['ordering', 'classification', 'multipleChoice', 'fillBlanks'];
+  useCustomActivities = false;
 
   /* ── State ───────────────────────────────── */
-  isGenerating = false;
-  isSaving     = false;
+  isGenerating        = false;
+  isSaving            = false;
+  errorModal  = { open: false, title: '', message: '' };
+  successModal = { open: false, title: '', message: '' };
+  isRegeneratingTheme = false;
   draft: WorksheetDraft | null = null;
+  savedWorksheet: Worksheet | null = null;
   sourceContent = '';
+  gradeOptions: string[] = [];
+  selectedFile: File | null = null;
+  isUploading = false;
+  showAssignModal = false;
 
   readonly languages  = ['English', 'Arabic', 'French', 'Spanish'];
   readonly difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
+  readonly subjects   = ['', 'Math', 'Science', 'Social Studies', 'English Language', 'ESL',
+                         'History', 'Geography', 'Arts', 'Music', 'Physical Education', 'Technology', 'Other'];
+  readonly cefrLevels = [
+    { value: '',   label: 'CEFR Level' },
+    { value: 'A1', label: 'A1 — Beginner' },
+    { value: 'A2', label: 'A2 — Elementary' },
+    { value: 'B1', label: 'B1 — Intermediate' },
+    { value: 'B2', label: 'B2 — Upper Intermediate' },
+    { value: 'C1', label: 'C1 — Advanced' },
+    { value: 'C2', label: 'C2 — Proficient' },
+  ];
+  readonly gradeCategories = ['', 'Early Learning', 'Elementary', 'Middle School', 'High School', 'University'];
+  readonly themes = [
+    { value: '', label: 'Default Theme' },
+    { value: 'modern', label: 'Modern' },
+    { value: 'classic', label: 'Classic' },
+    { value: 'corporate', label: 'Corporate' },
+    { value: 'academic', label: 'Academic' },
+    { value: 'futuristic', label: 'Futuristic' },
+  ];
 
   activitySummary(): { label: string; count: number }[] {
     if (!this.draft) return [];
+    
+    // Check if new activities array exists
+    if (this.draft.activities && Array.isArray(this.draft.activities) && this.draft.activities.length > 0) {
+      return this.draft.activities.map(activity => {
+        const data = activity.data || {};
+        let count = 0;
+        if (activity.type === 'ordering' || activity.type === 'classification' || activity.type === 'matching' || activity.type === 'dragDrop' || activity.type === 'sorting') {
+          count = data.items?.length || 0;
+        } else if (activity.type === 'multipleChoice' || activity.type === 'trueFalse' || activity.type === 'shortAnswer') {
+          count = data.questions?.length || 0;
+        } else if (activity.type === 'fillBlanks') {
+          count = data.sentences?.length || 0;
+        } else if (activity.type === 'labeling') {
+          count = data.labels?.length || 0;
+        } else if (activity.type === 'wordSearch' || activity.type === 'crossword') {
+          count = data.words?.length || 0;
+        }
+        return { label: activity.title || activity.type, count };
+      });
+    }
+    
+    // Fallback to legacy activity1-4 fields
     return [
       { label: 'Ordering items', count: this.draft.activity1?.items?.length ?? 0 },
       { label: 'Classification items', count: this.draft.activity2?.items?.length ?? 0 },
@@ -68,17 +148,26 @@ export class WorksheetCreatePage implements OnDestroy {
 
   generate(): void {
     if (this.isGenerating) return;
+    
+    if (this.selectedFile) {
+      this.generateFromFile();
+      return;
+    }
+    
     const topic = this.topic.trim();
     if (!topic) {
-      this.alert.showError('Topic required', 'Please enter a topic to generate from.');
+      this.errorModal = { open: true, title: 'Topic Required', message: 'Please enter a topic or paste text before generating.' };
+      this.cdr.markForCheck();
       return;
     }
     this.isGenerating = true;
     this.draft = null;
     this.cdr.markForCheck();
 
+    const activityTypesParam = this.useCustomActivities ? this.selectedActivityTypes : null;
+
     this.api
-      .generate({ inputType: 'topic', content: topic, language: this.language, difficulty: this.difficulty })
+      .generate({ inputType: 'topic', content: topic, language: this.language, difficulty: this.difficulty, activityTypes: activityTypesParam })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
@@ -89,45 +178,308 @@ export class WorksheetCreatePage implements OnDestroy {
         },
         error: (err: any) => {
           this.isGenerating = false;
-          this.alert.showError('Generation failed', err?.error?.message ?? err?.message ?? 'Try again.');
+          this.errorModal = { open: true, title: 'Generation Failed', message: err?.error?.message ?? err?.message ?? 'Please try again.' };
           this.cdr.markForCheck();
         },
       });
   }
 
+  generateFromFile(): void {
+    if (!this.selectedFile || this.isUploading) return;
+    
+    this.isUploading = true;
+    this.isGenerating = true;
+    this.draft = null;
+    this.cdr.markForCheck();
+
+    const activityTypesParam = this.useCustomActivities ? this.selectedActivityTypes : null;
+
+    this.api
+      .uploadAndGenerate(this.selectedFile, { language: this.language, difficulty: this.difficulty, activityTypes: activityTypesParam })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.draft = res.worksheet ?? null;
+          this.sourceContent = res.sourceContent ?? (this.selectedFile?.name ?? 'Uploaded file');
+          this.isUploading = false;
+          this.isGenerating = false;
+          this.cdr.markForCheck();
+        },
+        error: (err: any) => {
+          this.isUploading = false;
+          this.isGenerating = false;
+          this.errorModal = { open: true, title: 'Upload Failed', message: err?.error?.message ?? err?.message ?? 'Please try again.' };
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  onFileSelected(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    if (!allowedTypes.includes(file.type)) {
+      this.errorModal = { open: true, title: 'Invalid File Type', message: 'Please upload a PDF, DOCX, or TXT file.' };
+      this.cdr.markForCheck();
+      return;
+    }
+    
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      this.errorModal = { open: true, title: 'File Too Large', message: 'Please upload a file smaller than 10MB.' };
+      this.cdr.markForCheck();
+      return;
+    }
+    
+    this.selectedFile = file;
+    this.topic = `File: ${file.name}`;
+    this.cdr.markForCheck();
+  }
+
+  removeFile(): void {
+    this.selectedFile = null;
+    this.topic = '';
+    this.cdr.markForCheck();
+  }
+
+  toggleActivityType(typeId: string): void {
+    if (this.selectedActivityTypes.includes(typeId)) {
+      // Don't allow deselecting if only 1 selected
+      if (this.selectedActivityTypes.length > 1) {
+        this.selectedActivityTypes = this.selectedActivityTypes.filter(t => t !== typeId);
+      }
+    } else {
+      // Don't allow more than 6 activities
+      if (this.selectedActivityTypes.length < 6) {
+        this.selectedActivityTypes = [...this.selectedActivityTypes, typeId];
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleCustomActivities(): void {
+    // NOTE: [(ngModel)] on the checkbox already updated useCustomActivities to the new
+    // checked state before this (change) handler fires. Do NOT flip it again here —
+    // that was the double-toggle bug causing two clicks to be required.
+    if (!this.useCustomActivities) {
+      // Reset to default when disabling custom selection
+      this.selectedActivityTypes = ['ordering', 'classification', 'multipleChoice', 'fillBlanks'];
+    }
+    this.cdr.markForCheck();
+  }
+
+  generateThemeFromSelection(themeSelection: string): any {
+    const themes = {
+      modern: {
+        primaryColor: '#008081',
+        accentColor: '#e0f7f7',
+        backgroundColor: '#f8fafc',
+        headerGradient: 'linear-gradient(135deg, #008081 0%, #00a8a8 100%)',
+        patternType: 'modern-dots',
+        fontStyle: 'modern',
+        headerStyle: 'bold',
+        darkHeader: true,
+        colorPalette: {
+          correct: '#22c55e',
+          wrong: '#ef4444',
+          highlight: '#fbbf24',
+          cardBackground: '#ffffff',
+          borderColor: '#e2e8f0'
+        }
+      },
+      classic: {
+        primaryColor: '#1e293b',
+        accentColor: '#f1f5f9',
+        backgroundColor: '#ffffff',
+        headerGradient: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+        patternType: 'classic-lines',
+        fontStyle: 'serif',
+        headerStyle: 'classic',
+        darkHeader: true,
+        colorPalette: {
+          correct: '#059669',
+          wrong: '#dc2626',
+          highlight: '#d97706',
+          cardBackground: '#fafafa',
+          borderColor: '#d1d5db'
+        }
+      },
+      corporate: {
+        primaryColor: '#1e40af',
+        accentColor: '#dbeafe',
+        backgroundColor: '#f9fafb',
+        headerGradient: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+        patternType: 'corporate-grid',
+        fontStyle: 'professional',
+        headerStyle: 'corporate',
+        darkHeader: true,
+        colorPalette: {
+          correct: '#059669',
+          wrong: '#dc2626',
+          highlight: '#2563eb',
+          cardBackground: '#ffffff',
+          borderColor: '#e5e7eb'
+        }
+      },
+      academic: {
+        primaryColor: '#7c3aed',
+        accentColor: '#ede9fe',
+        backgroundColor: '#fefefe',
+        headerGradient: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)',
+        patternType: 'academic-pattern',
+        fontStyle: 'academic',
+        headerStyle: 'formal',
+        darkHeader: true,
+        colorPalette: {
+          correct: '#059669',
+          wrong: '#dc2626',
+          highlight: '#7c3aed',
+          cardBackground: '#ffffff',
+          borderColor: '#e5e7eb'
+        }
+      },
+      futuristic: {
+        primaryColor: '#06b6d4',
+        accentColor: '#cffafe',
+        backgroundColor: '#0f172a',
+        headerGradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+        patternType: 'futuristic-circuit',
+        fontStyle: 'tech',
+        headerStyle: 'futuristic',
+        darkHeader: true,
+        colorPalette: {
+          correct: '#10b981',
+          wrong: '#ef4444',
+          highlight: '#06b6d4',
+          cardBackground: '#1e293b',
+          borderColor: '#334155'
+        }
+      }
+    };
+
+    return themes[themeSelection as keyof typeof themes] || themes.modern;
+  }
+
+  onGradeCategoryChange(): void {
+    this.gradeOptions = GRADE_MAP[this.gradeCategory] ?? [];
+    this.gradeLevel = '';
+  }
+
+  get themePatternLabel(): string {
+    const p = this.savedWorksheet?.theme?.patternType ?? 'none';
+    return p === 'none' ? 'No pattern' : p.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   save(): void {
     if (!this.draft || this.isSaving) return;
     if (!this.draft.title?.trim()) {
-      this.alert.showError('Title required', 'Please give the worksheet a title.');
+      this.errorModal = { open: true, title: 'Title Required', message: 'Please give the worksheet a title.' };
+      this.cdr.markForCheck();
       return;
     }
+
+    if (!this.assignmentDeadline) {
+      this.errorModal = { open: true, title: 'Deadline Required', message: 'Please select an assignment deadline.' };
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const d = new Date(this.assignmentDeadline);
+    if (isNaN(d.getTime())) {
+      this.errorModal = { open: true, title: 'Invalid Deadline', message: 'Please select a valid deadline date/time.' };
+      this.cdr.markForCheck();
+      return;
+    }
+    if (d.getTime() <= Date.now()) {
+      this.errorModal = { open: true, title: 'Invalid Deadline', message: 'Deadline must be a future date/time.' };
+      this.cdr.markForCheck();
+      return;
+    }
+    const assignmentDeadlineIso = d.toISOString();
+
     this.isSaving = true;
     this.cdr.markForCheck();
 
+    // Prepare worksheet data with backward compatibility
+    const worksheetData: any = {
+      ...this.draft,
+      generationSource: this.selectedFile ? 'file' : 'topic',
+      sourceContent: this.sourceContent,
+      language: this.language,
+      subject: this.subject,
+      cefrLevel: this.cefrLevel,
+      gradeLevel: this.gradeLevel,
+      gradeCategory: this.gradeCategory,
+      description: this.description,
+      difficulty: this.difficulty,
+      assignmentDeadline: assignmentDeadlineIso,
+      theme: this.selectedTheme ? this.generateThemeFromSelection(this.selectedTheme) : undefined,
+    };
+
+    // Ensure activities array is included if present in draft
+    if (this.draft.activities && Array.isArray(this.draft.activities)) {
+      worksheetData.activities = this.draft.activities;
+    }
+
     this.api
-      .create({ ...this.draft, generationSource: 'topic', sourceContent: this.sourceContent, language: this.language, difficulty: this.difficulty })
+      .create(worksheetData)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
           this.isSaving = false;
+          this.savedWorksheet = res.worksheet ?? null;
+          this.draft = null;
           this.cdr.markForCheck();
-          const worksheetId = res.worksheet?._id;
-          const returnToClassId = this.route.snapshot.queryParamMap.get('returnToClassId');
-          if (returnToClassId) {
-            this.router.navigate(['/teacher/my-classes/detail', returnToClassId], {
-              queryParams: { openWorksheetAssignModal: 'true', preselectedWorksheetId: worksheetId ?? null },
-            });
-          } else {
-            this.alert.showSuccess('Saved!', 'Worksheet saved to your library.');
-            this.router.navigate(['/teacher/my-classes']);
-          }
         },
         error: (err: any) => {
           this.isSaving = false;
+          this.errorModal = { open: true, title: 'Save Failed', message: err?.error?.message ?? err?.message ?? 'Could not save worksheet. Please try again.' };
           this.cdr.markForCheck();
-          this.alert.showError('Save failed', err?.error?.message ?? err?.message ?? 'Save failed.');
         },
       });
+  }
+
+  regenerateTheme(): void {
+    if (!this.savedWorksheet || this.isRegeneratingTheme) return;
+    this.isRegeneratingTheme = true;
+    this.cdr.markForCheck();
+    this.api
+      .regenerateTheme(this.savedWorksheet._id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          if (this.savedWorksheet && res?.data?.theme) {
+            this.savedWorksheet = { ...this.savedWorksheet, theme: res.data.theme };
+          }
+          this.isRegeneratingTheme = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.isRegeneratingTheme = false;
+          this.errorModal = { open: true, title: 'Theme Error', message: 'Could not regenerate theme. Please try again.' };
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  proceedToAssign(): void {
+    if (!this.savedWorksheet) return;
+    this.showAssignModal = true;
+    this.cdr.markForCheck();
+  }
+
+  onWorksheetAssigned(result: { classId: string; assignmentId: string }): void {
+    this.showAssignModal = false;
+    this.cdr.markForCheck();
+    // Navigate to class details page
+    this.router.navigate(['/teacher/my-classes/detail', result.classId]);
+  }
+
+  onAssignModalClosed(): void {
+    this.showAssignModal = false;
+    this.cdr.markForCheck();
   }
 
   cancel(): void {

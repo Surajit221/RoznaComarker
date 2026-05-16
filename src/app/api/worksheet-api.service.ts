@@ -51,16 +51,102 @@ export interface WorksheetActivity4Sentence {
   parts: WorksheetSentencePart[];
 }
 
+export interface WorksheetActivity5Pair {
+  id: string;
+  leftItem: {
+    text: string;
+    imageUrl?: string;
+  };
+  rightItem: {
+    text: string;
+    imageUrl?: string;
+  };
+}
+
+export interface WorksheetActivity6Question {
+  id: string;
+  text: string;
+  correctAnswer: boolean;
+  explanation?: string;
+}
+
+export interface WorksheetActivity7Label {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  targetId: string;
+}
+
+export interface WorksheetActivity8Sequence {
+  id: string;
+  title: string;
+  items: {
+    id: string;
+    text: string;
+    imageUrl?: string;
+    correctOrder: number;
+  }[];
+}
+
+export interface WorksheetThemeColorPalette {
+  correct: string;
+  wrong: string;
+  highlight: string;
+  cardBackground: string;
+  borderColor: string;
+}
+
+export interface WorksheetTheme {
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  headerGradient: string;
+  patternType: string;
+  fontStyle: string;
+  headerStyle: string;
+  darkHeader: boolean;
+  generatedFor?: string;
+  colorPalette: WorksheetThemeColorPalette;
+}
+
+export interface WorksheetLibraryParams {
+  cefrLevel?: string;
+  gradeLevel?: string;
+  gradeCategory?: string;
+  subject?: string;
+  difficulty?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
+export interface WorksheetPagination {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
 export interface WorksheetDraft {
   title: string;
   description?: string;
   subject?: string;
+  cefrLevel?: string | null;
+  gradeLevel?: string | null;
+  gradeCategory?: string | null;
+  assignmentDeadline: string;
   tags?: string[];
   estimatedMinutes?: number;
   language?: string;
-  difficulty?: string;
+  difficulty?: string | null;
   generationSource?: string;
   sourceContent?: string;
+  thumbnailUrl?: string | null;
+  isPublic?: boolean;
+  theme?: WorksheetTheme;
   conceptExplanation?: {
     title: string;
     body: string;
@@ -89,6 +175,34 @@ export interface WorksheetDraft {
     wordBank: string[];
     sentences: WorksheetActivity4Sentence[];
   } | null;
+  activity5?: {
+    title: string;
+    instructions: string;
+    pairs: WorksheetActivity5Pair[];
+  } | null;
+  activity6?: {
+    title: string;
+    instructions: string;
+    questions: WorksheetActivity6Question[];
+  } | null;
+  activity7?: {
+    title: string;
+    instructions: string;
+    imageUrl: string;
+    labels: WorksheetActivity7Label[];
+  } | null;
+  activity8?: {
+    title: string;
+    instructions: string;
+    sequences: WorksheetActivity8Sequence[];
+  } | null;
+  activities?: Array<{
+    type: string;
+    title: string;
+    instructions: string;
+    data: any;
+    order: number;
+  }>;
 }
 
 export interface Worksheet extends WorksheetDraft {
@@ -114,7 +228,7 @@ export interface WorksheetSubmission {
   worksheetId: string;
   assignmentId: string;
   studentId: string;
-  answers: AnswerResult[];
+  answers: AnswerResult[] | Record<string, Record<string, any>>;
   totalPointsEarned: number;
   totalPointsPossible: number;
   percentage: number;
@@ -122,13 +236,17 @@ export interface WorksheetSubmission {
   submittedAt: string;
   gradingStatus: string;
   worksheet?: { title?: string };
+  timeSpentPerActivity?: Record<string, number>;
 }
 
 export interface GenerateWorksheetDto {
-  inputType: 'topic' | 'image';
+  inputType: 'topic' | 'image' | 'file';
   content?: string;
   language?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
+  fileName?: string;
+  fileType?: string;
+  activityTypes?: string[] | null;
 }
 
 export interface SubmitWorksheetDto {
@@ -165,6 +283,24 @@ export class WorksheetApiService {
   }
 
   /**
+   * Upload a file and generate worksheet from it.
+   * @param file - File to upload (PDF, DOCX, etc.)
+   * @param options - Generation options
+   */
+  uploadAndGenerate(file: File, options: { language?: string; difficulty?: 'easy' | 'medium' | 'hard'; activityTypes?: string[] | null }): Observable<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string; fileName?: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options.language) formData.append('language', options.language);
+    if (options.difficulty) formData.append('difficulty', options.difficulty);
+    if (options.activityTypes) formData.append('activityTypes', JSON.stringify(options.activityTypes));
+    
+    return this.http.post<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string; fileName?: string }>(
+      `${this.base}/upload-and-generate`,
+      formData
+    );
+  }
+
+  /**
    * Save a finalized worksheet to the database.
    * @param worksheet - Worksheet data including sections
    */
@@ -182,10 +318,26 @@ export class WorksheetApiService {
   }
 
   /**
-   * Fetch all worksheets owned by the current teacher.
+   * Fetch all worksheets owned by the current teacher (simple, no params).
    */
-  getAll(): Observable<{ success: boolean; data: Worksheet[] }> {
-    return this.http.get<{ success: boolean; data: Worksheet[] }>(this.base);
+  getAll(): Observable<{ success: boolean; data: Worksheet[]; pagination?: WorksheetPagination }> {
+    return this.http.get<{ success: boolean; data: Worksheet[]; pagination?: WorksheetPagination }>(this.base);
+  }
+
+  /**
+   * Fetch worksheets with filter, search, sort, and pagination support.
+   */
+  getLibrary(params: WorksheetLibraryParams = {}): Observable<{ success: boolean; data: Worksheet[]; pagination: WorksheetPagination }> {
+    let query = `?limit=${params.limit ?? 50}&page=${params.page ?? 1}`;
+    if (params.search)        query += `&search=${encodeURIComponent(params.search)}`;
+    if (params.cefrLevel)     query += `&cefrLevel=${encodeURIComponent(params.cefrLevel)}`;
+    if (params.gradeLevel)    query += `&gradeLevel=${encodeURIComponent(params.gradeLevel)}`;
+    if (params.gradeCategory) query += `&gradeCategory=${encodeURIComponent(params.gradeCategory)}`;
+    if (params.subject)       query += `&subject=${encodeURIComponent(params.subject)}`;
+    if (params.difficulty)    query += `&difficulty=${encodeURIComponent(params.difficulty)}`;
+    if (params.sortBy)        query += `&sortBy=${params.sortBy}`;
+    if (params.sortOrder)     query += `&sortOrder=${params.sortOrder}`;
+    return this.http.get<{ success: boolean; data: Worksheet[]; pagination: WorksheetPagination }>(`${this.base}${query}`);
   }
 
   /**
@@ -255,10 +407,111 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param payload - classId, title, deadline
    */
-  assignToClass(worksheetId: string, payload: { classId: string; title: string; deadline: string }): Observable<{ success: boolean; data: { assignment: any } }> {
+  assignToClass(worksheetId: string, payload: { classId: string; title: string; deadline?: string }): Observable<{ success: boolean; data: { assignment: any } }> {
     return this.http.post<{ success: boolean; data: { assignment: any } }>(
       `${this.base}/${worksheetId}/assign`,
       payload
+    );
+  }
+
+  /**
+   * Re-generate an AI theme for an existing worksheet (teacher only).
+   * @param worksheetId - Worksheet document _id
+   */
+  regenerateTheme(worksheetId: string): Observable<{ success: boolean; data: { theme: WorksheetTheme } }> {
+    return this.http.post<{ success: boolean; data: { theme: WorksheetTheme } }>(
+      `${this.base}/${worksheetId}/regenerate-theme`,
+      {}
+    );
+  }
+
+  /**
+   * Generate or retrieve share token for a worksheet (teacher only).
+   * @param worksheetId - Worksheet document _id
+   */
+  shareSet(worksheetId: string): Observable<{ success: boolean; shareUrl: string; shareToken: string }> {
+    return this.http.post<{ success: boolean; shareUrl: string; shareToken: string }>(
+      `${this.base}/${worksheetId}/share`,
+      {}
+    );
+  }
+
+  /**
+   * Revoke share token for a worksheet (teacher only).
+   * @param worksheetId - Worksheet document _id
+   */
+  revokeShare(worksheetId: string): Observable<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `${this.base}/${worksheetId}/share`
+    );
+  }
+
+  /**
+   * Student fetches their draft for a worksheet.
+   * @param worksheetId - Worksheet document _id
+   * @param assignmentId - Assignment document _id
+   */
+  getDraft(worksheetId: string, assignmentId: string): Observable<{ success: boolean; data: any }> {
+    return this.http.get<{ success: boolean; data: any }>(
+      `${this.base}/${worksheetId}/draft?assignmentId=${assignmentId}`
+    );
+  }
+
+  /**
+   * Student saves or updates their draft for a worksheet.
+   * @param worksheetId - Worksheet document _id
+   * @param payload - Draft data including activity answers, progress, time spent
+   */
+  saveDraft(worksheetId: string, payload: {
+    assignmentId: string;
+    activity1Answers?: Record<string, string>;
+    activity2Answers?: Record<string, string>;
+    activity2Revealed?: Record<string, boolean>;
+    activity3Answers?: Record<string, string>;
+    activity4Blanks?: Record<string, string>;
+    progressPercentage?: number;
+    timeSpent?: number;
+  }): Observable<{ success: boolean; data: any }> {
+    return this.http.post<{ success: boolean; data: any }>(
+      `${this.base}/${worksheetId}/draft`,
+      payload
+    );
+  }
+
+  /**
+   * Student deletes their draft for a worksheet (called on submit).
+   * @param worksheetId - Worksheet document _id
+   * @param assignmentId - Assignment document _id
+   */
+  deleteDraft(worksheetId: string, assignmentId: string): Observable<{ success: boolean; deleted: boolean }> {
+    return this.http.delete<{ success: boolean; deleted: boolean }>(
+      `${this.base}/${worksheetId}/draft?assignmentId=${assignmentId}`
+    );
+  }
+
+  /**
+   * Teacher fetches comprehensive report for a worksheet.
+   * @param worksheetId - Worksheet document _id
+   * @param params - Filter and pagination params
+   */
+  getWorksheetReport(worksheetId: string, params: {
+    page?: number;
+    limit?: number;
+    classId?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}): Observable<{ success: boolean; data: any }> {
+    let query = '';
+    if (params.page) query += `&page=${params.page}`;
+    if (params.limit) query += `&limit=${params.limit}`;
+    if (params.classId) query += `&classId=${params.classId}`;
+    if (params.status) query += `&status=${params.status}`;
+    if (params.dateFrom) query += `&dateFrom=${params.dateFrom}`;
+    if (params.dateTo) query += `&dateTo=${params.dateTo}`;
+    const separator = query ? '?' : '';
+    return this.http.get<{ success: boolean; data: any }>(
+      `${this.base}/${worksheetId}/report${separator}${query.replace('&', '?')}`
     );
   }
 }

@@ -14,20 +14,109 @@
   @if (!draft || isGenerating) {
     <div class="wcp-card">
       <div class="wcp-section-label">TOPIC / SOURCE TEXT</div>
+      
+      <!-- File Upload Area -->
+      <div class="wcp-upload-area" [class.wcp-upload-area--has-file]="selectedFile">
+        @if (!selectedFile) {
+          <div class="wcp-upload-dropzone" (click)="fileInput.click()">
+            <div class="wcp-upload-icon">📁</div>
+            <p class="wcp-upload-text">Drop a file or click to browse</p>
+            <p class="wcp-upload-hint">PDF, DOCX, or TXT (max 10MB)</p>
+            <input 
+              #fileInput
+              type="file" 
+              class="wcp-file-input"
+              accept=".pdf,.docx,.txt"
+              (change)="onFileSelected($event)"
+              [disabled]="isGenerating || isUploading">
+          </div>
+        } @else {
+          <div class="wcp-file-selected">
+            <div class="wcp-file-info">
+              <span class="wcp-file-icon">📄</span>
+              <div class="wcp-file-details">
+                <p class="wcp-file-name">{{ selectedFile.name }}</p>
+                <p class="wcp-file-size">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+              </div>
+            </div>
+            <button class="wcp-remove-file-btn" (click)="removeFile()" [disabled]="isGenerating || isUploading">
+              ✕
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Topic Textarea -->
       <textarea
         class="wcp-textarea"
         rows="5"
         placeholder="Enter a topic or paste text to generate an interactive worksheet…"
         [(ngModel)]="topic"
-        [disabled]="isGenerating">
+        [disabled]="isGenerating || selectedFile !== null">
       </textarea>
 
+      <!-- Description -->
+      <div class="wcp-form-group">
+        <label class="wcp-label">Description <span class="wcp-label-optional">(optional)</span></label>
+        <textarea
+          class="wcp-textarea wcp-desc-textarea"
+          rows="2"
+          maxlength="500"
+          placeholder="Short description of this worksheet…"
+          [(ngModel)]="description"
+          [disabled]="isGenerating">
+        </textarea>
+        <span class="wcp-char-counter">{{ description.length }}/500</span>
+      </div>
+
+      <!-- Classification row 1: Subject + CEFR -->
+      <div class="wcp-form-row">
+        <div class="wcp-form-group">
+          <label class="wcp-label">Subject</label>
+          <select class="wcp-select" [(ngModel)]="subject" [disabled]="isGenerating">
+            @for (s of subjects; track s) {
+              <option [value]="s">{{ s || 'Select subject…' }}</option>
+            }
+          </select>
+        </div>
+        <div class="wcp-form-group">
+          <label class="wcp-label">CEFR Level</label>
+          <select class="wcp-select" [(ngModel)]="cefrLevel" [disabled]="isGenerating">
+            @for (c of cefrLevels; track c.value) {
+              <option [value]="c.value">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Classification row 2: Grade Category + Grade Level -->
+      <div class="wcp-form-row">
+        <div class="wcp-form-group">
+          <label class="wcp-label">Grade Category</label>
+          <select class="wcp-select" [(ngModel)]="gradeCategory" (ngModelChange)="onGradeCategoryChange()" [disabled]="isGenerating">
+            @for (g of gradeCategories; track g) {
+              <option [value]="g">{{ g || 'Select category…' }}</option>
+            }
+          </select>
+        </div>
+        <div class="wcp-form-group">
+          <label class="wcp-label">Grade Level</label>
+          <select class="wcp-select" [(ngModel)]="gradeLevel" [disabled]="isGenerating || !gradeCategory">
+            <option value="">{{ gradeCategory ? 'Select grade…' : 'Pick category first' }}</option>
+            @for (g of gradeOptions; track g) {
+              <option [value]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Classification row 3: Difficulty + Language + Deadline + Theme -->
       <div class="wcp-form-row">
         <div class="wcp-form-group">
           <label class="wcp-label">Difficulty</label>
           <select class="wcp-select" [(ngModel)]="difficulty" [disabled]="isGenerating">
             @for (d of difficulties; track d) {
-              <option [value]="d">{{ d | titlecase }}</option>
+              <option [value]="d">{{ d === 'easy' ? 'Easy' : d === 'medium' ? 'Medium' : 'Hard' }}</option>
             }
           </select>
         </div>
@@ -39,6 +128,57 @@
             }
           </select>
         </div>
+        <div class="wcp-form-group">
+          <label class="wcp-label">Assignment Deadline</label>
+          <input
+            class="wcp-select"
+            type="datetime-local"
+            [(ngModel)]="assignmentDeadline"
+            [disabled]="isGenerating" />
+        </div>
+        <div class="wcp-form-group">
+          <label class="wcp-label">Theme</label>
+          <select class="wcp-select" [(ngModel)]="selectedTheme" [disabled]="isGenerating">
+            @for (t of themes; track t.value) {
+              <option [value]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Activity Selection -->
+      <div class="wcp-activity-section">
+        <div class="wcp-activity-header">
+          <label class="wcp-label">Activity Types</label>
+          <label class="wcp-toggle-switch">
+            <input type="checkbox" [(ngModel)]="useCustomActivities" (change)="toggleCustomActivities()" [disabled]="isGenerating">
+            <span class="wcp-toggle-slider"></span>
+            <span class="wcp-toggle-label">Custom Selection</span>
+          </label>
+        </div>
+        
+        @if (useCustomActivities) {
+          <div class="wcp-activity-grid">
+            @for (activity of availableActivityTypes; track activity.id) {
+              <div 
+                class="wcp-activity-card" 
+                [class.wcp-activity-card--selected]="selectedActivityTypes.includes(activity.id)"
+                (click)="toggleActivityType(activity.id)"
+                [class.wcp-activity-card--disabled]="isGenerating">
+                <div class="wcp-activity-icon">
+                  @if (selectedActivityTypes.includes(activity.id)) { ✓ }
+                </div>
+                <div class="wcp-activity-info">
+                  <p class="wcp-activity-name">{{ activity.label }}</p>
+                  <p class="wcp-activity-desc">{{ activity.description }}</p>
+                </div>
+              </div>
+            }
+          </div>
+          <p class="wcp-activity-hint">Select {{ selectedActivityTypes.length }}/6 activity types</p>
+        } @else {
+          <p class="wcp-activity-default">Using default: Ordering, Classification, Multiple Choice, Fill in the Blanks</p>
+        }
       </div>
 
       <button
@@ -81,7 +221,7 @@
         <div class="wcp-draft-actions">
           <button class="wcp-btn-regenerate" (click)="draft = null">↺ Regenerate</button>
           <button class="wcp-btn-save" [disabled]="isSaving" (click)="save()">
-            @if (isSaving) { Saving… } @else { Save Worksheet }
+            @if (isSaving) { <span class="wcp-spinner"></span> Saving… } @else { Save Worksheet }
           </button>
         </div>
       </div>
@@ -109,7 +249,89 @@
       <div class="wcp-bottom-actions">
         <button class="wcp-btn-cancel" (click)="cancel()">Cancel</button>
         <button class="wcp-btn-save" [disabled]="isSaving" (click)="save()">
-          @if (isSaving) { Saving… } @else { Save &amp; Continue → }
+          @if (isSaving) { <span class="wcp-spinner wcp-spinner-white"></span> Saving… } @else { Save &amp; Continue → }
+        </button>
+      </div>
+
+    </div>
+  }
+
+  <!-- ── SAVED STATE: THEME PREVIEW ───────────────────────── -->
+  @if (savedWorksheet && !draft) {
+    <div class="wcp-card wcp-saved-card">
+
+      <!-- saved badge -->
+      <div class="wcp-saved-badge">
+        <span class="wcp-saved-check">✓</span>
+        <div>
+          <p class="wcp-saved-title">Worksheet saved!</p>
+          <p class="wcp-saved-sub">{{ savedWorksheet.title }}</p>
+        </div>
+      </div>
+
+      <!-- theme preview header -->
+      <div class="wcp-theme-section-label">AI-GENERATED VISUAL THEME</div>
+
+      @if (savedWorksheet.theme) {
+        <div class="wcp-theme-preview">
+          <!-- mini header strip using the gradient -->
+          <div
+            class="wcp-theme-header-strip"
+            [style.background]="savedWorksheet.theme.headerGradient || savedWorksheet.theme.primaryColor">
+            <span class="wcp-theme-strip-title">{{ savedWorksheet.title }}</span>
+          </div>
+
+          <!-- swatches row -->
+          <div class="wcp-theme-swatches">
+            <div class="wcp-swatch-group">
+              <div class="wcp-swatch" [style.background]="savedWorksheet.theme.primaryColor"></div>
+              <span class="wcp-swatch-label">Primary</span>
+            </div>
+            <div class="wcp-swatch-group">
+              <div class="wcp-swatch" [style.background]="savedWorksheet.theme.accentColor"></div>
+              <span class="wcp-swatch-label">Accent</span>
+            </div>
+            <div class="wcp-swatch-group">
+              <div class="wcp-swatch wcp-swatch-bordered" [style.background]="savedWorksheet.theme.backgroundColor"></div>
+              <span class="wcp-swatch-label">Background</span>
+            </div>
+            @if (savedWorksheet.theme.colorPalette.correct) {
+              <div class="wcp-swatch-group">
+                <div class="wcp-swatch" [style.background]="savedWorksheet.theme.colorPalette.correct"></div>
+                <span class="wcp-swatch-label">Correct</span>
+              </div>
+            }
+            @if (savedWorksheet.theme.colorPalette.wrong) {
+              <div class="wcp-swatch-group">
+                <div class="wcp-swatch" [style.background]="savedWorksheet.theme.colorPalette.wrong"></div>
+                <span class="wcp-swatch-label">Wrong</span>
+              </div>
+            }
+          </div>
+
+          <!-- meta pills -->
+          <div class="wcp-theme-meta">
+            <span class="wcp-theme-pill">🎨 {{ savedWorksheet.theme.fontStyle | titlecase }} font</span>
+            <span class="wcp-theme-pill">🖼 {{ savedWorksheet.theme.headerStyle | titlecase }} header</span>
+            <span class="wcp-theme-pill">✦ {{ themePatternLabel }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- actions -->
+      <div class="wcp-theme-actions">
+        <button
+          class="wcp-btn-regen-theme"
+          [disabled]="isRegeneratingTheme"
+          (click)="regenerateTheme()">
+          @if (isRegeneratingTheme) {
+            <span class="wcp-spinner"></span> Regenerating…
+          } @else {
+            ↺ Regenerate Theme
+          }
+        </button>
+        <button class="wcp-btn-save" (click)="proceedToAssign()">
+          Assign Worksheet →
         </button>
       </div>
 
@@ -117,3 +339,28 @@
   }
 
 </div>
+
+<!-- Error Modal -->
+<app-error-modal
+  [show]="errorModal.open"
+  [title]="errorModal.title"
+  [message]="errorModal.message"
+  (closed)="errorModal = { open: false, title: '', message: '' }">
+</app-error-modal>
+
+<!-- Success Modal -->
+<app-success-modal
+  [show]="successModal.open"
+  [title]="successModal.title"
+  [message]="successModal.message"
+  (closed)="successModal = { open: false, title: '', message: '' }">
+</app-success-modal>
+
+<!-- Worksheet Assign Inline Modal -->
+<app-worksheet-assign-inline-modal
+  [(show)]="showAssignModal"
+  [worksheetId]="savedWorksheet?._id || ''"
+  [worksheetTitle]="savedWorksheet?.title || ''"
+  [defaultDeadline]="savedWorksheet?.assignmentDeadline || ''"
+  (assigned)="onWorksheetAssigned($event)">
+</app-worksheet-assign-inline-modal>

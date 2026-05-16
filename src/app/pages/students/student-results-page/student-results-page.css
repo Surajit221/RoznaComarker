@@ -47,6 +47,10 @@
   gap: 0.75rem;
 }
 
+.srp-breakdown.srp-breakdown-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .srp-breakdown-item {
   border: 1px solid #E7E7E7;
   border-radius: 16px;
@@ -65,6 +69,10 @@
 
 .srp-breakdown-value-warn {
   color: #B45309;
+}
+
+.srp-breakdown-value-incomplete {
+  color: #6B7280;
 }
 
 .srp-breakdown-label {

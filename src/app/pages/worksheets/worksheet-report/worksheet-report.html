@@ -10,15 +10,18 @@
   <div class="report-header">
     <button class="btn-back" (click)="goBack()">← Back</button>
     <h2 class="report-title">{{ worksheet?.title ?? 'Worksheet Submissions' }}</h2>
-    <button class="btn-dl-report"
-            [disabled]="isPdfReportDownloading"
-            (click)="downloadReportPdf()">
-      @if (isPdfReportDownloading) {
-        <span class="pdf-spinner" aria-hidden="true"></span> Generating...
-      } @else {
-        ↓ Download Report
-      }
-    </button>
+    <div class="header-actions">
+      <button class="btn-share" (click)="openShareModal()">📤 Share</button>
+      <button class="btn-dl-report"
+              [disabled]="isPdfReportDownloading"
+              (click)="downloadReportPdf()">
+        @if (isPdfReportDownloading) {
+          <span class="pdf-spinner" aria-hidden="true"></span> Generating...
+        } @else {
+          ↓ Download Report
+        }
+      </button>
+    </div>
   </div>
 
   <!-- SKELETON -->
@@ -31,32 +34,307 @@
 
   <ng-container *ngIf="!isLoading">
 
-    <!-- STATS ROW -->
+    <!-- OVERVIEW STATS ROW -->
     <div class="stats-row">
       <div class="stat-card">
         <span class="stat-icon">👥</span>
-        <span class="stat-label">SUBMISSIONS</span>
-        <span class="stat-value">{{ totalSubmissions }}</span>
+        <span class="stat-label">TOTAL ASSIGNED</span>
+        <span class="stat-value">{{ overview?.totalAssigned || 0 }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">✓</span>
+        <span class="stat-label">SUBMITTED</span>
+        <span class="stat-value">{{ overview?.submittedCount || 0 }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⏳</span>
+        <span class="stat-label">PENDING</span>
+        <span class="stat-value">{{ overview?.pendingCount || 0 }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⚠</span>
+        <span class="stat-label">LATE</span>
+        <span class="stat-value">{{ overview?.lateCount || 0 }}</span>
       </div>
       <div class="stat-card">
         <span class="stat-icon">📊</span>
-        <span class="stat-label">AVERAGE SCORE</span>
-        <span class="stat-value">{{ averageScore | number:'1.0-0' }}%</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon">⏱</span>
-        <span class="stat-label">AVERAGE TIME</span>
-        <span class="stat-value">{{ averageTime | formatTime }}</span>
+        <span class="stat-label">COMPLETION RATE</span>
+        <span class="stat-value">{{ overview?.completionRate || 0 }}%</span>
       </div>
     </div>
 
-    <!-- SEARCH -->
+    <!-- ANALYTICS ROW -->
+    @if (analytics) {
+      <div class="stats-row analytics-row">
+        <div class="stat-card">
+          <span class="stat-icon">📈</span>
+          <span class="stat-label">AVERAGE SCORE</span>
+          <span class="stat-value">{{ analytics?.averageScore || 0 }}%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📉</span>
+          <span class="stat-label">MEDIAN SCORE</span>
+          <span class="stat-value">{{ analytics?.medianScore || 0 }}%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🎯</span>
+          <span class="stat-label">PASS RATE (≥70%)</span>
+          <span class="stat-value">{{ analytics?.passRate || 0 }}%</span>
+        </div>
+      </div>
+    }
+
+    <!-- SCORE BANDS -->
+    @if (scoreBands) {
+      <div class="score-bands-section">
+        <h3 class="section-title">Score Distribution</h3>
+        <div class="score-bands-grid">
+          <div class="score-band-item excellent">
+            <span class="band-label">90-100%</span>
+            <span class="band-count">{{ scoreBands['90-100'] || 0 }}</span>
+            <span class="band-bar" [style.width.%]="(scoreBands['90-100'] || 0) / (overview?.submittedCount || 1) * 100"></span>
+          </div>
+          <div class="score-band-item good">
+            <span class="band-label">80-89%</span>
+            <span class="band-count">{{ scoreBands['80-89'] || 0 }}</span>
+            <span class="band-bar" [style.width.%]="(scoreBands['80-89'] || 0) / (overview?.submittedCount || 1) * 100"></span>
+          </div>
+          <div class="score-band-item fair">
+            <span class="band-label">70-79%</span>
+            <span class="band-count">{{ scoreBands['70-79'] || 0 }}</span>
+            <span class="band-bar" [style.width.%]="(scoreBands['70-79'] || 0) / (overview?.submittedCount || 1) * 100"></span>
+          </div>
+          <div class="score-band-item poor">
+            <span class="band-label">Below 70%</span>
+            <span class="band-count">{{ scoreBands['below-70'] || 0 }}</span>
+            <span class="band-bar" [style.width.%]="(scoreBands['below-70'] || 0) / (overview?.submittedCount || 1) * 100"></span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- TEACHER INSIGHTS -->
+    @if (teacherInsights && teacherInsights.length > 0) {
+      <div class="teacher-insights-section">
+        <h3 class="section-title">📝 Teacher Insights</h3>
+        <div class="insights-list">
+          @for (insight of teacherInsights; track $index) {
+            <div class="insight-item">
+              <span class="insight-bullet">💡</span>
+              <span class="insight-text">{{ insight }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- WORKSHEET DETAILS SECTION -->
+    @if (worksheet) {
+      <div class="worksheet-details-section">
+        <h3 class="section-title">Worksheet Details</h3>
+        <div class="details-grid">
+          <div class="detail-card">
+            <span class="detail-label">Subject</span>
+            <span class="detail-value">{{ worksheet.subject || 'N/A' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">CEFR Level</span>
+            <span class="detail-value">{{ worksheet.cefrLevel || 'N/A' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Grade Level</span>
+            <span class="detail-value">{{ worksheet.gradeLevel || 'N/A' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Difficulty</span>
+            <span class="detail-value">{{ worksheet.difficulty || 'N/A' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Theme</span>
+            <span class="detail-value">{{ worksheet.theme?.primaryColor ? 'Custom' : 'Default' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Activities</span>
+            <span class="detail-value">{{ sectionAnalytics.length }} sections</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- SECTION ANALYTICS SECTION -->
+    @if (sectionAnalytics.length > 0) {
+      <div class="section-analytics-section">
+        <h3 class="section-title">Section Performance Analytics</h3>
+        <div class="analytics-grid">
+          @for (section of sectionAnalytics; track section.id) {
+            <div class="section-card">
+              <div class="section-header">
+                <h4 class="section-name">{{ section.title }}</h4>
+                <span class="section-type">{{ section.type }}</span>
+              </div>
+              <div class="section-metrics">
+                <div class="metric-row">
+                  <span class="metric-label">Score</span>
+                  <span class="metric-value" [class.good]="section.averageScore >= 70" [class.poor]="section.averageScore < 70">
+                    {{ section.averageScore }}%
+                  </span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Completion</span>
+                  <span class="metric-value">{{ section.completionRate }}%</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Avg Time</span>
+                  <span class="metric-value">{{ section.averageTimeSpent }}s</span>
+                </div>
+                <div class="metric-row">
+                  <span class="metric-label">Questions</span>
+                  <span class="metric-value">{{ section.totalQuestions }}</span>
+                </div>
+              </div>
+              <div class="section-breakdown">
+                <div class="breakdown-item correct">
+                  <span class="breakdown-count">{{ section.correctAnswers }}</span>
+                  <span class="breakdown-label">Correct</span>
+                </div>
+                <div class="breakdown-item incorrect">
+                  <span class="breakdown-count">{{ section.incorrectAnswers }}</span>
+                  <span class="breakdown-label">Incorrect</span>
+                </div>
+                <div class="breakdown-item skipped">
+                  <span class="breakdown-count">{{ section.skippedQuestions }}</span>
+                  <span class="breakdown-label">Skipped</span>
+                </div>
+              </div>
+              <!-- Most Missed Questions in Section -->
+              @if (section.mostMissedQuestions && section.mostMissedQuestions.length > 0) {
+                <div class="section-missed-questions">
+                  <span class="missed-title">Most Missed:</span>
+                  @for (missed of section.mostMissedQuestions; track missed.questionId) {
+                    <span class="missed-q-tag">{{ missed.questionId }} ({{ missed.correctRate }}%)</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- QUESTION-LEVEL INSIGHTS -->
+    @if (analytics?.hardestQuestions || analytics?.easiestQuestions) {
+      <div class="question-insights-section">
+        <button class="insights-toggle-btn" (click)="showQuestionInsights = !showQuestionInsights">
+          {{ showQuestionInsights ? '▼ Hide Question Insights' : '▶ Show Question Insights' }}
+        </button>
+        @if (showQuestionInsights) {
+          <div class="insights-panel">
+            @if (analytics?.hardestQuestions && analytics.hardestQuestions.length > 0) {
+              <div class="insight-block">
+                <h4 class="insight-block-title">🔴 Hardest Questions</h4>
+                <div class="questions-list">
+                  @for (q of analytics.hardestQuestions; track q.questionId) {
+                    <div class="question-item">
+                      <span class="q-id">{{ q.questionId }}</span>
+                      <span class="q-rate poor">{{ q.correctRate }}% correct</span>
+                      <span class="q-skipped" *ngIf="q.skippedRate > 0">{{ q.skippedRate }}% skipped</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+            @if (analytics?.easiestQuestions && analytics.easiestQuestions.length > 0) {
+              <div class="insight-block">
+                <h4 class="insight-block-title">🟢 Easiest Questions</h4>
+                <div class="questions-list">
+                  @for (q of analytics.easiestQuestions; track q.questionId) {
+                    <div class="question-item">
+                      <span class="q-id">{{ q.questionId }}</span>
+                      <span class="q-rate good">{{ q.correctRate }}% correct</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- STUDENT PERFORMANCE INSIGHTS -->
+    @if (performanceTrends || weakSections.length > 0) {
+      <div class="performance-insights-section">
+        <h3 class="section-title">Student Performance Insights</h3>
+        
+        @if (performanceTrends) {
+          <div class="trend-card">
+            <h4>Performance Trend</h4>
+            <div class="trend-content">
+              <span class="trend-indicator" [class.improving]="performanceTrends.trend === 'improving'" 
+                    [class.declining]="performanceTrends.trend === 'declining'" 
+                    [class.stable]="performanceTrends.trend === 'stable'">
+                @if (performanceTrends.trend === 'improving') { 📈 }
+                @if (performanceTrends.trend === 'declining') { 📉 }
+                @if (performanceTrends.trend === 'stable') { ➡️ }
+              </span>
+              <div class="trend-details">
+                <span class="trend-text">{{ performanceTrends.trend === 'improving' ? 'Improving' : performanceTrends.trend === 'declining' ? 'Declining' : 'Stable' }}</span>
+                <span class="trend-change">{{ performanceTrends.change > 0 ? '+' : '' }}{{ performanceTrends.change }}%</span>
+                <span class="trend-comparison">{{ performanceTrends.earlierAverage }}% → {{ performanceTrends.recentAverage }}%</span>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (weakSections.length > 0) {
+          <div class="weak-sections-card">
+            <h4>Weak Sections (Need Attention)</h4>
+            <div class="weak-sections-list">
+              @for (section of weakSections; track section.id) {
+                <div class="weak-section-item">
+                  <span class="weak-section-name">{{ section.title }}</span>
+                  <span class="weak-section-score">{{ section.averageScore }}%</span>
+                  <span class="weak-section-type">{{ section.type }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- COMPREHENSIVE REPORT TOGGLE -->
+    <div class="cr-toggle-row">
+      <button class="cr-toggle-btn" (click)="showComprehensive = !showComprehensive">
+        {{ showComprehensive ? '▲ Hide Detailed Analysis' : '▼ Show Detailed Analysis' }}
+      </button>
+    </div>
+
+    <!-- COMPREHENSIVE REPORT PANEL -->
+    <div class="cr-panel" *ngIf="showComprehensive">
+      <app-comprehensive-report
+        [entries]="reportEntries"
+        [type]="'worksheet'">
+      </app-comprehensive-report>
+    </div>
+
+    <!-- SEARCH & FILTERS -->
     <div class="participants-toolbar">
       <input
         class="search-input"
         placeholder="Search by student name..."
         [value]="searchTerm"
         (input)="onSearch($event)" />
+      <div class="filter-controls">
+        <select class="filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+          <option value="">All Statuses</option>
+          <option value="submitted">Submitted</option>
+          <option value="late">Late</option>
+        </select>
+        <input type="date" class="filter-date" [(ngModel)]="dateFromFilter" (change)="applyFilters()" placeholder="From" />
+        <input type="date" class="filter-date" [(ngModel)]="dateToFilter" (change)="applyFilters()" placeholder="To" />
+        <button class="btn-clear-filters" (click)="clearFilters()">Clear</button>
+      </div>
     </div>
 
     <!-- EMPTY STATE -->
@@ -124,5 +402,80 @@
       </div>
     </div>
 
+    <!-- PAGINATION -->
+    @if (pagination && pagination.pages > 1) {
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="goToPrevPage()" [disabled]="currentPage === 1">← Previous</button>
+        <span class="pagination-info">Page {{ currentPage }} of {{ pagination.pages }}</span>
+        <button class="pagination-btn" (click)="goToNextPage()" [disabled]="currentPage === pagination.pages">Next →</button>
+      </div>
+    }
+
   </ng-container>
+
+  <!-- SHARE MODAL -->
+  <div class="share-backdrop" *ngIf="showShareModal" (click)="closeShareModal()"></div>
+  <div class="share-modal" *ngIf="showShareModal" role="dialog" aria-modal="true">
+    <div class="share-modal-header">
+      <h3 class="share-modal-title">Share this worksheet</h3>
+      <button class="share-close-btn" (click)="closeShareModal()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="share-loading" *ngIf="shareLoading">
+      <div class="share-spinner"></div>
+      <span>Generating link…</span>
+    </div>
+
+    <ng-container *ngIf="!shareLoading && shareUrl">
+      <!-- QR Code -->
+      <div class="share-qr-section">
+        <qr-code [value]="shareUrl" size="200" errorCorrectionLevel="M" />
+      </div>
+
+      <!-- Direct Link -->
+      <div class="share-url-row">
+        <input class="share-url-input" [value]="shareUrl" readonly aria-label="Share URL" />
+        <button class="share-copy-btn" [class.copied]="shareCopied" (click)="copyUrl()" [title]="shareCopied ? 'Copied!' : 'Copy link'">
+          {{ shareCopied ? '✓' : '📋' }}
+        </button>
+      </div>
+      <p class="share-hint">Anyone with this link can view this worksheet.</p>
+      <p class="share-hint">Only students enrolled in your class can submit answers.</p>
+      <div class="share-modal-actions">
+        <button class="share-revoke-btn" (click)="revokeShare()">Revoke link</button>
+        <button class="share-done-btn" (click)="closeShareModal()">Done</button>
+      </div>
+    </ng-container>
+  </div>
+</div>
+
+<app-error-modal
+  [show]="errorModal.open"
+  [title]="errorModal.title"
+  [message]="errorModal.message"
+  (closed)="errorModal = { open: false, title: '', message: '' }">
+</app-error-modal>
+
+<app-success-modal
+  [show]="successModal.open"
+  [title]="successModal.title"
+  [message]="successModal.message"
+  (closed)="successModal = { open: false, title: '', message: '' }">
+</app-success-modal>
+
+<app-worksheet-assign-modal
+  [show]="showAssignModal"
+  [classId]="null"
+  [preselectedWorksheetId]="worksheetId"
+  (showChange)="showAssignModal = $event"
+  (assigned)="onWorksheetAssigned($event)">
+</app-worksheet-assign-modal>
+
+<!-- Hidden PDF Container for html2canvas -->
+<div id="report-pdf-container"
+     style="position:fixed; left:-9999px; top:-9999px; width:794px; min-height:1123px;
+            background:white; font-family:sans-serif; z-index:-1; pointer-events:none; visibility:hidden;">
+  @if (reportData) {
+    <app-report-pdf-template [reportData]="reportData"></app-report-pdf-template>
+  }
 </div>

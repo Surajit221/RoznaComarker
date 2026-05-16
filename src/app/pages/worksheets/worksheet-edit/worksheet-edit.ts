@@ -15,14 +15,15 @@ import {
   type WorksheetDraft,
   type Worksheet,
 } from '../../../api/worksheet-api.service';
-import { AlertService } from '../../../services/alert.service';
+import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
+import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
 @Component({
   selector: 'app-worksheet-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ErrorModal, SuccessModal],
   templateUrl: './worksheet-edit.html',
   styleUrl: './worksheet-edit.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,13 +32,14 @@ export class WorksheetEditPage implements OnInit, OnDestroy {
   private readonly router   = inject(Router);
   private readonly route    = inject(ActivatedRoute);
   private readonly api      = inject(WorksheetApiService);
-  private readonly alert    = inject(AlertService);
   private readonly cdr      = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
 
   worksheetId = '';
   isLoading   = false;
   isSaving    = false;
+  errorModal  = { open: false, title: '', message: '' };
+  successModal = { open: false, title: '', message: '' };
   worksheet: Worksheet | null = null;
 
   title       = '';
@@ -73,7 +75,7 @@ export class WorksheetEditPage implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.isLoading = false;
-        this.alert.showError('Failed to load', err?.error?.message ?? err?.message ?? 'Try again.');
+        this.errorModal = { open: true, title: 'Load Failed', message: err?.error?.message ?? err?.message ?? 'Try again.' };
         this.cdr.markForCheck();
       },
     });
@@ -82,7 +84,7 @@ export class WorksheetEditPage implements OnInit, OnDestroy {
   save(): void {
     if (!this.worksheet || this.isSaving) return;
     const t = this.title.trim();
-    if (!t) { this.alert.showError('Title required', 'Please enter a title.'); return; }
+    if (!t) { this.errorModal = { open: true, title: 'Title Required', message: 'Please enter a title.' }; this.cdr.markForCheck(); return; }
 
     this.isSaving = true;
     this.cdr.markForCheck();
@@ -99,13 +101,14 @@ export class WorksheetEditPage implements OnInit, OnDestroy {
       next: () => {
         this.isSaving = false;
         this.cdr.markForCheck();
-        this.alert.showSuccess('Saved!', 'Worksheet updated.');
-        this.router.navigate(['/worksheets']);
+        this.successModal = { open: true, title: 'Saved!', message: 'Worksheet updated.' };
+        this.cdr.markForCheck();
+        setTimeout(() => this.router.navigate(['/worksheets']), 1400);
       },
       error: (err: any) => {
         this.isSaving = false;
         this.cdr.markForCheck();
-        this.alert.showError('Save failed', err?.error?.message ?? err?.message ?? 'Try again.');
+        this.errorModal = { open: true, title: 'Save Failed', message: err?.error?.message ?? err?.message ?? 'Try again.' };
       },
     });
   }

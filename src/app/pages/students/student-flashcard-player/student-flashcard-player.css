@@ -136,6 +136,7 @@
   padding: 2.5rem 2rem;
   box-shadow: 0 20px 60px rgba(0,0,0,0.25);
   overflow: hidden;
+  max-width: 100%;
 }
 .sfp-card-front { background: #ffffff; }
 .sfp-card-back {
@@ -172,6 +173,9 @@
   color: #111827;
   line-height: 1.4;
   margin: 0 0 0.5rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 .sfp-card-definition {
   font-size: 1.125rem;
@@ -179,6 +183,9 @@
   color: #1f2937;
   text-align: center;
   margin: 0 0 0.5rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 .sfp-card-term-small {
   font-size: 0.8125rem;
@@ -267,6 +274,9 @@
   justify-content: flex-start;
   padding-top: 2.5rem;
   gap: 0.625rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 .sfp-answer-input-wrapper {
   display: flex;
@@ -415,6 +425,126 @@
 }
 .sfp-btn-next-card:hover { background: #006b6c; }
 
+/* ── Save State Indicator ───────────────────────────────── */
+.sfp-save-indicator {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.9);
+  z-index: 200;
+  transition: opacity 300ms ease;
+}
+.sfp-save-icon {
+  font-size: 1rem;
+}
+.sfp-save-icon.saving {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.sfp-save-icon.saved {
+  color: #4ade80;
+}
+.sfp-save-icon.error {
+  color: #f87171;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ── Resume Modal ────────────────────────────────────────── */
+.sfp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 1rem;
+}
+.sfp-modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalFadeIn 250ms ease-out;
+}
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.sfp-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+.sfp-modal-subtitle {
+  font-size: 1rem;
+  color: #374151;
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+.sfp-modal-desc {
+  font-size: 0.875rem;
+  color: #6B7280;
+  margin: 0 0 1.5rem;
+  text-align: center;
+}
+.sfp-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-direction: column;
+}
+.sfp-btn-startover,
+.sfp-btn-resume {
+  padding: 0.875rem 1.5rem;
+  border-radius: 12px;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 100ms, box-shadow 100ms;
+  border: none;
+}
+.sfp-btn-startover:active,
+.sfp-btn-resume:active {
+  transform: scale(0.98);
+}
+.sfp-btn-startover {
+  background: #F3F4F6;
+  color: #374151;
+}
+.sfp-btn-startover:hover {
+  background: #E5E7EB;
+}
+.sfp-btn-resume {
+  background: #008081;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 128, 129, 0.3);
+}
+.sfp-btn-resume:hover {
+  background: #006b6c;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   .sfp-screen { padding: 1rem 0.875rem; gap: 1rem; }
@@ -427,4 +557,12 @@
   .sfp-btn-learning, .sfp-btn-know { width: 100%; padding: 14px 20px; }
   .sfp-progress-labels { flex-direction: column; align-items: flex-start; gap: 0.25rem; font-size: 0.6875rem; }
   .sfp-legend-group { gap: 0.625rem; }
+  .sfp-modal { padding: 1.5rem; }
+  .sfp-modal-title { font-size: 1.125rem; }
+  .sfp-save-indicator {
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
 }

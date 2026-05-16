@@ -150,4 +150,39 @@
     </div>
   </div>
 
+  <!-- SAVE STATE INDICATOR -->
+  <div class="sfp-save-indicator" *ngIf="saveState !== 'idle'">
+    <span class="sfp-save-icon" [class.saving]="saveState === 'saving'" [class.saved]="saveState === 'saved'" [class.error]="saveState === 'error'">
+      <ng-container *ngIf="saveState === 'saving'">☁️</ng-container>
+      <ng-container *ngIf="saveState === 'saved'">✓</ng-container>
+      <ng-container *ngIf="saveState === 'error'">⚠️</ng-container>
+    </span>
+    <span class="sfp-save-text">
+      <ng-container *ngIf="saveState === 'saving'">Saving...</ng-container>
+      <ng-container *ngIf="saveState === 'saved'">Saved</ng-container>
+      <ng-container *ngIf="saveState === 'error'">Save failed - will retry</ng-container>
+    </span>
+  </div>
+
+</div>
+
+<!-- RESUME MODAL -->
+<div class="sfp-modal-backdrop" *ngIf="showResumeModal" (click)="$event.stopPropagation()">
+  <div class="sfp-modal sfp-resume-modal">
+    <h3 class="sfp-modal-title">📚 Continue where you left off?</h3>
+    <p class="sfp-modal-subtitle" *ngIf="savedProgress">
+      You've completed <strong>{{ savedProgress.completedCards }}</strong> of <strong>{{ savedProgress.totalCards }}</strong> cards.
+    </p>
+    <p class="sfp-modal-desc">
+      You were last viewing card {{ (savedProgress?.lastCardIndex || 0) + 1 }}.
+    </p>
+    <div class="sfp-modal-actions">
+      <button class="sfp-btn-startover" (click)="startOver()">
+        ↺ Start Over
+      </button>
+      <button class="sfp-btn-resume" (click)="resumeProgress()">
+        ▶ Continue from Card {{ (savedProgress?.lastCardIndex || 0) + 1 }}
+      </button>
+    </div>
+  </div>
 </div>

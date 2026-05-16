@@ -66,6 +66,7 @@ export class DetailMyClassesPages {
   showInviteDialog = false;
   device = inject(DeviceService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private assignmentApi = inject(AssignmentApiService);
   private rubricApi = inject(RubricApiService);
   private alert = inject(AlertService);
@@ -154,21 +155,26 @@ export class DetailMyClassesPages {
 
   async ngOnInit() {
     this.classId = this.route.snapshot.paramMap.get('slug');
+    const RESERVED = ['student-profile', 'student-submissions'];
+    if (!this.classId || RESERVED.includes(this.classId)) {
+      this.classId = null;
+      return;
+    }
     await this.loadClassSummary();
     await this.loadStudents();
     await this.loadAssignments();
 
-    /** Auto-open flashcard assign modal when returning from flashcard create flow */
-    const openAssign = this.route.snapshot.queryParamMap.get('openAssignModal') === 'true';
-    const presetId   = this.route.snapshot.queryParamMap.get('preselectedSetId') || null;
+    /** Auto-open flashcard assign modal when returning from flashcard library */
+    const openAssign = this.route.snapshot.queryParamMap.get('openFlashcardAssignModal') === 'true';
+    const presetId = this.route.snapshot.queryParamMap.get('preselectedSetId') || null;
     if (openAssign) {
       this.flashcardPreselectedSetId = presetId;
       this.showFlashcardModal = true;
     }
 
-    /** Auto-open worksheet assign modal when returning from worksheet create flow */
+    /** Auto-open worksheet assign modal when returning from worksheet library */
     const openWorksheetAssign = this.route.snapshot.queryParamMap.get('openWorksheetAssignModal') === 'true';
-    const presetWorksheetId   = this.route.snapshot.queryParamMap.get('preselectedWorksheetId') || null;
+    const presetWorksheetId = this.route.snapshot.queryParamMap.get('preselectedWorksheetId') || null;
     if (openWorksheetAssign) {
       this.preselectedWorksheetId = presetWorksheetId;
       this.showWorksheetModal = true;
@@ -258,8 +264,15 @@ export class DetailMyClassesPages {
       return;
     }
 
+    // Worksheet submission counts come from getClassAssignments (backend pre-computes them).
+    // There is no separate by-assignment endpoint, so reload the full list to get fresh counts.
+    const assignment = this.assignmentsById[assignmentId];
+    if (assignment?.resourceType === 'worksheet') {
+      await this.loadAssignments();
+      return;
+    }
+
     try {
-      const assignment = this.assignmentsById[assignmentId];
       const submissions = await this.getAssignmentSubmissionRecords(assignmentId, assignment);
       const totalStudents = this.studentsCount;
 
@@ -401,7 +414,8 @@ export class DetailMyClassesPages {
       id: a._id,
       title: a.title,
       dueDate,
-      submitted: 0,
+      // Use backend-computed count (correct for essay, flashcard, and worksheet)
+      submitted: typeof a.submitted === 'number' ? a.submitted : 0,
       total: 0,
       status,
       resourceType: a.resourceType,
@@ -433,6 +447,15 @@ export class DetailMyClassesPages {
         this.assignments.map(async (item) => {
           try {
             const assignment = this.assignmentsById[item.id];
+
+            // Worksheet submission counts are already correct from the backend's
+            // getClassAssignments response (mapAssignment sets them). Skip re-fetching
+            // via the essay submissions API which would always return 0 for worksheets.
+            if (assignment?.resourceType === 'worksheet') {
+              item.total = totalStudents;
+              return;
+            }
+
             const submissions = await this.getAssignmentSubmissionRecords(item.id, assignment);
             item.submitted = (submissions || []).length;
             item.total = totalStudents;
@@ -450,7 +473,6 @@ export class DetailMyClassesPages {
               }
             }
           } catch {
-            item.submitted = 0;
             item.total = totalStudents;
           }
         })
@@ -839,7 +861,7 @@ export class DetailMyClassesPages {
 
   private resourceState = inject(ResourceStateService);
 
-  constructor(private router: Router) {}
+  constructor() {}
 
   toMyClasses() {
     this.router.navigate(['/teacher/my-classes']);
@@ -897,7 +919,9 @@ export class DetailMyClassesPages {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
     if (found.resourceType === 'flashcard' && found.resourceId) {
-      this.router.navigate(['/flashcards', found.resourceId, 'edit']);
+      this.router.navigate(['/flashcards', found.resourceId, 'edit'], {
+        queryParams: { returnToClassId: this.classId ?? undefined }
+      });
       return;
     }
     if (found.resourceType === 'worksheet' && found.resourceId) {
@@ -912,7 +936,9 @@ export class DetailMyClassesPages {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
     if (found.resourceType === 'flashcard' && found.resourceId) {
-      this.router.navigate(['/flashcards', found.resourceId, 'edit']);
+      this.router.navigate(['/flashcards', found.resourceId, 'edit'], {
+        queryParams: { returnToClassId: this.classId ?? undefined }
+      });
       return;
     }
     if (found.resourceType === 'worksheet' && found.resourceId) {
@@ -921,7 +947,6 @@ export class DetailMyClassesPages {
     }
     this.selectedAssignmentForEdit = found;
     this.openSheetAssignment = true;
-    document.body.classList.add('overflow-hidden');
   }
 
   async onDeleteAssignment(assignmentId: string) {
@@ -1050,11 +1075,20 @@ export class DetailMyClassesPages {
       return this.assignmentApi.getFlashcardAssignmentSubmissions(assignmentId);
     }
 
+    // Worksheet submissions are stored in WorksheetSubmission (not the essay Submission model).
+    // Calling the essay API for worksheet assignments always returns [] and was setting
+    // submitted counts to 0. Worksheet counts are served by getClassAssignments instead.
+    if (assignment?.resourceType === 'worksheet') {
+      return [];
+    }
+
     return this.submissionApi.getSubmissionsByAssignment(assignmentId);
   }
 
   private getStudentIdFromAnySubmission(submission: any): string {
-    const studentCandidate = submission && submission.student ? submission.student : submission?.userId;
+    // essay submissions use .student, flashcard submissions use .userId,
+    // worksheet submissions use .studentId
+    const studentCandidate = submission?.student ?? submission?.userId ?? submission?.studentId;
     if (!studentCandidate) return '';
     if (typeof studentCandidate === 'string') return studentCandidate;
     if (typeof studentCandidate === 'object') {
@@ -1110,6 +1144,11 @@ export class DetailMyClassesPages {
   openWorksheetPreview(resourceId: string): void {
     this.previewWorksheetIdForViewer = resourceId;
     this.showWorksheetPreview = true;
+  }
+
+  onPreviewFlashcard(resourceId: string): void {
+    // Navigate to flashcard detail page for preview
+    this.router.navigate(['/flashcards', resourceId]);
   }
 
   async onSendInvitations(emails: string[]) {

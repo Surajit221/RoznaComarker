@@ -463,6 +463,12 @@ export class DetailMyClassStudentPages {
           return;
         }
         this.router.navigate(['/student/worksheet-results'], {
+          // Query params let the page re-fetch submission on hard-refresh (state is lost on reload)
+          queryParams: {
+            worksheetId:  item.resourceId,
+            assignmentId: item.id,
+            classId:      this.classId ?? undefined,
+          },
           state: {
             submission:     sub,
             worksheetTitle: sub.worksheet?.title ?? '',

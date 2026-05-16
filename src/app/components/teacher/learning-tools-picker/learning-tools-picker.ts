@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-learning-tools-picker',
@@ -10,8 +11,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 })
 export class LearningToolsPicker {
   @Input() show = false;
+  @Input() classId: string | null = null;
   @Output() showChange = new EventEmitter<boolean>();
   @Output() toolSelected = new EventEmitter<string>();
+
+  private readonly router = inject(Router);
 
   /**
    * Active sub-screen:
@@ -67,6 +71,18 @@ export class LearningToolsPicker {
   worksheetAssign() {
     this.toolSelected.emit('worksheet:assign');
     this.close();
+  }
+
+  /** Navigate to worksheet library */
+  openWorksheetLibrary(): void {
+    this.close();
+    this.router.navigate(['/worksheets']);
+  }
+
+  /** Navigate to flashcard library */
+  openFlashcardLibrary(): void {
+    this.close();
+    this.router.navigate(['/flashcards']);
   }
 
   backToTools() {

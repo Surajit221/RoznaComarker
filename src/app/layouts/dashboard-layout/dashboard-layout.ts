@@ -138,26 +138,26 @@ export class DashboardLayout {
     this.mainMenu = this.role === 'student' ? this.studentMenu : this.teacherMenu;
     this.mainMenuMobile = this.role === 'student' ? this.studentMenuMobile : this.teacherMenuMobile;
 
-    try {
-      const me = await this.auth.getMeProfile();
+    this.isSubscriptionLoading = true;
+    const [meResult, subResult, , ] = await Promise.allSettled([
+      this.auth.getMeProfile(),
+      this.subscriptionApi.getMySubscription(),
+      this.refreshNotificationsPreview(),
+      this.refreshUnreadCount(),
+    ]);
+    this.isSubscriptionLoading = false;
+
+    if (meResult.status === 'fulfilled') {
+      const me = meResult.value;
       this.meName = me.displayName || me.email || '';
       this.mePhotoUrl = me.photoURL || '';
-    } catch {
-      this.meName = '';
-      this.mePhotoUrl = '';
     }
 
-    this.isSubscriptionLoading = true;
-    try {
-      this.mySubscription = await this.subscriptionApi.getMySubscription();
-    } catch {
+    if (subResult.status === 'fulfilled') {
+      this.mySubscription = subResult.value;
+    } else {
       this.mySubscription = null;
-    } finally {
-      this.isSubscriptionLoading = false;
     }
-
-    await this.refreshNotificationsPreview();
-    await this.refreshUnreadCount();
 
     this.notificationRealtime.connect();
     this.notificationRealtime.notifications$.subscribe((n) => {

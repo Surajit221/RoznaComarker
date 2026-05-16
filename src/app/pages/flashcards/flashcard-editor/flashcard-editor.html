@@ -77,6 +77,25 @@
           <div class="field-error" *ngIf="asGroup(ctrl).get('front')?.invalid && asGroup(ctrl).get('front')?.touched">
             Front is required.
           </div>
+          
+          <!-- Image Management for Front -->
+          <div class="image-management">
+            @if (asGroup(ctrl).get('frontImage')?.value) {
+              <div class="card-image-preview">
+                <img [src]="getImageUrl(asGroup(ctrl).get('frontImage')?.value)" alt="Front image" class="preview-img" />
+                <button type="button" class="remove-img-btn" (click)="removeImage(i, 'front')">✕</button>
+              </div>
+            }
+            <div class="image-actions">
+              <input type="file" [id]="'front-upload-' + i" accept="image/*" (change)="onFileUpload($event, i, 'front')" class="hidden-file-input" />
+              <button type="button" class="img-action-btn" (click)="triggerFrontUpload(i)">
+                📁 Upload from device
+              </button>
+              <button type="button" class="img-action-btn" (click)="openUnsplashModal(i, 'front')">
+                🔍 Search Unsplash
+              </button>
+            </div>
+          </div>
         </div>
         <div class="field-col">
           <label>Back</label>
@@ -84,6 +103,25 @@
                     placeholder="Definition / answer…" rows="2"></textarea>
           <div class="field-error" *ngIf="asGroup(ctrl).get('back')?.invalid && asGroup(ctrl).get('back')?.touched">
             Back is required.
+          </div>
+          
+          <!-- Image Management for Back -->
+          <div class="image-management">
+            @if (asGroup(ctrl).get('backImage')?.value) {
+              <div class="card-image-preview">
+                <img [src]="getImageUrl(asGroup(ctrl).get('backImage')?.value)" alt="Back image" class="preview-img" />
+                <button type="button" class="remove-img-btn" (click)="removeImage(i, 'back')">✕</button>
+              </div>
+            }
+            <div class="image-actions">
+              <input type="file" [id]="'back-upload-' + i" accept="image/*" (change)="onFileUpload($event, i, 'back')" class="hidden-file-input" />
+              <button type="button" class="img-action-btn" (click)="triggerBackUpload(i)">
+                📁 Upload from device
+              </button>
+              <button type="button" class="img-action-btn" (click)="openUnsplashModal(i, 'back')">
+                🔍 Search Unsplash
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -102,3 +140,15 @@
     </button>
   </div>
 </div>
+
+<!-- UNSPLASH IMAGE MODAL -->
+<app-unsplash-image-modal 
+  [show]="showUnsplashModal" 
+  (showChange)="showUnsplashModal = $event"
+  (imageSelected)="onUnsplashImageSelected($event)"
+></app-unsplash-image-modal>
+
+<!-- SUCCESS MODAL -->
+<app-success-modal [show]="showSuccessModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-success-modal>
+<!-- ERROR MODAL -->
+<app-error-modal [show]="showErrorModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-error-modal>

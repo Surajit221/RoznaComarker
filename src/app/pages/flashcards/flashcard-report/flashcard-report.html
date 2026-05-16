@@ -59,9 +59,35 @@
       </div>
     </div>
 
-    <p class="stats-note">
-      ℹ Only the first submission from each participant is recorded
-    </p>
+    <!-- LAST UPDATED & REFRESH -->
+    <div class="report-meta-row">
+      <p class="stats-note">
+        ℹ Only the first submission from each participant is recorded
+      </p>
+      <div class="last-updated-wrap">
+        <span class="last-updated-text" *ngIf="lastUpdatedAt">
+          Updated: {{ lastUpdatedText }}
+        </span>
+        <button class="btn-refresh" (click)="manualRefresh()" title="Refresh now">
+          ↻ Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- COMPREHENSIVE REPORT TOGGLE -->
+    <div class="cr-toggle-row">
+      <button class="cr-toggle-btn" (click)="showComprehensive = !showComprehensive">
+        {{ showComprehensive ? '▲ Hide Detailed Analysis' : '▼ Show Detailed Analysis' }}
+      </button>
+    </div>
+
+    <!-- COMPREHENSIVE REPORT PANEL -->
+    <div class="cr-panel" *ngIf="showComprehensive">
+      <app-comprehensive-report
+        [entries]="reportEntries"
+        [type]="'flashcard'">
+      </app-comprehensive-report>
+    </div>
 
     <!-- ── PARTICIPANTS TAB ── -->
     <ng-container *ngIf="activeTab === 'participants'">
@@ -74,11 +100,19 @@
         <div class="filter-tabs">
           <button class="filter-btn" [class.active]="filterStatus === 'all'"
                   (click)="filterStatus = 'all'">
-            All ({{ report.totalSubmissions }})
+            All
           </button>
           <button class="filter-btn" [class.active]="filterStatus === 'completed'"
                   (click)="filterStatus = 'completed'">
             Completed
+          </button>
+          <button class="filter-btn" [class.active]="filterStatus === 'in_progress'"
+                  (click)="filterStatus = 'in_progress'">
+            In Progress
+          </button>
+          <button class="filter-btn" [class.active]="filterStatus === 'not_started'"
+                  (click)="filterStatus = 'not_started'">
+            Not Started
           </button>
         </div>
       </div>
@@ -105,7 +139,9 @@
           <span class="p-score">{{ p.score | number:'1.0-0' }}%</span>
           <span class="p-time">{{ p.timeTaken | formatTime }}</span>
           <span class="p-date">{{ p.submittedAt | date:'dd MMM yyyy' }}</span>
-          <span class="badge" [ngClass]="'badge-' + p.status">{{ p.status }}</span>
+          <span class="badge" [ngClass]="'badge-' + p.status">
+            {{ p.status === 'in_progress' ? 'In Progress' : (p.status === 'not_started' ? 'Not Started' : 'Completed') }}
+          </span>
           <span>
             <button class="btn-dl-row"
                     [disabled]="participantDownloadingId === p.userId"

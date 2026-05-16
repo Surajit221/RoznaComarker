@@ -26,16 +26,17 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import { AlertService } from '../../../services/alert.service';
 import type { FlashcardSet } from '../../../models/flashcard-set.model';
+import { FlashcardPreviewModal } from '../flashcard-preview-modal/flashcard-preview-modal';
 
 @Component({
   selector: 'app-flashcard-assign-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, FlashcardPreviewModal],
   templateUrl: './flashcard-assign-modal.html',
   styleUrl: './flashcard-assign-modal.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,6 +54,7 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
   private readonly api     = inject(FlashcardApiService);
   private readonly alert   = inject(AlertService);
   private readonly cdr     = inject(ChangeDetectorRef);
+  private readonly router  = inject(Router);
   private readonly destroy$ = new Subject<void>();
 
   sets: FlashcardSet[] = [];
@@ -60,6 +62,14 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
   isSubmitting = false;
   selectedSetId: string | null = null;
   deadline = '';
+
+  // Preview state
+  showPreview = false;
+  selectedSetForPreview: FlashcardSet | null = null;
+
+  // Error state
+  errorMessage: string | null = null;
+  
   /** Minimum date for deadline picker = today */
   get minDate(): string {
     return new Date().toISOString().split('T')[0];
@@ -88,24 +98,49 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
     }
   }
 
+  openFlashcardLibrary(): void {
+    this.close();
+    this.router.navigate(['/flashcards']);
+  }
+
+  /** Open preview for selected flashcard set */
+  openPreview(set: FlashcardSet): void {
+    this.selectedSetForPreview = set;
+    this.showPreview = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Handle returning from preview */
+  onBackFromPreview(): void {
+    // Preview is closed automatically by the modal
+    // Focus back on the set selection
+    this.selectedSetForPreview = null;
+    this.cdr.markForCheck();
+  }
+
   submit(): void {
+    this.errorMessage = null;
     if (this.isSubmitting) return;
     if (!this.selectedSetId) {
-      this.alert.showError('No set selected', 'Please choose a flashcard set.');
+      this.errorMessage = 'Please choose a flashcard set.';
+      this.cdr.markForCheck();
       return;
     }
     if (!this.deadline) {
-      this.alert.showError('No deadline', 'Please enter a deadline date.');
+      this.errorMessage = 'Please enter a deadline date.';
+      this.cdr.markForCheck();
       return;
     }
     if (!this.classId) {
-      this.alert.showError('Missing class', 'Class ID is not available.');
+      this.errorMessage = 'Class ID is not available. Please try again from the class page.';
+      this.cdr.markForCheck();
       return;
     }
 
     const deadlineDate = new Date(`${this.deadline}T23:59:59.999`);
     if (isNaN(deadlineDate.getTime()) || deadlineDate.getTime() <= Date.now()) {
-      this.alert.showError('Invalid deadline', 'Deadline must be a future date.');
+      this.errorMessage = 'Deadline must be a future date.';
+      this.cdr.markForCheck();
       return;
     }
 
@@ -135,7 +170,8 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
           this.cdr.markForCheck();
           const msg = (err as { error?: { message?: string }; message?: string })?.error?.message
             ?? (err as { message?: string })?.message ?? 'Please try again';
-          this.alert.showError('Assignment failed', msg);
+          this.errorMessage = msg;
+          this.cdr.markForCheck();
         },
       });
   }
@@ -146,6 +182,7 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
     this.sets           = [];
     this.isLoading      = false;
     this.isSubmitting   = false;
+    this.errorMessage   = null;
     this.cdr.markForCheck();
   }
 

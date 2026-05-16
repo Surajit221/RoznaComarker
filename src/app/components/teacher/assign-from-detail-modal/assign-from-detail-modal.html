@@ -1,0 +1,103 @@
+<div class="afdm-backdrop" *ngIf="isOpen"
+     (click)="onBackdropClick($event)"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="afdm-title">
+
+  <div class="afdm-panel">
+
+    <!-- Header -->
+    <div class="afdm-header">
+      <div class="afdm-header-text">
+        <h2 class="afdm-title" id="afdm-title">Assign "{{ flashcardTitle }}"</h2>
+        <p class="afdm-subtitle">{{ cardCount }} card{{ cardCount !== 1 ? 's' : '' }}</p>
+      </div>
+      <button class="afdm-close" (click)="cancel()" aria-label="Close" [disabled]="isSubmitting">✕</button>
+    </div>
+
+    <!-- Form body -->
+    <div class="afdm-body">
+
+      <!-- CLASS -->
+      <div class="afdm-field">
+        <label class="afdm-label" for="afdm-class">Class *</label>
+        <select
+          id="afdm-class"
+          class="afdm-select"
+          [class.afdm-input-error]="classError"
+          [(ngModel)]="selectedClassId"
+          [disabled]="isClassesLoading || isSubmitting">
+          <option value="" disabled>
+            <ng-container *ngIf="isClassesLoading">Loading classes…</ng-container>
+            <ng-container *ngIf="!isClassesLoading && classes.length === 0">No classes found. Please create a class first.</ng-container>
+            <ng-container *ngIf="!isClassesLoading && classes.length > 0">Select a class</ng-container>
+          </option>
+          <option *ngFor="let cls of classes" [value]="cls._id">{{ cls.name }}</option>
+        </select>
+        <!-- Classes loading skeleton -->
+        <div class="afdm-skel" *ngIf="isClassesLoading"></div>
+        <p class="afdm-error-msg" *ngIf="classError">{{ classError }}</p>
+      </div>
+
+      <!-- ASSIGNMENT TITLE -->
+      <div class="afdm-field">
+        <label class="afdm-label" for="afdm-title">Assignment Title *</label>
+        <input
+          id="afdm-title"
+          class="afdm-input"
+          [class.afdm-input-error]="titleError"
+          type="text"
+          [(ngModel)]="assignmentTitle"
+          [disabled]="isSubmitting"
+          placeholder="e.g. Chapter 3 Vocabulary Quiz"
+          maxlength="120"
+        />
+        <p class="afdm-error-msg" *ngIf="titleError">{{ titleError }}</p>
+      </div>
+
+      <!-- DEADLINE -->
+      <div class="afdm-field">
+        <label class="afdm-label" for="afdm-deadline">Deadline *</label>
+        <input
+          id="afdm-deadline"
+          class="afdm-input"
+          [class.afdm-input-error]="deadlineError"
+          type="date"
+          [(ngModel)]="deadline"
+          [min]="minDate"
+          [disabled]="isSubmitting"
+        />
+        <p class="afdm-error-msg" *ngIf="deadlineError">{{ deadlineError }}</p>
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div class="afdm-actions">
+      <button class="afdm-cancel-btn" (click)="cancel()" [disabled]="isSubmitting">Cancel</button>
+      <button class="afdm-submit-btn" (click)="submit()" [disabled]="isSubmitting || isClassesLoading">
+        <span *ngIf="!isSubmitting">📋 Assign to Class</span>
+        <span *ngIf="isSubmitting" class="afdm-spinner-wrap">
+          <span class="afdm-spinner"></span>Assigning…
+        </span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<app-success-modal
+  [show]="showSuccessModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="onSuccessClose()">
+</app-success-modal>
+
+<!-- ERROR MODAL -->
+<app-error-modal
+  [show]="showErrorModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="onErrorClose()">
+</app-error-modal>

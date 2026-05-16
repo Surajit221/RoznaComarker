@@ -1,0 +1,100 @@
+/* ── Error Modal ──────────────────────────────────────────────── */
+
+.em-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: em-fade-in 220ms ease-out forwards;
+}
+
+@keyframes em-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.em-panel {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 420px;
+  padding: 32px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  animation: em-scale-in 220ms ease-out forwards;
+}
+
+@keyframes em-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Solid red icon circle */
+.em-icon-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #EF4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  flex-shrink: 0;
+}
+
+.em-icon {
+  width: 36px;
+  height: 36px;
+  color: #ffffff;
+  stroke-width: 3;
+}
+
+.em-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.em-message {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0 0 4px 0;
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* OK button — red */
+.em-ok-btn {
+  margin-top: 16px;
+  background: #EF4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 32px;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.em-ok-btn:hover { background: #dc2626; }
+.em-ok-btn:focus-visible { outline: 3px solid #EF4444; outline-offset: 2px; }
+
+/* Mobile */
+@media (max-width: 480px) {
+  .em-panel { width: 94%; border-radius: 12px; padding: 24px 16px; }
+  .em-icon-circle { width: 60px; height: 60px; margin-bottom: 16px; }
+  .em-title { font-size: 1.125rem; }
+  .em-message { font-size: 0.875rem; }
+}

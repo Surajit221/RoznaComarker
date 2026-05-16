@@ -18,6 +18,8 @@ export const FLASHCARD_ROUTES: Routes = [
       { path: '', component: FlashcardLibrary, canActivate: [TeacherGuard] },
       { path: 'create', component: CreateFlashcard, canActivate: [TeacherGuard] },
       { path: ':id/edit', component: FlashcardEditor, canActivate: [TeacherGuard] },
+      /** Old standalone assign page — redirect to the detail page which opens the modal inline */
+      { path: ':id/assign', redirectTo: ':id', pathMatch: 'full' },
       { path: ':id/study/results', component: StudyResults, canActivate: [AuthGuard], data: { fullScreen: true } },
       { path: ':id/study', component: StudyMode, canActivate: [AuthGuard], data: { fullScreen: true } },
       { path: ':id/report', component: FlashcardReport, canActivate: [TeacherGuard] },

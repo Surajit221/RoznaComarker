@@ -10,13 +10,18 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import type { FlashCard, FlashcardSet } from '../../../models/flashcard-set.model';
+import { QrCodeComponent } from 'ng-qrcode';
+import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
+import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
+import { AssignFromDetailModal } from '../../../components/teacher/assign-from-detail-modal/assign-from-detail-modal';
 
 @Component({
   selector: 'app-flashcard-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, QrCodeComponent, SuccessModal, ErrorModal, AssignFromDetailModal],
   templateUrl: './flashcard-detail.html',
   styleUrl: './flashcard-detail.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,14 +41,51 @@ export class FlashcardDetail implements OnInit, OnDestroy {
   isSpeaking   = false;
   showMoreMenu = false;
 
+  /** Card template: 'with-image' (Template A) | 'text-only' (Template B) */
+  cardTemplate: 'with-image' | 'text-only' = 'with-image';
+
+  /** Image error flag — reset when card changes */
+  imgError = false;
+
+  /** Touch swipe tracking */
+  private touchStartX = 0;
+  private touchStartY = 0;
+
   /** PART 2 — share link modal state */
   showShareModal  = false;
   shareUrl: string | null = null;
   shareLoading    = false;
   shareCopied     = false;
 
-  private get setId(): string {
+  /** Success / Error modal state */
+  showSuccessModal = false;
+  showErrorModal   = false;
+  modalTitle       = '';
+  modalMessage     = '';
+
+  /** Assign-from-detail modal state */
+  showAssignModal = false;
+
+  classId: string | null = null;
+
+  /** Get display title with fallback */
+  get displayTitle(): string {
+    return this.set?.title?.trim() || 'Untitled Flashcard Set';
+  }
+
+  /** Get full image URL from relative path */
+  getImageUrl(relativePath: string | null | undefined): string {
+    if (!relativePath) return '';
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+    return `${environment.apiUrl}${relativePath}`;
+  }
+
+  get setId(): string {
     return this.route.snapshot.paramMap.get('id') ?? '';
+  }
+
+  get classIdParam(): string | null {
+    return this.route.snapshot.queryParamMap.get('classId');
   }
 
   get cards(): FlashCard[] { return this.set?.cards ?? []; }
@@ -54,7 +96,10 @@ export class FlashcardDetail implements OnInit, OnDestroy {
     return this.cards.length ? ((this.currentIndex + 1) / this.cards.length) * 100 : 0;
   }
 
-  ngOnInit(): void { this.loadSet(); }
+  ngOnInit(): void {
+    this.classId = this.classIdParam;
+    this.loadSet();
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -90,6 +135,7 @@ export class FlashcardDetail implements OnInit, OnDestroy {
     if (this.currentIndex === 0) return;
     this.currentIndex--;
     this.isFlipped = false;
+    this.imgError  = false;
     this.cdr.markForCheck();
   }
 
@@ -98,7 +144,26 @@ export class FlashcardDetail implements OnInit, OnDestroy {
     if (this.currentIndex >= this.cards.length - 1) return;
     this.currentIndex++;
     this.isFlipped = false;
+    this.imgError  = false;
     this.cdr.markForCheck();
+  }
+
+  /** Touch start — record position for swipe detection */
+  onTouchStart(e: TouchEvent): void {
+    this.touchStartX = e.touches[0].clientX;
+    this.touchStartY = e.touches[0].clientY;
+  }
+
+  /** Touch end — if horizontal swipe > 50px, navigate; otherwise flip */
+  onTouchEnd(e: TouchEvent): void {
+    const dx = e.changedTouches[0].clientX - this.touchStartX;
+    const dy = e.changedTouches[0].clientY - this.touchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      e.preventDefault();
+      if (dx < 0) this.next();
+      else         this.prev();
+    }
+    // If not a swipe, the (click) handler on the parent will fire flip()
   }
 
   /** Keyboard navigation: left/right arrow keys and space to flip */
@@ -133,10 +198,24 @@ export class FlashcardDetail implements OnInit, OnDestroy {
   study(): void { this.router.navigate(['/flashcards', this.setId, 'study']); }
 
   /** Navigate to editor */
-  edit(): void { this.router.navigate(['/flashcards', this.setId, 'edit']); }
+  edit(): void {
+    const queryParams = this.classId ? { returnToClassId: this.classId } : undefined;
+    this.router.navigate(['/flashcards', this.setId, 'edit'], { queryParams });
+  }
 
   /** Navigate to report */
   viewReport(): void { this.router.navigate(['/flashcards', this.setId, 'report']); }
+
+  /** Open assign modal inline — no navigation */
+  assignSet(): void {
+    this.showAssignModal = true;
+    this.cdr.markForCheck();
+  }
+
+  onAssignModalClosed(): void {
+    this.showAssignModal = false;
+    this.cdr.markForCheck();
+  }
 
   /** Navigate back to library */
   goBack(): void { this.router.navigate(['/flashcards']); }
@@ -216,7 +295,7 @@ export class FlashcardDetail implements OnInit, OnDestroy {
     import('sweetalert2').then(({ default: Swal }) => {
       Swal.fire({
         title: 'Delete set?',
-        text: 'This action cannot be undone.',
+        text: 'This action cannot be undone. All assignments and submissions will be removed.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'Delete',
@@ -224,8 +303,14 @@ export class FlashcardDetail implements OnInit, OnDestroy {
       }).then((r) => {
         if (!r.isConfirmed) return;
         this.flashcardApi.deleteSet(this.setId).pipe(takeUntil(this.destroy$)).subscribe({
-          next: () => this.router.navigate(['/flashcards']),
-          error: () => this.showToast('error', 'Failed to delete'),
+          next: () => {
+            this.showToast('success', 'Set deleted successfully');
+            this.router.navigate(['/flashcards']);
+          },
+          error: (err) => {
+            console.error('Delete failed:', err);
+            this.showToast('error', 'Failed to delete set');
+          },
         });
       });
     });
@@ -237,7 +322,7 @@ export class FlashcardDetail implements OnInit, OnDestroy {
     const blob = new Blob([JSON.stringify(this.set.cards, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = `${this.set.title}.json`; a.click();
+    a.href = url; a.download = `${this.displayTitle}.json`; a.click();
     URL.revokeObjectURL(url);
     this.showMoreMenu = false;
   }
@@ -248,10 +333,34 @@ export class FlashcardDetail implements OnInit, OnDestroy {
   /** TrackBy for cards */
   trackById(_: number, card: FlashCard): string { return card._id ?? String(_); }
 
+  /** Open success modal */
+  openSuccessModal(title: string, message: string): void {
+    this.modalTitle    = title;
+    this.modalMessage  = message;
+    this.showSuccessModal = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Open error modal */
+  openErrorModal(title: string, message: string): void {
+    this.modalTitle   = title;
+    this.modalMessage = message;
+    this.showErrorModal = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Close any feedback modal */
+  closeModal(): void {
+    this.showSuccessModal = false;
+    this.showErrorModal   = false;
+    this.cdr.markForCheck();
+  }
+
   private showToast(type: 'success' | 'error', msg: string): void {
-    import('sweetalert2').then(({ default: Swal }) => {
-      Swal.fire({ toast: true, position: 'top-end', icon: type, title: msg,
-        showConfirmButton: false, timer: 3000, timerProgressBar: true });
-    });
+    if (type === 'success') {
+      this.openSuccessModal('Success', msg);
+    } else {
+      this.openErrorModal('Error', msg);
+    }
   }
 }

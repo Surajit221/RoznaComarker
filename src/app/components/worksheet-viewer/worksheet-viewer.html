@@ -54,6 +54,11 @@
       @if (!reviewMode) {
         <div class="wv-header-top-bar">
           <button class="wv-btn-back" (click)="closed.emit()">← Back</button>
+          @if (isSavingDraft()) {
+            <span class="wv-autosave-indicator wv-autosave-saving">Saving...</span>
+          } @else if (lastSavedAt()) {
+            <span class="wv-autosave-indicator">Saved {{ lastSavedAt() | date:'shortTime' }}</span>
+          }
           <button class="wv-btn-close" (click)="closed.emit()">×</button>
         </div>
       }
@@ -127,7 +132,7 @@
         <div class="wv-progress-header">
           <div>
             <p class="wv-section-label">PROGRESS TRACKER</p>
-            <h3 class="wv-progress-title">{{ completedActivities() }} / 4 Activities Completed</h3>
+            <h3 class="wv-progress-title">{{ completedActivities() }} / {{ totalActivities() }} Activities Completed</h3>
           </div>
           <span class="wv-pct-badge">{{ progressPercent() }}%</span>
         </div>
@@ -179,42 +184,69 @@
               <span class="wv-score-badge">{{ a1Score() }} / {{ a1Total() }}</span>
             </div>
 
-            <div class="wv-slots-grid">
-              @for (slot of a1Slots(); track trackByIndex($index); let i = $index) {
+            <!-- Drop Slots Row -->
+            <div class="wv-a1-slots-row">
+              @for (slotArr of a1SlotArrays; track trackByIndex($index); let i = $index) {
+                @if (i > 0) { <span class="wv-a1-arrow">→</span> }
                 <div class="wv-slot"
-                     [class.active]="a1ActiveSlot() === i"
-                     [class.filled]="!!slot"
-                     [class.correct]="a1Checked() && !!slot && slot.correctOrder === i + 1"
-                     [class.wrong]="a1Checked() && !!slot && slot.correctOrder !== i + 1"
-                     (click)="slot ? removeFromSlot(i) : selectSlot(i)">
-                  @if (slot) {
-                    <span class="wv-slot-emoji">{{ slot.emoji }}</span>
-                    <span class="wv-slot-name">{{ slot.name }}</span>
+                     [id]="getA1SlotId(i)"
+                     [class.filled]="slotArr.length > 0"
+                     [class.correct]="a1Checked() && slotArr.length > 0 && slotArr[0].correctOrder === i + 1"
+                     [class.wrong]="a1Checked() && slotArr.length > 0 && slotArr[0].correctOrder !== i + 1"
+                     cdkDropList
+                     [cdkDropListData]="slotArr"
+                     [cdkDropListConnectedTo]="getA1ConnectedLists(i)"
+                     (cdkDropListDropped)="onA1DropToSlot($event, i)">
+                  <div class="wv-a1-slot-number">{{ i + 1 }}</div>
+                  @if (slotArr.length > 0) {
+                    <div class="wv-a1-card wv-a1-card-placed"
+                         cdkDrag
+                         [cdkDragDisabled]="reviewMode">
+                      <div *cdkDragPreview class="wv-a1-drag-preview">
+                        <span class="wv-slot-emoji">{{ slotArr[0].emoji }}</span>
+                        <span class="wv-slot-name">{{ slotArr[0].name }}</span>
+                      </div>
+                      <div *cdkDragPlaceholder class="wv-a1-drag-placeholder"></div>
+                      <span class="wv-slot-emoji">{{ slotArr[0].emoji }}</span>
+                      <span class="wv-slot-name">{{ slotArr[0].name }}</span>
+                    </div>
                   } @else {
                     <span class="wv-slot-hint">
-                      @if (a1ActiveSlot() === i) { ← Tap a card } @else { Tap a card below to fill this step. }
+                      @if (reviewMode) { — } @else { Drop here }
                     </span>
                   }
                 </div>
               }
             </div>
 
-            @if (a1Available().length > 0 && !reviewMode) {
-              <div class="wv-available-cards">
-                @for (item of a1Available(); track item.id) {
-                  <div class="wv-avail-card"
-                       [class.glow]="a1ActiveSlot() !== null"
-                       (click)="placeItemInSlot(item)">
-                    <span>{{ item.emoji }}</span>
-                    <span>{{ item.name }}</span>
-                  </div>
-                }
+            <!-- Available Cards Pool -->
+            @if (!reviewMode) {
+              <div class="wv-a1-pool"
+                   id="a1-pool"
+                   cdkDropList
+                   [cdkDropListData]="a1Pool"
+                   [cdkDropListConnectedTo]="getA1AllSlotIds()"
+                   (cdkDropListDropped)="onA1DropToPool($event)">
+                <p class="wv-a1-pool-label">Drag cards to the numbered slots above</p>
+                <div class="wv-a1-pool-cards">
+                  @for (item of a1Pool; track item.id) {
+                    <div class="wv-a1-card wv-a1-card-pool" cdkDrag [cdkDragDisabled]="reviewMode">
+                      <div *cdkDragPreview class="wv-a1-drag-preview">
+                        <span class="wv-slot-emoji">{{ item.emoji }}</span>
+                        <span class="wv-slot-name">{{ item.name }}</span>
+                      </div>
+                      <div *cdkDragPlaceholder class="wv-a1-drag-placeholder"></div>
+                      <span class="wv-slot-emoji">{{ item.emoji }}</span>
+                      <span class="wv-slot-name">{{ item.name }}</span>
+                    </div>
+                  }
+                </div>
               </div>
             }
 
             @if (!a1Checked() && !reviewMode) {
               <button class="wv-btn-check"
-                      [disabled]="a1Available().length > 0"
+                      [disabled]="a1Pool.length > 0"
                       (click)="checkActivity1()">
                 Check Order
               </button>
@@ -318,16 +350,14 @@
               <span class="wv-score-badge">{{ a4Score() }} / {{ a4Total() }}</span>
             </div>
 
-            <div class="wv-word-bank">
-              @for (word of worksheet()!.activity4!.wordBank; track word) {
-                <button class="wv-word-chip"
-                        [class.used]="isWordUsed(word)"
-                        [disabled]="isWordUsed(word)"
-                        (click)="placeWord(word)">
-                  {{ word }}
-                </button>
-              }
-            </div>
+            @if (worksheet()!.activity4!.wordBank.length) {
+              <div class="wv-word-bank">
+                <span class="wv-word-bank-label">Word bank:</span>
+                @for (word of worksheet()!.activity4!.wordBank; track word) {
+                  <span class="wv-word-hint">{{ word }}</span>
+                }
+              </div>
+            }
 
             <div class="wv-sentences">
               @for (sentence of worksheet()!.activity4!.sentences; track sentence.id) {
@@ -336,15 +366,15 @@
                     @if (part.type === 'text') {
                       <span class="wv-sent-text">{{ part.value }}</span>
                     } @else {
-                      <button class="wv-blank-chip"
-                              [class.active]="a4SelectedBlank() === part.blankId"
-                              [class.filled]="!!a4Blanks()[part.blankId!]"
-                              [class.correct]="a4Checked() && a4Blanks()[part.blankId!].toLowerCase() === (part.correctAnswer ?? '').toLowerCase()"
-                              [class.wrong]="a4Checked() && !!a4Blanks()[part.blankId!] && a4Blanks()[part.blankId!].toLowerCase() !== (part.correctAnswer ?? '').toLowerCase()"
-                              [disabled]="reviewMode"
-                              (click)="selectBlank(part.blankId!)">
-                        {{ getBlankDisplay(part.blankId!) }}
-                      </button>
+                      <input type="text"
+                             class="wv-blank-input"
+                             [class.correct]="a4Checked() && (a4Blanks()[part.blankId!] || '').toLowerCase() === (part.correctAnswer ?? '').toLowerCase()"
+                             [class.wrong]="a4Checked() && !!(a4Blanks()[part.blankId!]) && (a4Blanks()[part.blankId!] || '').toLowerCase() !== (part.correctAnswer ?? '').toLowerCase()"
+                             [value]="a4Blanks()[part.blankId!] || ''"
+                             [attr.readonly]="(a4Checked() || reviewMode) ? '' : null"
+                             (input)="onA4Input(part.blankId!, $event)"
+                             autocomplete="off"
+                             spellcheck="false" />
                       @if (reviewMode && a4PartWrong(part)) {
                         <span class="wv-blank-correction">({{ a4PartCorrect(part) }})</span>
                       }
@@ -366,13 +396,327 @@
         }
       </div>
 
+      <!-- ACTIVITIES ROW 3 -->
+      <div class="wv-activities-row">
+
+        <!-- ACTIVITY 5: Match Pairs -->
+        @if (worksheet()!.activity5) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity5!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity5!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a5Score() }} / {{ a5Total() }}</span>
+            </div>
+
+            <!-- Matching rows: left term → drop zone -->
+            <div class="wv-match-rows">
+              @for (pair of worksheet()!.activity5!.pairs; track pair.id) {
+                <div class="wv-match-row-wrap">
+                  <div class="wv-match-row">
+                    <div class="wv-match-term">
+                      @if (pair.leftItem.imageUrl) {
+                        <img [src]="pair.leftItem.imageUrl" class="wv-match-img" alt="">
+                      }
+                      <span>{{ pair.leftItem.text }}</span>
+                    </div>
+                    <div class="wv-match-arrow-col">→</div>
+                    <div class="wv-match-drop"
+                         cdkDropList
+                         [id]="getA5DropId(pair.id)"
+                         [cdkDropListConnectedTo]="['a5-bank']"
+                         [class.has-match]="!!a5Matches()[pair.id]"
+                         [class.correct]="a5Checked() && a5Matches()[pair.id] === pair.rightItem.text"
+                         [class.wrong]="a5Checked() && !!a5Matches()[pair.id] && a5Matches()[pair.id] !== pair.rightItem.text"
+                         [class.dz-skipped]="a5Checked() && !a5Matches()[pair.id]"
+                         (cdkDropListDropped)="onMatchPairDrop($event, pair.id)">
+                      @if (a5Matches()[pair.id]) {
+                        <span class="wv-match-placed-text">{{ a5Matches()[pair.id] }}</span>
+                        @if (a5Checked() && a5Matches()[pair.id] === pair.rightItem.text) {
+                          <span class="wv-match-icon wv-match-icon-ok">&#10003;</span>
+                        } @else if (a5Checked()) {
+                          <span class="wv-match-icon wv-match-icon-err">&#10007;</span>
+                        }
+                      } @else {
+                        <span class="wv-match-drop-hint">{{ a5Checked() ? 'Not matched' : 'Drop here...' }}</span>
+                      }
+                    </div>
+                  </div>
+                  @if (a5Checked()) {
+                    @if (a5Matches()[pair.id] === pair.rightItem.text) {
+                      <p class="wv-match-feedback wv-match-fb-correct">&#10003; Correct match!</p>
+                    } @else if (a5Matches()[pair.id]) {
+                      <p class="wv-match-feedback wv-match-fb-wrong">
+                        &#10007; Wrong — correct answer: <strong>{{ pair.rightItem.text }}</strong>
+                        <span class="wv-match-fb-your"> (you matched: {{ a5Matches()[pair.id] }})</span>
+                      </p>
+                    } @else {
+                      <p class="wv-match-feedback wv-match-fb-skipped">— Not matched — correct answer: <strong>{{ pair.rightItem.text }}</strong></p>
+                    }
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Answer bank -->
+            @if (!reviewMode) {
+              <div class="wv-answer-bank">
+                <p class="wv-answer-bank-label">ANSWER BANK</p>
+                <div class="wv-answer-bank-chips"
+                     cdkDropList
+                     id="a5-bank"
+                     [cdkDropListData]="a5Bank"
+                     [cdkDropListConnectedTo]="getA5AllDropIds()">
+                  @for (item of a5Bank; track item.id) {
+                    <div class="wv-answer-chip"
+                         cdkDrag
+                         [cdkDragData]="item"
+                         [cdkDragDisabled]="reviewMode || a5Checked() || Object.values(a5Matches()).includes(item.text)"
+                         [class.used]="Object.values(a5Matches()).includes(item.text)">
+                      <span>{{ item.text }}</span>
+                      <div *cdkDragPreview class="wv-chip-drag-preview">{{ item.text }}</div>
+                      <div *cdkDragPlaceholder class="wv-chip-drag-placeholder"></div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (!reviewMode) {
+              <div class="wv-a5-actions">
+                <button class="wv-btn-reset" (click)="resetActivity5()">Reset</button>
+                <button class="wv-btn-check-answers" (click)="checkActivity5()" [disabled]="a5Checked()">
+                  Check Matches
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ACTIVITY 6: True/False -->
+        @if (worksheet()!.activity6) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity6!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity6!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a6Score() }} / {{ a6Total() }}</span>
+            </div>
+
+            <div class="wv-tf-list">
+              @for (q of worksheet()!.activity6!.questions; track q.id; let qi = $index) {
+                <div class="wv-tf-card"
+                     [class.tf-answered]="a6Answers()[q.id] !== undefined"
+                     [class.tf-correct]="a6Checked() && a6Answers()[q.id] === q.correctAnswer"
+                     [class.tf-wrong]="a6Checked() && a6Answers()[q.id] !== undefined && a6Answers()[q.id] !== q.correctAnswer"
+                     [class.tf-skipped]="a6Checked() && a6Answers()[q.id] === undefined">
+                  <div class="wv-tf-header">
+                    <div class="wv-tf-q-badge">Q{{ qi + 1 }}</div>
+                    <p class="wv-tf-statement">{{ q.text }}</p>
+                    @if (a6Checked() && a6Answers()[q.id] === q.correctAnswer) {
+                      <span class="wv-tf-result-icon wv-tf-result-correct">&#10003;</span>
+                    } @else if (a6Checked()) {
+                      <span class="wv-tf-result-icon wv-tf-result-wrong">&#10007;</span>
+                    }
+                  </div>
+                  <div class="wv-tf-btns">
+                    <button class="wv-tf-true-btn"
+                            [class.wv-btn-pre-selected]="a6Answers()[q.id] === true && !a6Checked()"
+                            [class.btn-selected-green]="a6Answers()[q.id] === true && a6Checked() && a6Answers()[q.id] === q.correctAnswer"
+                            [class.btn-selected-red]="a6Answers()[q.id] === true && a6Checked() && a6Answers()[q.id] !== q.correctAnswer"
+                            [class.btn-correct-hint]="a6Checked() && q.correctAnswer === true && a6Answers()[q.id] !== true"
+                            [disabled]="reviewMode || a6Checked()"
+                            (click)="selectTrueFalse(q.id, true)">
+                      &#10003; True
+                      @if (a6Checked() && a6Answers()[q.id] === true) {
+                        <span class="wv-tf-your-pick">Your answer</span>
+                      }
+                      @if (a6Checked() && q.correctAnswer === true && a6Answers()[q.id] !== true) {
+                        <span class="wv-tf-correct-label">Correct answer</span>
+                      }
+                    </button>
+                    <button class="wv-tf-false-btn"
+                            [class.wv-btn-pre-selected]="a6Answers()[q.id] === false && !a6Checked()"
+                            [class.btn-selected-green]="a6Answers()[q.id] === false && a6Checked() && a6Answers()[q.id] === q.correctAnswer"
+                            [class.btn-selected-red]="a6Answers()[q.id] === false && a6Checked() && a6Answers()[q.id] !== q.correctAnswer"
+                            [class.btn-correct-hint]="a6Checked() && q.correctAnswer === false && a6Answers()[q.id] !== false"
+                            [disabled]="reviewMode || a6Checked()"
+                            (click)="selectTrueFalse(q.id, false)">
+                      &#10007; False
+                      @if (a6Checked() && a6Answers()[q.id] === false) {
+                        <span class="wv-tf-your-pick">Your answer</span>
+                      }
+                      @if (a6Checked() && q.correctAnswer === false && a6Answers()[q.id] !== false) {
+                        <span class="wv-tf-correct-label">Correct answer</span>
+                      }
+                    </button>
+                  </div>
+                  @if (a6Checked()) {
+                    @if (a6Answers()[q.id] === q.correctAnswer) {
+                      <p class="wv-tf-feedback wv-tf-feedback-correct">&#10003; Correct!</p>
+                    } @else if (a6Answers()[q.id] !== undefined) {
+                      <p class="wv-tf-feedback wv-tf-feedback-wrong">&#10007; Incorrect — correct answer: <strong>{{ q.correctAnswer ? 'True' : 'False' }}</strong></p>
+                    } @else {
+                      <p class="wv-tf-feedback wv-tf-feedback-skipped">— Not answered — correct answer: <strong>{{ q.correctAnswer ? 'True' : 'False' }}</strong></p>
+                    }
+                    @if (q.explanation) {
+                      <p class="wv-tf-explanation">{{ q.explanation }}</p>
+                    }
+                  }
+                </div>
+              }
+            </div>
+
+            @if (!reviewMode) {
+              <div class="wv-a6-actions">
+                <button class="wv-btn-reset" (click)="resetActivity6()">Reset</button>
+                <button class="wv-btn-check-answers" (click)="checkActivity6()" [disabled]="a6Checked()">
+                  Check Answers
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- ACTIVITIES ROW 4 -->
+      <div class="wv-activities-row">
+
+        <!-- ACTIVITY 7: Image Label -->
+        @if (worksheet()!.activity7) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity7!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity7!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a7Score() }} / {{ a7Total() }}</span>
+            </div>
+
+            <div class="wv-image-label-container">
+              <div class="wv-image-wrapper">
+                <img [src]="worksheet()!.activity7!.imageUrl" class="wv-label-image" alt="Label this image">
+                @for (label of worksheet()!.activity7!.labels; track label.id) {
+                  <div class="wv-label-target" 
+                       [style.left]="label.x + '%'" 
+                       [style.top]="label.y + '%'"
+                       [class.labeled]="a7Labels()[label.id]">
+                    <span class="wv-label-marker">•</span>
+                    @if (a7Labels()[label.id]) {
+                      <span class="wv-label-text">{{ a7Labels()[label.id] }}</span>
+                    }
+                  </div>
+                }
+              </div>
+              <div class="wv-label-options">
+                @for (label of worksheet()!.activity7!.labels; track label.id) {
+                  <button class="wv-label-option"
+                          [class.used]="Object.values(a7Labels()).includes(label.text)"
+                          [disabled]="reviewMode || a7Checked() || Object.values(a7Labels()).includes(label.text)"
+                          (click)="selectImageLabel(label.id, label.text)">
+                    {{ label.text }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (!reviewMode) {
+              <div class="wv-a7-actions">
+                <button class="wv-btn-reset" (click)="resetActivity7()">Reset</button>
+                <button class="wv-btn-check-answers" (click)="checkActivity7()" [disabled]="a7Checked()">
+                  Check Labels
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ACTIVITY 8: Enhanced Sequencing -->
+        @if (worksheet()!.activity8) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">{{ worksheet()!.activity8!.title }}</h3>
+                <p class="wv-activity-inst">{{ worksheet()!.activity8!.instructions }}</p>
+              </div>
+              <span class="wv-score-badge">{{ a8Score() }} / {{ a8Total() }}</span>
+            </div>
+
+            <div class="wv-enhanced-sequences">
+              @for (seq of worksheet()!.activity8!.sequences; track seq.id) {
+                <div class="wv-sequence-group">
+                  <h4 class="wv-sequence-title">{{ seq.title }}</h4>
+                  <div class="wv-sequence-items">
+                    @for (item of seq.items; track item.id; let i = $index) {
+                      <div class="wv-sequence-slot"
+                           cdkDropList
+                           [cdkDropListData]="{ sequenceId: seq.id, slotIndex: i }"
+                           (cdkDropListDropped)="onSequenceDrop($event, seq.id, i)">
+                        @if (getSequenceItem(seq.id, i)) {
+                          <div class="wv-sequence-item" 
+                               cdkDrag 
+                               [cdkDragData]="{ sequenceId: seq.id, item: getSequenceItem(seq.id, i) }"
+                               [cdkDragDisabled]="reviewMode || a8Checked()">
+                            @if (getSequenceItem(seq.id, i).imageUrl) {
+                              <img [src]="getSequenceItem(seq.id, i).imageUrl" class="wv-seq-image">
+                            }
+                            <span class="wv-seq-text">{{ getSequenceItem(seq.id, i).text }}</span>
+                            <span class="wv-seq-order">{{ i + 1 }}</span>
+                          </div>
+                        } @else {
+                          <div class="wv-seq-placeholder">Drop item {{ i + 1 }}</div>
+                        }
+                      </div>
+                    }
+                  </div>
+                  <div class="wv-sequence-pool">
+                    <h5>Available Items</h5>
+                    <div class="wv-pool-items"
+                         cdkDropList
+                         [cdkDropListConnectedTo]="getSequenceDropListIds(seq.id)"
+                         (cdkDropListDropped)="onSequencePoolDrop($event, seq.id)">
+                      @for (item of getUnplacedSequenceItems(seq.id); track item.id) {
+                        <div class="wv-sequence-item" 
+                             cdkDrag 
+                             [cdkDragData]="{ sequenceId: seq.id, item: item }"
+                             [cdkDragDisabled]="reviewMode || a8Checked()">
+                          @if (item.imageUrl) {
+                            <img [src]="item.imageUrl" class="wv-seq-image">
+                          }
+                          <span class="wv-seq-text">{{ item.text }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            @if (!reviewMode) {
+              <div class="wv-a8-actions">
+                <button class="wv-btn-reset" (click)="resetActivity8()">Reset</button>
+                <button class="wv-btn-check-answers" (click)="checkActivity8()" [disabled]="a8Checked()">
+                  Check Sequence
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
       <!-- SCORE + FEEDBACK PANEL -->
       @if (!reviewMode) {
       <div class="wv-card wv-score-panel">
         <div class="wv-score-header">
           <div>
             <p class="wv-section-label">SCORE + FEEDBACK</p>
-            <h3 class="wv-score-title">Finish all 4 activities to unlock the final score</h3>
+            <h3 class="wv-score-title">Finish all {{ totalActivities() }} activities to unlock the final score</h3>
             <p class="wv-score-hint">Your score will appear here once every activity is checked.</p>
           </div>
           <span class="wv-total-badge">{{ totalScore() }} / {{ totalPossible() }}</span>

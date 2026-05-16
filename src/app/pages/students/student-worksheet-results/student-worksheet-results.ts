@@ -20,7 +20,7 @@ import {
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   WorksheetApiService,
   type Worksheet,
@@ -48,6 +48,7 @@ interface ResultState {
 })
 export class StudentWorksheetResultsPage implements OnInit {
   private readonly router      = inject(Router);
+  private readonly route       = inject(ActivatedRoute);
   private readonly api         = inject(WorksheetApiService);
   private readonly cdr         = inject(ChangeDetectorRef);
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
@@ -66,6 +67,10 @@ export class StudentWorksheetResultsPage implements OnInit {
   isWorksheetLoading = false;
   isPdfDownloading   = false;
   resolvedStudentName = '';
+
+  // Section-wise analytics
+  sectionAnalytics: any[] = [];
+  showSectionDetails = false;
 
   get percentage(): number {
     return this.submission?.percentage ?? 0;
@@ -99,6 +104,17 @@ export class StudentWorksheetResultsPage implements OnInit {
     }
   }
 
+  /** Convert submission.answers to the format expected by WorksheetViewerComponent */
+  get normalizedAnswers(): Array<{ questionId: string; sectionId: string; studentAnswer: string; isCorrect?: boolean }> | null {
+    if (!this.submission?.answers) return null;
+    const answers = this.submission.answers;
+    if (Array.isArray(answers)) {
+      return answers as Array<{ questionId: string; sectionId: string; studentAnswer: string; isCorrect?: boolean }>;
+    }
+    // If it's a Record, convert it to array format or return null
+    return null;
+  }
+
   get studentName(): string {
     if (this.resolvedStudentName) return this.resolvedStudentName;
     const s: any = this.submission?.studentId;
@@ -114,27 +130,73 @@ export class StudentWorksheetResultsPage implements OnInit {
       nav?.extras?.state ?? (typeof history !== 'undefined' ? history.state : {})
     ) as Partial<ResultState>;
 
-    if (!state?.submission) {
-      this.router.navigate(['/student/my-classes']);
-      return;
+    if (state?.submission) {
+      // Normal navigation: state was passed by the class detail page
+      this.submission     = state.submission;
+      this.worksheetTitle = state.worksheetTitle ?? '';
+      this.classId        = state.classId        ?? '';
+      this.assignmentId   = state.assignmentId   ?? '';
+      this.hasState       = true;
+      this.resolveStudentNameAndWorksheet();
+    } else {
+      // Hard-refresh / direct URL: fall back to query params and re-fetch from API
+      const qp = this.route.snapshot.queryParamMap;
+      const worksheetId  = qp.get('worksheetId')  ?? '';
+      const assignmentId = qp.get('assignmentId') ?? '';
+      const classId      = qp.get('classId')       ?? '';
+
+      if (!worksheetId || !assignmentId) {
+        this.router.navigate(['/student/my-classes']);
+        return;
+      }
+
+      this.classId      = classId;
+      this.assignmentId = assignmentId;
+      this.isWorksheetLoading = true;
+      this.cdr.markForCheck();
+
+      // Fetch submission and worksheet in parallel
+      Promise.all([
+        this.api.getMySubmissionByAssignment(worksheetId, assignmentId),
+        this.api.getById(worksheetId).toPromise().catch(() => null),
+      ]).then(([sub, wsRes]: [any, any]) => {
+        if (!sub) {
+          // No submission found — send student back to play the worksheet
+          this.router.navigate(['/student/worksheet', worksheetId], {
+            queryParams: { assignmentId, classId: classId || undefined },
+          });
+          return;
+        }
+        this.submission     = sub;
+        this.worksheetTitle = sub.worksheet?.title ?? '';
+        this.worksheet      = wsRes?.data ?? wsRes ?? null;
+        this.hasState       = true;
+        this.isWorksheetLoading = false;
+        this.calculateSectionAnalytics();
+        this.cdr.markForCheck();
+        this.auth.getMeProfile().then(me => {
+          this.resolvedStudentName = me?.displayName || me?.email || '';
+          this.cdr.markForCheck();
+        }).catch(() => {});
+      }).catch(() => {
+        this.isWorksheetLoading = false;
+        this.router.navigate(['/student/my-classes']);
+      });
     }
+  }
 
-    this.submission     = state.submission;
-    this.worksheetTitle = state.worksheetTitle  ?? '';
-    this.classId        = state.classId         ?? '';
-    this.assignmentId   = state.assignmentId    ?? '';
-    this.hasState       = true;
-
+  private resolveStudentNameAndWorksheet(): void {
     this.auth.getMeProfile().then(me => {
       this.resolvedStudentName = me?.displayName || me?.email || '';
       this.cdr.markForCheck();
-    }).catch(() => { /* ignore — studentName getter has fallbacks */ });
+    }).catch(() => {});
 
-    if (this.submission.worksheetId) {
+    if (this.submission?.worksheetId) {
       this.isWorksheetLoading = true;
       this.api.getById(this.submission.worksheetId).subscribe({
         next: (res: any) => {
           this.worksheet = res?.data ?? res ?? null;
+          this.calculateSectionAnalytics();
           this.isWorksheetLoading = false;
           this.cdr.markForCheck();
         },
@@ -144,6 +206,79 @@ export class StudentWorksheetResultsPage implements OnInit {
         },
       });
     }
+  }
+
+  private calculateSectionAnalytics(): void {
+    if (!this.worksheet || !this.submission) return;
+
+    const answers = this.submission.answers as any[] || [];
+    const sectionMap: Record<string, { title: string; type: string }> = {};
+
+    // Build section map from worksheet activities
+    if (this.worksheet.activity1) {
+      sectionMap['activity1'] = { title: this.worksheet.activity1.title, type: 'Ordering' };
+    }
+    if (this.worksheet.activity2) {
+      sectionMap['activity2'] = { title: this.worksheet.activity2.title, type: 'Classification' };
+    }
+    if (this.worksheet.activity3) {
+      sectionMap['activity3'] = { title: this.worksheet.activity3.title, type: 'Multiple Choice' };
+    }
+    if (this.worksheet.activity4) {
+      sectionMap['activity4'] = { title: this.worksheet.activity4.title, type: 'Fill in Blanks' };
+    }
+
+    // Handle activities array format
+    if (this.worksheet.activities && Array.isArray(this.worksheet.activities)) {
+      this.worksheet.activities.forEach((activity: any, index: number) => {
+        const sectionId = `activity_${index}`;
+        const typeNames: Record<string, string> = {
+          ordering: 'Ordering',
+          classification: 'Classification',
+          multipleChoice: 'Multiple Choice',
+          fillBlanks: 'Fill in Blanks',
+          matching: 'Matching',
+          dragDrop: 'Drag & Drop',
+          shortAnswer: 'Short Answer',
+          trueFalse: 'True/False'
+        };
+        sectionMap[sectionId] = {
+          title: activity.title || `Section ${index + 1}`,
+          type: typeNames[activity.type] || activity.type || 'Activity'
+        };
+      });
+    }
+
+    // Group answers by section
+    const sectionStats: Record<string, { total: number; correct: number; skipped: number }> = {};
+    answers.forEach((answer: any) => {
+      const sectionId = answer.sectionId;
+      if (!sectionStats[sectionId]) {
+        sectionStats[sectionId] = { total: 0, correct: 0, skipped: 0 };
+      }
+      sectionStats[sectionId].total++;
+      if (answer.isCorrect) sectionStats[sectionId].correct++;
+      if (!answer.studentAnswer || answer.studentAnswer.trim() === '') sectionStats[sectionId].skipped++;
+    });
+
+    // Build analytics array
+    this.sectionAnalytics = Object.entries(sectionStats).map(([sectionId, stats]) => {
+      const metadata = sectionMap[sectionId] || { title: sectionId, type: 'Activity' };
+      const score = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+      const completion = stats.total > 0 ? Math.round(((stats.total - stats.skipped) / stats.total) * 100) : 0;
+
+      return {
+        id: sectionId,
+        title: metadata.title,
+        type: metadata.type,
+        score,
+        completion,
+        totalQuestions: stats.total,
+        correct: stats.correct,
+        incorrect: stats.total - stats.correct,
+        skipped: stats.skipped
+      };
+    });
   }
 
   async downloadMyPdf(): Promise<void> {

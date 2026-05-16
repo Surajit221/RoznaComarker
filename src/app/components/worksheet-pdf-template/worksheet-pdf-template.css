@@ -44,8 +44,18 @@
   page-break-inside: avoid;
 }
 
+/* Concept explanation text overflow handling for PDF */
+.wv-pdf-root .wv-concept-body {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  max-width: 100%;
+  overflow: visible;
+}
+
 /* Read-only header inputs (no <input> in PDF; render as styled divs) */
-.wv-pdf-readonly {
+.wv-pdf-readonly,
+.wv-meta-input {
   background: #fff;
   border: none;
   border-radius: 8px;
@@ -144,6 +154,17 @@
 .wv-pdf-root .wv-mcq-options {
   grid-template-columns: 1fr 1fr;
 }
-.wv-pdf-root .wv-slots-grid {
-  grid-template-columns: repeat(3, 1fr);
+
+/* Activity 1 horizontal slots row in PDF */
+.wv-pdf-root .wv-a1-slots-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.wv-pdf-root .wv-slot {
+  width: 100px;
+  min-height: 95px;
+}
+.wv-pdf-root .wv-a1-pool {
+  display: none;
 }

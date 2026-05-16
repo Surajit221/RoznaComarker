@@ -12,6 +12,8 @@ import { Router } from '@angular/router';
 import { Subject, switchMap, takeUntil } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import type { FlashcardSet } from '../../../models/flashcard-set.model';
+import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
+import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 
 type SortField = 'title' | 'updatedAt';
 type SortDir = 'asc' | 'desc';
@@ -20,7 +22,7 @@ interface SortState { field: SortField | null; dir: SortDir; }
 @Component({
   selector: 'app-flashcard-library',
   standalone: true,
-  imports: [CommonModule, DatePipe],
+  imports: [CommonModule, DatePipe, SuccessModal, ErrorModal],
   templateUrl: './flashcard-library.html',
   styleUrl: './flashcard-library.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,6 +42,11 @@ export class FlashcardLibrary implements OnInit, OnDestroy {
   activeSet: FlashcardSet | null = null;
   activeMenuSetId: string | null = null;
   readonly skeletonRows = [1, 2, 3, 4, 5];
+
+  showSuccessModal = false;
+  showErrorModal   = false;
+  modalTitle       = '';
+  modalMessage     = '';
 
   ngOnInit(): void { this.loadSets(); }
 
@@ -95,6 +102,11 @@ export class FlashcardLibrary implements OnInit, OnDestroy {
   /** Navigate to the set detail page */
   navigateToDetail(id: string): void { this.router.navigate(['/flashcards', id]); }
 
+  /** Assign flashcard set directly */
+  assignSet(set: FlashcardSet): void {
+    this.router.navigate(['/flashcards', set._id, 'assign']);
+  }
+
   /** Toggle the kebab dropdown for a row */
   openMenu(event: MouseEvent, set: FlashcardSet): void {
     event.stopPropagation();
@@ -122,10 +134,11 @@ export class FlashcardLibrary implements OnInit, OnDestroy {
   deleteSet(set: FlashcardSet | null): void {
     if (!set) return;
     this.activeMenuSetId = null;
+    const title = set.title?.trim() || 'Untitled Flashcard Set';
     import('sweetalert2').then(({ default: Swal }) => {
       Swal.fire({
         title: 'Delete set?',
-        text: `"${set.title}" will be permanently deleted.`,
+        text: `"${title}" will be permanently deleted.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'Delete',
@@ -242,10 +255,20 @@ export class FlashcardLibrary implements OnInit, OnDestroy {
     this.filteredSets = result;
   }
 
+  openSuccessModal(title: string, message: string): void {
+    this.modalTitle = title; this.modalMessage = message;
+    this.showSuccessModal = true; this.cdr.markForCheck();
+  }
+  openErrorModal(title: string, message: string): void {
+    this.modalTitle = title; this.modalMessage = message;
+    this.showErrorModal = true; this.cdr.markForCheck();
+  }
+  closeModal(): void {
+    this.showSuccessModal = false; this.showErrorModal = false; this.cdr.markForCheck();
+  }
+
   private showToast(type: 'success' | 'error', msg: string): void {
-    import('sweetalert2').then(({ default: Swal }) => {
-      Swal.fire({ toast: true, position: 'top-end', icon: type, title: msg,
-        showConfirmButton: false, timer: 3000, timerProgressBar: true });
-    });
+    if (type === 'success') this.openSuccessModal('Success', msg);
+    else this.openErrorModal('Error', msg);
   }
 }

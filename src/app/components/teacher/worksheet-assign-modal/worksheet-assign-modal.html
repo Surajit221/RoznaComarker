@@ -19,29 +19,40 @@
       </p>
 
       <!-- Worksheet list -->
-      <div class="wam-list" *ngIf="worksheets.length > 0">
-        <button
-          class="wam-item"
-          *ngFor="let ws of worksheets"
-          [class.selected]="selectedId === ws._id"
-          (click)="selectedId = ws._id">
-          <span class="wam-item-title">{{ ws.title }}</span>
-          <span class="wam-item-meta">{{ ws.totalPoints }} points · {{ ws.estimatedMinutes ?? 20 }}min</span>
-          <span class="wam-check" *ngIf="selectedId === ws._id">✓</span>
-        </button>
+      <div class="wam-form-group">
+        <label class="wam-label">Select Worksheet</label>
+        <ng-container *ngIf="isLoading">
+          <div class="wam-loading">Loading worksheets…</div>
+        </ng-container>
+        <ng-container *ngIf="!isLoading && worksheets.length === 0">
+          <div class="wam-empty">No worksheets available</div>
+        </ng-container>
+        <ng-container *ngIf="!isLoading && worksheets.length > 0">
+          <select class="wam-select" [(ngModel)]="selectedId">
+            <option value="">Choose a worksheet…</option>
+            <option *ngFor="let ws of worksheets" [value]="ws._id">{{ ws.title }}</option>
+          </select>
+        </ng-container>
       </div>
 
-      <!-- Deadline -->
-      <div class="wam-deadline" *ngIf="worksheets.length > 0">
-        <label class="wam-label" for="wam-deadline">Deadline</label>
-        <input
-          id="wam-deadline"
-          class="wam-input"
-          type="date"
-          [min]="minDate"
-          [(ngModel)]="deadline"
-        />
-      </div>
+      <!-- Class dropdown -->
+      <ng-container *ngIf="!classId">
+        <div class="wam-form-group">
+          <label class="wam-label">Select Class</label>
+          <ng-container *ngIf="isLoadingClasses">
+            <div class="wam-loading">Loading classes…</div>
+          </ng-container>
+          <ng-container *ngIf="!isLoadingClasses && classes.length === 0">
+            <div class="wam-empty">No classes available</div>
+          </ng-container>
+          <ng-container *ngIf="!isLoadingClasses && classes.length > 0">
+            <select class="wam-select" [(ngModel)]="selectedClassId">
+              <option value="">Choose a class…</option>
+              <option *ngFor="let c of classes" [value]="c._id">{{ c.name }}</option>
+            </select>
+          </ng-container>
+        </div>
+      </ng-container>
 
       <!-- Actions -->
       <div class="wam-actions" *ngIf="worksheets.length > 0">
@@ -49,11 +60,19 @@
         <button
           class="wam-submit"
           (click)="submit()"
-          [disabled]="isSubmitting || !selectedId || !deadline">
+          [disabled]="isSubmitting || !selectedId || (!classId && !selectedClassId)">
           {{ isSubmitting ? 'Assigning…' : 'Assign to class' }}
         </button>
       </div>
     </ng-container>
+
+    <!-- View all link -->
+    <div class="wam-view-all-wrapper">
+      <button class="wam-view-all-btn" (click)="openWorksheetLibrary()">
+        <span class="wam-underline">View all worksheets</span>
+        <span class="wam-arrow">→</span>
+      </button>
+    </div>
 
   </div>
 </div>

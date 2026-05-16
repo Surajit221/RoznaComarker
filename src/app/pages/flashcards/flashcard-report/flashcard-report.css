@@ -150,7 +150,69 @@
 .stats-note {
   font-size: 0.75rem;
   color: var(--color-text-muted, #6B7280);
-  margin: 0 0 1.5rem;
+  margin: 0;
+}
+
+/* ── Last Updated & Refresh ─────────────────────────────── */
+.report-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.last-updated-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.last-updated-text {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6B7280);
+}
+.btn-refresh {
+  background: none;
+  border: 1px solid var(--color-border, #E7E7E7);
+  border-radius: 6px;
+  padding: 0.35rem 0.625rem;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted, #6B7280);
+  cursor: pointer;
+  transition: border-color 150ms, color 150ms;
+}
+.btn-refresh:hover {
+  border-color: var(--color-primary, #008081);
+  color: var(--color-primary, #008081);
+}
+
+/* ── Comprehensive report toggle ─────────────────────────── */
+.cr-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+.cr-toggle-btn {
+  background: none;
+  border: 1.5px solid var(--color-border, #E7E7E7);
+  border-radius: 8px;
+  padding: 0.45rem 1.125rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary, #008081);
+  cursor: pointer;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+  transition: border-color 150ms, background 150ms;
+}
+.cr-toggle-btn:hover { background: rgba(0,128,129,.05); border-color: #008081; }
+.cr-panel {
+  border: 1px solid var(--color-border, #E7E7E7);
+  border-radius: 14px;
+  padding: 1.25rem;
+  background: #FAFAFA;
+  margin-bottom: 1rem;
 }
 
 /* ── Participants toolbar ───────────────────────────────── */
@@ -285,6 +347,8 @@
   text-transform: capitalize;
 }
 .badge-completed { background: #dcfce7; color: #166534; }
+.badge-in_progress { background: #fef3c7; color: #92400e; }
+.badge-not_started { background: #f3f4f6; color: #4b5563; }
 
 /* ── Empty state ────────────────────────────────────────── */
 .empty-state {

@@ -94,6 +94,26 @@
 .wam-submit:hover:not(:disabled) { background: #136c6d; }
 .wam-submit:disabled, .wam-cancel:disabled { opacity: .55; cursor: not-allowed; }
 
+.wam-view-all-wrapper {
+  margin-top: 1rem;
+  border-top: 1px solid #F3F4F6;
+  padding-top: 0.75rem;
+  text-align: center;
+}
+.wam-view-all-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: #008081;
+  font-family: var(--font-main);
+}
+.wam-view-all-btn:hover .wam-underline { text-decoration: underline; text-underline-offset: 2px; }
+.wam-arrow { font-size: 0.875rem; }
+
 @media (max-width: 480px) {
   .wam-backdrop { padding: 0; align-items: flex-end; }
   .wam-panel { border-radius: 20px 20px 0 0; max-height: 85vh; }

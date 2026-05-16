@@ -154,4 +154,97 @@ export class FlashcardApiService {
       )
       .pipe(map((r) => r.data));
   }
+
+  /**
+   * Uploads a flashcard image file.
+   * @param file The image file to upload
+   * @returns { imageUrl: string } - The public URL of the uploaded image
+   */
+  uploadFlashcardImage(file: File): Observable<{ imageUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http
+      .post<BackendResponse<{ imageUrl: string }>>(
+        `${this.baseUrl}/upload/flashcard-image`,
+        formData
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * Save progress for a flashcard set.
+   * Called on every card navigation to persist student progress.
+   */
+  saveProgress(setId: string, payload: {
+    lastCardIndex: number;
+    cardsViewed: number[];
+    cardResults?: Record<string, 'knew' | 'didnt_know'>;
+    assignmentId?: string;
+    template?: string;
+    totalCards?: number;
+  }): Observable<{
+    progressId: string;
+    status: 'not_started' | 'in_progress' | 'completed';
+    lastCardIndex: number;
+    completedCards: number;
+    totalCards: number;
+    cardsRemaining: number;
+    progressPercentage: number;
+    startedAt: string | null;
+    lastActivityAt: string | null;
+    completedAt: string | null;
+  }> {
+    return this.http
+      .patch<BackendResponse<any>>(
+        `${this.baseUrl}/${encodeURIComponent(setId)}/progress`,
+        payload
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * Get saved progress for a flashcard set.
+   * Used to resume study from where the student left off.
+   */
+  getProgress(setId: string, assignmentId?: string): Observable<{
+    status: 'not_started' | 'in_progress' | 'completed';
+    lastCardIndex: number;
+    completedCards: number;
+    totalCards: number;
+    cardsViewed: number[];
+    cardResults: Record<string, 'knew' | 'didnt_know'>;
+    cardsRemaining: number;
+    progressPercentage: number;
+    startedAt: string | null;
+    lastActivityAt: string | null;
+    completedAt: string | null;
+    template?: string;
+  }> {
+    let params = new HttpParams();
+    if (assignmentId && String(assignmentId).trim().length) {
+      params = params.set('assignmentId', String(assignmentId).trim());
+    }
+    return this.http
+      .get<BackendResponse<any>>(
+        `${this.baseUrl}/${encodeURIComponent(setId)}/progress`,
+        { params }
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * Reset progress for a flashcard set (Start Over functionality).
+   */
+  resetProgress(setId: string, assignmentId?: string): Observable<{ message: string; status: string }> {
+    let params = new HttpParams();
+    if (assignmentId && String(assignmentId).trim().length) {
+      params = params.set('assignmentId', String(assignmentId).trim());
+    }
+    return this.http
+      .delete<BackendResponse<any>>(
+        `${this.baseUrl}/${encodeURIComponent(setId)}/progress`,
+        { params }
+      )
+      .pipe(map((r) => r.data));
+  }
 }

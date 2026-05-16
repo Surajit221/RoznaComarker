@@ -6,6 +6,12 @@
       <button class="fam-close" (click)="close()" aria-label="Close">✕</button>
     </div>
 
+    <!-- Error alert -->
+    <div class="fam-error-alert" *ngIf="errorMessage">
+      <span class="fam-error-icon">⚠</span>
+      <span class="fam-error-text">{{ errorMessage }}</span>
+    </div>
+
     <!-- Loading skeleton -->
     <div class="fam-loading" *ngIf="isLoading">
       <div class="skel skel-row" *ngFor="let _ of [1,2,3]"></div>
@@ -20,15 +26,22 @@
 
       <!-- Set list -->
       <div class="fam-set-list" *ngIf="sets.length > 0">
-        <button
-          class="fam-set-item"
-          *ngFor="let set of sets"
-          [class.selected]="selectedSetId === set._id"
-          (click)="selectedSetId = set._id">
-          <span class="fam-set-title">{{ set.title }}</span>
-          <span class="fam-set-count">{{ set.cardCount ?? set.cards?.length ?? 0 }} cards</span>
-          <span class="fam-check" *ngIf="selectedSetId === set._id">✓</span>
-        </button>
+        <div class="fam-set-item-wrapper" *ngFor="let set of sets">
+          <button
+            class="fam-set-item"
+            [class.selected]="selectedSetId === set._id"
+            (click)="selectedSetId = set._id">
+            <span class="fam-set-title">{{ set.title }}</span>
+            <span class="fam-set-count">{{ set.cardCount ?? set.cards?.length ?? 0 }} cards</span>
+            <span class="fam-check" *ngIf="selectedSetId === set._id">✓</span>
+          </button>
+          <button 
+            class="fam-preview-btn"
+            (click)="openPreview(set)"
+            [attr.aria-label]="`Preview ${set.title}`">
+            👁️ Preview
+          </button>
+        </div>
       </div>
 
       <!-- Deadline picker -->
@@ -55,5 +68,20 @@
       </div>
     </ng-container>
 
+    <!-- View all link -->
+    <div class="fam-view-all-wrapper">
+      <button class="fam-view-all-btn" (click)="openFlashcardLibrary()">
+        <span class="fam-underline">View all flashcards</span>
+        <span class="fam-arrow">→</span>
+      </button>
+    </div>
+
   </div>
 </div>
+
+<!-- Flashcard Preview Modal -->
+<app-flashcard-preview-modal
+  [(show)]="showPreview"
+  [flashcardSet]="selectedSetForPreview"
+  (back)="onBackFromPreview()">
+</app-flashcard-preview-modal>

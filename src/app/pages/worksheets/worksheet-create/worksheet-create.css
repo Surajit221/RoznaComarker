@@ -406,6 +406,22 @@
   margin: 0.35rem 0 0;
 }
 
+/* ── Form label optional ─────────────────────────────────── */
+.wcp-label-optional {
+  font-weight: 400;
+  color: #9CA3AF;
+  font-size: 0.78rem;
+}
+
+/* ── Description counter ─────────────────────────────────── */
+.wcp-desc-textarea { resize: vertical; }
+.wcp-char-counter {
+  font-size: 0.72rem;
+  color: #9CA3AF;
+  text-align: right;
+  margin-top: -0.5rem;
+}
+
 /* ── Tags ───────────────────────────────────────────────── */
 .wcp-tags {
   display: flex;
@@ -422,10 +438,385 @@
   color: #374151;
 }
 
+/* ── Saved card / Theme preview ─────────────────────────── */
+.wcp-saved-card { gap: 1.25rem; }
+
+.wcp-saved-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+}
+.wcp-saved-check {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: #16a34a; color: #fff;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; font-weight: 700;
+}
+.wcp-saved-title { margin: 0; font-size: 1rem; font-weight: 700; color: #15803d; }
+.wcp-saved-sub   { margin: 0.1rem 0 0; font-size: 0.85rem; color: #374151; }
+
+.wcp-theme-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #9CA3AF;
+  margin-bottom: -0.25rem;
+}
+
+.wcp-theme-preview {
+  border: 1.5px solid #E7E7E7;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.wcp-theme-header-strip {
+  padding: 1rem 1.25rem;
+  color: #fff;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+}
+.wcp-theme-strip-title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.wcp-theme-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem 0.75rem;
+  background: #fafafa;
+  border-top: 1px solid #E7E7E7;
+}
+.wcp-swatch-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.wcp-swatch {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.wcp-swatch-bordered { border: 1.5px solid #E7E7E7; }
+.wcp-swatch-label {
+  font-size: 0.68rem;
+  color: #9CA3AF;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.wcp-theme-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.625rem 1.25rem 0.875rem;
+  background: #fafafa;
+  border-top: 1px solid #f3f4f6;
+}
+.wcp-theme-pill {
+  background: #f3f4f6;
+  border: 1px solid #E7E7E7;
+  border-radius: 20px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  color: #374151;
+}
+
+.wcp-theme-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.wcp-btn-regen-theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border: 1.5px solid #008081;
+  border-radius: 10px;
+  background: #fff;
+  color: #008081;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.wcp-btn-regen-theme:hover:not(:disabled) { background: #f0fdfa; }
+.wcp-btn-regen-theme:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Spinner inside save buttons ─────────────────────────── */
+.wcp-spinner-white {
+  border-color: rgba(255,255,255,0.35);
+  border-top-color: #fff;
+}
+
+/* ── File Upload Styles ───────────────────────────────────── */
+.wcp-upload-area {
+  margin-bottom: 16px;
+}
+
+.wcp-upload-dropzone {
+  border: 2px dashed #e7e7e7;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f9fafb;
+}
+
+.wcp-upload-dropzone:hover {
+  border-color: #008081;
+  background: #f0f9f9;
+}
+
+.wcp-upload-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.wcp-upload-text {
+  margin: 0 0 4px 0;
+  font-weight: 500;
+  color: #374151;
+}
+
+.wcp-upload-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.wcp-file-input {
+  display: none;
+}
+
+.wcp-file-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: #f0f9f9;
+  border: 1px solid #008081;
+  border-radius: 8px;
+}
+
+.wcp-file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wcp-file-icon {
+  font-size: 1.5rem;
+}
+
+.wcp-file-name {
+  margin: 0 0 2px 0;
+  font-weight: 500;
+  color: #374151;
+}
+
+.wcp-file-size {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.wcp-remove-file-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.wcp-remove-file-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.wcp-remove-file-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Mobile ──────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .wcp-wrap { padding: 1rem 0.875rem 4rem; }
   .wcp-title { font-size: 1.375rem; }
   .wcp-draft-header { flex-direction: column; }
   .wcp-form-row { flex-direction: column; }
+  .wcp-theme-actions { flex-direction: column-reverse; }
+  .wcp-theme-actions > button { width: 100%; justify-content: center; }
+  .wcp-file-selected { flex-direction: column; gap: 12px; }
+  .wcp-file-info { width: 100%; }
+  .wcp-activity-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Activity Selection ───────────────────────────────────── */
+.wcp-activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.wcp-activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wcp-toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wcp-toggle-switch input {
+  display: none;
+}
+
+.wcp-toggle-slider {
+  width: 40px;
+  height: 22px;
+  background: #E7E7E7;
+  border-radius: 11px;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.wcp-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.wcp-toggle-switch input:checked + .wcp-toggle-slider {
+  background: #008081;
+}
+
+.wcp-toggle-switch input:checked + .wcp-toggle-slider::before {
+  transform: translateX(18px);
+}
+
+.wcp-toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.wcp-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.wcp-activity-card {
+  border: 1.5px solid #E7E7E7;
+  border-radius: 10px;
+  padding: 0.875rem;
+  display: flex;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+.wcp-activity-card:hover:not(.wcp-activity-card--disabled) {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.wcp-activity-card--selected {
+  border-color: #008081;
+  background: rgba(0,128,129,0.05);
+}
+
+.wcp-activity-card--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wcp-activity-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #008081;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.wcp-activity-card:not(.wcp-activity-card--selected) .wcp-activity-icon {
+  background: #E7E7E7;
+  color: #9CA3AF;
+}
+
+.wcp-activity-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.wcp-activity-name {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.wcp-activity-desc {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #6B7280;
+  line-height: 1.3;
+}
+
+.wcp-activity-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9CA3AF;
+  text-align: right;
+}
+
+.wcp-activity-default {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #6B7280;
+  font-style: italic;
 }

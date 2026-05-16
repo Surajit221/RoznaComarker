@@ -94,12 +94,19 @@
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   border: 1.5px solid #e5e7eb;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 .sfp-front { background: #fff; }
 .sfp-back  { background: #f0fafa; border-color: rgba(0,128,129,.2); transform: rotateY(180deg); }
 .sfp-card-text {
   font-size: 1.125rem; color: #1f2937; text-align: center;
   margin: 0 0 0.75rem; line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 .sfp-tap-hint {
   font-size: 0.75rem; color: #9ca3af; position: absolute; bottom: 1rem;

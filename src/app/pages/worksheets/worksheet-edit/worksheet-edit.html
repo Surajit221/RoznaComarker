@@ -85,3 +85,17 @@
     </div>
   }
 </div>
+
+<app-error-modal
+  [show]="errorModal.open"
+  [title]="errorModal.title"
+  [message]="errorModal.message"
+  (closed)="errorModal = { open: false, title: '', message: '' }">
+</app-error-modal>
+
+<app-success-modal
+  [show]="successModal.open"
+  [title]="successModal.title"
+  [message]="successModal.message"
+  (closed)="successModal = { open: false, title: '', message: '' }">
+</app-success-modal>

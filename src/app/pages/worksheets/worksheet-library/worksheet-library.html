@@ -1,0 +1,239 @@
+<!-- WORKSHEET LIBRARY PAGE -->
+<div class="wl-page">
+
+  <!-- HEADER -->
+  <div class="wl-header">
+    <button class="wl-back-btn" (click)="goBack()">← Back</button>
+    <div class="wl-header-center">
+      <h1 class="wl-title">My Worksheets</h1>
+      <p class="wl-subtitle">{{ pagination?.total ?? 0 }} worksheets found</p>
+    </div>
+    <div class="wl-search-wrap">
+      <span class="wl-search-icon">🔍</span>
+      <input
+        class="wl-search-input"
+        placeholder="Search by title, description, tag…"
+        [value]="searchQuery"
+        (input)="onSearch($any($event.target).value)" />
+      @if (searchQuery) {
+        <button class="wl-search-clear" (click)="onSearch('')">✕</button>
+      }
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  @if (errorMsg) {
+    <div class="wl-error">⚠ {{ errorMsg }}</div>
+  }
+
+  <!-- BODY: FILTER PANEL + GRID -->
+  <div class="wl-body">
+
+    <!-- LEFT FILTER PANEL -->
+    <aside class="wl-filter-panel">
+      <div class="wl-filter-header">
+        <span class="wl-filter-title">Filters</span>
+        @if (hasActiveFilters) {
+          <button class="wl-clear-btn" (click)="clearAllFilters()">Clear all</button>
+        }
+      </div>
+
+      <!-- Subject -->
+      <div class="wl-filter-section">
+        <div class="wl-filter-label">Subject</div>
+        <div class="wl-chip-group">
+          @for (s of subjectOptions; track s) {
+            <button
+              class="wl-chip"
+              [class.active]="isActive('subjects', s)"
+              (click)="toggleFilter('subjects', s)">
+              {{ s }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Grade Category -->
+      <div class="wl-filter-section">
+        <div class="wl-filter-label">Grade Category</div>
+        <div class="wl-chip-group">
+          @for (g of gradeCatOptions; track g) {
+            <button
+              class="wl-chip"
+              [class.active]="isActive('gradeCategories', g)"
+              (click)="toggleFilter('gradeCategories', g)">
+              {{ g }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Grade Level -->
+      <div class="wl-filter-section">
+        <div class="wl-filter-label">Grade Level</div>
+        <div class="wl-chip-group wl-chip-grid">
+          @for (g of gradeLevelOptions; track g) {
+            <button
+              class="wl-chip wl-chip-sm"
+              [class.active]="isActive('gradeLevels', g)"
+              (click)="toggleFilter('gradeLevels', g)">
+              {{ g }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- CEFR -->
+      <div class="wl-filter-section">
+        <div class="wl-filter-label">CEFR Level</div>
+        <div class="wl-chip-group">
+          @for (c of cefrOptions; track c) {
+            <button
+              class="wl-chip wl-cefr-chip"
+              [class.active]="isActive('cefrLevels', c)"
+              (click)="toggleFilter('cefrLevels', c)">
+              {{ c }}
+            </button>
+          }
+        </div>
+      </div>
+    </aside>
+
+    <!-- CARD GRID -->
+    <section class="wl-grid-section">
+
+      <!-- SKELETON -->
+      @if (isLoading) {
+        <div class="wl-card-grid">
+          @for (s of [1,2,3,4,5,6]; track s) {
+            <div class="wl-card wl-card-skel">
+              <div class="wl-skel wl-skel-thumb"></div>
+              <div class="wl-card-info">
+                <div class="wl-skel wl-skel-title"></div>
+                <div class="wl-skel wl-skel-line"></div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- EMPTY STATE -->
+      @if (!isLoading && worksheets.length === 0) {
+        <div class="wl-empty">
+          <div class="wl-empty-icon">📄</div>
+          <h3>No worksheets found for selected filters</h3>
+          <p>Try adjusting your filters or search to find what you're looking for.</p>
+          @if (hasActiveFilters) {
+            <button class="wl-btn-primary" (click)="clearAllFilters()">Clear filters</button>
+          }
+        </div>
+      }
+
+      <!-- GRID -->
+      @if (!isLoading && worksheets.length > 0) {
+        <div class="wl-card-grid">
+          @for (ws of worksheets; track trackById($index, ws)) {
+            <div class="wl-card">
+
+              <!-- THUMBNAIL -->
+              <div class="wl-card-thumb">
+                @if (ws.thumbnailUrl) {
+                  <img class="wl-thumb-img" [src]="ws.thumbnailUrl" [alt]="ws.title" loading="lazy" />
+                } @else {
+                  <div class="wl-thumb-generated"
+                    [style.background]="ws.theme?.headerGradient || ws.theme?.primaryColor || '#0d9488'">
+                    <span class="wl-thumb-icon">📄</span>
+                    <span class="wl-thumb-title">{{ ws.title }}</span>
+                  </div>
+                }
+              </div>
+
+              <!-- CARD INFO -->
+              <div class="wl-card-info">
+                <h4 class="wl-card-title">{{ ws.title }}</h4>
+                @if (ws.description) {
+                  <p class="wl-card-desc">{{ ws.description }}</p>
+                }
+                <div class="wl-card-meta">
+                  @if (ws.subject) {
+                    <span class="wl-meta-tag">{{ ws.subject }}</span>
+                  }
+                  @if (ws.difficulty) {
+                    <span class="wl-meta-tag">{{ ws.difficulty }}</span>
+                  }
+                </div>
+                <div class="wl-card-details">
+                  @if (ws.gradeCategory) {
+                    <span class="wl-detail-item">{{ ws.gradeCategory }}</span>
+                  }
+                  @if (ws.gradeLevel) {
+                    <span class="wl-detail-item">{{ ws.gradeLevel }}</span>
+                  }
+                  @if (ws.cefrLevel) {
+                    <span class="wl-cefr-badge">{{ ws.cefrLevel }}</span>
+                  }
+                  @if (ws.totalPoints) {
+                    <span class="wl-detail-item">{{ ws.totalPoints }} pts</span>
+                  }
+                </div>
+                @if (ws.tags?.length) {
+                  <div class="wl-card-tags">
+                    @for (tag of ws.tags?.slice(0, 3) ?? []; track tag) {
+                      <span class="wl-tag">{{ tag }}</span>
+                    }
+                  </div>
+                }
+                <!-- ACTION BUTTONS -->
+                <div class="wl-card-actions">
+                  <button class="wl-btn-primary" (click)="assignWorksheet(ws)">
+                    Assign
+                  </button>
+                  <button class="wl-btn-secondary" (click)="previewWorksheet(ws)">
+                    Preview
+                  </button>
+                  <button class="wl-btn-danger" (click)="deleteWorksheet(ws, $event)" title="Delete worksheet">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          }
+        </div>
+
+        <!-- PAGINATION -->
+        @if (totalPages > 1) {
+          <div class="wl-pagination">
+            <button class="wl-page-btn"
+                    [disabled]="currentPage <= 1"
+                    (click)="loadWorksheets(currentPage - 1)">← Prev</button>
+            @for (p of pageNumbers; track p) {
+              <button class="wl-page-btn"
+                      [class.active]="p === currentPage"
+                      (click)="loadWorksheets(p)">{{ p }}</button>
+            }
+            <button class="wl-page-btn"
+                    [disabled]="currentPage >= totalPages"
+                    (click)="loadWorksheets(currentPage + 1)">Next →</button>
+          </div>
+        }
+      }
+
+    </section>
+  </div>
+
+</div>
+
+<app-error-modal
+  [show]="errorModal.open"
+  [title]="errorModal.title"
+  [message]="errorModal.message"
+  (closed)="errorModal = { open: false, title: '', message: '' }">
+</app-error-modal>
+
+<app-success-modal
+  [show]="successModal.open"
+  [title]="successModal.title"
+  [message]="successModal.message"
+  (closed)="successModal = { open: false, title: '', message: '' }">
+</app-success-modal>

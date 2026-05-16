@@ -1,0 +1,163 @@
+<div class="fpm-backdrop" *ngIf="show" (click)="onBackdropClick($event)" (keydown)="onKeydown($event)" tabindex="-1">
+  <div class="fpm-panel" role="dialog" aria-modal="true" aria-labelledby="fpm-title">
+    
+    <!-- Header -->
+    <div class="fpm-header">
+      <div class="fpm-header-left">
+        <button class="fpm-back-btn" (click)="onBackClick()" aria-label="Back to assignment">
+          ← Back
+        </button>
+        <h2 id="fpm-title" class="fpm-title">{{ flashcardSet?.title || 'Flashcard Preview' }}</h2>
+      </div>
+      <button class="fpm-close" (click)="close()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Set Statistics -->
+    <div class="fpm-stats" *ngIf="flashcardSet">
+      <div class="fpm-stat">
+        <span class="fpm-stat-value">{{ totalCards }}</span>
+        <span class="fpm-stat-label">Cards</span>
+      </div>
+      <div class="fpm-stat">
+        <span class="fpm-stat-value">{{ getSetStats().template }}</span>
+        <span class="fpm-stat-label">Template</span>
+      </div>
+      <div class="fpm-stat">
+        <span class="fpm-stat-value">{{ getSetStats().language }}</span>
+        <span class="fpm-stat-label">Language</span>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="fpm-search" *ngIf="flashcardSet">
+      <input 
+        type="text" 
+        class="fpm-search-input"
+        placeholder="Search cards..."
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        aria-label="Search flashcards"
+      >
+      @if (searchTerm) {
+        <span class="fpm-search-results">{{ filteredCards.length }} results</span>
+      }
+    </div>
+
+    <!-- Main Content -->
+    <div class="fpm-content" *ngIf="currentFilteredCard">
+      
+      <!-- Progress Bar -->
+      <div class="fpm-progress">
+        <div class="fpm-progress-bar">
+          <div class="fpm-progress-fill" [style.width.%]="progressPercentage"></div>
+        </div>
+        <span class="fpm-progress-text">{{ getCardNumber() }} / {{ filteredCards.length }}</span>
+      </div>
+
+      <!-- Flashcard -->
+      <div class="fpm-flashcard-container">
+        <div class="fpm-flashcard" 
+             [class.flipped]="isFlipped"
+             (click)="flipCard()"
+             role="button"
+             tabindex="0"
+             [attr.aria-label]="isFlipped ? 'Show front' : 'Show back'">
+          
+          <!-- Front of card -->
+          <div class="fpm-card-face fpm-card-front">
+            <div class="fpm-card-content">
+              <div class="fpm-card-text" [innerHTML]="currentFilteredCard.front"></div>
+              @if (currentFilteredCard.frontImage) {
+                <img [src]="getImageUrl(currentFilteredCard.frontImage)"
+                     alt="Front image"
+                     class="fpm-card-image"
+                     *ngIf="currentFilteredCard.frontImage">
+              }
+            </div>
+            <div class="fpm-card-hint">Click to flip</div>
+          </div>
+
+          <!-- Back of card -->
+          <div class="fpm-card-face fpm-card-back">
+            <div class="fpm-card-content">
+              <div class="fpm-card-text" [innerHTML]="currentFilteredCard.back"></div>
+              @if (currentFilteredCard.backImage) {
+                <img [src]="getImageUrl(currentFilteredCard.backImage)"
+                     alt="Back image"
+                     class="fpm-card-image"
+                     *ngIf="currentFilteredCard.backImage">
+              }
+              @if (currentFilteredCard.explanation) {
+                <div class="fpm-card-explanation">{{ currentFilteredCard.explanation }}</div>
+              }
+            </div>
+            <div class="fpm-card-hint">Click to flip back</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Controls -->
+      <div class="fpm-navigation">
+        <button class="fpm-nav-btn fpm-nav-prev" 
+                (click)="previousCard()"
+                [disabled]="isFirstCard"
+                aria-label="Previous card">
+          ← Previous
+        </button>
+        
+        <div class="fpm-nav-center">
+          <span class="fpm-nav-info">Card {{ getCardNumber() }} of {{ filteredCards.length }}</span>
+        </div>
+        
+        <button class="fpm-nav-btn fpm-nav-next" 
+                (click)="nextCard()"
+                [disabled]="isLastCard"
+                aria-label="Next card">
+          Next →
+        </button>
+      </div>
+
+      <!-- Card Grid (Quick Navigation) -->
+      <div class="fpm-card-grid" *ngIf="filteredCards.length > 1">
+        <h3 class="fpm-grid-title">Quick Navigation</h3>
+        <div class="fpm-grid">
+          @for (card of filteredCards; track card; let index = $index) {
+            <button class="fpm-grid-item"
+                    [class.active]="index === currentCardIndex"
+                    [class.completed]="false"
+                    (click)="goToCard(index)"
+                    [attr.aria-label]="`Go to card ${index + 1}`">
+              {{ index + 1 }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="fpm-empty" *ngIf="!currentFilteredCard && flashcardSet">
+      <div class="fpm-empty-icon">🔍</div>
+      <h3>No cards found</h3>
+      <p>Try adjusting your search terms.</p>
+      <button class="fpm-clear-search" (click)="searchTerm = ''; onSearchChange()">
+        Clear search
+      </button>
+    </div>
+
+    <!-- No Set State -->
+    <div class="fpm-empty" *ngIf="!flashcardSet">
+      <div class="fpm-empty-icon">📚</div>
+      <h3>No flashcard set selected</h3>
+      <p>Please select a flashcard set to preview.</p>
+    </div>
+
+    <!-- Footer Instructions -->
+    <div class="fpm-footer" *ngIf="currentFilteredCard">
+      <div class="fpm-instructions">
+        <span class="fpm-instruction-item">• Click card or press Space to flip</span>
+        <span class="fpm-instruction-item">• Use arrow keys to navigate</span>
+        <span class="fpm-instruction-item">• Press Esc to close</span>
+      </div>
+    </div>
+  </div>
+</div>

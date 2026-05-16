@@ -1,0 +1,118 @@
+<div class="waim-backdrop" *ngIf="show" (click)="onBackdropClick($event)">
+  <div class="waim-panel" role="dialog" aria-modal="true">
+
+    <div class="waim-header">
+      <h2 class="waim-title">Assign Worksheet</h2>
+      <button class="waim-close" (click)="cancel()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="waim-body">
+      <!-- Worksheet Info (read-only) -->
+      <div class="waim-worksheet-info">
+        <div class="waim-info-label">Worksheet</div>
+        <div class="waim-info-value">{{ worksheetTitle }}</div>
+      </div>
+
+      <!-- Class Selection -->
+      <div class="waim-form-group">
+        <label class="waim-label">Select Class <span class="waim-required">*</span></label>
+        <select
+          class="waim-select"
+          [(ngModel)]="selectedClassId"
+          [disabled]="isClassesLoading || isSubmitting">
+          <option value="">Choose a class…</option>
+          @for (cls of classes; track cls._id) {
+            <option [value]="cls._id">{{ cls.name }}</option>
+          }
+        </select>
+        @if (isClassesLoading) {
+          <div class="waim-loading">Loading classes…</div>
+        }
+        @if (classError) {
+          <div class="waim-error">{{ classError }}</div>
+        }
+        @if (!isClassesLoading && classes.length === 0) {
+          <div class="waim-empty">No classes available. Create a class first.</div>
+        }
+      </div>
+
+      <!-- Assignment Title -->
+      <div class="waim-form-group">
+        <label class="waim-label">Assignment Title <span class="waim-required">*</span></label>
+        <input
+          type="text"
+          class="waim-input"
+          [(ngModel)]="assignmentTitle"
+          placeholder="Enter assignment title"
+          [disabled]="isSubmitting"
+          maxlength="100">
+        @if (titleError) {
+          <div class="waim-error">{{ titleError }}</div>
+        }
+      </div>
+
+      <!-- Due Date -->
+      <div class="waim-form-group">
+        <label class="waim-label">Due Date <span class="waim-required">*</span></label>
+        <input
+          type="date"
+          class="waim-input"
+          [(ngModel)]="deadline"
+          [min]="minDate"
+          [disabled]="isSubmitting">
+        @if (deadlineError) {
+          <div class="waim-error">{{ deadlineError }}</div>
+        }
+      </div>
+
+      <!-- Instructions (optional) -->
+      <div class="waim-form-group">
+        <label class="waim-label">Instructions <span class="waim-optional">(optional)</span></label>
+        <textarea
+          class="waim-textarea"
+          [(ngModel)]="instructions"
+          placeholder="Add any special instructions for students..."
+          rows="3"
+          maxlength="500"
+          [disabled]="isSubmitting"></textarea>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="waim-footer">
+      <button
+        class="waim-btn waim-btn-cancel"
+        (click)="cancel()"
+        [disabled]="isSubmitting">
+        Cancel
+      </button>
+      <button
+        class="waim-btn waim-btn-submit"
+        (click)="submit()"
+        [disabled]="isSubmitting || !selectedClassId || !assignmentTitle.trim() || !deadline">
+        @if (isSubmitting) {
+          <span class="waim-spinner"></span> Assigning…
+        } @else {
+          Assign to Class
+        }
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Success Modal -->
+<app-success-modal
+  [show]="showSuccessModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="onSuccessClose()">
+</app-success-modal>
+
+<!-- Error Modal -->
+<app-error-modal
+  [show]="showErrorModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="onErrorClose()">
+</app-error-modal>

@@ -35,6 +35,57 @@
     <p class="swr-teacher-note" *ngIf="assignmentId">Your teacher has received your submission.</p>
   </div>
 
+  <!-- SECTION-WISE ANALYTICS -->
+  @if (sectionAnalytics.length > 0) {
+    <div class="swr-section-analytics">
+      <button class="swr-section-toggle" (click)="showSectionDetails = !showSectionDetails">
+        {{ showSectionDetails ? '▼ Hide Section Details' : '▶ Show Section Details' }}
+      </button>
+      @if (showSectionDetails) {
+        <div class="swr-section-list">
+          @for (section of sectionAnalytics; track section.id) {
+            <div class="swr-section-item">
+              <div class="swr-section-header">
+                <span class="swr-section-title">{{ section.title }}</span>
+                <span class="swr-section-type">{{ section.type }}</span>
+              </div>
+              <div class="swr-section-metrics">
+                <div class="swr-section-metric">
+                  <span class="swr-metric-label">Score</span>
+                  <span class="swr-metric-value" [class.good]="section.score >= 70" [class.poor]="section.score < 70">
+                    {{ section.score }}%
+                  </span>
+                </div>
+                <div class="swr-section-metric">
+                  <span class="swr-metric-label">Completion</span>
+                  <span class="swr-metric-value">{{ section.completion }}%</span>
+                </div>
+                <div class="swr-section-metric">
+                  <span class="swr-metric-label">Questions</span>
+                  <span class="swr-metric-value">{{ section.totalQuestions }}</span>
+                </div>
+              </div>
+              <div class="swr-section-breakdown">
+                <div class="swr-breakdown-item correct">
+                  <span class="swr-breakdown-count">{{ section.correct }}</span>
+                  <span class="swr-breakdown-label">Correct</span>
+                </div>
+                <div class="swr-breakdown-item incorrect">
+                  <span class="swr-breakdown-count">{{ section.incorrect }}</span>
+                  <span class="swr-breakdown-label">Incorrect</span>
+                </div>
+                <div class="swr-breakdown-item skipped">
+                  <span class="swr-breakdown-count">{{ section.skipped }}</span>
+                  <span class="swr-breakdown-label">Skipped</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
   <!-- DOWNLOAD PDF -->
   <div class="swr-pdf-row">
     <button class="swr-btn-pdf"
@@ -64,7 +115,7 @@
           #reviewViewer
           [worksheetId]="submission!.worksheetId"
           [reviewMode]="true"
-          [submittedAnswers]="submission!.answers"
+          [submittedAnswers]="normalizedAnswers"
           [reviewMeta]="{
             studentName: studentName,
             date: formattedDate,
