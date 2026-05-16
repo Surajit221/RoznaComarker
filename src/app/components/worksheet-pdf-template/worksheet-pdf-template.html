@@ -21,20 +21,52 @@
             <span class="wv-tag-pill">{{ tag }}</span>
           }
         </div>
+        <!-- Metadata row with icons -->
+        <div class="wv-metadata-row">
+          <div class="wv-meta-item">
+            <span class="wv-meta-icon">📚</span>
+            <div class="wv-meta-content">
+              <span class="wv-meta-label">SUBJECT</span>
+              <span class="wv-meta-value">{{ worksheet.subject || '—' }}</span>
+            </div>
+          </div>
+          <div class="wv-meta-item">
+            <span class="wv-meta-icon">🎯</span>
+            <div class="wv-meta-content">
+              <span class="wv-meta-label">CEFR</span>
+              <span class="wv-meta-value">{{ worksheet.cefrLevel || '—' }}</span>
+            </div>
+          </div>
+          <div class="wv-meta-item">
+            <span class="wv-meta-icon">🏫</span>
+            <div class="wv-meta-content">
+              <span class="wv-meta-label">GRADE</span>
+              <span class="wv-meta-value">{{ worksheet.gradeLevel || '—' }}</span>
+            </div>
+          </div>
+          <div class="wv-meta-item">
+            <span class="wv-meta-icon">⚡</span>
+            <div class="wv-meta-content">
+              <span class="wv-meta-label">DIFFICULTY</span>
+              <span class="wv-meta-value" [class.difficulty-easy]="isDifficultyEasy()" [class.difficulty-medium]="isDifficultyMedium()" [class.difficulty-hard]="isDifficultyHard()">
+                {{ formatDifficulty(worksheet.difficulty) || '—' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <!-- Deadline row -->
+        @if (worksheet.assignmentDeadline) {
+          <div class="wv-deadline-row" [class.deadline-past]="isDeadlinePast()">
+            <span class="wv-deadline-icon">📅</span>
+            <span class="wv-deadline-text">Due: {{ formatDeadline(worksheet.assignmentDeadline) }}</span>
+          </div>
+        }
       </div>
       <div class="wv-header-right">
         <label class="wv-field-label">Student name</label>
         <div class="wv-name-input wv-pdf-readonly">{{ studentName }}</div>
         <label class="wv-field-label">Date</label>
         <div class="wv-date-input wv-pdf-readonly">{{ formattedDate }}</div>
-        @if (worksheet.cefrLevel) {
-          <label class="wv-field-label">CEFR Level</label>
-          <div class="wv-meta-input wv-pdf-readonly">{{ worksheet.cefrLevel }}</div>
-        }
-        @if (worksheet.gradeLevel) {
-          <label class="wv-field-label">Grade</label>
-          <div class="wv-meta-input wv-pdf-readonly">{{ worksheet.gradeLevel }}</div>
-        }
       </div>
     </div>
   </div>

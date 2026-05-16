@@ -219,4 +219,41 @@ export class WorksheetPdfTemplateComponent {
   get a4Total(): number { return this.worksheet.activity4?.sentences?.length ?? 0; }
 
   trackByIndex(i: number): number { return i; }
+
+  // Metadata helpers
+  formatDifficulty(difficulty: string | null | undefined): string {
+    if (!difficulty) return '';
+    const d = difficulty.toLowerCase();
+    if (d === 'easy' || d === 'beginner') return 'Easy';
+    if (d === 'medium' || d === 'intermediate') return 'Medium';
+    if (d === 'hard' || d === 'advanced') return 'Hard';
+    return difficulty;
+  }
+
+  isDifficultyEasy(): boolean {
+    const d = this.worksheet.difficulty?.toLowerCase();
+    return d === 'easy' || d === 'beginner';
+  }
+
+  isDifficultyMedium(): boolean {
+    const d = this.worksheet.difficulty?.toLowerCase();
+    return d === 'medium' || d === 'intermediate';
+  }
+
+  isDifficultyHard(): boolean {
+    const d = this.worksheet.difficulty?.toLowerCase();
+    return d === 'hard' || d === 'advanced';
+  }
+
+  isDeadlinePast(): boolean {
+    if (!this.worksheet.assignmentDeadline) return false;
+    return new Date(this.worksheet.assignmentDeadline) < new Date();
+  }
+
+  formatDeadline(deadline: string | Date): string {
+    const d = new Date(deadline);
+    return d.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
 }

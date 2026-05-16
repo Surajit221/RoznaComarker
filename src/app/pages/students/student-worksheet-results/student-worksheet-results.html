@@ -121,7 +121,8 @@
             totalPointsEarned: submission!.totalPointsEarned,
             totalPointsPossible: submission!.totalPointsPossible,
             percentage: submission!.percentage,
-            timeTaken: submission!.timeTaken
+            timeTaken: submission!.timeTaken,
+            deadline: assignmentDeadline || undefined
           }"
           (closed)="goBack()">
         </app-worksheet-viewer>
