@@ -32,6 +32,7 @@ interface ResultState {
   cards?:            FlashCard[];
   correctCount?:     number | null;
   needsReviewCount?: number | null;
+  incompleteCount?:  number | null;
   type:              'flashcard' | 'worksheet';
 }
 
@@ -63,6 +64,7 @@ export class StudentResultsPage implements OnInit {
   cards:            FlashCard[]  = [];
   correctCount:     number | null = null;
   needsReviewCount: number | null = null;
+  incompleteCount:  number | null = null;
   type: 'flashcard' | 'worksheet' = 'flashcard';
   hasState          = false;
 
@@ -88,7 +90,7 @@ export class StudentResultsPage implements OnInit {
     }));
   }
 
-  get wrongCards(): Array<CardResult & { card?: FlashCard }> {
+  get cardsNeedingReview(): Array<CardResult & { card?: FlashCard }> {
     return this.cardResultsWithContent.filter(r => !r.known);
   }
 
@@ -96,8 +98,8 @@ export class StudentResultsPage implements OnInit {
     return this.cardResults.length > 0 && this.cards.length > 0;
   }
 
-  get canRetryWrong(): boolean {
-    return this.wrongCards.length > 0 && !!this.flashcardSetId;
+  get canRetryReviewCards(): boolean {
+    return this.cardsNeedingReview.length > 0 && !!this.flashcardSetId;
   }
 
   ngOnInit(): void {
@@ -119,6 +121,7 @@ export class StudentResultsPage implements OnInit {
       this.cards           = state.cards           ?? [];
       this.correctCount    = state.correctCount    ?? null;
       this.needsReviewCount = state.needsReviewCount ?? null;
+      this.incompleteCount  = state.incompleteCount  ?? null;
       this.type            = state.type            ?? 'flashcard';
       this.hasState        = true;
     } else {
@@ -143,13 +146,13 @@ export class StudentResultsPage implements OnInit {
     });
   }
 
-  retryWrongCards(): void {
+  retryReviewCards(): void {
     this.router.navigate(['/student/flashcard-player', this.flashcardSetId], {
       queryParams: {
         assignmentId: this.assignmentId || undefined,
         classId:      this.classId      || undefined,
       },
-      state: { retryCardIds: this.wrongCards.map(r => r.cardId) },
+      state: { retryCardIds: this.cardsNeedingReview.map(r => r.cardId) },
     });
   }
 

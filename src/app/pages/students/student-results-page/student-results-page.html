@@ -27,8 +27,8 @@
       </div>
     </div>
 
-    <!-- KNEW WELL / NEED REVIEW breakdown -->
-    <div class="srp-breakdown" *ngIf="type === 'flashcard' && hasFlashcardBreakdown">
+    <!-- KNEW WELL / NEED REVIEW / INCOMPLETE breakdown -->
+    <div class="srp-breakdown" [class.srp-breakdown-three]="incompleteCount && incompleteCount > 0" *ngIf="type === 'flashcard' && hasFlashcardBreakdown">
       <div class="srp-breakdown-item">
         <span class="srp-breakdown-value">{{ correctCount }}</span>
         <span class="srp-breakdown-label">
@@ -40,6 +40,10 @@
         <span class="srp-breakdown-label">
           {{ template === 'qa' ? 'Incorrect' : 'Need review' }}
         </span>
+      </div>
+      <div class="srp-breakdown-item" *ngIf="incompleteCount && incompleteCount > 0">
+        <span class="srp-breakdown-value srp-breakdown-value-incomplete">{{ incompleteCount }}</span>
+        <span class="srp-breakdown-label">Incomplete</span>
       </div>
     </div>
 
@@ -79,17 +83,17 @@
 
     <!-- ── Term-def / concept review list ─────────────────── -->
     <div class="srp-per-card"
-         *ngIf="type === 'flashcard' && template !== 'qa' && hasPerCardBreakdown && wrongCards.length > 0">
-      <h3 class="srp-section-title">Cards to review ({{ wrongCards.length }})</h3>
-      <div *ngFor="let r of wrongCards" class="srp-review-card">
+         *ngIf="type === 'flashcard' && template !== 'qa' && hasPerCardBreakdown && cardsNeedingReview.length > 0">
+      <h3 class="srp-section-title">Cards to review ({{ cardsNeedingReview.length }})</h3>
+      <div *ngFor="let r of cardsNeedingReview" class="srp-review-card">
         <p class="srp-review-front">{{ r.card?.front || '—' }}</p>
         <p class="srp-review-back">{{ r.card?.back || '—' }}</p>
       </div>
     </div>
 
     <div class="srp-all-correct"
-         *ngIf="type === 'flashcard' && template !== 'qa' && hasPerCardBreakdown && wrongCards.length === 0">
-      🌟 You got all cards right!
+         *ngIf="type === 'flashcard' && template !== 'qa' && hasPerCardBreakdown && cardsNeedingReview.length === 0">
+      🌟 You completed the set.
     </div>
 
     <p class="srp-note" *ngIf="assignmentId">Your teacher has been notified.</p>
@@ -104,9 +108,9 @@
         <ng-container *ngIf="!isPdfDownloading">↓ Download My Results (PDF)</ng-container>
       </button>
       <button class="srp-btn-retry"
-              *ngIf="type === 'flashcard' && canRetryWrong"
-              (click)="retryWrongCards()">
-        ↺ Retry wrong cards ({{ wrongCards.length }})
+              *ngIf="type === 'flashcard' && canRetryReviewCards"
+              (click)="retryReviewCards()">
+        ↺ Review these cards ({{ cardsNeedingReview.length }})
       </button>
       <button class="srp-btn-back" (click)="goToClasses()">
         ← Back to My Classes

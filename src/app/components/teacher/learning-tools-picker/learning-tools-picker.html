@@ -95,6 +95,14 @@
 
       </div>
 
+      <!-- View all link -->
+      <div class="lt-view-all-wrapper">
+        <button class="lt-view-all-btn" (click)="openFlashcardLibrary()">
+          <span class="lt-underline">View all flashcards</span>
+          <span class="lt-arrow">→</span>
+        </button>
+      </div>
+
     }
 
     @if (activeView === 'worksheet-choice') {
@@ -114,6 +122,14 @@
           <span class="lt-choice-desc">Pick from your saved worksheets</span>
         </button>
 
+      </div>
+
+      <!-- View all link -->
+      <div class="lt-view-all-wrapper">
+        <button class="lt-view-all-btn" (click)="openWorksheetLibrary()">
+          <span class="lt-underline">View all worksheets</span>
+          <span class="lt-arrow">→</span>
+        </button>
       </div>
 
     }

@@ -444,6 +444,27 @@
   border-radius: 0.75rem;
   padding: 16px;
   margin-bottom: 12px;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* Card image display */
+.fc-card-image {
+  margin-bottom: 12px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #E7E7E7;
+}
+
+.fc-image-img {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
 }
 
 .fc-card-section {
@@ -474,6 +495,9 @@
   color: #6b7280;
   margin: 0;
   line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 /* Dividers — border-[#E7E7E7] */
@@ -571,6 +595,64 @@
   font-size: 0.75rem;
   color: #6b7280;
   margin: 0;
+}
+
+.fc-dropzone-hint {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Image Options */
+.fc-image-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.fc-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: all 150ms;
+}
+
+.fc-radio-label:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.fc-radio-label input[type="radio"] {
+  accent-color: var(--color-primary);
+}
+
+.fc-radio-text {
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.fc-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.fc-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #008081;
+}
+
+.fc-checkbox-text {
+  user-select: none;
 }
 
 /* Save button — matches btn-primary exactly */

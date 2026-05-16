@@ -214,3 +214,24 @@
   color: #6b7280;
   line-height: 1.4;
 }
+
+/* View all link — matches worksheet-assign-modal style */
+.lt-view-all-wrapper {
+  margin-top: 1rem;
+  border-top: 1px solid #F3F4F6;
+  padding-top: 0.75rem;
+  text-align: center;
+}
+.lt-view-all-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: #008081;
+  font-family: var(--font-main, 'Poppins', sans-serif);
+}
+.lt-view-all-btn:hover .lt-underline { text-decoration: underline; text-underline-offset: 2px; }
+.lt-arrow { font-size: 0.875rem; }

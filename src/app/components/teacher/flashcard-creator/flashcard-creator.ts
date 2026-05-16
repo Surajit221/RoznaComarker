@@ -1,78 +1,79 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import { AlertService } from '../../../services/alert.service';
-import type { FlashCard } from '../../../models/flashcard.model';
+import { FlashcardApiService } from '../../../api/flashcard-api.service';
+import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
+import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 
 type CreatorStep = 'configure' | 'generating' | 'preview';
 
-const MOCK_CARDS: FlashCard[] = [
-  {
-    question: 'What is photosynthesis?',
-    answer: 'The process by which green plants convert sunlight, water, and CO₂ into glucose and oxygen using chlorophyll.',
-  },
-  {
-    question: 'What organelle performs photosynthesis?',
-    answer: 'The chloroplast, which contains the pigment chlorophyll.',
-  },
-  {
-    question: 'What are the two stages of photosynthesis?',
-    answer: 'The light-dependent reactions and the Calvin cycle (light-independent reactions).',
-  },
-  {
-    question: 'What is the role of chlorophyll in photosynthesis?',
-    answer: 'Chlorophyll absorbs light energy (mainly red and blue wavelengths) and converts it into chemical energy.',
-  },
-  {
-    question: 'What is the overall chemical equation of photosynthesis?',
-    answer: '6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂',
-  },
-  {
-    question: 'Where do the light-dependent reactions occur?',
-    answer: 'In the thylakoid membranes of the chloroplast.',
-  },
-  {
-    question: 'What is produced during the light-dependent reactions?',
-    answer: 'ATP, NADPH, and oxygen (as a byproduct of water splitting).',
-  },
-  {
-    question: 'What is the Calvin cycle?',
-    answer: 'A series of light-independent reactions in the stroma that use ATP and NADPH to fix CO₂ into glucose.',
-  },
-];
+interface CreatorCard {
+  id: string;
+  question: string;
+  answer: string;
+  frontImage?: string | null;
+  backImage?: string | null;
+  isEditing: boolean;
+}
 
 @Component({
   selector: 'app-flashcard-creator',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SuccessModal, ErrorModal],
   templateUrl: './flashcard-creator.html',
   styleUrl: './flashcard-creator.css',
 })
-export class FlashcardCreator {
+export class FlashcardCreator implements OnChanges {
   @Input() show = false;
+  @Input() classId: string | null = null;
   @Output() showChange = new EventEmitter<boolean>();
   @Output() backToPicker = new EventEmitter<void>();
 
   private alert = inject(AlertService);
+  private flashcardApi = inject(FlashcardApiService);
+  private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
+
+  showSuccessModal = false;
+  showErrorModal   = false;
+  modalTitle       = '';
+  modalMessage     = '';
+
+  openSuccessModal(title: string, message: string): void {
+    this.modalTitle = title; this.modalMessage = message;
+    this.showSuccessModal = true; this.cdr.markForCheck();
+  }
+  openErrorModal(title: string, message: string): void {
+    this.modalTitle = title; this.modalMessage = message;
+    this.showErrorModal = true; this.cdr.markForCheck();
+  }
+  closeModal(): void {
+    this.showSuccessModal = false; this.showErrorModal = false; this.cdr.markForCheck();
+  }
 
   currentStep: CreatorStep = 'configure';
 
-  activeTab: 'topic' | 'text' | 'file' = 'topic';
+  activeTab: 'topic' | 'text' | 'file' | 'image' = 'topic';
   topicInput = '';
   textInput = '';
   numberOfCards = 'automatic';
   language = 'english';
+  imageMode: 'manual' | 'generate' = 'manual';
+  imageSearchQuery = '';
 
-  cards: FlashCard[] = [];
+  cards: CreatorCard[] = [];
   currentCardIndex = 0;
-  selectedAssignmentId: string | null = null;
+  isGenerating = false;
 
-  readonly mockAssignments = [
-    { id: 'asgn1', title: 'fdsfasdcas' },
-    { id: 'asgn2', title: 'Importance of Environment...' },
-  ];
+  ngOnChanges(changes: SimpleChanges): void {
+    // No assignment loading needed
+  }
 
-  get currentCard(): FlashCard | null {
+  get currentCard(): CreatorCard | null {
     return this.cards[this.currentCardIndex] ?? null;
   }
 
@@ -100,18 +101,51 @@ export class FlashcardCreator {
     this.textInput = '';
     this.numberOfCards = 'automatic';
     this.language = 'english';
+    this.imageMode = 'manual';
+    this.imageSearchQuery = '';
     this.cards = [];
     this.currentCardIndex = 0;
-    this.selectedAssignmentId = null;
+    this.isGenerating = false;
   }
 
-  generate() {
+  async generate() {
+    if (!this.topicInput && !this.textInput && !this.imageSearchQuery) {
+      this.openErrorModal('Missing Input', 'Please enter a topic, text, or image search query to generate flashcards');
+      return;
+    }
+
     this.currentStep = 'generating';
-    window.setTimeout(() => {
-      this.cards = MOCK_CARDS.map((c, i) => ({ ...c, id: String(i), isEditing: false }));
+    this.isGenerating = true;
+
+    try {
+      const payload: any = {
+        topic: this.topicInput,
+        text: this.textInput,
+        imageSearchQuery: this.imageSearchQuery,
+        addImage: this.imageMode === 'generate',
+        numberOfCards: this.numberOfCards === 'automatic' ? undefined : parseInt(this.numberOfCards, 10),
+        language: this.language,
+      };
+
+      const generatedCards = await firstValueFrom(this.flashcardApi.generateFlashcards(payload));
+
+      // Map backend response (front/back) to frontend model (question/answer)
+      this.cards = generatedCards.map((c: any, i: number) => ({
+        id: c._id || String(i),
+        question: c.front || c.question || '',
+        answer: c.back || c.answer || '',
+        frontImage: c.frontImage || null,
+        backImage: c.backImage || null,
+        isEditing: false,
+      }));
       this.currentCardIndex = 0;
       this.currentStep = 'preview';
-    }, 2000);
+    } catch (error) {
+      this.openErrorModal('Generation Failed', 'Failed to generate flashcards. Please try again.');
+      this.currentStep = 'configure';
+    } finally {
+      this.isGenerating = false;
+    }
   }
 
   prevCard() {
@@ -126,7 +160,7 @@ export class FlashcardCreator {
     }
   }
 
-  toggleEdit(card: FlashCard) {
+  toggleEdit(card: CreatorCard) {
     card.isEditing = !card.isEditing;
   }
 
@@ -137,13 +171,48 @@ export class FlashcardCreator {
     }
   }
 
-  saveToClass() {
-    this.alert.showToast('Flashcard set saved to class!', 'success');
-    this.closeAll();
+  async saveToClass() {
+    if (this.cards.length === 0) {
+      this.openErrorModal('Nothing to Save', 'No flashcards to save');
+      return;
+    }
+
+    try {
+      const payload: any = {
+        title: this.topicInput || 'Untitled Flashcard Set',
+        description: this.textInput || '',
+        cards: this.cards.map((c, i) => ({
+          front: c.question,
+          back: c.answer,
+          frontImage: c.frontImage || null,
+          backImage: c.backImage || null,
+          order: i,
+        })),
+      };
+
+      const savedSet = await firstValueFrom(this.flashcardApi.createSet(payload));
+      const setId = (savedSet as any)._id || (savedSet as any).id;
+      
+      this.openSuccessModal('Saved!', 'Flashcard set saved successfully!');
+      this.closeAll();
+      
+      // Navigate to preview after saving, preserving classId if available
+      const queryParams = this.classId ? { classId: this.classId } : undefined;
+      this.router.navigate(['/flashcards', setId], { queryParams });
+    } catch (error) {
+      this.openErrorModal('Save Failed', 'Failed to save flashcard set. Please try again.');
+    }
   }
 
   backToEditor() {
     this.currentStep = 'configure';
+  }
+
+  /** Get full image URL from relative path */
+  getImageUrl(relativePath: string | null | undefined): string {
+    if (!relativePath) return '';
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+    return `${environment.apiUrl}${relativePath}`;
   }
 
   onBackdropClick(event: MouseEvent) {

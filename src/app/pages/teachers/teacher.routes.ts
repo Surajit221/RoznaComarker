@@ -20,9 +20,9 @@ export const TEACHER_ROUTE: Routes = [
       { path: 'my-notification', component: MyNotificationPages },
       { path: 'my-profile', component: MyProfilePages },
       { path: 'reports', component: ReportPages },
-      { path: 'my-classes/detail/:slug', component: DetailMyClassesPages },
       { path: 'my-classes/detail/student-profile/:studentId', component: StudentProfilePages },
       { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages },
+      { path: 'my-classes/detail/:slug', component: DetailMyClassesPages },
     ],
   },
 ];

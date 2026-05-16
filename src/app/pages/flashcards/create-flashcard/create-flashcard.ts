@@ -13,13 +13,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, finalize, switchMap, takeUntil } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import type { GenerateFlashcardPayload } from '../../../models/flashcard-set.model';
+import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 
 type InputTab = 'topic' | 'text' | 'webpage' | 'file';
 
 @Component({
   selector: 'app-create-flashcard',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ErrorModal],
   templateUrl: './create-flashcard.html',
   styleUrl: './create-flashcard.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +38,16 @@ export class CreateFlashcard implements OnDestroy {
   activeTab: InputTab  = 'topic';
   isGenerating = false;
   isDragOver   = false;
+
+  showErrorModal = false;
+  modalTitle     = '';
+  modalMessage   = '';
+
+  openErrorModal(title: string, message: string): void {
+    this.modalTitle = title; this.modalMessage = message;
+    this.showErrorModal = true; this.cdr.markForCheck();
+  }
+  closeModal(): void { this.showErrorModal = false; this.cdr.markForCheck(); }
 
   readonly createForm = this.fb.group({
     content:   ['', [Validators.required, Validators.minLength(3)]],
@@ -101,13 +112,14 @@ export class CreateFlashcard implements OnDestroy {
     this.isGenerating = true;
     this.cdr.markForCheck();
 
-    const { content, template, cardCount, language } = this.createForm.value;
+    const { content, template, cardCount, language, addImage } = this.createForm.value;
     const payload: GenerateFlashcardPayload = {
       inputType: this.activeTab,
       content:   content   ?? '',
       template:  template  ?? 'term-def',
       cardCount: cardCount === 'auto' ? 'auto' : Number(cardCount),
       language:  language  ?? 'English',
+      addImage:  addImage === 'now',
     };
 
     this.flashcardApi.generateFlashcards(payload).pipe(
@@ -127,27 +139,12 @@ export class CreateFlashcard implements OnDestroy {
       takeUntil(this.destroy$),
     ).subscribe({
       next: (newSet) => {
+        // Always navigate to preview page after creation, preserving classId if available
         const returnToClassId = this.route.snapshot.queryParamMap.get('returnToClassId');
-        if (returnToClassId) {
-          this.router.navigate(['/teacher/my-classes/detail', returnToClassId], {
-            queryParams: {
-              openAssignModal: 'true',
-              preselectedSetId: newSet._id,
-            },
-          });
-          return;
-        }
-
-        this.router.navigate(['/flashcards', newSet._id, 'edit']);
+        const queryParams = returnToClassId ? { classId: returnToClassId } : undefined;
+        this.router.navigate(['/flashcards', newSet._id], { queryParams });
       },
-      error: () => this.showToast('error', 'Failed to generate flashcards'),
-    });
-  }
-
-  private showToast(type: 'success' | 'error', msg: string): void {
-    import('sweetalert2').then(({ default: Swal }) => {
-      Swal.fire({ toast: true, position: 'top-end', icon: type, title: msg,
-        showConfirmButton: false, timer: 3000, timerProgressBar: true });
+      error: () => this.openErrorModal('Error', 'Failed to generate flashcards. Please try again.'),
     });
   }
 }

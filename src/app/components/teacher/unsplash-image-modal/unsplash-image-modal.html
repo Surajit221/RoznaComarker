@@ -1,0 +1,42 @@
+@if (show) {
+  <div class="uim-backdrop" (click)="onBackdropClick($event)">
+    <div class="uim-modal">
+      <div class="uim-header">
+        <h2 class="uim-title">Search Unsplash Images</h2>
+        <button class="uim-close-btn" (click)="close()" aria-label="Close">✕</button>
+      </div>
+
+      <div class="uim-search">
+        <input 
+          type="text" 
+          class="uim-search-input" 
+          placeholder="Enter keyword to search images..." 
+          [(ngModel)]="searchQuery"
+          (keyup.enter)="searchImages()"
+        />
+        <button class="uim-search-btn" [disabled]="isLoading" (click)="searchImages()">
+          <span *ngIf="!isLoading">Search</span>
+          <span *ngIf="isLoading" class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+        </button>
+      </div>
+
+      @if (error) {
+        <div class="uim-error">{{ error }}</div>
+      }
+
+      <div class="uim-grid">
+        @for (image of images; track image.id) {
+          <div class="uim-image-item" (click)="selectImage(image.regular)">
+            <img [src]="image.thumb" [alt]="image.alt || 'Image'" class="uim-thumb" />
+            <div class="uim-overlay">Select</div>
+          </div>
+        }
+        @if (images.length === 0 && !isLoading && !error) {
+          <div class="uim-empty">
+            <p>Enter a keyword above to search for images</p>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

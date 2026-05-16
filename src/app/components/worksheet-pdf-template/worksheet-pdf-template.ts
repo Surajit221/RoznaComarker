@@ -197,6 +197,11 @@ export class WorksheetPdfTemplateComponent {
     return this.data.a4Blanks?.[part.blankId] || '_____';
   }
 
+  /** Returns true if the word is placed in any blank (for greying it out in the PDF word bank). */
+  isWordUsedInPdf(word: string): boolean {
+    return Object.values(this.data.a4Blanks ?? {}).includes(word);
+  }
+
   get a4Score(): number {
     if (!this.data.a4Checked) return 0;
     const sentences = this.worksheet.activity4?.sentences ?? [];

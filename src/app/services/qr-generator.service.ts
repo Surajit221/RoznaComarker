@@ -20,6 +20,15 @@ export class QrGeneratorService {
     return joinCode;
   }
 
+  generateFlashcardSetUrl(flashcardSetId: string): string {
+    const baseUrl = (environment as any).FRONTEND_URL || '';
+    return `${baseUrl}/flashcards/${flashcardSetId}`;
+  }
+
+  generateFlashcardQrValue(flashcardSetId: string): string {
+    return this.generateFlashcardSetUrl(flashcardSetId);
+  }
+
   validateJoinCode(joinCode: string): boolean {
     // Basic validation for join code format
     if (!joinCode || typeof joinCode !== 'string') {

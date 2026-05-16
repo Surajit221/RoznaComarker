@@ -119,11 +119,21 @@
           <div class="max-h-[480px] overflow-y-auto">
             <div class="flex flex-col gap-3">
               @for (item of assignments; track item.id) {
-              <div class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
+              <div 
+                class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl cursor-pointer hover:bg-[#e8e8e8] transition-colors"
+                (click)="onOpenSubmission(item.id)">
                 <div class="col-span-5">
-                  <p class="text-xl font-bold mb-1">
-                    {{ item.title }}
-                  </p>
+                  <div class="flex items-center gap-2 mb-1">
+                    <p class="text-xl font-bold mb-0">
+                      {{ item.title }}
+                    </p>
+                    @if (item.resourceType === 'worksheet') {
+                      <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold">Worksheet</span>
+                    }
+                    @if (item.resourceType === 'flashcard') {
+                      <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
+                    }
+                  </div>
                   <div class="flex flex-row items-center gap-4">
                     <p class="text-gray-500 text-sm">Due: {{ item.dueDate }}</p>
                     <div class="flex flex-row items-center gap-1">
@@ -146,12 +156,17 @@
                         {{ item.submitted }}/{{ item.total }} Submitted
                       </p>
                     </div>
+                    @if (item.total > 0) {
+                      <span class="text-xs text-gray-500">
+                        ({{ ((item.submitted / item.total) * 100) | number : '1.0-0' }}%)
+                      </span>
+                    }
                   </div>
                 </div>
-                <div class="col-span-2 text-right">
+                <div class="col-span-2 text-right" (click)="$event.stopPropagation()">
                   <div class="flex flex-col items-end gap-1">
-                    <p class="text-sm underline cursor-pointer" (click)="onOpenSubmission(item.id)">
-                      View Submissions
+                    <p class="text-sm underline cursor-pointer text-teal-600 hover:text-teal-700" (click)="onOpenSubmission(item.id)">
+                      View Analytics
                     </p>
                     <div class="flex flex-row gap-2">
                       <button
@@ -182,6 +197,15 @@
                           type="button"
                           class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
                           (click)="openWorksheetPreview(item.resourceId)"
+                        >
+                          Preview
+                        </button>
+                      }
+                      @if (item.resourceType === 'flashcard' && item.resourceId) {
+                        <button
+                          type="button"
+                          class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                          (click)="onPreviewFlashcard(item.resourceId)"
                         >
                           Preview
                         </button>
@@ -326,6 +350,7 @@
 <!-- Learning Tools components (shared across both desktop and mobile) -->
 <app-learning-tools-picker
   [(show)]="showLearningTools"
+  [classId]="classId"
   (toolSelected)="onToolSelected($event)">
 </app-learning-tools-picker>
 
@@ -446,7 +471,9 @@
       </div>
       <div class="overflow-y-auto">
         @for (item of assignments; track item.id) {
-        <div class="bg-[#F3F3F3] w-full rounded-xl my-2 py-4 px-4">
+        <div 
+          class="bg-[#F3F3F3] w-full rounded-xl my-2 py-4 px-4 cursor-pointer hover:bg-[#e8e8e8] transition-colors"
+          (click)="onOpenSheetSubmission(item.id)">
           <div class="flex flex-row justify-between items-center gap-4 w-full">
             <p class="text-gray-500 text-xs">Due: {{ item.dueDate }}</p>
             <div class="flex flex-row items-center gap-1">
@@ -468,15 +495,28 @@
               >
                 {{ item.submitted }}/{{ item.total }} Submitted
               </p>
+              @if (item.total > 0) {
+                <span class="text-xs text-gray-500">
+                  ({{ ((item.submitted / item.total) * 100) | number : '1.0-0' }}%)
+                </span>
+              }
             </div>
           </div>
           <div class="w-full grid grid-cols-1 items-center mt-2">
-            <p class="text-base font-bold mb-1 leading-5">
-              {{ item.title }}
-            </p>
-            <div class="flex flex-row flex-wrap items-center gap-2 mt-1">
-              <p class="text-xs underline cursor-pointer mr-1" (click)="onOpenSheetSubmission(item.id)">
-                View Submissions
+            <div class="flex items-center gap-2 mb-1">
+              <p class="text-base font-bold mb-0 leading-5">
+                {{ item.title }}
+              </p>
+              @if (item.resourceType === 'worksheet') {
+                <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold">Worksheet</span>
+              }
+              @if (item.resourceType === 'flashcard') {
+                <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
+              }
+            </div>
+            <div class="flex flex-row flex-wrap items-center gap-2 mt-1" (click)="$event.stopPropagation()">
+              <p class="text-xs underline cursor-pointer text-teal-600 hover:text-teal-700 mr-1" (click)="onOpenSheetSubmission(item.id)">
+                View Analytics
               </p>
               <button
                 type="button"
@@ -499,6 +539,15 @@
                   type="button"
                   class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
                   (click)="openWorksheetPreview(item.resourceId)"
+                >
+                  Preview
+                </button>
+              }
+              @if (item.resourceType === 'flashcard' && item.resourceId) {
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                  (click)="onPreviewFlashcard(item.resourceId)"
                 >
                   Preview
                 </button>

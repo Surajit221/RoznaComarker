@@ -20,7 +20,17 @@ export class AlertService {
     }
 
     showError(title: string, text: string) {
-        this.showAlert(title, text, 'error');
+        Swal.fire({
+            ...this.swalOptions,
+            title,
+            text,
+            icon: 'error',
+            confirmButtonText: 'OK',
+            customClass: {
+                ...this.swalOptions.customClass,
+                popup: 'swal-popup-custom swal-error-popup',
+            },
+        });
     }
 
     showWarning(title: string, text: string) {

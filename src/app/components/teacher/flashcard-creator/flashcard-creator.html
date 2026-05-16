@@ -29,6 +29,7 @@
         <div class="fc-tabs">
           <button class="fc-tab" [class.fc-tab--active]="activeTab === 'topic'" (click)="activeTab = 'topic'">Topic</button>
           <button class="fc-tab" [class.fc-tab--active]="activeTab === 'text'" (click)="activeTab = 'text'">Text</button>
+          <button class="fc-tab" [class.fc-tab--active]="activeTab === 'image'" (click)="activeTab = 'image'">Image</button>
           <button class="fc-tab" [class.fc-tab--active]="activeTab === 'file'" (click)="activeTab = 'file'">File</button>
         </div>
 
@@ -53,6 +54,27 @@
               placeholder="Paste your notes or content here..."
               [(ngModel)]="textInput"
             ></textarea>
+          </div>
+        }
+        @if (activeTab === 'image') {
+          <div class="fc-tab-content">
+            <label class="fc-input-label">Enter a topic for image search</label>
+            <textarea
+              class="fc-textarea"
+              rows="3"
+              placeholder="e.g. Animals, Historical landmarks, Science concepts..."
+              [(ngModel)]="imageSearchQuery"
+            ></textarea>
+            <div class="fc-image-options">
+              <label class="fc-radio-label">
+                <input type="radio" name="imageMode" [value]="'manual'" [(ngModel)]="imageMode" />
+                <span class="fc-radio-text">I will add image later</span>
+              </label>
+              <label class="fc-radio-label">
+                <input type="radio" name="imageMode" [value]="'generate'" [(ngModel)]="imageMode" />
+                <span class="fc-radio-text">Generate image</span>
+              </label>
+            </div>
           </div>
         }
         @if (activeTab === 'file') {
@@ -133,6 +155,11 @@
     <!-- Flashcard Display -->
     @if (currentCard) {
       <div class="fc-card-display">
+        @if (currentCard.frontImage) {
+          <div class="fc-card-image">
+            <img [src]="getImageUrl(currentCard.frontImage)" alt="Card image" class="fc-image-img" />
+          </div>
+        }
         @if (!currentCard.isEditing) {
           <div class="fc-card-section">
             <span class="fc-card-section-label">QUESTION</span>
@@ -167,18 +194,6 @@
 
     <div class="fc-drawer-divider"></div>
 
-    <!-- Attach to Assignment -->
-    <div class="fc-attach-section">
-      <p class="fc-attach-label">Attach to Assignment</p>
-      <p class="fc-attach-hint">Students will see these cards in their submission view.</p>
-      <select class="fc-select fc-select--full" [(ngModel)]="selectedAssignmentId">
-        <option [value]="null">Select an assignment...</option>
-        @for (a of mockAssignments; track a.id) {
-          <option [value]="a.id">{{ a.title }}</option>
-        }
-      </select>
-    </div>
-
     <!-- Save Button -->
     <button class="fc-save-btn" (click)="saveToClass()">Save to Class</button>
 
@@ -189,3 +204,8 @@
   }
 
 }
+
+<!-- SUCCESS MODAL -->
+<app-success-modal [show]="showSuccessModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-success-modal>
+<!-- ERROR MODAL -->
+<app-error-modal [show]="showErrorModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-error-modal>

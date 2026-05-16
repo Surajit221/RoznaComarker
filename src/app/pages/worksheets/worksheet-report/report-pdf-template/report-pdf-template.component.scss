@@ -1,0 +1,596 @@
+.pdf-container {
+  width: 794px;
+  background-color: #FFFFFF;
+  font-family: Arial, sans-serif;
+  color: #1A1A2E;
+}
+
+.pdf-page {
+  position: relative;
+  padding: 40px;
+  min-height: 1123px; // A4 height at 96dpi
+  background-color: #FFFFFF;
+}
+
+/* Header */
+.pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.pdf-header-left {
+  flex: 0 0 auto;
+}
+
+.pdf-header-right {
+  flex: 1;
+  text-align: right;
+}
+
+.brand-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #00B8A9;
+  margin-bottom: 4px;
+}
+
+.report-title {
+  font-size: 11px;
+  color: #888888;
+  margin-bottom: 4px;
+}
+
+.report-date {
+  font-size: 10px;
+  color: #888888;
+}
+
+.header-divider {
+  width: 100%;
+  height: 2px;
+  background-color: #00B8A9;
+  margin: 12px 0 16px 0;
+}
+
+/* Meta Row */
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #888888;
+  margin-bottom: 20px;
+}
+
+/* Section Title */
+.section-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #1A1A2E;
+  margin-bottom: 12px;
+}
+
+.section-subtitle {
+  font-size: 12px;
+  font-weight: bold;
+  color: #1A1A2E;
+  margin-bottom: 8px;
+}
+
+/* Summary Stats Grid */
+.summary-stats-section {
+  margin-bottom: 20px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.stat-tile {
+  background-color: #F5F5F5;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #888888;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #1A1A2E;
+}
+
+/* Score Distribution */
+.score-dist-section {
+  margin-bottom: 20px;
+}
+
+.dist-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.dist-label {
+  font-size: 11px;
+  color: #1A1A2E;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.dist-bar-wrap {
+  flex: 1;
+  height: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.dist-bar {
+  height: 14px;
+  border-radius: 4px;
+  min-width: 4px;
+  min-height: 12px;
+}
+
+.dist-bar-teal {
+  background-color: #00B8A9;
+}
+
+.dist-count {
+  font-size: 11px;
+  color: #1A1A2E;
+  width: 40px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Teacher Insights */
+.insights-section {
+  margin-bottom: 20px;
+}
+
+.insights-box {
+  background-color: #E6F7FF;
+  border-left: 4px solid #1890FF;
+  padding: 12px 16px;
+  border-radius: 4px;
+}
+
+.insight-item {
+  font-size: 12px;
+  color: #1A1A2E;
+  margin-bottom: 8px;
+}
+
+.insight-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Worksheet Details */
+.details-section {
+  margin-bottom: 20px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.detail-cell {
+  background-color: #F5F5F5;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.detail-label {
+  font-size: 10px;
+  color: #888888;
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  font-size: 13px;
+  font-weight: bold;
+  color: #1A1A2E;
+}
+
+/* Page Break */
+.page-break {
+  page-break-after: always;
+  margin-bottom: 20px;
+}
+
+/* Footer */
+.pdf-footer {
+  position: absolute;
+  bottom: 20px;
+  left: 40px;
+  right: 40px;
+  border-top: 1px solid #E8E8E8;
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #888888;
+}
+
+/* Section Analytics */
+.section-analytics-section {
+  margin-bottom: 20px;
+}
+
+.section-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.section-card {
+  border: 1px solid #E8E8E8;
+  border-radius: 8px;
+  padding: 12px;
+  background-color: #FAFAFA;
+}
+
+.section-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.section-card-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #1A1A2E;
+}
+
+.section-card-badge {
+  font-size: 10px;
+  font-weight: bold;
+  color: #00B8A9;
+  border: 1px solid #00B8A9;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.section-card-score {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.section-card-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #888888;
+  margin-bottom: 8px;
+}
+
+.section-card-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.pill-correct {
+  background-color: #F6FFED;
+  color: #52C41A;
+  border: 1px solid #B7EB8F;
+}
+
+.pill-incorrect {
+  background-color: #FFF2F0;
+  color: #FF4D4F;
+  border: 1px solid #FFCCC7;
+}
+
+.pill-skipped {
+  background-color: #FFFBE6;
+  color: #FAAD14;
+  border: 1px solid #FFE58F;
+}
+
+.section-card-missed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 9px;
+  color: #888888;
+}
+
+.missed-label {
+  margin-right: 4px;
+}
+
+.missed-chip {
+  background-color: #F0F0F0;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+/* Question Insights */
+.question-insights-section {
+  margin-bottom: 20px;
+}
+
+.question-insights-grid {
+  display: flex;
+  gap: 24px;
+}
+
+.insight-column {
+  flex: 1;
+}
+
+.insight-column-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #1A1A2E;
+  margin-bottom: 8px;
+}
+
+.insight-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.insight-q-name {
+  font-size: 11px;
+  color: #1A1A2E;
+}
+
+.insight-q-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.insight-badge-red {
+  background-color: #FF4D4F;
+  color: #FFFFFF;
+}
+
+.insight-badge-green {
+  background-color: #52C41A;
+  color: #FFFFFF;
+}
+
+/* Weak Sections */
+.weak-sections-section {
+  margin-bottom: 20px;
+}
+
+.weak-sections-box {
+  border: 1px solid #E8E8E8;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.weak-sections-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #FF4D4F;
+  margin-bottom: 8px;
+}
+
+.weak-section-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.weak-section-name {
+  font-size: 11px;
+  color: #1A1A2E;
+}
+
+.weak-section-score {
+  font-size: 11px;
+  font-weight: bold;
+  color: #1A1A2E;
+}
+
+.weak-section-badge {
+  font-size: 10px;
+  font-weight: bold;
+  color: #00B8A9;
+  border: 1px solid #00B8A9;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* Detailed Analysis */
+.detailed-analysis-section {
+  margin-bottom: 20px;
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.summary-tile {
+  background-color: #F5F5F5;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.summary-label {
+  font-size: 8px;
+  color: #888888;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.summary-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: #1A1A2E;
+}
+
+/* Pass/Fail */
+.passfail-section {
+  margin-bottom: 16px;
+}
+
+.passfail-bar {
+  width: 100%;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.passfail-pass {
+  background-color: #52C41A;
+  height: 100%;
+  min-width: 0;
+}
+
+.passfail-fail {
+  background-color: #FF4D4F;
+  height: 100%;
+  min-width: 0;
+}
+
+.passfail-legend {
+  font-size: 11px;
+  color: #888888;
+}
+
+/* Performers */
+.performers-section {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.performers-column {
+  flex: 1;
+}
+
+.performers-table {
+  border: 1px solid #E8E8E8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.performers-header {
+  display: flex;
+  background-color: #F5F5F5;
+  padding: 8px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #1A1A2E;
+  gap: 8px;
+}
+
+.performers-header span {
+  flex: 1;
+}
+
+.performers-header span:first-child {
+  flex: 0 0 30px;
+}
+
+.performers-row {
+  display: flex;
+  padding: 8px;
+  font-size: 11px;
+  color: #1A1A2E;
+  gap: 8px;
+  border-bottom: 1px solid #E8E8E8;
+}
+
+.performers-row:last-child {
+  border-bottom: none;
+}
+
+.performers-row span {
+  flex: 1;
+}
+
+.performers-row span:first-child {
+  flex: 0 0 30px;
+}
+
+/* Student Results Table */
+.student-results-section {
+  margin-bottom: 20px;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.results-header {
+  display: flex;
+  background-color: #00B8A9;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 8px;
+  gap: 4px;
+}
+
+.results-header span {
+  flex: 1;
+  text-align: center;
+}
+
+.results-header span:first-child {
+  flex: 2;
+  text-align: left;
+}
+
+.results-row {
+  display: flex;
+  padding: 8px;
+  font-size: 11px;
+  color: #1A1A2E;
+  gap: 4px;
+  border-bottom: 1px solid #E8E8E8;
+}
+
+.results-row-even {
+  background-color: #F5F5F5;
+}
+
+.results-row span {
+  flex: 1;
+  text-align: center;
+}
+
+.results-row span:first-child {
+  flex: 2;
+  text-align: left;
+}

@@ -63,7 +63,7 @@
 
       <span class="col-name">
         <span class="type-icon">⊡</span>
-        <span class="set-title">{{ set.title }}</span>
+        <span class="set-title">{{ set.title || 'Untitled Flashcard Set' }}</span>
         <span class="card-badge" *ngIf="set.cardCount !== undefined">
           {{ set.cardCount }} cards
         </span>
@@ -80,6 +80,7 @@
       </span>
 
       <span class="col-actions" (click)="$event.stopPropagation()">
+        <button class="assign-btn" (click)="assignSet(set)" title="Assign to class">📋 Assign</button>
         <button class="kebab-btn" (click)="openMenu($event, set)">⋯</button>
 
         <!-- CUSTOM DROPDOWN -->
@@ -99,3 +100,8 @@
 
   </div>
 </div>
+
+<!-- SUCCESS MODAL -->
+<app-success-modal [show]="showSuccessModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-success-modal>
+<!-- ERROR MODAL -->
+<app-error-modal [show]="showErrorModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-error-modal>

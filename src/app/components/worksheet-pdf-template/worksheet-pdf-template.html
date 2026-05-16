@@ -27,6 +27,14 @@
         <div class="wv-name-input wv-pdf-readonly">{{ studentName }}</div>
         <label class="wv-field-label">Date</label>
         <div class="wv-date-input wv-pdf-readonly">{{ formattedDate }}</div>
+        @if (worksheet.cefrLevel) {
+          <label class="wv-field-label">CEFR Level</label>
+          <div class="wv-meta-input wv-pdf-readonly">{{ worksheet.cefrLevel }}</div>
+        }
+        @if (worksheet.gradeLevel) {
+          <label class="wv-field-label">Grade</label>
+          <div class="wv-meta-input wv-pdf-readonly">{{ worksheet.gradeLevel }}</div>
+        }
       </div>
     </div>
   </div>
@@ -93,9 +101,11 @@
           <span class="wv-score-badge">{{ a1Score }} / {{ a1Total }}</span>
         </div>
 
-        <div class="wv-slots-grid">
+        <div class="wv-a1-slots-row">
           @for (slot of a1ResolvedSlots; track trackByIndex($index); let i = $index) {
+            @if (i > 0) { <span class="wv-a1-arrow">→</span> }
             <div class="wv-slot" [class]="a1SlotClass(slot, i)">
+              <div class="wv-a1-slot-number">{{ i + 1 }}</div>
               @if (slot) {
                 <span class="wv-slot-emoji">{{ slot.emoji }}</span>
                 <span class="wv-slot-name">{{ slot.name }}</span>
@@ -195,7 +205,7 @@
 
         <div class="wv-word-bank">
           @for (word of worksheet.activity4.wordBank; track word) {
-            <div class="wv-word-chip">{{ word }}</div>
+            <div class="wv-word-chip" [class.used]="isWordUsedInPdf(word)">{{ word }}</div>
           }
         </div>
 
@@ -206,8 +216,10 @@
                 @if (part.type === 'text') {
                   <span class="wv-sent-text">{{ part.value }}</span>
                 } @else {
-                  <span class="wv-blank-chip" [class]="a4BlankClass(part)">{{ a4BlankDisplay(part) }}</span>
-                  @if (data.a4Checked && part.correctAnswer && part.blankId && (data.a4Blanks?.[part.blankId] ?? '').toLowerCase() !== part.correctAnswer.toLowerCase()) {
+                  <span class="wv-blank-wrapper">
+                    <span class="wv-blank-chip" [class]="a4BlankClass(part)">{{ a4BlankDisplay(part) }}</span>
+                  </span>
+                  @if (data.a4Checked && part.correctAnswer && part.blankId && data.a4Blanks[part.blankId].toLowerCase() !== part.correctAnswer.toLowerCase()) {
                     <span class="wv-pdf-blank-correction">({{ part.correctAnswer }})</span>
                   }
                 }

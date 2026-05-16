@@ -1,0 +1,108 @@
+<div class="assign-wrap">
+
+  <!-- BREADCRUMB -->
+  <div class="breadcrumb">
+    <button class="crumb-link" (click)="cancel()">Flashcards</button>
+    <span class="crumb-sep">/</span>
+    <button class="crumb-link" (click)="cancel()">{{ displayTitle }}</button>
+    <span class="crumb-sep">/</span>
+    <span class="crumb-current">Assign</span>
+  </div>
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <span>⚠ {{ errorMsg }}</span>
+    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- SKELETON -->
+  <div class="assign-skeleton" *ngIf="isLoading">
+    <div class="skel skel-title"></div>
+    <div class="skel skel-form"></div>
+    <div class="skel skel-button"></div>
+  </div>
+
+  <!-- CONTENT -->
+  <ng-container *ngIf="!isLoading && set">
+
+    <!-- HEADER -->
+    <div class="assign-header">
+      <div class="set-info">
+        <h1 class="assign-title">Assign "{{ displayTitle }}"</h1>
+        <p class="assign-subtitle">{{ set.cards?.length || 0 }} cards</p>
+        <p class="assign-desc" *ngIf="set.description">{{ set.description }}</p>
+      </div>
+    </div>
+
+    <!-- ASSIGNMENT FORM -->
+    <div class="assign-form" [formGroup]="assignForm">
+
+      <!-- CLASS SELECTION -->
+      <div class="form-group">
+        <label class="form-label" for="classId">Class *</label>
+        <select
+          id="classId"
+          class="form-input"
+          formControlName="classId"
+          [attr.disabled]="isClassesLoading ? true : null">
+          <option value="" disabled>
+            {{ isClassesLoading ? 'Loading classes…' : (classes.length === 0 ? 'No classes found. Please create a class first.' : 'Select a class') }}
+          </option>
+          <option *ngFor="let cls of classes" [value]="cls._id">{{ cls.name }}</option>
+        </select>
+        <div class="field-error" *ngIf="assignForm.get('classId')?.invalid && assignForm.get('classId')?.touched">
+          Please select a class.
+        </div>
+      </div>
+
+      <!-- ASSIGNMENT TITLE -->
+      <div class="form-group">
+        <label class="form-label" for="title">Assignment Title *</label>
+        <input
+          id="title"
+          class="form-input"
+          type="text"
+          formControlName="title"
+          placeholder="e.g. Chapter 5 Flashcards Quiz"
+        />
+        <div class="field-error" *ngIf="assignForm.get('title')?.invalid && assignForm.get('title')?.touched">
+          Assignment title is required.
+        </div>
+      </div>
+
+      <!-- DEADLINE -->
+      <div class="form-group">
+        <label class="form-label" for="deadline">Deadline *</label>
+        <input
+          id="deadline"
+          class="form-input"
+          type="date"
+          [min]="minDate"
+          formControlName="deadline"
+        />
+        <div class="field-error" *ngIf="assignForm.get('deadline')?.invalid && assignForm.get('deadline')?.touched">
+          Deadline is required.
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="form-actions">
+        <button class="btn-cancel" (click)="cancel()" [disabled]="isSubmitting">
+          Cancel
+        </button>
+        <button
+          class="btn-submit"
+          (click)="submit()"
+          [disabled]="isSubmitting || assignForm.invalid">
+          <span *ngIf="!isSubmitting">📋 Assign to Class</span>
+          <span *ngIf="isSubmitting" class="loading-dots">
+            <span>.</span><span>.</span><span>.</span>
+          </span>
+        </button>
+      </div>
+
+    </div>
+
+  </ng-container>
+
+</div>

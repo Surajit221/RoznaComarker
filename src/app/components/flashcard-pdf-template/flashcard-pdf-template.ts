@@ -76,7 +76,7 @@ export class FlashcardPdfTemplateComponent {
     }));
   }
 
-  get wrongCards(): Array<CardResult & { card?: FlashCard }> {
+  get cardsNeedingReview(): Array<CardResult & { card?: FlashCard }> {
     return this.cardResultsWithContent.filter((r) => !r.known);
   }
 

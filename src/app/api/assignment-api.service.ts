@@ -31,6 +31,8 @@ export type BackendAssignment = {
   resourceType?: 'essay' | 'flashcard' | 'worksheet';
   /** The _id of the linked FlashcardSet or Worksheet document */
   resourceId?: string;
+  /** Pre-computed submission count from getClassAssignments — correct for all resource types */
+  submitted?: number;
 };
 
 export type BackendFlashcardAssignmentSubmission = {
@@ -71,11 +73,13 @@ export class AssignmentApiService {
     title: string;
     classId: string;
     deadline: string;
-    writingType: string;
+    writingType?: string;
     instructions?: string;
     rubric?: any;
     rubrics?: any;
     allowLateResubmission?: boolean;
+    resourceType?: 'essay' | 'flashcard' | 'worksheet';
+    resourceId?: string;
   }): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
@@ -255,5 +259,43 @@ export class AssignmentApiService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Teacher gets detailed progress for all students in a flashcard assignment.
+   * Returns not_started, in_progress, completed statuses for real-time tracking.
+   * @param assignmentId the Assignment._id
+   * @returns Assignment progress with per-student status
+   */
+  async getAssignmentProgress(assignmentId: string): Promise<{
+    assignmentId: string;
+    assignmentTitle: string;
+    flashcardSetId: string;
+    totalStudents: number;
+    completedCount: number;
+    inProgressCount: number;
+    notStartedCount: number;
+    students: Array<{
+      studentId: string;
+      studentName: string;
+      studentPhoto: string | null;
+      status: 'not_started' | 'in_progress' | 'completed';
+      completedCards: number;
+      totalCards: number;
+      cardsRemaining: number;
+      score: number | null;
+      timeTaken: number | null;
+      lastActivityAt: string | null;
+      completedAt: string | null;
+      progressPercentage: number;
+    }>;
+  }> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<any>>(
+        `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/progress`
+      )
+    );
+    return resp.data;
   }
 }

@@ -1,0 +1,136 @@
+<div class="cr-wrap" *ngIf="total > 0; else emptyTpl">
+
+  <!-- ── SUMMARY STAT GRID ─────────────────────────────────── -->
+  <div class="cr-section-title">Summary</div>
+  <div class="cr-summary-grid">
+    <div class="cr-stat">
+      <span class="cr-stat-icon">📊</span>
+      <span class="cr-stat-value">{{ average | number:'1.0-1' }}%</span>
+      <span class="cr-stat-label">Average Score</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">📈</span>
+      <span class="cr-stat-value">{{ medianScore | number:'1.0-1' }}%</span>
+      <span class="cr-stat-label">Median Score</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">🏆</span>
+      <span class="cr-stat-value">{{ highest | number:'1.0-1' }}%</span>
+      <span class="cr-stat-label">Highest Score</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">⚠️</span>
+      <span class="cr-stat-value">{{ lowest | number:'1.0-1' }}%</span>
+      <span class="cr-stat-label">Lowest Score</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">✅</span>
+      <span class="cr-stat-value">{{ passCount }}</span>
+      <span class="cr-stat-label">Passed (≥{{ passThreshold }}%)</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">❌</span>
+      <span class="cr-stat-value">{{ failCount }}</span>
+      <span class="cr-stat-label">Below Threshold</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">⏱</span>
+      <span class="cr-stat-value">{{ formatTime(avgTimeSec) }}</span>
+      <span class="cr-stat-label">Avg. Time Taken</span>
+    </div>
+    <div class="cr-stat">
+      <span class="cr-stat-icon">🎯</span>
+      <span class="cr-stat-value">{{ passRate | number:'1.0-0' }}%</span>
+      <span class="cr-stat-label">Pass Rate</span>
+    </div>
+  </div>
+
+  <!-- ── PASS / FAIL BAR ───────────────────────────────────── -->
+  <div class="cr-section-title">Pass / Fail Breakdown</div>
+  <div class="cr-pf-bar-wrap">
+    <div class="cr-pf-bar">
+      <div class="cr-pf-pass" [style.width.%]="passRate"
+           [attr.title]="'Passed: ' + passCount"></div>
+      <div class="cr-pf-fail" [style.width.%]="100 - passRate"
+           [attr.title]="'Failed: ' + failCount"></div>
+    </div>
+    <div class="cr-pf-legend">
+      <span class="cr-legend-dot cr-dot-pass"></span>
+      <span>Passed ({{ passCount }})</span>
+      <span class="cr-legend-dot cr-dot-fail"></span>
+      <span>Below threshold ({{ failCount }})</span>
+    </div>
+  </div>
+
+  <!-- ── SCORE DISTRIBUTION ────────────────────────────────── -->
+  <div class="cr-section-title">Score Distribution</div>
+  <div class="cr-dist">
+    <div class="cr-dist-row" *ngFor="let b of distribution">
+      <span class="cr-dist-label">{{ b.label }}</span>
+      <div class="cr-dist-bar-wrap">
+        <div class="cr-dist-bar"
+             [style.width.%]="(b.count / maxDistCount) * 100">
+        </div>
+      </div>
+      <span class="cr-dist-count">{{ b.count }}</span>
+    </div>
+  </div>
+
+  <!-- ── TWO-COLUMN TABLES ─────────────────────────────────── -->
+  <div class="cr-tables-row">
+
+    <!-- Top performers -->
+    <div class="cr-table-block">
+      <div class="cr-section-title">🏆 Top Performers</div>
+      <div class="cr-perf-table">
+        <div class="cr-th-row">
+          <span>#</span>
+          <span>Student</span>
+          <span>Score</span>
+          <span>Time</span>
+        </div>
+        <div class="cr-tr" *ngFor="let e of topPerformers; let i = index; trackBy: trackByName">
+          <span class="cr-rank">{{ i + 1 }}</span>
+          <span class="cr-name">{{ e.name }}</span>
+          <span class="cr-score cr-score-high">{{ e.score | number:'1.0-0' }}%</span>
+          <span class="cr-time">{{ formatTime(e.timeTaken) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Struggling students -->
+    <div class="cr-table-block">
+      <div class="cr-section-title">⚠️ Needs Attention</div>
+      <div class="cr-perf-table">
+        <div class="cr-th-row">
+          <span>#</span>
+          <span>Student</span>
+          <span>Score</span>
+          <span>Time</span>
+        </div>
+        <div class="cr-tr" *ngFor="let e of strugglers; let i = index; trackBy: trackByName">
+          <span class="cr-rank">{{ i + 1 }}</span>
+          <span class="cr-name">{{ e.name }}</span>
+          <span class="cr-score cr-score-low">{{ e.score | number:'1.0-0' }}%</span>
+          <span class="cr-time">{{ formatTime(e.timeTaken) }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── ALERT ─────────────────────────────────────────────── -->
+  <div class="cr-alert cr-alert-warn"
+       *ngIf="passRate < 50 && total >= 3">
+    ⚠️ More than half of students scored below {{ passThreshold }}%. Consider reviewing the material.
+  </div>
+  <div class="cr-alert cr-alert-good"
+       *ngIf="passRate >= 85 && total >= 3">
+    🎉 Excellent class performance! {{ passRate | number:'1.0-0' }}% passed this {{ type }}.
+  </div>
+
+</div>
+
+<ng-template #emptyTpl>
+  <div class="cr-empty">No submission data available yet.</div>
+</ng-template>

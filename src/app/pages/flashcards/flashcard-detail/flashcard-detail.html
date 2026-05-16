@@ -4,7 +4,7 @@
   <div class="breadcrumb">
     <button class="crumb-link" (click)="goBack()">Flashcards</button>
     <span class="crumb-sep">/</span>
-    <span class="crumb-current">{{ set?.title || '...' }}</span>
+    <span class="crumb-current">{{ displayTitle }}</span>
   </div>
 
   <!-- ERROR BANNER -->
@@ -25,7 +25,7 @@
 
     <!-- META ROW -->
     <div class="meta-row">
-      <h1 class="detail-title">{{ set.title }}</h1>
+      <h1 class="detail-title">{{ displayTitle }}</h1>
       <span class="card-count-badge">{{ cards.length }} cards</span>
     </div>
     <p class="detail-desc" *ngIf="set.description">{{ set.description }}</p>
@@ -36,30 +36,90 @@
     </div>
     <div class="progress-label">{{ currentIndex + 1 }} / {{ cards.length }}</div>
 
-    <!-- FLIP CARD -->
-    <div class="card-stage" (click)="flip()">
+    <!-- TEMPLATE TOGGLE -->
+    <div class="template-toggle">
+      <button class="template-btn" [class.active]="cardTemplate === 'with-image'" (click)="cardTemplate = 'with-image'">🖼 With Image</button>
+      <button class="template-btn" [class.active]="cardTemplate === 'text-only'" (click)="cardTemplate = 'text-only'">✏ Text Only</button>
+    </div>
+
+    <!-- FLIP CARD — swipe gesture via (touchstart)/(touchend) -->
+    <div class="card-stage" (click)="flip()"
+         (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
       <div class="flip-card" [class.flipped]="isFlipped">
-        <div class="flip-front">
-          <span class="side-label">Front</span>
-          <p class="card-text">{{ currentCard?.front }}</p>
+
+        <!-- FRONT -->
+        <div class="flip-front" [class.template-text]="cardTemplate === 'text-only'">
+
+          <!-- Template A: image area (Bug 2 fixed) -->
+          @if (cardTemplate === 'with-image') {
+            <div class="card-image-wrap">
+              @if (currentCard?.frontImage && !imgError) {
+                <img [src]="getImageUrl(currentCard?.frontImage)"
+                     alt="Card image"
+                     class="card-image"
+                     (error)="imgError = true" />
+                <div class="card-image-gradient"></div>
+              } @else {
+                <div class="card-image-placeholder">
+                  <span class="placeholder-icon">📷</span>
+                  <span>No Image</span>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Template B: subject icon (large, centered) -->
+          @if (cardTemplate === 'text-only') {
+            <div class="card-body" style="padding-bottom: 0;">
+              <span class="card-subject-icon">💡</span>
+            </div>
+          }
+
+          <!-- Card body: label + term -->
+          <div class="card-body">
+            <span class="side-label">Front</span>
+            <div class="side-divider"></div>
+            <p class="card-text">{{ currentCard?.front }}</p>
+          </div>
+          <span class="flip-hint">💡 Click to reveal answer</span>
         </div>
+
+        <!-- BACK (Bug 1 fixed — scrollable) -->
         <div class="flip-back">
-          <span class="side-label">Back</span>
-          <p class="card-text">{{ currentCard?.back }}</p>
+
+          <!-- Template A back: thumbnail strip -->
+          @if (cardTemplate === 'with-image' && currentCard?.frontImage && !imgError) {
+            <div class="card-back-thumb">
+              <img [src]="getImageUrl(currentCard?.frontImage)" alt="" aria-hidden="true" />
+            </div>
+          }
+
+          <!-- Scrollable explanation area -->
+          <div class="card-back-scroll">
+            <span class="side-label" style="display:block; margin-bottom: 0.5rem;">Back</span>
+            <div class="side-divider"></div>
+            <p class="card-explanation">{{ currentCard?.back }}</p>
+          </div>
+          <!-- Fade hint overlay -->
+          <div class="card-back-fade"></div>
         </div>
+
       </div>
-      <span class="flip-hint" *ngIf="!isFlipped">💡 Click to reveal answer</span>
+      @if (!isFlipped) {
+        <span class="flip-hint">💡 Click card to reveal answer</span>
+      }
     </div>
 
     <!-- NAVIGATION -->
     <div class="card-nav">
-      <button class="nav-btn" [disabled]="currentIndex === 0" (click)="prev()">← Prev</button>
-      <button class="nav-btn" [disabled]="currentIndex === cards.length - 1" (click)="next()">Next →</button>
+      <button class="nav-btn" [disabled]="currentIndex === 0" (click)="prev(); $event.stopPropagation()">← Prev</button>
+      <button class="nav-btn" [disabled]="currentIndex === cards.length - 1" (click)="next(); $event.stopPropagation()">Next →</button>
     </div>
 
     <!-- ACTION BAR -->
     <div class="action-bar">
       <button class="btn-study" (click)="study()">▶ Study</button>
+      <button class="btn-assign" (click)="assignSet()">📋 Assign</button>
 
       <div class="action-secondary">
         <!-- SPEAK / STOP -->
@@ -90,19 +150,46 @@
       </div>
     </div>
 
-    <!-- THUMBNAIL STRIP -->
+    <!-- THUMBNAIL STRIP: numbered for ≤7, dot-style for >7 on mobile -->
     <div class="thumbnail-strip" *ngIf="cards.length > 1">
       <button
         class="thumb"
         *ngFor="let card of cards; let i = index; trackBy: trackById"
         [class.active]="i === currentIndex"
-        (click)="currentIndex = i; isFlipped = false">
-        {{ i + 1 }}
+        (click)="currentIndex = i; isFlipped = false; $event.stopPropagation()"
+        [class.thumb-dot]="cards.length > 7">
+        <span *ngIf="cards.length <= 7">{{ i + 1 }}</span>
       </button>
     </div>
 
   </ng-container>
 </div>
+
+<!-- ASSIGN MODAL (inline — no navigation) -->
+<app-assign-from-detail-modal
+  [isOpen]="showAssignModal"
+  [flashcardSetId]="setId"
+  [flashcardTitle]="displayTitle"
+  [cardCount]="cards.length"
+  (closed)="onAssignModalClosed()"
+  (assigned)="onAssignModalClosed()">
+</app-assign-from-detail-modal>
+
+<!-- SUCCESS MODAL -->
+<app-success-modal
+  [show]="showSuccessModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="closeModal()">
+</app-success-modal>
+
+<!-- ERROR MODAL -->
+<app-error-modal
+  [show]="showErrorModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="closeModal()">
+</app-error-modal>
 
 <!-- SHARE MODAL (PART 2) -->
 <div class="share-backdrop" *ngIf="showShareModal" (click)="closeShareModal()"></div>
@@ -118,6 +205,12 @@
   </div>
 
   <ng-container *ngIf="!shareLoading && shareUrl">
+    <!-- QR Code -->
+    <div class="share-qr-section">
+      <qr-code [value]="shareUrl" size="200" errorCorrectionLevel="M" />
+    </div>
+
+    <!-- Direct Link -->
     <div class="share-url-row">
       <input class="share-url-input" [value]="shareUrl" readonly aria-label="Share URL" />
       <button class="share-copy-btn" [class.copied]="shareCopied" (click)="copyUrl()" [title]="shareCopied ? 'Copied!' : 'Copy link'">
@@ -125,9 +218,7 @@
       </button>
     </div>
     <p class="share-hint">Anyone with this link can study this set.</p>
-    <p class="share-hint">Only students enrolled in your class can save results.</p>
     <div class="share-modal-actions">
-      <button class="share-revoke-btn" (click)="revokeShare()">Revoke link</button>
       <button class="share-done-btn" (click)="closeShareModal()">Done</button>
     </div>
   </ng-container>

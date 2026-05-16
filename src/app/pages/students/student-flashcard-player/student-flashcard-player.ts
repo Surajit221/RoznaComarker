@@ -17,7 +17,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, retry, catchError, of } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import { AssignmentApiService, type BackendAssignment } from '../../../api/assignment-api.service';
 import { AssignmentStateService } from '../../../services/assignment-state.service';
@@ -57,6 +57,18 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   hasError                 = false;
   errorMessage             = 'Could not load this flashcard set.';
 
+  /** Progress tracking */
+  cardsViewed: number[]    = [];
+  cardResultsMap: Map<number, 'knew' | 'didnt_know'> = new Map();
+  saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private readonly SAVE_RETRY_ATTEMPTS = 3;
+
+  /** Resume modal */
+  showResumeModal          = false;
+  savedProgress: any         = null;
+  isResuming               = false;
+  localStorageKey          = '';
+
   private assignmentId           = '';
   classId                        = '';
   private resolvedFlashcardSetId = '';
@@ -70,6 +82,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   get answeredCount(): number { return this.cardResults.length; }
   get knownCount(): number { return this.cardResults.filter(r => r.known).length; }
   get learningCount(): number { return this.cardResults.filter(r => !r.known).length; }
+  get incompleteCount(): number { return Math.max(0, this.cards.length - this.answeredCount); }
   get progress(): number {
     return this.cards.length ? (this.answeredCount / this.cards.length) * 100 : 0;
   }
@@ -188,12 +201,23 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   advanceAfterGrade(): void {
     if (!this.currentCard) return;
     const known = this.gradeResult === 'correct';
-    this.cardResults.push({
-      cardId:        String((this.currentCard as any)._id ?? ''),
-      known,
-      studentAnswer: this.studentAnswer || undefined,
-      isCorrect:     known,
-    });
+    const cardId = String((this.currentCard as any)._id ?? '');
+    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    if (existingIndex >= 0) {
+      this.cardResults[existingIndex] = {
+        cardId,
+        known,
+        studentAnswer: this.studentAnswer || undefined,
+        isCorrect: known,
+      };
+    } else {
+      this.cardResults.push({
+        cardId,
+        known,
+        studentAnswer: this.studentAnswer || undefined,
+        isCorrect: known,
+      });
+    }
     this.gradeResult = null;
     this.advance();
   }
@@ -201,12 +225,23 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   /** Fallback manual grade used when AI call fails */
   markCorrect(): void {
     if (!this.currentCard) return;
-    this.cardResults.push({
-      cardId: String((this.currentCard as any)._id ?? ''),
-      known: true,
-      studentAnswer: this.studentAnswer || undefined,
-      isCorrect: true,
-    });
+    const cardId = String((this.currentCard as any)._id ?? '');
+    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    if (existingIndex >= 0) {
+      this.cardResults[existingIndex] = {
+        cardId,
+        known: true,
+        studentAnswer: this.studentAnswer || undefined,
+        isCorrect: true,
+      };
+    } else {
+      this.cardResults.push({
+        cardId,
+        known: true,
+        studentAnswer: this.studentAnswer || undefined,
+        isCorrect: true,
+      });
+    }
     this.gradeResult = null;
     this.advance();
   }
@@ -214,39 +249,83 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   /** Fallback manual grade used when AI call fails */
   markWrong(): void {
     if (!this.currentCard) return;
-    this.cardResults.push({
-      cardId: String((this.currentCard as any)._id ?? ''),
-      known: false,
-      studentAnswer: this.studentAnswer || undefined,
-      isCorrect: false,
-    });
+    const cardId = String((this.currentCard as any)._id ?? '');
+    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    if (existingIndex >= 0) {
+      this.cardResults[existingIndex] = {
+        cardId,
+        known: false,
+        studentAnswer: this.studentAnswer || undefined,
+        isCorrect: false,
+      };
+    } else {
+      this.cardResults.push({
+        cardId,
+        known: false,
+        studentAnswer: this.studentAnswer || undefined,
+        isCorrect: false,
+      });
+    }
     this.gradeResult = null;
     this.advance();
   }
 
   markKnown(): void {
     if (this.isSliding || !this.currentCard || !this.isFlipped) return;
-    this.cardResults.push({
-      cardId: String((this.currentCard as any)._id ?? ''),
-      known: true,
-    });
+    const cardId = String((this.currentCard as any)._id ?? '');
+    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    if (existingIndex >= 0) {
+      this.cardResults[existingIndex].known = true;
+    } else {
+      this.cardResults.push({
+        cardId,
+        known: true,
+      });
+    }
+    // Track by index for progress
+    this.cardResultsMap.set(this.currentIndex, 'knew');
     this.advance();
   }
 
   markLearning(): void {
     if (this.isSliding || !this.currentCard || !this.isFlipped) return;
-    this.cardResults.push({
-      cardId: String((this.currentCard as any)._id ?? ''),
-      known: false,
-    });
+    const cardId = String((this.currentCard as any)._id ?? '');
+    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    if (existingIndex >= 0) {
+      this.cardResults[existingIndex].known = false;
+    } else {
+      this.cardResults.push({
+        cardId,
+        known: false,
+      });
+    }
+    // Track by index for progress
+    this.cardResultsMap.set(this.currentIndex, 'didnt_know');
     this.advance();
   }
 
   private advance(): void {
-    if (this.isComplete) {
+    // Record current card as viewed before advancing
+    if (!this.cardsViewed.includes(this.currentIndex)) {
+      this.cardsViewed.push(this.currentIndex);
+    }
+
+    // Determine the next card index before animation
+    const nextIndex = this.currentIndex + 1;
+
+    // Check if this advance will complete the set
+    const willComplete = nextIndex >= this.cards.length;
+
+    if (willComplete) {
+      // Save final progress (current index is the last card)
+      this.saveProgress();
       this.onComplete();
       return;
     }
+
+    // Save progress with the NEXT index (where student will be after animation)
+    // This ensures resume puts them on the correct card
+    this.saveProgressWithNextIndex(nextIndex);
 
     this.isFlipped     = false;
     this.studentAnswer = '';
@@ -256,7 +335,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     setTimeout(() => {
-      this.currentIndex++;
+      this.currentIndex = nextIndex;
       this.slideOutClass = '';
       this.slideInClass  = 'slide-in-right';
       this.cdr.markForCheck();
@@ -267,6 +346,103 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }, 300);
     }, 300);
+  }
+
+  /**
+   * Save initial progress when starting a fresh study session
+   * This marks the assignment as "in_progress" for the teacher report
+   */
+  private saveInitialProgress(): void {
+    if (!this.cards.length) return;
+
+    const setId = this.resolvedFlashcardSetId || this.flashcardSetId;
+    if (!setId) return;
+
+    const progressPayload = {
+      lastCardIndex: 0,  // Starting at card 0
+      cardsViewed: [],   // No cards completed yet
+      cardResults: {},
+      assignmentId: this.assignmentId || undefined,
+      template: this.template,
+      totalCards: this.cards.length
+    };
+
+    // Save to localStorage as backup
+    this.saveToLocalStorage(progressPayload);
+
+    // Save to server (silent - don't show loading indicator for initial save)
+    this.flashcardApi.saveProgress(setId, progressPayload)
+      .pipe(
+        takeUntil(this.destroy$),
+        retry({ count: this.SAVE_RETRY_ATTEMPTS, delay: 1000 }),
+        catchError(() => of(null))
+      )
+      .subscribe(() => {
+        // Silent success - clear localStorage after successful save
+        this.clearLocalStorage();
+      });
+  }
+
+  /**
+   * Save progress with a specific next index (for use during navigation)
+   * This ensures resume puts the student on the correct card
+   */
+  private saveProgressWithNextIndex(nextIndex: number): void {
+    if (!this.cards.length) return;
+
+    const setId = this.resolvedFlashcardSetId || this.flashcardSetId;
+    if (!setId) return;
+
+    this.saveState = 'saving';
+    this.cdr.markForCheck();
+
+    const cardResultsObj: Record<string, 'knew' | 'didnt_know'> = {};
+    this.cardResultsMap.forEach((value, key) => {
+      cardResultsObj[key] = value;
+    });
+
+    const progressPayload = {
+      lastCardIndex: nextIndex,  // ← Save NEXT index (where student will be)
+      cardsViewed: [...this.cardsViewed],
+      cardResults: cardResultsObj,
+      assignmentId: this.assignmentId || undefined,
+      template: this.template,
+      totalCards: this.cards.length
+    };
+
+    // Save to localStorage as backup
+    this.saveToLocalStorage(progressPayload);
+
+    // Save to server
+    this.flashcardApi.saveProgress(setId, progressPayload)
+      .pipe(
+        takeUntil(this.destroy$),
+        retry({ count: this.SAVE_RETRY_ATTEMPTS, delay: 1000 }),
+        catchError((err) => {
+          console.error('Failed to save progress:', err);
+          this.saveState = 'error';
+          this.cdr.markForCheck();
+          return of(null);
+        })
+      )
+      .subscribe((response) => {
+        if (response) {
+          this.saveState = 'saved';
+          // Clear localStorage after successful save
+          this.clearLocalStorage();
+        } else {
+          this.saveState = 'error';
+        }
+        this.cdr.markForCheck();
+
+        // Reset to idle after a delay
+        setTimeout(() => {
+          if (this.saveState === 'saved' || this.saveState === 'error') {
+            this.saveState = 'idle';
+            this.cdr.markForCheck();
+          }
+        }, 3000);
+      });
   }
 
   private onComplete(): void {
@@ -312,6 +488,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
         cards:            this.cards,
         correctCount:     this.knownCount,
         needsReviewCount: this.learningCount,
+        incompleteCount:  this.incompleteCount,
         type:             'flashcard',
       },
     });
@@ -351,6 +528,10 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
       return;
     }
 
+    // Generate localStorage key for progress backup
+    const studentId = this.getStudentIdFromToken();
+    this.localStorageKey = `flashcard_progress_${studentId}_${setId}_${this.assignmentId || 'no-assign'}`;
+
     this.flashcardApi
       .getSetById(setId)
       .pipe(takeUntil(this.destroy$))
@@ -367,8 +548,20 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
           }
 
           this.cards     = allCards;
-          this.isLoading = false;
-          this.cdr.markForCheck();
+
+          // After loading cards, check for existing progress
+          this.checkForExistingProgress(setId);
+
+          // Also save initial progress for new sessions (so teacher sees "in_progress")
+          // This runs after checkForExistingProgress completes (which sets isLoading = false)
+          // We do this in a setTimeout to ensure it runs after the modal check
+          setTimeout(() => {
+            if (!this.showResumeModal && this.cards.length > 0) {
+              // No existing progress - this is a fresh start
+              // Save initial progress at card 0
+              this.saveInitialProgress();
+            }
+          }, 0);
         },
         error: (err: HttpErrorResponse) => {
           if (err.status === 404) {
@@ -382,6 +575,213 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
           this.setLoadError('Could not load this flashcard set.');
         },
       });
+  }
+
+  /** Check for saved progress and show resume modal if needed */
+  private checkForExistingProgress(setId: string): void {
+    // First, try to get progress from API
+    this.flashcardApi.getProgress(setId, this.assignmentId || undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (progress) => {
+          // Show resume modal if in_progress AND lastCardIndex > 0 (not at start)
+          // lastCardIndex represents the card the student is CURRENTLY viewing
+          if (progress.status === 'in_progress' && progress.lastCardIndex > 0) {
+            // Show resume modal
+            this.savedProgress = progress;
+            this.showResumeModal = true;
+            this.isLoading = false;
+            this.cdr.markForCheck();
+          } else if (progress.status === 'completed') {
+            // If completed, redirect to results or allow re-study
+            this.isLoading = false;
+            this.cdr.markForCheck();
+          } else {
+            // Check localStorage as fallback
+            this.checkLocalStorageProgress(setId);
+          }
+        },
+        error: () => {
+          // If API fails, check localStorage
+          this.checkLocalStorageProgress(setId);
+        }
+      });
+  }
+
+  /** Check localStorage for backup progress */
+  private checkLocalStorageProgress(setId: string): void {
+    try {
+      const saved = localStorage.getItem(this.localStorageKey);
+      if (saved) {
+        const localProgress = JSON.parse(saved);
+        // Show resume modal if in_progress AND lastCardIndex > 0 (not at start)
+        if (localProgress.status === 'in_progress' && localProgress.lastCardIndex > 0) {
+          this.savedProgress = localProgress;
+          this.showResumeModal = true;
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+    this.isLoading = false;
+    this.cdr.markForCheck();
+  }
+
+  /** Resume from saved position */
+  resumeProgress(): void {
+    if (!this.savedProgress) return;
+
+    this.isResuming = true;
+    this.showResumeModal = false;
+
+    // Restore progress state
+    this.currentIndex = this.savedProgress.lastCardIndex || 0;
+    this.cardsViewed = [...(this.savedProgress.cardsViewed || [])];
+
+    // Restore card results if available
+    if (this.savedProgress.cardResults) {
+      Object.entries(this.savedProgress.cardResults).forEach(([index, result]) => {
+        this.cardResultsMap.set(parseInt(index, 10), result as 'knew' | 'didnt_know');
+      });
+    }
+
+    // Restore cardResults array for completed cards
+    this.cardsViewed.forEach((cardIdx) => {
+      const card = this.cards[cardIdx];
+      if (card) {
+        const cardId = String((card as any)._id ?? '');
+        const result = this.cardResultsMap.get(cardIdx);
+        if (result) {
+          this.cardResults.push({
+            cardId,
+            known: result === 'knew',
+          });
+        }
+      }
+    });
+
+    this.isResuming = false;
+    this.cdr.markForCheck();
+  }
+
+  /** Start over - reset progress */
+  startOver(): void {
+    this.showResumeModal = false;
+
+    // Reset local state
+    this.currentIndex = 0;
+    this.cardsViewed = [];
+    this.cardResultsMap.clear();
+    this.cardResults = [];
+
+    // Clear server progress
+    const setId = this.resolvedFlashcardSetId || this.flashcardSetId;
+    this.flashcardApi.resetProgress(setId, this.assignmentId || undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe();
+
+    // Clear localStorage
+    try {
+      localStorage.removeItem(this.localStorageKey);
+    } catch {
+      // Ignore localStorage errors
+    }
+
+    this.cdr.markForCheck();
+  }
+
+  /** Save progress to server and localStorage */
+  private saveProgress(): void {
+    if (!this.cards.length) return;
+
+    const setId = this.resolvedFlashcardSetId || this.flashcardSetId;
+    if (!setId) return;
+
+    this.saveState = 'saving';
+    this.cdr.markForCheck();
+
+    const cardResultsObj: Record<string, 'knew' | 'didnt_know'> = {};
+    this.cardResultsMap.forEach((value, key) => {
+      cardResultsObj[key] = value;
+    });
+
+    const progressPayload = {
+      lastCardIndex: this.currentIndex,
+      cardsViewed: [...this.cardsViewed],
+      cardResults: cardResultsObj,
+      assignmentId: this.assignmentId || undefined,
+      template: this.template,
+      totalCards: this.cards.length
+    };
+
+    // Save to localStorage as backup
+    this.saveToLocalStorage(progressPayload);
+
+    // Save to server
+    this.flashcardApi.saveProgress(setId, progressPayload)
+      .pipe(
+        takeUntil(this.destroy$),
+        retry({ count: this.SAVE_RETRY_ATTEMPTS, delay: 1000 }),
+        catchError((err) => {
+          console.error('Failed to save progress:', err);
+          this.saveState = 'error';
+          this.cdr.markForCheck();
+          return of(null);
+        })
+      )
+      .subscribe((response) => {
+        if (response) {
+          this.saveState = 'saved';
+          // Clear localStorage after successful save
+          this.clearLocalStorage();
+        } else {
+          this.saveState = 'error';
+        }
+        this.cdr.markForCheck();
+
+        // Reset to idle after a delay
+        setTimeout(() => {
+          if (this.saveState === 'saved' || this.saveState === 'error') {
+            this.saveState = 'idle';
+            this.cdr.markForCheck();
+          }
+        }, 3000);
+      });
+  }
+
+  /** Save progress to localStorage as backup */
+  private saveToLocalStorage(payload: any): void {
+    try {
+      const data = {
+        ...payload,
+        status: this.cardsViewed.length >= this.cards.length ? 'completed' : 'in_progress',
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem(this.localStorageKey, JSON.stringify(data));
+    } catch (err) {
+      console.warn('Failed to save progress to localStorage:', err);
+    }
+  }
+
+  /** Clear localStorage after successful server save */
+  private clearLocalStorage(): void {
+    try {
+      localStorage.removeItem(this.localStorageKey);
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+
+  /** Extract student ID from JWT token */
+  private getStudentIdFromToken(): string {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return 'unknown';
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload._id || payload.userId || 'unknown';
+    } catch {
+      return 'unknown';
+    }
   }
 
   private setLoadError(message: string): void {

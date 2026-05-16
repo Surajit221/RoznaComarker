@@ -53,6 +53,7 @@ export interface GenerateFlashcardPayload {
   template: string;
   cardCount: number | 'auto';
   language: string;
+  addImage?: boolean;
 }
 
 export interface FlashcardReport {
@@ -69,7 +70,7 @@ export interface ParticipantResult {
   score: number;
   timeTaken: number;
   submittedAt: Date;
-  status: 'completed';
+  status: 'not_started' | 'in_progress' | 'completed';
 }
 
 export interface CardStat {
