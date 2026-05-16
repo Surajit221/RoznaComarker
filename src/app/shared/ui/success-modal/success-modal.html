@@ -6,17 +6,22 @@
      [attr.aria-describedby]="'sm-desc'">
   <div class="sm-panel">
 
-    <!-- Solid green icon circle -->
+    <!-- Outlined green icon circle -->
     <div class="sm-icon-circle">
       <svg class="sm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
            aria-hidden="true">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
     </div>
 
     <h2 class="sm-title" id="sm-title">{{ title }}</h2>
-    <p class="sm-message" id="sm-desc">{{ message }}</p>
+    
+    <!-- Notification bar -->
+    <div class="sm-notification-bar">
+      <span class="sm-notification-text">{{ message }}</span>
+    </div>
+    
     <button class="sm-ok-btn" (click)="close()" autofocus>OK</button>
 
   </div>
