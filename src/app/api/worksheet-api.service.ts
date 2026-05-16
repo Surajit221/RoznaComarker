@@ -223,15 +223,43 @@ export interface AnswerResult {
   aiGradingFeedback?: string;
 }
 
+export interface PerQuestionResult {
+  questionId: string;
+  slotId?: string;
+  isCorrect: boolean;
+  studentAnswer: any;
+  correctAnswer: any;
+}
+
+export interface SectionResult {
+  sectionId: string;
+  sectionName: string;
+  activityType: string;
+  earnedPoints: number;
+  totalPoints: number;
+  score: number;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  perQuestionResults: PerQuestionResult[];
+}
+
 export interface WorksheetSubmission {
   _id: string;
   worksheetId: string;
   assignmentId: string;
   studentId: string;
   answers: AnswerResult[] | Record<string, Record<string, any>>;
-  totalPointsEarned: number;
-  totalPointsPossible: number;
-  percentage: number;
+  // Legacy fields (kept for backward compatibility)
+  totalPointsEarned?: number;
+  totalPointsPossible?: number;
+  percentage?: number;
+  // New root-level fields (single source of truth)
+  earnedPoints: number;
+  totalPoints: number;
+  score: number;
+  isPassed: boolean;
+  sections: SectionResult[];
   timeTaken: number;
   submittedAt: string;
   gradingStatus: string;

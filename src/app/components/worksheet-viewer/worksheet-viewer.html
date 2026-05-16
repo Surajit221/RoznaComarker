@@ -78,6 +78,48 @@
               }
             </div>
           }
+          <!-- Metadata row with icons -->
+          @if (reviewMode) {
+            <div class="wv-metadata-row">
+              <div class="wv-meta-item">
+                <span class="wv-meta-icon">📚</span>
+                <div class="wv-meta-content">
+                  <span class="wv-meta-label">SUBJECT</span>
+                  <span class="wv-meta-value">{{ worksheet()!.subject || '—' }}</span>
+                </div>
+              </div>
+              <div class="wv-meta-item">
+                <span class="wv-meta-icon">🎯</span>
+                <div class="wv-meta-content">
+                  <span class="wv-meta-label">CEFR</span>
+                  <span class="wv-meta-value">{{ worksheet()!.cefrLevel || '—' }}</span>
+                </div>
+              </div>
+              <div class="wv-meta-item">
+                <span class="wv-meta-icon">🏫</span>
+                <div class="wv-meta-content">
+                  <span class="wv-meta-label">GRADE</span>
+                  <span class="wv-meta-value">{{ worksheet()!.gradeLevel || '—' }}</span>
+                </div>
+              </div>
+              <div class="wv-meta-item">
+                <span class="wv-meta-icon">⚡</span>
+                <div class="wv-meta-content">
+                  <span class="wv-meta-label">DIFFICULTY</span>
+                  <span class="wv-meta-value" [class.difficulty-easy]="isDifficultyEasy()" [class.difficulty-medium]="isDifficultyMedium()" [class.difficulty-hard]="isDifficultyHard()">
+                    {{ formatDifficulty(worksheet()!.difficulty) || '—' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <!-- Deadline row -->
+            @if (assignmentDeadline()) {
+              <div class="wv-deadline-row" [class.deadline-past]="isDeadlinePast()">
+                <span class="wv-deadline-icon">📅</span>
+                <span class="wv-deadline-text">Due: {{ formatDeadline(assignmentDeadline()) }}</span>
+              </div>
+            }
+          }
         </div>
         <div class="wv-header-right">
           <label class="wv-field-label">Student name</label>

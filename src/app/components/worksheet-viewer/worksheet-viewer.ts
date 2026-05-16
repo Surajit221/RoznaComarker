@@ -52,6 +52,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     totalPointsPossible?: number;
     percentage?: number;
     timeTaken?: number;
+    deadline?: string | Date; // Assignment deadline
   } | null = null;
   @Output() closed = new EventEmitter<void>();
 
@@ -1092,4 +1093,53 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
 
   trackByIndex(i: number): number { return i; }
   trackById(_: number, item: any): string { return item?.id ?? item; }
+
+  /* ── Difficulty helpers ───────────────────── */
+  isDifficultyEasy(): boolean {
+    const diff = this.worksheet()?.difficulty?.toLowerCase();
+    return diff === 'easy' || diff === 'beginner';
+  }
+
+  isDifficultyMedium(): boolean {
+    const diff = this.worksheet()?.difficulty?.toLowerCase();
+    return diff === 'medium' || diff === 'intermediate';
+  }
+
+  isDifficultyHard(): boolean {
+    const diff = this.worksheet()?.difficulty?.toLowerCase();
+    return diff === 'hard' || diff === 'advanced';
+  }
+
+  formatDifficulty(difficulty: string | null | undefined): string {
+    if (!difficulty) return '';
+    const diff = difficulty.toLowerCase();
+    if (diff === 'easy' || diff === 'beginner') return 'Beginner';
+    if (diff === 'medium' || diff === 'intermediate') return 'Intermediate';
+    if (diff === 'hard' || diff === 'advanced') return 'Advanced';
+    return difficulty;
+  }
+
+  /* ── Deadline helpers ─────────────────────── */
+  assignmentDeadline = computed(() => {
+    const deadline = this.reviewMeta?.deadline;
+    if (!deadline) return null;
+    return typeof deadline === 'string' ? new Date(deadline) : deadline;
+  });
+
+  isDeadlinePast(): boolean {
+    const deadline = this.assignmentDeadline();
+    if (!deadline) return false;
+    return new Date() > deadline;
+  }
+
+  formatDeadline(deadline: Date | null): string {
+    if (!deadline) return '';
+    return deadline.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
 }

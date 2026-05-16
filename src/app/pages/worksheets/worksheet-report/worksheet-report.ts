@@ -98,7 +98,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
 
   get averageScore(): number {
     if (!this.submissions.length) return 0;
-    const sum = this.submissions.reduce((acc, s) => acc + (s.percentage ?? 0), 0);
+    const sum = this.submissions.reduce((acc, s) => acc + (s.score ?? s.percentage ?? 0), 0);
     return sum / this.submissions.length;
   }
 
@@ -111,7 +111,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
   get reportEntries(): ReportEntry[] {
     return this.submissions.map((s) => ({
       name:      this.getStudentName(s),
-      score:     s.percentage ?? 0,
+      score:     s.score ?? s.percentage ?? 0,
       timeTaken: s.timeTaken ?? 0,
       submittedAt: s.submittedAt,
     }));

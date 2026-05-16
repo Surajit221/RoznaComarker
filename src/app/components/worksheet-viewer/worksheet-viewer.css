@@ -271,6 +271,64 @@
   border: 1px solid rgba(255,255,255,0.25);
 }
 
+/* ── Metadata row (review mode) ─────────────────── */
+.wv-metadata-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  max-width: calc(100% - 240px);
+}
+.wv-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.wv-meta-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.wv-meta-content {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.wv-meta-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+}
+.wv-meta-value {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fff;
+}
+.wv-meta-value.difficulty-easy { color: #86efac; }
+.wv-meta-value.difficulty-medium { color: #fde047; }
+.wv-meta-value.difficulty-hard { color: #fca5a5; }
+
+/* ── Deadline row (review mode) ─────────────────── */
+.wv-deadline-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.9);
+}
+.wv-deadline-row.deadline-past {
+  color: #fca5a5;
+}
+.wv-deadline-icon {
+  font-size: 1rem;
+}
+.wv-deadline-text {
+  font-weight: 500;
+}
+
 .wv-header-right {
   background: rgba(0,0,0,0.25);
   border-radius: 12px;
@@ -432,6 +490,7 @@
   .wv-body { padding: 0.75rem; gap: 0.65rem; }
   .wv-card { padding: 0.9rem 0.95rem; border-radius: 12px; }
   .wv-slots-grid { grid-template-columns: 1fr; }
+  .wv-metadata-row { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 }
 
 @media (max-width: 480px) {
@@ -446,6 +505,8 @@
   .wv-score-actions > button { width: 100%; }
   .wv-a4-actions { flex-direction: column-reverse; align-items: stretch; }
   .wv-a4-actions > button { width: 100%; }
+  .wv-metadata-row { grid-template-columns: 1fr; gap: 0.4rem; }
+  .wv-meta-item { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
 }
 
 .wv-activity-card { display: flex; flex-direction: column; gap: 0.75rem; }

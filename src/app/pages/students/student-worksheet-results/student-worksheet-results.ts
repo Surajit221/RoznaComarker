@@ -24,6 +24,7 @@ import {
   type Worksheet,
   type WorksheetSubmission,
 } from '../../../api/worksheet-api.service';
+import { AssignmentApiService } from '../../../api/assignment-api.service';
 import { WorksheetViewerComponent } from '../../../components/worksheet-viewer/worksheet-viewer';
 import { WorksheetPdfRenderService } from '../../../components/worksheet-pdf-template/worksheet-pdf-render.service';
 import { AlertService } from '../../../services/alert.service';
@@ -48,6 +49,7 @@ export class StudentWorksheetResultsPage implements OnInit {
   private readonly router      = inject(Router);
   private readonly route       = inject(ActivatedRoute);
   private readonly api         = inject(WorksheetApiService);
+  private readonly assignmentApi = inject(AssignmentApiService);
   private readonly cdr         = inject(ChangeDetectorRef);
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
   private readonly alert       = inject(AlertService);
@@ -63,20 +65,20 @@ export class StudentWorksheetResultsPage implements OnInit {
   isWorksheetLoading = false;
   isPdfDownloading   = false;
   resolvedStudentName = '';
+  assignmentDeadline: Date | null = null;
 
   // Section-wise analytics
   sectionAnalytics: any[] = [];
   showSectionDetails = false;
 
   get percentage(): number {
-    return this.submission?.percentage ?? 0;
+    return this.submission?.score ?? 0;
   }
 
   get scoreLabel(): string {
     const p = this.percentage;
-    if (p >= 90) return '🌟 Excellent!';
-    if (p >= 70) return '👍 Good job!';
-    if (p >= 50) return '📖 Keep practising';
+    const isPassed = this.submission?.isPassed ?? false;
+    if (isPassed) return '🎉 Great job!';
     return '💪 You can do it!';
   }
 
@@ -151,11 +153,12 @@ export class StudentWorksheetResultsPage implements OnInit {
       this.isWorksheetLoading = true;
       this.cdr.markForCheck();
 
-      // Fetch submission and worksheet in parallel
+      // Fetch submission, worksheet, and assignment deadline in parallel
       Promise.all([
         this.api.getMySubmissionByAssignment(worksheetId, assignmentId),
         this.api.getById(worksheetId).toPromise().catch(() => null),
-      ]).then(([sub, wsRes]: [any, any]) => {
+        this.assignmentApi.getAssignmentById(assignmentId).catch(() => null),
+      ]).then(([sub, wsRes, assignmentRes]: [any, any, any]) => {
         if (!sub) {
           // No submission found — send student back to play the worksheet
           this.router.navigate(['/student/worksheet', worksheetId], {
@@ -166,6 +169,7 @@ export class StudentWorksheetResultsPage implements OnInit {
         this.submission     = sub;
         this.worksheetTitle = sub.worksheet?.title ?? '';
         this.worksheet      = wsRes?.data ?? wsRes ?? null;
+        this.assignmentDeadline = assignmentRes?.deadline ? new Date(assignmentRes.deadline) : null;
         this.hasState       = true;
         this.isWorksheetLoading = false;
         this.calculateSectionAnalytics();
@@ -189,17 +193,33 @@ export class StudentWorksheetResultsPage implements OnInit {
 
     if (this.submission?.worksheetId) {
       this.isWorksheetLoading = true;
-      this.api.getById(this.submission.worksheetId).subscribe({
-        next: (res: any) => {
-          this.worksheet = res?.data ?? res ?? null;
-          this.calculateSectionAnalytics();
-          this.isWorksheetLoading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.isWorksheetLoading = false;
-          this.cdr.markForCheck();
-        },
+      
+      // Fetch worksheet and assignment deadline in parallel
+      const worksheetFetch = this.api.getById(this.submission.worksheetId).toPromise();
+      const assignmentFetch = this.assignmentId 
+        ? this.assignmentApi.getAssignmentById(this.assignmentId).catch(() => null)
+        : Promise.resolve(null);
+
+      Promise.all([worksheetFetch, assignmentFetch]).then(([wsRes, assignmentRes]: [any, any]) => {
+        this.worksheet = wsRes?.data ?? wsRes ?? null;
+        this.assignmentDeadline = assignmentRes?.deadline ? new Date(assignmentRes.deadline) : null;
+        this.calculateSectionAnalytics();
+        this.isWorksheetLoading = false;
+        this.cdr.markForCheck();
+      }).catch(() => {
+        // If worksheet fetch fails, try worksheet alone
+        this.api.getById(this.submission!.worksheetId).subscribe({
+          next: (res: any) => {
+            this.worksheet = res?.data ?? res ?? null;
+            this.calculateSectionAnalytics();
+            this.isWorksheetLoading = false;
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            this.isWorksheetLoading = false;
+            this.cdr.markForCheck();
+          },
+        });
       });
     }
   }
@@ -207,6 +227,23 @@ export class StudentWorksheetResultsPage implements OnInit {
   private calculateSectionAnalytics(): void {
     if (!this.worksheet || !this.submission) return;
 
+    // Use backend sections[] array if available (new submissions)
+    if (this.submission.sections && Array.isArray(this.submission.sections) && this.submission.sections.length > 0) {
+      this.sectionAnalytics = this.submission.sections.map(section => ({
+        id: section.sectionId,
+        title: section.sectionName,
+        type: section.activityType,
+        score: section.score,
+        completion: section.totalPoints > 0 ? Math.round(((section.totalPoints - section.skippedCount) / section.totalPoints) * 100) : 0,
+        totalQuestions: section.totalPoints,
+        correct: section.correctCount,
+        incorrect: section.incorrectCount,
+        skipped: section.skippedCount
+      }));
+      return;
+    }
+
+    // Fallback: recalculate from answers[] for old submissions without sections[]
     const answers = this.submission.answers as any[] || [];
     const sectionMap: Record<string, { title: string; type: string }> = {};
 
@@ -299,9 +336,9 @@ export class StudentWorksheetResultsPage implements OnInit {
           studentName,
           date: dateStr,
           submittedAnswers: (this.submission.answers as any[]) ?? [],
-          totalPointsEarned: this.submission.totalPointsEarned,
-          totalPointsPossible: this.submission.totalPointsPossible,
-          percentage: this.submission.percentage,
+          totalPointsEarned: this.submission.earnedPoints ?? this.submission.totalPointsEarned ?? 0,
+          totalPointsPossible: this.submission.totalPoints ?? this.submission.totalPointsPossible ?? 0,
+          percentage: this.submission.score ?? this.submission.percentage ?? 0,
           timeTaken: this.submission.timeTaken,
         },
         `${safeName}_${safeTitle}.pdf`,
