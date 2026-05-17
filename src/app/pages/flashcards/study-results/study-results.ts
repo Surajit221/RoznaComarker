@@ -21,18 +21,19 @@ import type { FlashCard, FlashcardSet } from '../../../models/flashcard-set.mode
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudyResults implements OnInit, OnDestroy {
-  private readonly router       = inject(Router);
-  private readonly route        = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly flashcardApi = inject(FlashcardApiService);
-  private readonly cdr          = inject(ChangeDetectorRef);
-  private readonly destroy$     = new Subject<void>();
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
 
   set: FlashcardSet | null = null;
-  knownCards: FlashCard[]    = [];
+  knownCards: FlashCard[] = [];
   learningCards: FlashCard[] = [];
-  timeTaken                  = 0;
-  correctOpen                = true;
-  learningOpen               = false;
+  timeTaken = 0;
+  correctOpen = true;
+  learningOpen = false;
+  totalCards = 0;
 
   private get setId(): string {
     return this.route.snapshot.paramMap.get('id') ?? '';
@@ -48,15 +49,17 @@ export class StudyResults implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const nav   = this.router.getCurrentNavigation();
+    const nav = this.router.getCurrentNavigation();
     const state = (nav?.extras?.state ?? (typeof history !== 'undefined' ? history.state : {})) as {
       known?: FlashCard[];
       learning?: FlashCard[];
       timeTaken?: number;
+      totalCards?: number;
     };
-    this.knownCards    = state?.known    ?? [];
+    this.knownCards = state?.known ?? [];
     this.learningCards = state?.learning ?? [];
-    this.timeTaken     = state?.timeTaken ?? 0;
+    this.timeTaken = state?.timeTaken ?? 0;
+    this.totalCards = state?.totalCards ?? this.knownCards.length + this.learningCards.length;
 
     this.loadSet();
     this.submitSession();
@@ -68,13 +71,16 @@ export class StudyResults implements OnInit, OnDestroy {
   }
 
   private loadSet(): void {
-    this.flashcardApi.getSetById(this.setId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => {
-        this.set = data;
-        this.cdr.markForCheck();
-      },
-      error: () => {},
-    });
+    this.flashcardApi
+      .getSetById(this.setId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.set = data;
+          this.cdr.markForCheck();
+        },
+        error: () => {},
+      });
   }
 
   /** Submit results to the backend silently (first-submission-only enforced server-side) */
@@ -86,7 +92,7 @@ export class StudyResults implements OnInit, OnDestroy {
       ...this.knownCards.map((c) => ({ cardId: c._id ?? '', status: 'know' as const })),
       ...this.learningCards.map((c) => ({ cardId: c._id ?? '', status: 'learning' as const })),
     ];
-    const score = Math.round((this.knownCards.length / total) * 100);
+    const score = Math.round((this.knownCards.length / this.totalCards) * 100);
 
     this.flashcardApi
       .submitStudySession(this.setId, {
@@ -102,8 +108,29 @@ export class StudyResults implements OnInit, OnDestroy {
       });
   }
 
-  toggleCorrect():  void { this.correctOpen  = !this.correctOpen;  this.cdr.markForCheck(); }
-  toggleLearning(): void { this.learningOpen = !this.learningOpen; this.cdr.markForCheck(); }
+  toggleCorrect(): void {
+    this.correctOpen = !this.correctOpen;
+    this.cdr.markForCheck();
+  }
+  toggleLearning(): void {
+    this.learningOpen = !this.learningOpen;
+    this.cdr.markForCheck();
+  }
+
+  get scorePercent(): number {
+    return this.totalCards > 0 ? Math.round((this.knownCards.length / this.totalCards) * 100) : 0;
+  }
+
+  /** Start a follow-up round for the cards still being learned. */
+  reviewStillLearning(): void {
+    this.router.navigate(['/flashcards', this.setId, 'study'], {
+      state: {
+        reviewCards: this.learningCards,
+        allKnownSoFar: this.knownCards,
+        totalCards: this.totalCards,
+      },
+    });
+  }
 
   /** Navigate back to the flashcard detail page. Falls back to library if setId is absent. */
   goBackToDeck(): void {

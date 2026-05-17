@@ -1,5 +1,4 @@
 <div class="results-screen">
-
   <!-- BACK NAV -->
   <div class="results-nav">
     <button class="btn-back-deck" (click)="goBackToDeck()">← Back to deck</button>
@@ -15,12 +14,20 @@
       <span>Created by {{ set?.ownerName }}</span>
     </div>
     <div class="score-row">
-      <span class="score-badge correct">{{ knownCards.length }} Correct</span>
+      <span class="score-badge correct">{{ knownCards.length }} / {{ totalCards }} Knew Well</span>
       <span class="score-badge learning">{{ learningCards.length }} Still Learning</span>
+      <span class="score-badge score">{{ scorePercent }}%</span>
     </div>
-    <button class="btn-restart" (click)="restart()">
-      ↺ Restart flashcards
-    </button>
+    <div class="action-row">
+      <button
+        class="btn-review-learning"
+        *ngIf="learningCards.length > 0"
+        (click)="reviewStillLearning()"
+      >
+        ↺ Review Still Learning ({{ learningCards.length }})
+      </button>
+      <button class="btn-restart" (click)="restart()">↺ Restart Full Deck</button>
+    </div>
   </div>
 
   <!-- CORRECT CARDS ACCORDION -->
@@ -30,8 +37,7 @@
       <span class="chevron" [class.open]="correctOpen">∨</span>
     </div>
     <div class="accordion-body" [class.open]="correctOpen">
-      <div class="result-card-item"
-           *ngFor="let card of knownCards; trackBy: trackById">
+      <div class="result-card-item" *ngFor="let card of knownCards; trackBy: trackById">
         <div class="result-card-front">{{ card.front }}</div>
         <div class="result-card-back">{{ card.back }}</div>
         <span class="badge badge-correct">Correct</span>
@@ -46,13 +52,11 @@
       <span class="chevron" [class.open]="learningOpen">∨</span>
     </div>
     <div class="accordion-body" [class.open]="learningOpen">
-      <div class="result-card-item"
-           *ngFor="let card of learningCards; trackBy: trackById">
+      <div class="result-card-item" *ngFor="let card of learningCards; trackBy: trackById">
         <div class="result-card-front">{{ card.front }}</div>
         <div class="result-card-back">{{ card.back }}</div>
         <span class="badge badge-learning">Still learning</span>
       </div>
     </div>
   </div>
-
 </div>
