@@ -32,57 +32,69 @@ import type { FlashCard, FlashcardSet, CardResult } from '../../../models/flashc
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudentFlashcardPlayer implements OnInit, OnDestroy {
-  private readonly router          = inject(Router);
-  private readonly route           = inject(ActivatedRoute);
-  private readonly flashcardApi    = inject(FlashcardApiService);
-  private readonly assignmentApi   = inject(AssignmentApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly flashcardApi = inject(FlashcardApiService);
+  private readonly assignmentApi = inject(AssignmentApiService);
   private readonly assignmentState = inject(AssignmentStateService);
-  private readonly cdr             = inject(ChangeDetectorRef);
-  private readonly destroy$        = new Subject<void>();
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
 
   set: FlashcardSet | null = null;
-  cards: FlashCard[]       = [];
-  currentIndex             = 0;
+  cards: FlashCard[] = [];
+  currentIndex = 0;
   cardResults: CardResult[] = [];
-  studentAnswer            = '';
-  template                 = 'term-def';
-  isFlipped                = false;
-  isGrading                = false;
+  studentAnswer = '';
+  template = 'term-def';
+  isFlipped = false;
+  isGrading = false;
   gradeResult: 'correct' | 'wrong' | null = null;
-  isSliding                = false;
-  slideOutClass            = '';
-  slideInClass             = '';
-  startTime                = new Date();
-  isLoading                = true;
-  hasError                 = false;
-  errorMessage             = 'Could not load this flashcard set.';
+  isSliding = false;
+  slideOutClass = '';
+  slideInClass = '';
+  startTime = new Date();
+  isLoading = true;
+  hasError = false;
+  errorMessage = 'Could not load this flashcard set.';
 
   /** Progress tracking */
-  cardsViewed: number[]    = [];
+  cardsViewed: number[] = [];
   cardResultsMap: Map<number, 'knew' | 'didnt_know'> = new Map();
   saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
   private readonly SAVE_RETRY_ATTEMPTS = 3;
 
   /** Resume modal */
-  showResumeModal          = false;
-  savedProgress: any         = null;
-  isResuming               = false;
-  localStorageKey          = '';
+  showResumeModal = false;
+  savedProgress: any = null;
+  isResuming = false;
+  localStorageKey = '';
 
-  private assignmentId           = '';
-  classId                        = '';
+  private assignmentId = '';
+  classId = '';
   private resolvedFlashcardSetId = '';
   private retryCardIds: string[] = [];
+  private previousCardResults: CardResult[] = [];
+  private originalTotalCards = 0;
 
   private get flashcardSetId(): string {
     return this.route.snapshot.paramMap.get('flashcardSetId') ?? '';
   }
 
-  get currentCard(): FlashCard | null { return this.cards[this.currentIndex] ?? null; }
-  get answeredCount(): number { return this.cardResults.length; }
-  get knownCount(): number { return this.cardResults.filter(r => r.known).length; }
-  get learningCount(): number { return this.cardResults.filter(r => !r.known).length; }
-  get incompleteCount(): number { return Math.max(0, this.cards.length - this.answeredCount); }
+  get currentCard(): FlashCard | null {
+    return this.cards[this.currentIndex] ?? null;
+  }
+  get answeredCount(): number {
+    return this.cardResults.length;
+  }
+  get knownCount(): number {
+    return this.cardResults.filter((r) => r.known).length;
+  }
+  get learningCount(): number {
+    return this.cardResults.filter((r) => !r.known).length;
+  }
+  get incompleteCount(): number {
+    return Math.max(0, this.cards.length - this.answeredCount);
+  }
   get progress(): number {
     return this.cards.length ? (this.answeredCount / this.cards.length) * 100 : 0;
   }
@@ -92,42 +104,54 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.assignmentId = this.route.snapshot.queryParamMap.get('assignmentId') ?? '';
-    this.classId      = this.route.snapshot.queryParamMap.get('classId') ?? '';
-    this.startTime    = new Date();
+    this.classId = this.route.snapshot.queryParamMap.get('classId') ?? '';
+    this.startTime = new Date();
 
     const navState = typeof history !== 'undefined' ? (history.state ?? {}) : {};
     if (Array.isArray(navState.retryCardIds) && navState.retryCardIds.length > 0) {
       this.retryCardIds = navState.retryCardIds;
     }
+    if (
+      Array.isArray(navState['previousCardResults']) &&
+      navState['previousCardResults'].length > 0
+    ) {
+      this.previousCardResults = navState['previousCardResults'] as CardResult[];
+    }
+    if (typeof navState['originalTotalCards'] === 'number' && navState['originalTotalCards'] > 0) {
+      this.originalTotalCards = navState['originalTotalCards'];
+    }
 
     if (this.assignmentId) {
       this.isLoading = true;
       this.cdr.markForCheck();
-      this.assignmentApi.getMyFlashcardSubmission(this.assignmentId).then((sub) => {
-        if (sub && !this.retryCardIds.length) {
-          const resolvedSetId = (sub as any).flashcardSetId ?? '';
-          this.router.navigate(['/student/results'], {
-            state: {
-              score:           sub.score,
-              total:           sub.totalCards ?? 100,
-              timeTaken:       sub.timeTaken,
-              setTitle:        '',
-              classId:         this.classId,
-              assignmentId:    this.assignmentId,
-              flashcardSetId:  resolvedSetId,
-              template:        sub.template ?? 'term-def',
-              cardResults:     sub.cardResults ?? [],
-              cards:           sub.cards ?? [],
-              correctCount:    null,
-              needsReviewCount: null,
-              alreadySubmitted: true,
-              type:            'flashcard',
-            },
-          });
-          return;
-        }
-        this.loadSet();
-      }).catch(() => this.loadSet());
+      this.assignmentApi
+        .getMyFlashcardSubmission(this.assignmentId)
+        .then((sub) => {
+          if (sub && !this.retryCardIds.length) {
+            const resolvedSetId = (sub as any).flashcardSetId ?? '';
+            this.router.navigate(['/student/results'], {
+              state: {
+                score: sub.score,
+                total: sub.totalCards ?? 100,
+                timeTaken: sub.timeTaken,
+                setTitle: '',
+                classId: this.classId,
+                assignmentId: this.assignmentId,
+                flashcardSetId: resolvedSetId,
+                template: sub.template ?? 'term-def',
+                cardResults: sub.cardResults ?? [],
+                cards: sub.cards ?? [],
+                correctCount: null,
+                needsReviewCount: null,
+                alreadySubmitted: true,
+                type: 'flashcard',
+              },
+            });
+            return;
+          }
+          this.loadSet();
+        })
+        .catch(() => this.loadSet());
     } else {
       this.loadSet();
     }
@@ -176,17 +200,13 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     this.flashcardApi
-      .gradeAnswer(
-        this.currentCard.front,
-        this.currentCard.back,
-        this.studentAnswer,
-      )
+      .gradeAnswer(this.currentCard.front, this.currentCard.back, this.studentAnswer)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (result) => {
           this.gradeResult = result.isCorrect ? 'correct' : 'wrong';
-          this.isFlipped   = true;
-          this.isGrading   = false;
+          this.isFlipped = true;
+          this.isGrading = false;
           this.cdr.markForCheck();
         },
         error: () => {
@@ -202,7 +222,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     if (!this.currentCard) return;
     const known = this.gradeResult === 'correct';
     const cardId = String((this.currentCard as any)._id ?? '');
-    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    const existingIndex = this.cardResults.findIndex((r) => r.cardId === cardId);
     if (existingIndex >= 0) {
       this.cardResults[existingIndex] = {
         cardId,
@@ -226,7 +246,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   markCorrect(): void {
     if (!this.currentCard) return;
     const cardId = String((this.currentCard as any)._id ?? '');
-    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    const existingIndex = this.cardResults.findIndex((r) => r.cardId === cardId);
     if (existingIndex >= 0) {
       this.cardResults[existingIndex] = {
         cardId,
@@ -250,7 +270,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   markWrong(): void {
     if (!this.currentCard) return;
     const cardId = String((this.currentCard as any)._id ?? '');
-    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    const existingIndex = this.cardResults.findIndex((r) => r.cardId === cardId);
     if (existingIndex >= 0) {
       this.cardResults[existingIndex] = {
         cardId,
@@ -273,7 +293,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   markKnown(): void {
     if (this.isSliding || !this.currentCard || !this.isFlipped) return;
     const cardId = String((this.currentCard as any)._id ?? '');
-    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    const existingIndex = this.cardResults.findIndex((r) => r.cardId === cardId);
     if (existingIndex >= 0) {
       this.cardResults[existingIndex].known = true;
     } else {
@@ -290,7 +310,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   markLearning(): void {
     if (this.isSliding || !this.currentCard || !this.isFlipped) return;
     const cardId = String((this.currentCard as any)._id ?? '');
-    const existingIndex = this.cardResults.findIndex(r => r.cardId === cardId);
+    const existingIndex = this.cardResults.findIndex((r) => r.cardId === cardId);
     if (existingIndex >= 0) {
       this.cardResults[existingIndex].known = false;
     } else {
@@ -327,22 +347,22 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     // This ensures resume puts them on the correct card
     this.saveProgressWithNextIndex(nextIndex);
 
-    this.isFlipped     = false;
+    this.isFlipped = false;
     this.studentAnswer = '';
-    this.gradeResult   = null;
-    this.isSliding     = true;
+    this.gradeResult = null;
+    this.isSliding = true;
     this.slideOutClass = 'slide-out-left';
     this.cdr.markForCheck();
 
     setTimeout(() => {
       this.currentIndex = nextIndex;
       this.slideOutClass = '';
-      this.slideInClass  = 'slide-in-right';
+      this.slideInClass = 'slide-in-right';
       this.cdr.markForCheck();
 
       setTimeout(() => {
         this.slideInClass = '';
-        this.isSliding    = false;
+        this.isSliding = false;
         this.cdr.markForCheck();
       }, 300);
     }, 300);
@@ -359,23 +379,24 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     if (!setId) return;
 
     const progressPayload = {
-      lastCardIndex: 0,  // Starting at card 0
-      cardsViewed: [],   // No cards completed yet
+      lastCardIndex: 0, // Starting at card 0
+      cardsViewed: [], // No cards completed yet
       cardResults: {},
       assignmentId: this.assignmentId || undefined,
       template: this.template,
-      totalCards: this.cards.length
+      totalCards: this.cards.length,
     };
 
     // Save to localStorage as backup
     this.saveToLocalStorage(progressPayload);
 
     // Save to server (silent - don't show loading indicator for initial save)
-    this.flashcardApi.saveProgress(setId, progressPayload)
+    this.flashcardApi
+      .saveProgress(setId, progressPayload)
       .pipe(
         takeUntil(this.destroy$),
         retry({ count: this.SAVE_RETRY_ATTEMPTS, delay: 1000 }),
-        catchError(() => of(null))
+        catchError(() => of(null)),
       )
       .subscribe(() => {
         // Silent success - clear localStorage after successful save
@@ -402,19 +423,20 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     });
 
     const progressPayload = {
-      lastCardIndex: nextIndex,  // ← Save NEXT index (where student will be)
+      lastCardIndex: nextIndex, // ← Save NEXT index (where student will be)
       cardsViewed: [...this.cardsViewed],
       cardResults: cardResultsObj,
       assignmentId: this.assignmentId || undefined,
       template: this.template,
-      totalCards: this.cards.length
+      totalCards: this.cards.length,
     };
 
     // Save to localStorage as backup
     this.saveToLocalStorage(progressPayload);
 
     // Save to server
-    this.flashcardApi.saveProgress(setId, progressPayload)
+    this.flashcardApi
+      .saveProgress(setId, progressPayload)
       .pipe(
         takeUntil(this.destroy$),
         retry({ count: this.SAVE_RETRY_ATTEMPTS, delay: 1000 }),
@@ -423,7 +445,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
           this.saveState = 'error';
           this.cdr.markForCheck();
           return of(null);
-        })
+        }),
       )
       .subscribe((response) => {
         if (response) {
@@ -447,23 +469,43 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
 
   private onComplete(): void {
     const elapsed = Math.round((Date.now() - this.startTime.getTime()) / 1000);
-    const total   = this.cards.length;
-    const score   = total > 0 ? Math.round((this.knownCount / total) * 100) : 0;
+
+    // Merge previous-round results with current-round results.
+    // Current round wins (overwrites status) for any card reviewed again.
+    const mergedMap = new Map<string, CardResult>();
+    for (const r of this.previousCardResults) {
+      mergedMap.set(r.cardId, r);
+    }
+    for (const r of this.cardResults) {
+      mergedMap.set(r.cardId, r);
+    }
+    const mergedCardResults = Array.from(mergedMap.values());
+
+    // Full card list — use set.cards (all cards) so the PDF can resolve every card.
+    const allCards = this.set?.cards ?? this.cards;
+
+    // Totals are always based on the original full deck, not just the retry subset.
+    const total = this.originalTotalCards > 0 ? this.originalTotalCards : allCards.length;
+    const correctCount = mergedCardResults.filter((r) => r.known).length;
+    const needsReviewCount = mergedCardResults.filter((r) => !r.known).length;
+    const incompleteCount = Math.max(0, total - mergedCardResults.length);
+    const score = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
     const resolvedSetId = this.resolvedFlashcardSetId || this.flashcardSetId;
 
     if (this.assignmentId) {
       const submitPayload = {
         score,
-        timeTaken:   elapsed,
-        template:    this.template,
-        totalCards:  total,
-        cardResults: this.cardResults.map(r => ({
-          cardId:        r.cardId,
-          known:         r.known,
+        timeTaken: elapsed,
+        template: this.template,
+        totalCards: total,
+        cardResults: mergedCardResults.map((r) => ({
+          cardId: r.cardId,
+          known: r.known,
           studentAnswer: r.studentAnswer ?? null,
-          isCorrect:     r.isCorrect ?? null,
+          isCorrect: r.isCorrect ?? null,
         })),
-        results: this.cardResults.map(r => ({
+        results: mergedCardResults.map((r) => ({
           cardId: r.cardId,
           status: r.known ? 'know' : 'learning',
         })),
@@ -471,37 +513,40 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
       this.assignmentApi
         .submitFlashcardAssignment(this.assignmentId, submitPayload)
         .then(() => this.assignmentState.markCompleted(this.assignmentId))
-        .catch(() => { /* non-blocking */ });
+        .catch(() => {
+          /* non-blocking */
+        });
     }
 
     this.router.navigate(['/student/results'], {
       state: {
         score,
         total,
-        timeTaken:        elapsed,
-        setTitle:         this.set?.title ?? '',
-        classId:          this.classId,
-        assignmentId:     this.assignmentId,
-        flashcardSetId:   resolvedSetId,
-        template:         this.template,
-        cardResults:      this.cardResults,
-        cards:            this.cards,
-        correctCount:     this.knownCount,
-        needsReviewCount: this.learningCount,
-        incompleteCount:  this.incompleteCount,
-        type:             'flashcard',
+        timeTaken: elapsed,
+        setTitle: this.set?.title ?? '',
+        classId: this.classId,
+        assignmentId: this.assignmentId,
+        flashcardSetId: resolvedSetId,
+        template: this.template,
+        cardResults: mergedCardResults,
+        cards: allCards,
+        correctCount,
+        needsReviewCount,
+        incompleteCount,
+        type: 'flashcard' as const,
       },
     });
   }
 
   private loadSet(): void {
     this.isLoading = true;
-    this.hasError  = false;
+    this.hasError = false;
     this.errorMessage = 'Could not load this flashcard set.';
     this.cdr.markForCheck();
 
     if (this.assignmentId) {
-      this.assignmentApi.getAssignmentById(this.assignmentId)
+      this.assignmentApi
+        .getAssignmentById(this.assignmentId)
         .then((assignment) => this.loadResolvedSet(assignment))
         .catch(() => {
           this.setLoadError('This flashcard assignment is no longer available.');
@@ -537,17 +582,17 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data) => {
-          this.set      = data;
+          this.set = data;
           this.template = (data as any).template ?? 'term-def';
-          let allCards  = [...(data.cards ?? [])];
+          let allCards = [...(data.cards ?? [])];
 
           if (this.retryCardIds.length > 0) {
-            allCards = allCards.filter(c =>
-              this.retryCardIds.includes(String((c as any)._id ?? ''))
+            allCards = allCards.filter((c) =>
+              this.retryCardIds.includes(String((c as any)._id ?? '')),
             );
           }
 
-          this.cards     = allCards;
+          this.cards = allCards;
 
           // After loading cards, check for existing progress
           this.checkForExistingProgress(setId);
@@ -565,7 +610,9 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
         },
         error: (err: HttpErrorResponse) => {
           if (err.status === 404) {
-            this.setLoadError('This flashcard set is no longer available. Your teacher may have removed it.');
+            this.setLoadError(
+              'This flashcard set is no longer available. Your teacher may have removed it.',
+            );
             return;
           }
           if (err.status === 403) {
@@ -580,7 +627,8 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   /** Check for saved progress and show resume modal if needed */
   private checkForExistingProgress(setId: string): void {
     // First, try to get progress from API
-    this.flashcardApi.getProgress(setId, this.assignmentId || undefined)
+    this.flashcardApi
+      .getProgress(setId, this.assignmentId || undefined)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (progress) => {
@@ -604,7 +652,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
         error: () => {
           // If API fails, check localStorage
           this.checkLocalStorageProgress(setId);
-        }
+        },
       });
   }
 
@@ -676,7 +724,8 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
 
     // Clear server progress
     const setId = this.resolvedFlashcardSetId || this.flashcardSetId;
-    this.flashcardApi.resetProgress(setId, this.assignmentId || undefined)
+    this.flashcardApi
+      .resetProgress(setId, this.assignmentId || undefined)
       .pipe(takeUntil(this.destroy$))
       .subscribe();
 
@@ -711,14 +760,15 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
       cardResults: cardResultsObj,
       assignmentId: this.assignmentId || undefined,
       template: this.template,
-      totalCards: this.cards.length
+      totalCards: this.cards.length,
     };
 
     // Save to localStorage as backup
     this.saveToLocalStorage(progressPayload);
 
     // Save to server
-    this.flashcardApi.saveProgress(setId, progressPayload)
+    this.flashcardApi
+      .saveProgress(setId, progressPayload)
       .pipe(
         takeUntil(this.destroy$),
         retry({ count: this.SAVE_RETRY_ATTEMPTS, delay: 1000 }),
@@ -727,7 +777,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
           this.saveState = 'error';
           this.cdr.markForCheck();
           return of(null);
-        })
+        }),
       )
       .subscribe((response) => {
         if (response) {
@@ -755,7 +805,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
       const data = {
         ...payload,
         status: this.cardsViewed.length >= this.cards.length ? 'completed' : 'in_progress',
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
       };
       localStorage.setItem(this.localStorageKey, JSON.stringify(data));
     } catch (err) {
@@ -786,7 +836,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
 
   private setLoadError(message: string): void {
     this.isLoading = false;
-    this.hasError  = true;
+    this.hasError = true;
     this.errorMessage = message;
     this.cdr.markForCheck();
   }

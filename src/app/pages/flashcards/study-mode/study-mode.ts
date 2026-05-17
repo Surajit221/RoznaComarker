@@ -21,23 +21,30 @@ import type { FlashCard, FlashcardSet } from '../../../models/flashcard-set.mode
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudyMode implements OnInit, OnDestroy {
-  private readonly router       = inject(Router);
-  private readonly route        = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly flashcardApi = inject(FlashcardApiService);
-  private readonly cdr          = inject(ChangeDetectorRef);
-  private readonly destroy$     = new Subject<void>();
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
 
   set: FlashcardSet | null = null;
-  cards: FlashCard[]       = [];
-  currentIndex             = 0;
-  knownCards: FlashCard[]    = [];
+  cards: FlashCard[] = [];
+  currentIndex = 0;
+  knownCards: FlashCard[] = [];
   learningCards: FlashCard[] = [];
-  isFlipped                = false;
-  isSliding                = false;
-  slideOutClass            = '';
-  slideInClass             = '';
-  startTime                = new Date();
-  isLoading                = true;
+  isFlipped = false;
+  isSliding = false;
+  slideOutClass = '';
+  slideInClass = '';
+  startTime = new Date();
+  isLoading = true;
+
+  /** Cards known from previous rounds — merged into final results. */
+  allKnownCards: FlashCard[] = [];
+  /** Original full-deck card count — kept constant across rounds. */
+  originalTotalCards = 0;
+  /** True when this session is a review round of only some cards. */
+  isReviewRound = false;
 
   private get setId(): string {
     return this.route.snapshot.paramMap.get('id') ?? '';
@@ -55,8 +62,12 @@ export class StudyMode implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  get currentCard(): FlashCard | null { return this.cards[this.currentIndex] ?? null; }
-  get answeredCount(): number { return this.knownCards.length + this.learningCards.length; }
+  get currentCard(): FlashCard | null {
+    return this.cards[this.currentIndex] ?? null;
+  }
+  get answeredCount(): number {
+    return this.knownCards.length + this.learningCards.length;
+  }
   get progress(): number {
     return this.cards.length ? (this.answeredCount / this.cards.length) * 100 : 0;
   }
@@ -66,7 +77,27 @@ export class StudyMode implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.startTime = new Date();
-    this.loadSet();
+
+    // Check if this is a "review still learning" round started from the results page.
+    const navState = typeof history !== 'undefined' ? (history.state ?? {}) : {};
+    const reviewCards = navState['reviewCards'] as FlashCard[] | undefined;
+
+    if (Array.isArray(reviewCards) && reviewCards.length > 0) {
+      // Review round: use only the cards that still need practice.
+      this.isReviewRound = true;
+      this.allKnownCards = Array.isArray(navState['allKnownSoFar'])
+        ? (navState['allKnownSoFar'] as FlashCard[])
+        : [];
+      this.originalTotalCards =
+        typeof navState['totalCards'] === 'number' && navState['totalCards'] > 0
+          ? (navState['totalCards'] as number)
+          : reviewCards.length;
+      this.cards = [...reviewCards];
+      // Still load set metadata (title, description) — don't override this.cards.
+      this.loadSetMetadataOnly();
+    } else {
+      this.loadSet();
+    }
   }
 
   ngOnDestroy(): void {
@@ -77,18 +108,40 @@ export class StudyMode implements OnInit, OnDestroy {
 
   private loadSet(): void {
     this.isLoading = true;
-    this.flashcardApi.getSetById(this.setId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => {
-        this.set   = data;
-        this.cards = [...(data.cards ?? [])];
-        this.isLoading = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.isLoading = false;
-        this.cdr.markForCheck();
-      },
-    });
+    this.flashcardApi
+      .getSetById(this.setId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.set = data;
+          this.cards = [...(data.cards ?? [])];
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  /** Load only set metadata (title/description) without overriding this.cards. */
+  private loadSetMetadataOnly(): void {
+    this.isLoading = true;
+    this.flashcardApi
+      .getSetById(this.setId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.set = data;
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   /** Speak the current card's back (definition) using Web Speech API */
@@ -112,27 +165,38 @@ export class StudyMode implements OnInit, OnDestroy {
 
     if (this.isComplete) {
       const elapsed = Math.round((Date.now() - this.startTime.getTime()) / 1000);
-      this.router.navigate(
-        ['/flashcards', this.setId, 'study', 'results'],
-        { state: { known: this.knownCards, learning: this.learningCards, timeTaken: elapsed } }
-      );
+      // Accumulate known cards from all rounds.
+      const allKnown = [...this.allKnownCards, ...this.knownCards];
+      // Total is the original full-deck count, not just this round's subset.
+      const totalCards =
+        this.originalTotalCards > 0
+          ? this.originalTotalCards
+          : allKnown.length + this.learningCards.length;
+      this.router.navigate(['/flashcards', this.setId, 'study', 'results'], {
+        state: {
+          known: allKnown,
+          learning: this.learningCards,
+          timeTaken: elapsed,
+          totalCards,
+        },
+      });
       return;
     }
 
-    this.isFlipped     = false;
-    this.isSliding     = true;
+    this.isFlipped = false;
+    this.isSliding = true;
     this.slideOutClass = 'slide-out-left';
     this.cdr.markForCheck();
 
     setTimeout(() => {
       this.currentIndex++;
       this.slideOutClass = '';
-      this.slideInClass  = 'slide-in-right';
+      this.slideInClass = 'slide-in-right';
       this.cdr.markForCheck();
 
       setTimeout(() => {
         this.slideInClass = '';
-        this.isSliding    = false;
+        this.isSliding = false;
         this.cdr.markForCheck();
       }, 300);
     }, 300);

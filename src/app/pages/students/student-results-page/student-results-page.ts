@@ -20,20 +20,20 @@ import { FlashcardPdfRenderService } from '../../../components/flashcard-pdf-tem
 import { AlertService } from '../../../services/alert.service';
 
 interface ResultState {
-  score:             number | null;
-  total:             number;
-  timeTaken:         number;
-  setTitle:          string;
-  classId:           string;
-  assignmentId:      string;
-  flashcardSetId?:   string;
-  template?:         string;
-  cardResults?:      CardResult[];
-  cards?:            FlashCard[];
-  correctCount?:     number | null;
+  score: number | null;
+  total: number;
+  timeTaken: number;
+  setTitle: string;
+  classId: string;
+  assignmentId: string;
+  flashcardSetId?: string;
+  template?: string;
+  cardResults?: CardResult[];
+  cards?: FlashCard[];
+  correctCount?: number | null;
   needsReviewCount?: number | null;
-  incompleteCount?:  number | null;
-  type:              'flashcard' | 'worksheet';
+  incompleteCount?: number | null;
+  type: 'flashcard' | 'worksheet';
 }
 
 @Component({
@@ -45,28 +45,28 @@ interface ResultState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudentResultsPage implements OnInit {
-  private readonly router       = inject(Router);
-  private readonly cdr          = inject(ChangeDetectorRef);
-  private readonly pdfRenderer  = inject(FlashcardPdfRenderService);
-  private readonly alert        = inject(AlertService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly pdfRenderer = inject(FlashcardPdfRenderService);
+  private readonly alert = inject(AlertService);
 
   isPdfDownloading = false;
 
-  score:            number | null = null;
-  total             = 0;
-  timeTaken         = 0;
-  setTitle          = '';
-  classId           = '';
-  assignmentId      = '';
-  flashcardSetId    = '';
-  template          = 'term-def';
-  cardResults:      CardResult[] = [];
-  cards:            FlashCard[]  = [];
-  correctCount:     number | null = null;
+  score: number | null = null;
+  total = 0;
+  timeTaken = 0;
+  setTitle = '';
+  classId = '';
+  assignmentId = '';
+  flashcardSetId = '';
+  template = 'term-def';
+  cardResults: CardResult[] = [];
+  cards: FlashCard[] = [];
+  correctCount: number | null = null;
   needsReviewCount: number | null = null;
-  incompleteCount:  number | null = null;
+  incompleteCount: number | null = null;
   type: 'flashcard' | 'worksheet' = 'flashcard';
-  hasState          = false;
+  hasState = false;
 
   get scorePercent(): number {
     return this.score !== null ? this.score : 0;
@@ -84,14 +84,14 @@ export class StudentResultsPage implements OnInit {
   }
 
   get cardResultsWithContent(): Array<CardResult & { card?: FlashCard }> {
-    return this.cardResults.map(r => ({
+    return this.cardResults.map((r) => ({
       ...r,
-      card: this.cards.find(c => String((c as any)._id ?? '') === r.cardId),
+      card: this.cards.find((c) => String((c as any)._id ?? '') === r.cardId),
     }));
   }
 
   get cardsNeedingReview(): Array<CardResult & { card?: FlashCard }> {
-    return this.cardResultsWithContent.filter(r => !r.known);
+    return this.cardResultsWithContent.filter((r) => !r.known);
   }
 
   get hasPerCardBreakdown(): boolean {
@@ -103,27 +103,26 @@ export class StudentResultsPage implements OnInit {
   }
 
   ngOnInit(): void {
-    const nav   = this.router.getCurrentNavigation();
-    const state = (
-      nav?.extras?.state ?? (typeof history !== 'undefined' ? history.state : {})
-    ) as Partial<ResultState>;
+    const nav = this.router.getCurrentNavigation();
+    const state = (nav?.extras?.state ??
+      (typeof history !== 'undefined' ? history.state : {})) as Partial<ResultState>;
 
     if (state && (state.total ?? 0) > 0) {
-      this.score           = state.score           ?? null;
-      this.total           = state.total           ?? 0;
-      this.timeTaken       = state.timeTaken       ?? 0;
-      this.setTitle        = state.setTitle        ?? '';
-      this.classId         = state.classId         ?? '';
-      this.assignmentId    = state.assignmentId    ?? '';
-      this.flashcardSetId  = state.flashcardSetId  ?? '';
-      this.template        = state.template        ?? 'term-def';
-      this.cardResults     = state.cardResults     ?? [];
-      this.cards           = state.cards           ?? [];
-      this.correctCount    = state.correctCount    ?? null;
+      this.score = state.score ?? null;
+      this.total = state.total ?? 0;
+      this.timeTaken = state.timeTaken ?? 0;
+      this.setTitle = state.setTitle ?? '';
+      this.classId = state.classId ?? '';
+      this.assignmentId = state.assignmentId ?? '';
+      this.flashcardSetId = state.flashcardSetId ?? '';
+      this.template = state.template ?? 'term-def';
+      this.cardResults = state.cardResults ?? [];
+      this.cards = state.cards ?? [];
+      this.correctCount = state.correctCount ?? null;
       this.needsReviewCount = state.needsReviewCount ?? null;
-      this.incompleteCount  = state.incompleteCount  ?? null;
-      this.type            = state.type            ?? 'flashcard';
-      this.hasState        = true;
+      this.incompleteCount = state.incompleteCount ?? null;
+      this.type = state.type ?? 'flashcard';
+      this.hasState = true;
     } else {
       this.router.navigate(['/student/my-classes']);
     }
@@ -141,7 +140,7 @@ export class StudentResultsPage implements OnInit {
     this.router.navigate(['/student/flashcard-player', this.flashcardSetId], {
       queryParams: {
         assignmentId: this.assignmentId || undefined,
-        classId:      this.classId      || undefined,
+        classId: this.classId || undefined,
       },
     });
   }
@@ -150,9 +149,16 @@ export class StudentResultsPage implements OnInit {
     this.router.navigate(['/student/flashcard-player', this.flashcardSetId], {
       queryParams: {
         assignmentId: this.assignmentId || undefined,
-        classId:      this.classId      || undefined,
+        classId: this.classId || undefined,
       },
-      state: { retryCardIds: this.cardsNeedingReview.map(r => r.cardId) },
+      state: {
+        retryCardIds: this.cardsNeedingReview.map((r) => r.cardId),
+        // Carry the full merged results from this session forward so the next
+        // round can merge its outcomes on top of them.
+        previousCardResults: this.cardResults,
+        // Preserve the original full-deck count so score stays out of N total.
+        originalTotalCards: this.total,
+      },
     });
   }
 
@@ -162,27 +168,33 @@ export class StudentResultsPage implements OnInit {
     this.cdr.markForCheck();
     try {
       const dateStr = new Date().toLocaleDateString('en-US', {
-        month: '2-digit', day: '2-digit', year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
       });
       const safeTitle = (this.setTitle || 'flashcards').toLowerCase().replace(/\s+/g, '-');
       await this.pdfRenderer.render(
         {
-          setTitle:        this.setTitle || 'Flashcard Set',
-          studentName:     'Me',
-          date:            dateStr,
-          score:           this.score ?? 0,
-          total:           this.total,
-          timeTaken:       this.timeTaken,
-          template:        this.template,
-          correctCount:    this.correctCount ?? this.cardResults.filter(r => r.known).length,
-          needsReviewCount:this.needsReviewCount ?? this.cardResults.filter(r => !r.known).length,
-          cards:           this.cards,
-          cardResults:     this.cardResults,
+          setTitle: this.setTitle || 'Flashcard Set',
+          studentName: 'Me',
+          date: dateStr,
+          score: this.score ?? 0,
+          total: this.total,
+          timeTaken: this.timeTaken,
+          template: this.template,
+          correctCount: this.correctCount ?? this.cardResults.filter((r) => r.known).length,
+          needsReviewCount:
+            this.needsReviewCount ?? this.cardResults.filter((r) => !r.known).length,
+          cards: this.cards,
+          cardResults: this.cardResults,
         },
         `MyFlashcards_${safeTitle}.pdf`,
       );
     } catch (err: any) {
-      this.alert.showError('Failed to generate PDF', err?.error?.message ?? err?.message ?? 'Please try again');
+      this.alert.showError(
+        'Failed to generate PDF',
+        err?.error?.message ?? err?.message ?? 'Please try again',
+      );
     } finally {
       this.isPdfDownloading = false;
       this.cdr.markForCheck();

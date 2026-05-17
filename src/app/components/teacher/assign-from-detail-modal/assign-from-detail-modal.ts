@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import { ClassApiService, BackendClass } from '../../../api/class-api.service';
@@ -42,29 +43,30 @@ export class AssignFromDetailModal implements OnChanges, OnDestroy {
   @Output() assigned = new EventEmitter<void>();
 
   private readonly flashcardApi = inject(FlashcardApiService);
-  private readonly classApi     = inject(ClassApiService);
-  private readonly cdr          = inject(ChangeDetectorRef);
-  private readonly destroy$     = new Subject<void>();
+  private readonly classApi = inject(ClassApiService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
 
-  classes: BackendClass[]  = [];
+  classes: BackendClass[] = [];
   isClassesLoading = false;
-  isSubmitting     = false;
+  isSubmitting = false;
 
   /** Form field values */
   selectedClassId = '';
   assignmentTitle = '';
-  deadline        = '';
+  deadline = '';
 
   /** Inline validation error messages */
-  classError    = '';
-  titleError    = '';
+  classError = '';
+  titleError = '';
   deadlineError = '';
 
   /** Success/error modal state */
   showSuccessModal = false;
-  showErrorModal   = false;
-  modalTitle       = '';
-  modalMessage     = '';
+  showErrorModal = false;
+  modalTitle = '';
+  modalMessage = '';
 
   get minDate(): string {
     return new Date().toISOString().split('T')[0];
@@ -89,15 +91,15 @@ export class AssignFromDetailModal implements OnChanges, OnDestroy {
   }
 
   private resetForm(): void {
-    this.selectedClassId  = '';
-    this.assignmentTitle  = this.flashcardTitle ?? '';
-    this.deadline         = this.defaultDeadline;
-    this.classError       = '';
-    this.titleError       = '';
-    this.deadlineError    = '';
-    this.isSubmitting     = false;
+    this.selectedClassId = '';
+    this.assignmentTitle = this.flashcardTitle ?? '';
+    this.deadline = this.defaultDeadline;
+    this.classError = '';
+    this.titleError = '';
+    this.deadlineError = '';
+    this.isSubmitting = false;
     this.showSuccessModal = false;
-    this.showErrorModal   = false;
+    this.showErrorModal = false;
     this.cdr.markForCheck();
   }
 
@@ -147,36 +149,36 @@ export class AssignFromDetailModal implements OnChanges, OnDestroy {
     if (this.isSubmitting || !this.validate()) return;
 
     const selectedClass = this.classes.find((c) => c._id === this.selectedClassId);
-    const deadlineIso   = new Date(`${this.deadline}T23:59:59.999`).toISOString();
-    const title         = this.assignmentTitle.trim();
+    const deadlineIso = new Date(`${this.deadline}T23:59:59.999`).toISOString();
+    const title = this.assignmentTitle.trim();
 
     this.isSubmitting = true;
     this.cdr.markForCheck();
 
     this.flashcardApi
       .assignSet(this.flashcardSetId, {
-        classId:  this.selectedClassId,
+        classId: this.selectedClassId,
         title,
         deadline: deadlineIso,
       })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
-          this.isSubmitting    = false;
-          this.modalTitle      = 'Assigned!';
-          this.modalMessage    = `"${title}" has been assigned to ${selectedClass?.name ?? 'the class'}.`;
+          this.isSubmitting = false;
+          this.modalTitle = 'Assigned!';
+          this.modalMessage = `"${title}" has been assigned to ${selectedClass?.name ?? 'the class'}.`;
           this.showSuccessModal = true;
           this.cdr.markForCheck();
           this.assigned.emit();
         },
         error: (err: unknown) => {
-          this.isSubmitting  = false;
+          this.isSubmitting = false;
           const msg =
             (err as { error?: { message?: string } })?.error?.message ??
             (err as { message?: string })?.message ??
             'Please try again.';
-          this.modalTitle     = 'Assignment Failed';
-          this.modalMessage   = msg;
+          this.modalTitle = 'Assignment Failed';
+          this.modalMessage = msg;
           this.showErrorModal = true;
           this.cdr.markForCheck();
         },
@@ -191,6 +193,10 @@ export class AssignFromDetailModal implements OnChanges, OnDestroy {
   onSuccessClose(): void {
     this.showSuccessModal = false;
     this.closed.emit();
+    // Redirect to the class details page after a successful assignment.
+    if (this.selectedClassId) {
+      this.router.navigate(['/teacher/my-classes/detail', this.selectedClassId]);
+    }
   }
 
   onErrorClose(): void {
