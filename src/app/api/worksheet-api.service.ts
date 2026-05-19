@@ -303,10 +303,12 @@ export class WorksheetApiService {
    * Generate a worksheet draft via AI (topic-based). Does NOT save to DB.
    * @param payload - Generation params (topic, count, difficulty, etc.)
    */
-  generate(payload: GenerateWorksheetDto): Observable<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string }> {
+  generate(
+    payload: GenerateWorksheetDto,
+  ): Observable<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string }> {
     return this.http.post<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string }>(
       `${this.base}/generate`,
-      payload
+      payload,
     );
   }
 
@@ -315,16 +317,68 @@ export class WorksheetApiService {
    * @param file - File to upload (PDF, DOCX, etc.)
    * @param options - Generation options
    */
-  uploadAndGenerate(file: File, options: { language?: string; difficulty?: 'easy' | 'medium' | 'hard'; activityTypes?: string[] | null }): Observable<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string; fileName?: string }> {
+  uploadAndGenerate(
+    file: File,
+    options: {
+      language?: string;
+      difficulty?: 'easy' | 'medium' | 'hard';
+      activityTypes?: string[] | null;
+    },
+  ): Observable<{
+    success: boolean;
+    worksheet: WorksheetDraft;
+    sourceContent: string;
+    fileName?: string;
+  }> {
     const formData = new FormData();
     formData.append('file', file);
     if (options.language) formData.append('language', options.language);
     if (options.difficulty) formData.append('difficulty', options.difficulty);
-    if (options.activityTypes) formData.append('activityTypes', JSON.stringify(options.activityTypes));
-    
-    return this.http.post<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string; fileName?: string }>(
-      `${this.base}/upload-and-generate`,
-      formData
+    if (options.activityTypes)
+      formData.append('activityTypes', JSON.stringify(options.activityTypes));
+
+    return this.http.post<{
+      success: boolean;
+      worksheet: WorksheetDraft;
+      sourceContent: string;
+      fileName?: string;
+    }>(`${this.base}/upload-and-generate`, formData);
+  }
+
+  /**
+   * Upload a file and generate a printable HTML worksheet via Google Gemini 1.5 Flash.
+   * Returns a raw HTML string (not saved to DB) ready for preview and PDF export.
+   * @param file    - File to upload (PDF, DOCX, TXT, PNG, JPG — max 10 MB)
+   * @param options - Teacher form settings (subject, grade, difficulty, etc.)
+   */
+  geminiHtmlGenerate(
+    file: File,
+    options: {
+      subject?: string;
+      gradeLevel?: string;
+      gradeCategory?: string;
+      difficulty?: string;
+      language?: string;
+      cefrLevel?: string;
+      activityTypes?: string[] | null;
+      theme?: string;
+    },
+  ): Observable<{ success: boolean; html: string; title: string; fileName?: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options.subject) formData.append('subject', options.subject);
+    if (options.gradeLevel) formData.append('gradeLevel', options.gradeLevel);
+    if (options.gradeCategory) formData.append('gradeCategory', options.gradeCategory);
+    if (options.difficulty) formData.append('difficulty', options.difficulty);
+    if (options.language) formData.append('language', options.language);
+    if (options.cefrLevel) formData.append('cefrLevel', options.cefrLevel);
+    if (options.activityTypes)
+      formData.append('activityTypes', JSON.stringify(options.activityTypes));
+    if (options.theme) formData.append('theme', options.theme);
+
+    return this.http.post<{ success: boolean; html: string; title: string; fileName?: string }>(
+      `${this.base}/gemini-html-generate`,
+      formData,
     );
   }
 
@@ -332,7 +386,13 @@ export class WorksheetApiService {
    * Save a finalized worksheet to the database.
    * @param worksheet - Worksheet data including sections
    */
-  create(worksheet: Omit<WorksheetDraft, '_id'> & { generationSource?: string; sourceContent?: string; language?: string }): Observable<{ success: boolean; worksheet: Worksheet }> {
+  create(
+    worksheet: Omit<WorksheetDraft, '_id'> & {
+      generationSource?: string;
+      sourceContent?: string;
+      language?: string;
+    },
+  ): Observable<{ success: boolean; worksheet: Worksheet }> {
     return this.http.post<{ success: boolean; worksheet: Worksheet }>(this.base, worksheet);
   }
 
@@ -341,7 +401,10 @@ export class WorksheetApiService {
    * @param id - Worksheet ID
    * @param data - Partial worksheet fields to update
    */
-  update(id: string, data: Partial<WorksheetDraft>): Observable<{ success: boolean; data: Worksheet }> {
+  update(
+    id: string,
+    data: Partial<WorksheetDraft>,
+  ): Observable<{ success: boolean; data: Worksheet }> {
     return this.http.put<{ success: boolean; data: Worksheet }>(`${this.base}/${id}`, data);
   }
 
@@ -349,23 +412,29 @@ export class WorksheetApiService {
    * Fetch all worksheets owned by the current teacher (simple, no params).
    */
   getAll(): Observable<{ success: boolean; data: Worksheet[]; pagination?: WorksheetPagination }> {
-    return this.http.get<{ success: boolean; data: Worksheet[]; pagination?: WorksheetPagination }>(this.base);
+    return this.http.get<{ success: boolean; data: Worksheet[]; pagination?: WorksheetPagination }>(
+      this.base,
+    );
   }
 
   /**
    * Fetch worksheets with filter, search, sort, and pagination support.
    */
-  getLibrary(params: WorksheetLibraryParams = {}): Observable<{ success: boolean; data: Worksheet[]; pagination: WorksheetPagination }> {
+  getLibrary(
+    params: WorksheetLibraryParams = {},
+  ): Observable<{ success: boolean; data: Worksheet[]; pagination: WorksheetPagination }> {
     let query = `?limit=${params.limit ?? 50}&page=${params.page ?? 1}`;
-    if (params.search)        query += `&search=${encodeURIComponent(params.search)}`;
-    if (params.cefrLevel)     query += `&cefrLevel=${encodeURIComponent(params.cefrLevel)}`;
-    if (params.gradeLevel)    query += `&gradeLevel=${encodeURIComponent(params.gradeLevel)}`;
+    if (params.search) query += `&search=${encodeURIComponent(params.search)}`;
+    if (params.cefrLevel) query += `&cefrLevel=${encodeURIComponent(params.cefrLevel)}`;
+    if (params.gradeLevel) query += `&gradeLevel=${encodeURIComponent(params.gradeLevel)}`;
     if (params.gradeCategory) query += `&gradeCategory=${encodeURIComponent(params.gradeCategory)}`;
-    if (params.subject)       query += `&subject=${encodeURIComponent(params.subject)}`;
-    if (params.difficulty)    query += `&difficulty=${encodeURIComponent(params.difficulty)}`;
-    if (params.sortBy)        query += `&sortBy=${params.sortBy}`;
-    if (params.sortOrder)     query += `&sortOrder=${params.sortOrder}`;
-    return this.http.get<{ success: boolean; data: Worksheet[]; pagination: WorksheetPagination }>(`${this.base}${query}`);
+    if (params.subject) query += `&subject=${encodeURIComponent(params.subject)}`;
+    if (params.difficulty) query += `&difficulty=${encodeURIComponent(params.difficulty)}`;
+    if (params.sortBy) query += `&sortBy=${params.sortBy}`;
+    if (params.sortOrder) query += `&sortOrder=${params.sortOrder}`;
+    return this.http.get<{ success: boolean; data: Worksheet[]; pagination: WorksheetPagination }>(
+      `${this.base}${query}`,
+    );
   }
 
   /**
@@ -389,10 +458,13 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param payload - Answers array + assignmentId + timeTaken
    */
-  submit(worksheetId: string, payload: SubmitWorksheetDto): Observable<{ success: boolean; submission: WorksheetSubmission }> {
+  submit(
+    worksheetId: string,
+    payload: SubmitWorksheetDto,
+  ): Observable<{ success: boolean; submission: WorksheetSubmission }> {
     return this.http.post<{ success: boolean; submission: WorksheetSubmission }>(
       `${this.base}/${worksheetId}/submit`,
-      payload
+      payload,
     );
   }
 
@@ -401,9 +473,11 @@ export class WorksheetApiService {
    * Throws 404 if not submitted yet — catch this to know the student hasn't submitted.
    * @param worksheetId - Worksheet document _id
    */
-  getMySubmission(worksheetId: string): Observable<{ success: boolean; data: WorksheetSubmission }> {
+  getMySubmission(
+    worksheetId: string,
+  ): Observable<{ success: boolean; data: WorksheetSubmission }> {
     return this.http.get<{ success: boolean; data: WorksheetSubmission }>(
-      `${this.base}/${worksheetId}/my-submission`
+      `${this.base}/${worksheetId}/my-submission`,
     );
   }
 
@@ -412,22 +486,31 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param assignmentId - Assignment document _id
    */
-  getMySubmissionByAssignment(worksheetId: string, assignmentId: string): Promise<WorksheetSubmission | null> {
+  getMySubmissionByAssignment(
+    worksheetId: string,
+    assignmentId: string,
+  ): Promise<WorksheetSubmission | null> {
     return firstValueFrom(
       this.http.get<{ success: boolean; data: WorksheetSubmission }>(
-        `${this.base}/${worksheetId}/my-submission-by-assignment?assignmentId=${assignmentId}`
-      )
-    ).then((r) => r?.data ?? null).catch(() => null);
+        `${this.base}/${worksheetId}/my-submission-by-assignment?assignmentId=${assignmentId}`,
+      ),
+    )
+      .then((r) => r?.data ?? null)
+      .catch(() => null);
   }
 
   /**
    * Teacher fetches all student submissions for a worksheet.
    * @param worksheetId - Worksheet document _id
    */
-  getSubmissions(worksheetId: string): Observable<{ success: boolean; data: { worksheet: Worksheet; submissions: WorksheetSubmission[] } }> {
-    return this.http.get<{ success: boolean; data: { worksheet: Worksheet; submissions: WorksheetSubmission[] } }>(
-      `${this.base}/${worksheetId}/submissions`
-    );
+  getSubmissions(worksheetId: string): Observable<{
+    success: boolean;
+    data: { worksheet: Worksheet; submissions: WorksheetSubmission[] };
+  }> {
+    return this.http.get<{
+      success: boolean;
+      data: { worksheet: Worksheet; submissions: WorksheetSubmission[] };
+    }>(`${this.base}/${worksheetId}/submissions`);
   }
 
   /**
@@ -435,10 +518,13 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param payload - classId, title, deadline
    */
-  assignToClass(worksheetId: string, payload: { classId: string; title: string; deadline?: string }): Observable<{ success: boolean; data: { assignment: any } }> {
+  assignToClass(
+    worksheetId: string,
+    payload: { classId: string; title: string; deadline?: string },
+  ): Observable<{ success: boolean; data: { assignment: any } }> {
     return this.http.post<{ success: boolean; data: { assignment: any } }>(
       `${this.base}/${worksheetId}/assign`,
-      payload
+      payload,
     );
   }
 
@@ -446,10 +532,12 @@ export class WorksheetApiService {
    * Re-generate an AI theme for an existing worksheet (teacher only).
    * @param worksheetId - Worksheet document _id
    */
-  regenerateTheme(worksheetId: string): Observable<{ success: boolean; data: { theme: WorksheetTheme } }> {
+  regenerateTheme(
+    worksheetId: string,
+  ): Observable<{ success: boolean; data: { theme: WorksheetTheme } }> {
     return this.http.post<{ success: boolean; data: { theme: WorksheetTheme } }>(
       `${this.base}/${worksheetId}/regenerate-theme`,
-      {}
+      {},
     );
   }
 
@@ -457,10 +545,12 @@ export class WorksheetApiService {
    * Generate or retrieve share token for a worksheet (teacher only).
    * @param worksheetId - Worksheet document _id
    */
-  shareSet(worksheetId: string): Observable<{ success: boolean; shareUrl: string; shareToken: string }> {
+  shareSet(
+    worksheetId: string,
+  ): Observable<{ success: boolean; shareUrl: string; shareToken: string }> {
     return this.http.post<{ success: boolean; shareUrl: string; shareToken: string }>(
       `${this.base}/${worksheetId}/share`,
-      {}
+      {},
     );
   }
 
@@ -469,9 +559,7 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    */
   revokeShare(worksheetId: string): Observable<{ success: boolean }> {
-    return this.http.delete<{ success: boolean }>(
-      `${this.base}/${worksheetId}/share`
-    );
+    return this.http.delete<{ success: boolean }>(`${this.base}/${worksheetId}/share`);
   }
 
   /**
@@ -481,7 +569,7 @@ export class WorksheetApiService {
    */
   getDraft(worksheetId: string, assignmentId: string): Observable<{ success: boolean; data: any }> {
     return this.http.get<{ success: boolean; data: any }>(
-      `${this.base}/${worksheetId}/draft?assignmentId=${assignmentId}`
+      `${this.base}/${worksheetId}/draft?assignmentId=${assignmentId}`,
     );
   }
 
@@ -490,19 +578,22 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param payload - Draft data including activity answers, progress, time spent
    */
-  saveDraft(worksheetId: string, payload: {
-    assignmentId: string;
-    activity1Answers?: Record<string, string>;
-    activity2Answers?: Record<string, string>;
-    activity2Revealed?: Record<string, boolean>;
-    activity3Answers?: Record<string, string>;
-    activity4Blanks?: Record<string, string>;
-    progressPercentage?: number;
-    timeSpent?: number;
-  }): Observable<{ success: boolean; data: any }> {
+  saveDraft(
+    worksheetId: string,
+    payload: {
+      assignmentId: string;
+      activity1Answers?: Record<string, string>;
+      activity2Answers?: Record<string, string>;
+      activity2Revealed?: Record<string, boolean>;
+      activity3Answers?: Record<string, string>;
+      activity4Blanks?: Record<string, string>;
+      progressPercentage?: number;
+      timeSpent?: number;
+    },
+  ): Observable<{ success: boolean; data: any }> {
     return this.http.post<{ success: boolean; data: any }>(
       `${this.base}/${worksheetId}/draft`,
-      payload
+      payload,
     );
   }
 
@@ -511,9 +602,12 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param assignmentId - Assignment document _id
    */
-  deleteDraft(worksheetId: string, assignmentId: string): Observable<{ success: boolean; deleted: boolean }> {
+  deleteDraft(
+    worksheetId: string,
+    assignmentId: string,
+  ): Observable<{ success: boolean; deleted: boolean }> {
     return this.http.delete<{ success: boolean; deleted: boolean }>(
-      `${this.base}/${worksheetId}/draft?assignmentId=${assignmentId}`
+      `${this.base}/${worksheetId}/draft?assignmentId=${assignmentId}`,
     );
   }
 
@@ -522,14 +616,17 @@ export class WorksheetApiService {
    * @param worksheetId - Worksheet document _id
    * @param params - Filter and pagination params
    */
-  getWorksheetReport(worksheetId: string, params: {
-    page?: number;
-    limit?: number;
-    classId?: string;
-    status?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  } = {}): Observable<{ success: boolean; data: any }> {
+  getWorksheetReport(
+    worksheetId: string,
+    params: {
+      page?: number;
+      limit?: number;
+      classId?: string;
+      status?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    } = {},
+  ): Observable<{ success: boolean; data: any }> {
     let query = '';
     if (params.page) query += `&page=${params.page}`;
     if (params.limit) query += `&limit=${params.limit}`;
@@ -539,7 +636,7 @@ export class WorksheetApiService {
     if (params.dateTo) query += `&dateTo=${params.dateTo}`;
     const separator = query ? '?' : '';
     return this.http.get<{ success: boolean; data: any }>(
-      `${this.base}/${worksheetId}/report${separator}${query.replace('&', '?')}`
+      `${this.base}/${worksheetId}/report${separator}${query.replace('&', '?')}`,
     );
   }
 }

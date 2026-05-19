@@ -17,6 +17,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
 import {
   WorksheetApiService,
@@ -31,10 +32,10 @@ type Difficulty = 'easy' | 'medium' | 'hard';
 
 const GRADE_MAP: Record<string, string[]> = {
   'Early Learning': ['Pre-K', 'K'],
-  'Elementary':     ['1st', '2nd', '3rd', '4th', '5th'],
-  'Middle School':  ['6th', '7th', '8th'],
-  'High School':    ['9th', '10th', '11th', '12th'],
-  'University':     ['University', 'Adult'],
+  Elementary: ['1st', '2nd', '3rd', '4th', '5th'],
+  'Middle School': ['6th', '7th', '8th'],
+  'High School': ['9th', '10th', '11th', '12th'],
+  University: ['University', 'Adult'],
 };
 
 @Component({
@@ -46,21 +47,22 @@ const GRADE_MAP: Record<string, string[]> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorksheetCreatePage implements OnDestroy {
-  private readonly router   = inject(Router);
-  private readonly route    = inject(ActivatedRoute);
-  private readonly api      = inject(WorksheetApiService);
-  private readonly cdr      = inject(ChangeDetectorRef);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly api = inject(WorksheetApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly sanitizer = inject(DomSanitizer);
   private readonly destroy$ = new Subject<void>();
 
   /* ── Form fields ─────────────────────────── */
-  topic        = '';
-  language     = 'English';
+  topic = '';
+  language = 'English';
   difficulty: Difficulty = 'medium';
-  subject      = '';
-  cefrLevel    = '';
+  subject = '';
+  cefrLevel = '';
   gradeCategory = '';
-  gradeLevel   = '';
-  description  = '';
+  gradeLevel = '';
+  description = '';
   selectedTheme = '';
   assignmentDeadline = '';
 
@@ -68,19 +70,31 @@ export class WorksheetCreatePage implements OnDestroy {
   availableActivityTypes = [
     { id: 'ordering', label: 'Ordering/Sequencing', description: 'Arrange items in correct order' },
     { id: 'classification', label: 'Classification', description: 'Categorize items into groups' },
-    { id: 'multipleChoice', label: 'Multiple Choice', description: 'Answer multiple choice questions' },
-    { id: 'fillBlanks', label: 'Fill in the Blanks', description: 'Complete sentences with missing words' },
+    {
+      id: 'multipleChoice',
+      label: 'Multiple Choice',
+      description: 'Answer multiple choice questions',
+    },
+    {
+      id: 'fillBlanks',
+      label: 'Fill in the Blanks',
+      description: 'Complete sentences with missing words',
+    },
     { id: 'matching', label: 'Matching Pairs', description: 'Match related items together' },
-    { id: 'trueFalse', label: 'True/False', description: 'Determine if statements are true or false' },
+    {
+      id: 'trueFalse',
+      label: 'True/False',
+      description: 'Determine if statements are true or false',
+    },
     { id: 'shortAnswer', label: 'Short Answer', description: 'Write brief responses to questions' },
   ];
   selectedActivityTypes: string[] = ['ordering', 'classification', 'multipleChoice', 'fillBlanks'];
   useCustomActivities = false;
 
   /* ── State ───────────────────────────────── */
-  isGenerating        = false;
-  isSaving            = false;
-  errorModal  = { open: false, title: '', message: '' };
+  isGenerating = false;
+  isSaving = false;
+  errorModal = { open: false, title: '', message: '' };
   successModal = { open: false, title: '', message: '' };
   isRegeneratingTheme = false;
   draft: WorksheetDraft | null = null;
@@ -91,12 +105,36 @@ export class WorksheetCreatePage implements OnDestroy {
   isUploading = false;
   showAssignModal = false;
 
-  readonly languages  = ['English', 'Arabic', 'French', 'Spanish'];
+  /* ── Gemini HTML Worksheet state ─────────────────────────
+   * These fields are ONLY for the new file→Gemini→HTML flow.
+   * They do NOT interact with the existing topic→JSON flow.
+   * ──────────────────────────────────────────────────────── */
+  htmlWorksheet: string | null = null; // raw HTML string from Gemini
+  htmlWorksheetTitle = ''; // extracted <h1> / <title> from HTML
+  htmlPreviewUrl: SafeResourceUrl | null = null; // blob: URL for the iframe
+  isGeneratingHtml = false; // spinner for Gemini call
+  isDownloadingPdf = false; // spinner for PDF export
+  private _blobUrl: string | null = null; // kept so we can revoke on destroy
+
+  readonly languages = ['English', 'Arabic', 'French', 'Spanish'];
   readonly difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
-  readonly subjects   = ['', 'Math', 'Science', 'Social Studies', 'English Language', 'ESL',
-                         'History', 'Geography', 'Arts', 'Music', 'Physical Education', 'Technology', 'Other'];
+  readonly subjects = [
+    '',
+    'Math',
+    'Science',
+    'Social Studies',
+    'English Language',
+    'ESL',
+    'History',
+    'Geography',
+    'Arts',
+    'Music',
+    'Physical Education',
+    'Technology',
+    'Other',
+  ];
   readonly cefrLevels = [
-    { value: '',   label: 'CEFR Level' },
+    { value: '', label: 'CEFR Level' },
     { value: 'A1', label: 'A1 — Beginner' },
     { value: 'A2', label: 'A2 — Elementary' },
     { value: 'B1', label: 'B1 — Intermediate' },
@@ -104,7 +142,14 @@ export class WorksheetCreatePage implements OnDestroy {
     { value: 'C1', label: 'C1 — Advanced' },
     { value: 'C2', label: 'C2 — Proficient' },
   ];
-  readonly gradeCategories = ['', 'Early Learning', 'Elementary', 'Middle School', 'High School', 'University'];
+  readonly gradeCategories = [
+    '',
+    'Early Learning',
+    'Elementary',
+    'Middle School',
+    'High School',
+    'University',
+  ];
   readonly themes = [
     { value: '', label: 'Default Theme' },
     { value: 'modern', label: 'Modern' },
@@ -116,15 +161,29 @@ export class WorksheetCreatePage implements OnDestroy {
 
   activitySummary(): { label: string; count: number }[] {
     if (!this.draft) return [];
-    
+
     // Check if new activities array exists
-    if (this.draft.activities && Array.isArray(this.draft.activities) && this.draft.activities.length > 0) {
-      return this.draft.activities.map(activity => {
+    if (
+      this.draft.activities &&
+      Array.isArray(this.draft.activities) &&
+      this.draft.activities.length > 0
+    ) {
+      return this.draft.activities.map((activity) => {
         const data = activity.data || {};
         let count = 0;
-        if (activity.type === 'ordering' || activity.type === 'classification' || activity.type === 'matching' || activity.type === 'dragDrop' || activity.type === 'sorting') {
+        if (
+          activity.type === 'ordering' ||
+          activity.type === 'classification' ||
+          activity.type === 'matching' ||
+          activity.type === 'dragDrop' ||
+          activity.type === 'sorting'
+        ) {
           count = data.items?.length || 0;
-        } else if (activity.type === 'multipleChoice' || activity.type === 'trueFalse' || activity.type === 'shortAnswer') {
+        } else if (
+          activity.type === 'multipleChoice' ||
+          activity.type === 'trueFalse' ||
+          activity.type === 'shortAnswer'
+        ) {
           count = data.questions?.length || 0;
         } else if (activity.type === 'fillBlanks') {
           count = data.sentences?.length || 0;
@@ -136,7 +195,7 @@ export class WorksheetCreatePage implements OnDestroy {
         return { label: activity.title || activity.type, count };
       });
     }
-    
+
     // Fallback to legacy activity1-4 fields
     return [
       { label: 'Ordering items', count: this.draft.activity1?.items?.length ?? 0 },
@@ -148,15 +207,19 @@ export class WorksheetCreatePage implements OnDestroy {
 
   generate(): void {
     if (this.isGenerating) return;
-    
+
     if (this.selectedFile) {
       this.generateFromFile();
       return;
     }
-    
+
     const topic = this.topic.trim();
     if (!topic) {
-      this.errorModal = { open: true, title: 'Topic Required', message: 'Please enter a topic or paste text before generating.' };
+      this.errorModal = {
+        open: true,
+        title: 'Topic Required',
+        message: 'Please enter a topic or paste text before generating.',
+      };
       this.cdr.markForCheck();
       return;
     }
@@ -167,7 +230,13 @@ export class WorksheetCreatePage implements OnDestroy {
     const activityTypesParam = this.useCustomActivities ? this.selectedActivityTypes : null;
 
     this.api
-      .generate({ inputType: 'topic', content: topic, language: this.language, difficulty: this.difficulty, activityTypes: activityTypesParam })
+      .generate({
+        inputType: 'topic',
+        content: topic,
+        language: this.language,
+        difficulty: this.difficulty,
+        activityTypes: activityTypesParam,
+      })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
@@ -178,7 +247,11 @@ export class WorksheetCreatePage implements OnDestroy {
         },
         error: (err: any) => {
           this.isGenerating = false;
-          this.errorModal = { open: true, title: 'Generation Failed', message: err?.error?.message ?? err?.message ?? 'Please try again.' };
+          this.errorModal = {
+            open: true,
+            title: 'Generation Failed',
+            message: err?.error?.message ?? err?.message ?? 'Please try again.',
+          };
           this.cdr.markForCheck();
         },
       });
@@ -186,7 +259,7 @@ export class WorksheetCreatePage implements OnDestroy {
 
   generateFromFile(): void {
     if (!this.selectedFile || this.isUploading) return;
-    
+
     this.isUploading = true;
     this.isGenerating = true;
     this.draft = null;
@@ -195,12 +268,16 @@ export class WorksheetCreatePage implements OnDestroy {
     const activityTypesParam = this.useCustomActivities ? this.selectedActivityTypes : null;
 
     this.api
-      .uploadAndGenerate(this.selectedFile, { language: this.language, difficulty: this.difficulty, activityTypes: activityTypesParam })
+      .uploadAndGenerate(this.selectedFile, {
+        language: this.language,
+        difficulty: this.difficulty,
+        activityTypes: activityTypesParam,
+      })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
           this.draft = res.worksheet ?? null;
-          this.sourceContent = res.sourceContent ?? (this.selectedFile?.name ?? 'Uploaded file');
+          this.sourceContent = res.sourceContent ?? this.selectedFile?.name ?? 'Uploaded file';
           this.isUploading = false;
           this.isGenerating = false;
           this.cdr.markForCheck();
@@ -208,7 +285,11 @@ export class WorksheetCreatePage implements OnDestroy {
         error: (err: any) => {
           this.isUploading = false;
           this.isGenerating = false;
-          this.errorModal = { open: true, title: 'Upload Failed', message: err?.error?.message ?? err?.message ?? 'Please try again.' };
+          this.errorModal = {
+            open: true,
+            title: 'Upload Failed',
+            message: err?.error?.message ?? err?.message ?? 'Please try again.',
+          };
           this.cdr.markForCheck();
         },
       });
@@ -217,22 +298,46 @@ export class WorksheetCreatePage implements OnDestroy {
   onFileSelected(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+
+    // Validate file type — extended to include images for Gemini vision
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+    ];
     if (!allowedTypes.includes(file.type)) {
-      this.errorModal = { open: true, title: 'Invalid File Type', message: 'Please upload a PDF, DOCX, or TXT file.' };
+      this.errorModal = {
+        open: true,
+        title: 'Unsupported File Type',
+        message: 'Please upload a PDF, DOCX, TXT, PNG, or JPG file.',
+      };
       this.cdr.markForCheck();
       return;
     }
-    
-    // Validate file size (10MB max)
+
+    // Validate file size (10 MB max)
     if (file.size > 10 * 1024 * 1024) {
-      this.errorModal = { open: true, title: 'File Too Large', message: 'Please upload a file smaller than 10MB.' };
+      this.errorModal = {
+        open: true,
+        title: 'File Too Large',
+        message: 'File too large. Max size is 10 MB.',
+      };
       this.cdr.markForCheck();
       return;
     }
-    
+
+    // Clear any previous Gemini HTML result when a new file is chosen
+    this.htmlWorksheet = null;
+    this.htmlPreviewUrl = null;
+    this.htmlWorksheetTitle = '';
+    if (this._blobUrl) {
+      URL.revokeObjectURL(this._blobUrl);
+      this._blobUrl = null;
+    }
+
     this.selectedFile = file;
     this.topic = `File: ${file.name}`;
     this.cdr.markForCheck();
@@ -241,6 +346,14 @@ export class WorksheetCreatePage implements OnDestroy {
   removeFile(): void {
     this.selectedFile = null;
     this.topic = '';
+    // Also clear Gemini HTML state
+    this.htmlWorksheet = null;
+    this.htmlPreviewUrl = null;
+    this.htmlWorksheetTitle = '';
+    if (this._blobUrl) {
+      URL.revokeObjectURL(this._blobUrl);
+      this._blobUrl = null;
+    }
     this.cdr.markForCheck();
   }
 
@@ -248,7 +361,7 @@ export class WorksheetCreatePage implements OnDestroy {
     if (this.selectedActivityTypes.includes(typeId)) {
       // Don't allow deselecting if only 1 selected
       if (this.selectedActivityTypes.length > 1) {
-        this.selectedActivityTypes = this.selectedActivityTypes.filter(t => t !== typeId);
+        this.selectedActivityTypes = this.selectedActivityTypes.filter((t) => t !== typeId);
       }
     } else {
       // Don't allow more than 6 activities
@@ -286,8 +399,8 @@ export class WorksheetCreatePage implements OnDestroy {
           wrong: '#ef4444',
           highlight: '#fbbf24',
           cardBackground: '#ffffff',
-          borderColor: '#e2e8f0'
-        }
+          borderColor: '#e2e8f0',
+        },
       },
       classic: {
         primaryColor: '#1e293b',
@@ -303,8 +416,8 @@ export class WorksheetCreatePage implements OnDestroy {
           wrong: '#dc2626',
           highlight: '#d97706',
           cardBackground: '#fafafa',
-          borderColor: '#d1d5db'
-        }
+          borderColor: '#d1d5db',
+        },
       },
       corporate: {
         primaryColor: '#1e40af',
@@ -320,8 +433,8 @@ export class WorksheetCreatePage implements OnDestroy {
           wrong: '#dc2626',
           highlight: '#2563eb',
           cardBackground: '#ffffff',
-          borderColor: '#e5e7eb'
-        }
+          borderColor: '#e5e7eb',
+        },
       },
       academic: {
         primaryColor: '#7c3aed',
@@ -337,8 +450,8 @@ export class WorksheetCreatePage implements OnDestroy {
           wrong: '#dc2626',
           highlight: '#7c3aed',
           cardBackground: '#ffffff',
-          borderColor: '#e5e7eb'
-        }
+          borderColor: '#e5e7eb',
+        },
       },
       futuristic: {
         primaryColor: '#06b6d4',
@@ -354,9 +467,9 @@ export class WorksheetCreatePage implements OnDestroy {
           wrong: '#ef4444',
           highlight: '#06b6d4',
           cardBackground: '#1e293b',
-          borderColor: '#334155'
-        }
-      }
+          borderColor: '#334155',
+        },
+      },
     };
 
     return themes[themeSelection as keyof typeof themes] || themes.modern;
@@ -369,31 +482,49 @@ export class WorksheetCreatePage implements OnDestroy {
 
   get themePatternLabel(): string {
     const p = this.savedWorksheet?.theme?.patternType ?? 'none';
-    return p === 'none' ? 'No pattern' : p.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return p === 'none'
+      ? 'No pattern'
+      : p.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   save(): void {
     if (!this.draft || this.isSaving) return;
     if (!this.draft.title?.trim()) {
-      this.errorModal = { open: true, title: 'Title Required', message: 'Please give the worksheet a title.' };
+      this.errorModal = {
+        open: true,
+        title: 'Title Required',
+        message: 'Please give the worksheet a title.',
+      };
       this.cdr.markForCheck();
       return;
     }
 
     if (!this.assignmentDeadline) {
-      this.errorModal = { open: true, title: 'Deadline Required', message: 'Please select an assignment deadline.' };
+      this.errorModal = {
+        open: true,
+        title: 'Deadline Required',
+        message: 'Please select an assignment deadline.',
+      };
       this.cdr.markForCheck();
       return;
     }
 
     const d = new Date(this.assignmentDeadline);
     if (isNaN(d.getTime())) {
-      this.errorModal = { open: true, title: 'Invalid Deadline', message: 'Please select a valid deadline date/time.' };
+      this.errorModal = {
+        open: true,
+        title: 'Invalid Deadline',
+        message: 'Please select a valid deadline date/time.',
+      };
       this.cdr.markForCheck();
       return;
     }
     if (d.getTime() <= Date.now()) {
-      this.errorModal = { open: true, title: 'Invalid Deadline', message: 'Deadline must be a future date/time.' };
+      this.errorModal = {
+        open: true,
+        title: 'Invalid Deadline',
+        message: 'Deadline must be a future date/time.',
+      };
       this.cdr.markForCheck();
       return;
     }
@@ -435,7 +566,12 @@ export class WorksheetCreatePage implements OnDestroy {
         },
         error: (err: any) => {
           this.isSaving = false;
-          this.errorModal = { open: true, title: 'Save Failed', message: err?.error?.message ?? err?.message ?? 'Could not save worksheet. Please try again.' };
+          this.errorModal = {
+            open: true,
+            title: 'Save Failed',
+            message:
+              err?.error?.message ?? err?.message ?? 'Could not save worksheet. Please try again.',
+          };
           this.cdr.markForCheck();
         },
       });
@@ -458,7 +594,11 @@ export class WorksheetCreatePage implements OnDestroy {
         },
         error: () => {
           this.isRegeneratingTheme = false;
-          this.errorModal = { open: true, title: 'Theme Error', message: 'Could not regenerate theme. Please try again.' };
+          this.errorModal = {
+            open: true,
+            title: 'Theme Error',
+            message: 'Could not regenerate theme. Please try again.',
+          };
           this.cdr.markForCheck();
         },
       });
@@ -485,11 +625,145 @@ export class WorksheetCreatePage implements OnDestroy {
   cancel(): void {
     const returnToClassId = this.route.snapshot.queryParamMap.get('returnToClassId');
     this.router.navigate(
-      returnToClassId ? ['/teacher/my-classes/detail', returnToClassId] : ['/teacher/my-classes']
+      returnToClassId ? ['/teacher/my-classes/detail', returnToClassId] : ['/teacher/my-classes'],
     );
   }
 
+  // ── Gemini HTML Worksheet Methods ───────────────────────────────────────────
+  // These methods are NEW. They are completely independent of the existing
+  // topic-based generate() / generateFromFile() flow above.
+
+  /** Call Gemini 1.5 Flash to generate a printable HTML worksheet from the file. */
+  generateHtmlFromFile(): void {
+    if (!this.selectedFile || this.isGeneratingHtml) return;
+
+    this.isGeneratingHtml = true;
+    this.htmlWorksheet = null;
+    this.htmlPreviewUrl = null;
+    this.htmlWorksheetTitle = '';
+    if (this._blobUrl) {
+      URL.revokeObjectURL(this._blobUrl);
+      this._blobUrl = null;
+    }
+    this.cdr.markForCheck();
+
+    const activityTypesParam = this.useCustomActivities ? this.selectedActivityTypes : null;
+
+    this.api
+      .geminiHtmlGenerate(this.selectedFile, {
+        subject: this.subject,
+        gradeLevel: this.gradeLevel,
+        gradeCategory: this.gradeCategory,
+        difficulty: this.difficulty,
+        language: this.language,
+        cefrLevel: this.cefrLevel,
+        activityTypes: activityTypesParam,
+        theme: this.selectedTheme || 'modern',
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.htmlWorksheet = res.html;
+          this.htmlWorksheetTitle = res.title || 'Generated Worksheet';
+          this._blobUrl = URL.createObjectURL(new Blob([res.html], { type: 'text/html' }));
+          this.htmlPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this._blobUrl);
+          this.isGeneratingHtml = false;
+          this.cdr.markForCheck();
+        },
+        error: (err: any) => {
+          this.isGeneratingHtml = false;
+          this.errorModal = {
+            open: true,
+            title: 'Generation Failed',
+            message:
+              err?.error?.message ??
+              err?.message ??
+              'Failed to generate worksheet. Please try again.',
+          };
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  /** Re-send the same file to Gemini to get a fresh worksheet. */
+  regenerateHtmlWorksheet(): void {
+    if (!this.selectedFile) return;
+    this.generateHtmlFromFile();
+  }
+
+  /** Export the generated HTML worksheet as a PDF using html2canvas + jsPDF. */
+  async downloadHtmlAsPdf(): Promise<void> {
+    if (!this.htmlWorksheet || this.isDownloadingPdf) return;
+    this.isDownloadingPdf = true;
+    this.cdr.markForCheck();
+
+    // Dynamically import to keep initial bundle lean
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf'),
+    ]);
+
+    // Build a hidden, off-screen container with the raw HTML
+    const container = document.createElement('div');
+    Object.assign(container.style, {
+      position: 'fixed',
+      top: '0',
+      left: '-9999px',
+      width: '794px',
+      backgroundColor: '#ffffff',
+      zIndex: '-9999',
+    });
+    container.innerHTML = this.htmlWorksheet;
+    document.body.appendChild(container);
+
+    // Brief pause so browser can apply styles / load fonts
+    await new Promise<void>((r) => setTimeout(r, 600));
+
+    try {
+      const canvas = await html2canvas(container, {
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        width: 794,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png', 0.92);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      let heightLeft = imgH;
+      let yPos = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, yPos, pageW, imgH);
+      heightLeft -= pageH;
+
+      while (heightLeft > 0) {
+        yPos -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, yPos, pageW, imgH);
+        heightLeft -= pageH;
+      }
+
+      const date = new Date().toISOString().split('T')[0];
+      const titleSlug = this.htmlWorksheetTitle
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase()
+        .slice(0, 30);
+      pdf.save(`worksheet_${titleSlug}_${date}.pdf`);
+    } finally {
+      document.body.removeChild(container);
+      this.isDownloadingPdf = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  // ── End Gemini Methods ───────────────────────────────────────────────────
+
   ngOnDestroy(): void {
+    if (this._blobUrl) URL.revokeObjectURL(this._blobUrl);
     this.destroy$.next();
     this.destroy$.complete();
   }
