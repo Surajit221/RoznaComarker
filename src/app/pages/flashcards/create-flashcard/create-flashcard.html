@@ -5,7 +5,6 @@
 
 <div class="create-wrap">
   <div class="create-panel">
-
     <!-- HEADER -->
     <div class="panel-header">
       <button class="btn-back" (click)="goBack()">← Back</button>
@@ -18,41 +17,60 @@
 
     <!-- INPUT TABS -->
     <div class="input-tabs">
-      <button [class.active]="activeTab === 'topic'"   (click)="setTab('topic')">Topic</button>
-      <button [class.active]="activeTab === 'text'"    (click)="setTab('text')">Text</button>
+      <button [class.active]="activeTab === 'topic'" (click)="setTab('topic')">Topic</button>
+      <button [class.active]="activeTab === 'text'" (click)="setTab('text')">Text</button>
       <button [class.active]="activeTab === 'webpage'" (click)="setTab('webpage')">Webpage</button>
-      <button [class.active]="activeTab === 'file'"    (click)="setTab('file')">Files</button>
+      <button [class.active]="activeTab === 'file'" (click)="setTab('file')">Files</button>
     </div>
 
     <!-- INPUT AREA -->
     <div class="input-area" [formGroup]="createForm">
       <ng-container [ngSwitch]="activeTab">
-        <textarea *ngSwitchCase="'topic'" formControlName="content"
-          class="content-input" rows="4"
-          placeholder="Enter a topic (e.g. Solar system, Photosynthesis)"></textarea>
-        <textarea *ngSwitchCase="'text'" formControlName="content"
-          class="content-input" rows="6"
-          placeholder="Paste your study material here…"></textarea>
-        <input *ngSwitchCase="'webpage'" formControlName="content"
-          class="content-input url-input" type="url"
-          placeholder="https://…" />
-        <div *ngSwitchCase="'file'" class="file-dropzone"
-             [class.drag-over]="isDragOver"
-             (dragover)="onDragOver($event)"
-             (dragleave)="isDragOver = false"
-             (drop)="onFileDrop($event)"
-             (click)="fileInput.click()">
+        <textarea
+          *ngSwitchCase="'topic'"
+          formControlName="content"
+          class="content-input"
+          rows="4"
+          placeholder="Enter a topic (e.g. Solar system, Photosynthesis)"
+        ></textarea>
+        <textarea
+          *ngSwitchCase="'text'"
+          formControlName="content"
+          class="content-input"
+          rows="6"
+          placeholder="Paste your study material here…"
+        ></textarea>
+        <input
+          *ngSwitchCase="'webpage'"
+          formControlName="content"
+          class="content-input url-input"
+          type="url"
+          placeholder="https://…"
+        />
+        <div
+          *ngSwitchCase="'file'"
+          class="file-dropzone"
+          [class.drag-over]="isDragOver"
+          (dragover)="onDragOver($event)"
+          (dragleave)="isDragOver = false"
+          (drop)="onFileDrop($event)"
+          (click)="fileInput.click()"
+        >
           <input #fileInput type="file" hidden (change)="onFileSelect($event)" />
           <span class="drop-icon">📁</span>
-          <p *ngIf="!createForm.get('content')?.value">Drag &amp; drop a file here, or click to browse</p>
+          <p *ngIf="!createForm.get('content')?.value">
+            Drag &amp; drop a file here, or click to browse
+          </p>
           <p *ngIf="createForm.get('content')?.value" class="file-name">
             {{ createForm.get('content')?.value }}
           </p>
         </div>
       </ng-container>
 
-      <div class="content-error"
-           *ngIf="createForm.get('content')?.invalid && createForm.get('content')?.touched">
+      <div
+        class="content-error"
+        *ngIf="createForm.get('content')?.invalid && createForm.get('content')?.touched"
+      >
         Please enter at least 3 characters.
       </div>
 
@@ -103,38 +121,35 @@
         </select>
       </div>
       <div class="setting-group">
-        <label>Add image to cards</label>
-        <select formControlName="addImage" class="fc-select">
-          <option value="later">I will add images later</option>
-          <option value="auto">Generate images automatically</option>
+        <label>Output language</label>
+        <select formControlName="language" class="fc-select">
+          <option value="English">English</option>
+          <option value="Bengali">Bengali</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="Arabic">Arabic</option>
         </select>
       </div>
     </div>
 
-    <!-- LANGUAGE -->
-    <div class="language-row" [formGroup]="createForm">
-      <label>Output language</label>
-      <select formControlName="language" class="fc-select">
-        <option value="English">English</option>
-        <option value="Bengali">Bengali</option>
-        <option value="Spanish">Spanish</option>
-        <option value="French">French</option>
-        <option value="Arabic">Arabic</option>
-      </select>
-    </div>
-
     <!-- GENERATE BUTTON -->
-    <button class="btn-primary btn-generate"
-            [disabled]="isGenerating || createForm.invalid"
-            (click)="generateFlashcards()">
+    <button
+      class="btn-primary btn-generate"
+      [disabled]="isGenerating || createForm.invalid"
+      (click)="generateFlashcards()"
+    >
       <span *ngIf="!isGenerating">✦ Generate Flashcards</span>
       <span *ngIf="isGenerating" class="loading-dots">
         <span>.</span><span>.</span><span>.</span>
       </span>
     </button>
-
   </div>
 </div>
 
 <!-- ERROR MODAL -->
-<app-error-modal [show]="showErrorModal" [title]="modalTitle" [message]="modalMessage" (closed)="closeModal()"></app-error-modal>
+<app-error-modal
+  [show]="showErrorModal"
+  [title]="modalTitle"
+  [message]="modalMessage"
+  (closed)="closeModal()"
+></app-error-modal>

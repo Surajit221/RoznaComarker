@@ -1,5 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  Output,
+  OnChanges,
+  SimpleChanges,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -39,20 +48,26 @@ export class FlashcardCreator implements OnChanges {
   private cdr = inject(ChangeDetectorRef);
 
   showSuccessModal = false;
-  showErrorModal   = false;
-  modalTitle       = '';
-  modalMessage     = '';
+  showErrorModal = false;
+  modalTitle = '';
+  modalMessage = '';
 
   openSuccessModal(title: string, message: string): void {
-    this.modalTitle = title; this.modalMessage = message;
-    this.showSuccessModal = true; this.cdr.markForCheck();
+    this.modalTitle = title;
+    this.modalMessage = message;
+    this.showSuccessModal = true;
+    this.cdr.markForCheck();
   }
   openErrorModal(title: string, message: string): void {
-    this.modalTitle = title; this.modalMessage = message;
-    this.showErrorModal = true; this.cdr.markForCheck();
+    this.modalTitle = title;
+    this.modalMessage = message;
+    this.showErrorModal = true;
+    this.cdr.markForCheck();
   }
   closeModal(): void {
-    this.showSuccessModal = false; this.showErrorModal = false; this.cdr.markForCheck();
+    this.showSuccessModal = false;
+    this.showErrorModal = false;
+    this.cdr.markForCheck();
   }
 
   currentStep: CreatorStep = 'configure';
@@ -62,7 +77,6 @@ export class FlashcardCreator implements OnChanges {
   textInput = '';
   numberOfCards = 'automatic';
   language = 'english';
-  imageMode: 'manual' | 'generate' = 'manual';
   imageSearchQuery = '';
 
   cards: CreatorCard[] = [];
@@ -101,7 +115,6 @@ export class FlashcardCreator implements OnChanges {
     this.textInput = '';
     this.numberOfCards = 'automatic';
     this.language = 'english';
-    this.imageMode = 'manual';
     this.imageSearchQuery = '';
     this.cards = [];
     this.currentCardIndex = 0;
@@ -110,7 +123,10 @@ export class FlashcardCreator implements OnChanges {
 
   async generate() {
     if (!this.topicInput && !this.textInput && !this.imageSearchQuery) {
-      this.openErrorModal('Missing Input', 'Please enter a topic, text, or image search query to generate flashcards');
+      this.openErrorModal(
+        'Missing Input',
+        'Please enter a topic, text, or image search query to generate flashcards',
+      );
       return;
     }
 
@@ -122,8 +138,8 @@ export class FlashcardCreator implements OnChanges {
         topic: this.topicInput,
         text: this.textInput,
         imageSearchQuery: this.imageSearchQuery,
-        addImage: this.imageMode === 'generate',
-        numberOfCards: this.numberOfCards === 'automatic' ? undefined : parseInt(this.numberOfCards, 10),
+        numberOfCards:
+          this.numberOfCards === 'automatic' ? undefined : parseInt(this.numberOfCards, 10),
         language: this.language,
       };
 
@@ -192,10 +208,10 @@ export class FlashcardCreator implements OnChanges {
 
       const savedSet = await firstValueFrom(this.flashcardApi.createSet(payload));
       const setId = (savedSet as any)._id || (savedSet as any).id;
-      
+
       this.openSuccessModal('Saved!', 'Flashcard set saved successfully!');
       this.closeAll();
-      
+
       // Navigate to preview after saving, preserving classId if available
       const queryParams = this.classId ? { classId: this.classId } : undefined;
       this.router.navigate(['/flashcards', setId], { queryParams });
@@ -211,7 +227,8 @@ export class FlashcardCreator implements OnChanges {
   /** Get full image URL from relative path */
   getImageUrl(relativePath: string | null | undefined): string {
     if (!relativePath) return '';
-    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://'))
+      return relativePath;
     return `${environment.apiUrl}${relativePath}`;
   }
 

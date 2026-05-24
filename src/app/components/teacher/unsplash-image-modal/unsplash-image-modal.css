@@ -1,189 +1,396 @@
+/* ── Backdrop ───────────────────────────────────────────── */
 .uim-backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 16px;
 }
 
+/* ── Modal shell ────────────────────────────────────────── */
 .uim-modal {
   background: #ffffff;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 80vh;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 820px;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.22),
+    0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: uim-in 0.18s ease-out;
 }
 
+@keyframes uim-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Header ─────────────────────────────────────────────── */
 .uim-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e7e7e7;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.uim-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.uim-header-icon {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .uim-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #374151;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
 }
 
 .uim-close-btn {
   background: none;
   border: none;
-  font-size: 24px;
-  color: #6b7280;
+  font-size: 1.2rem;
+  color: #9ca3af;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 8px;
-  transition: all 0.2s;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  line-height: 1;
 }
-
 .uim-close-btn:hover {
   background: #f3f3f3;
   color: #374151;
 }
 
+/* ── Search bar ─────────────────────────────────────────── */
 .uim-search {
   display: flex;
-  gap: 12px;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e7e7e7;
+  gap: 10px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.uim-search-field {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.uim-search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 0.9rem;
+  pointer-events: none;
+  color: #9ca3af;
 }
 
 .uim-search-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #e7e7e7;
-  border-radius: 8px;
-  font-size: 14px;
+  width: 100%;
+  padding: 11px 36px 11px 36px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #111827;
   outline: none;
-  transition: border-color 0.2s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  background: #fafafa;
 }
-
 .uim-search-input:focus {
   border-color: #008081;
+  box-shadow: 0 0 0 3px rgba(0, 128, 129, 0.12);
+  background: #fff;
+}
+.uim-search-input::placeholder {
+  color: #c0c8d2;
+}
+
+.uim-clear-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.uim-clear-btn:hover {
+  color: #374151;
 }
 
 .uim-search-btn {
-  padding: 12px 24px;
+  padding: 11px 22px;
   background: #008081;
-  color: white;
+  color: #fff;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
-  min-width: 100px;
+  transition: background 0.15s;
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-
 .uim-search-btn:hover:not(:disabled) {
   background: #136c6d;
 }
-
 .uim-search-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-.loading-dots {
-  display: inline-flex;
-  gap: 2px;
+/* Button spinner */
+.uim-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: uim-spin 0.65s linear infinite;
+  display: inline-block;
 }
-
-.loading-dots span {
-  animation: blink 1.4s infinite both;
-}
-
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes blink {
-  0%, 80%, 100% {
-    opacity: 0;
-  }
-  40% {
-    opacity: 1;
+@keyframes uim-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
+/* ── Suggestion chips ───────────────────────────────────── */
+.uim-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 24px 0;
+  flex-shrink: 0;
+}
+
+.uim-chip {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+  white-space: nowrap;
+}
+.uim-chip:hover {
+  background: #e6f2f2;
+  border-color: #008081;
+  color: #008081;
+}
+
+/* ── Error ──────────────────────────────────────────────── */
 .uim-error {
-  padding: 12px 24px;
-  background: #fee2e2;
-  color: #dc2626;
-  font-size: 14px;
-  margin: 0 24px;
+  margin: 10px 24px 0;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.8125rem;
+  flex-shrink: 0;
 }
 
+/* ── Grid ───────────────────────────────────────────────── */
 .uim-grid {
-  padding: 20px 24px;
+  padding: 16px 24px 8px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
   overflow-y: auto;
   flex: 1;
+  min-height: 200px;
 }
 
+/* ── Real image card ────────────────────────────────────── */
 .uim-image-item {
   position: relative;
-  aspect-ratio: 1;
-  border-radius: 8px;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   border: 2px solid transparent;
-  transition: all 0.2s;
+  padding: 0;
+  background: #f3f4f6;
+  transition:
+    border-color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+  display: block;
 }
-
 .uim-image-item:hover {
   border-color: #008081;
-  transform: scale(1.02);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 128, 129, 0.2);
+}
+.uim-image-item:focus-visible {
+  outline: 3px solid #008081;
+  outline-offset: 2px;
 }
 
 .uim-thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+  /* Prevent layout shift while image loads */
+  background: #f0f0f0;
 }
 
 .uim-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 128, 129, 0.8);
+  background: rgba(0, 128, 129, 0.82);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 4px;
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s;
 }
-
 .uim-image-item:hover .uim-overlay {
   opacity: 1;
 }
+.uim-overlay-icon {
+  font-size: 1.25rem;
+}
 
+/* ── Skeleton cards ─────────────────────────────────────── */
+.uim-skeleton-card {
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.uim-skeleton-img {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: uim-shimmer 1.4s infinite;
+}
+
+@keyframes uim-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Empty state ────────────────────────────────────────── */
 .uim-empty {
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
   text-align: center;
-  padding: 40px;
-  color: #6b7280;
-  font-size: 14px;
+  gap: 8px;
+}
+
+.uim-empty-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  opacity: 0.4;
+}
+
+.uim-empty-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.uim-empty-sub {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #9ca3af;
+}
+
+/* ── Footer attribution ─────────────────────────────────── */
+.uim-footer {
+  padding: 8px 24px 12px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  border-top: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.uim-footer a {
+  color: #008081;
+  text-decoration: none;
+}
+.uim-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .uim-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .uim-modal {
+    border-radius: 20px 20px 0 0;
+    max-height: 92vh;
+  }
+  .uim-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    padding: 12px 16px 8px;
+  }
+  .uim-search {
+    padding: 12px 16px;
+  }
+  .uim-header {
+    padding: 14px 16px;
+  }
+  .uim-suggestions {
+    padding: 10px 16px 0;
+  }
 }

@@ -46,24 +46,24 @@ interface ResultState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StudentWorksheetResultsPage implements OnInit {
-  private readonly router      = inject(Router);
-  private readonly route       = inject(ActivatedRoute);
-  private readonly api         = inject(WorksheetApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly api = inject(WorksheetApiService);
   private readonly assignmentApi = inject(AssignmentApiService);
-  private readonly cdr         = inject(ChangeDetectorRef);
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
-  private readonly alert       = inject(AlertService);
-  private readonly auth        = inject(AuthService);
+  private readonly alert = inject(AlertService);
+  private readonly auth = inject(AuthService);
 
   submission: WorksheetSubmission | null = null;
   worksheetTitle = '';
-  classId        = '';
-  assignmentId   = '';
-  hasState       = false;
+  classId = '';
+  assignmentId = '';
+  hasState = false;
 
   worksheet: Worksheet | null = null;
   isWorksheetLoading = false;
-  isPdfDownloading   = false;
+  isPdfDownloading = false;
   resolvedStudentName = '';
   assignmentDeadline: Date | null = null;
 
@@ -93,21 +93,39 @@ export class StudentWorksheetResultsPage implements OnInit {
   get formattedDate(): string {
     const iso = this.submission?.submittedAt;
     if (!iso) {
-      return new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+      return new Date().toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+      });
     }
     try {
-      return new Date(iso).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+      return new Date(iso).toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+      });
     } catch {
       return '';
     }
   }
 
   /** Convert submission.answers to the format expected by WorksheetViewerComponent */
-  get normalizedAnswers(): Array<{ questionId: string; sectionId: string; studentAnswer: string; isCorrect?: boolean }> | null {
+  get normalizedAnswers(): Array<{
+    questionId: string;
+    sectionId: string;
+    studentAnswer: string;
+    isCorrect?: boolean;
+  }> | null {
     if (!this.submission?.answers) return null;
     const answers = this.submission.answers;
     if (Array.isArray(answers)) {
-      return answers as Array<{ questionId: string; sectionId: string; studentAnswer: string; isCorrect?: boolean }>;
+      return answers as Array<{
+        questionId: string;
+        sectionId: string;
+        studentAnswer: string;
+        isCorrect?: boolean;
+      }>;
     }
     // If it's a Record, convert it to array format or return null
     return null;
@@ -123,32 +141,31 @@ export class StudentWorksheetResultsPage implements OnInit {
   }
 
   ngOnInit(): void {
-    const nav   = this.router.getCurrentNavigation();
-    const state = (
-      nav?.extras?.state ?? (typeof history !== 'undefined' ? history.state : {})
-    ) as Partial<ResultState>;
+    const nav = this.router.getCurrentNavigation();
+    const state = (nav?.extras?.state ??
+      (typeof history !== 'undefined' ? history.state : {})) as Partial<ResultState>;
 
     if (state?.submission) {
       // Normal navigation: state was passed by the class detail page
-      this.submission     = state.submission;
+      this.submission = state.submission;
       this.worksheetTitle = state.worksheetTitle ?? '';
-      this.classId        = state.classId        ?? '';
-      this.assignmentId   = state.assignmentId   ?? '';
-      this.hasState       = true;
+      this.classId = state.classId ?? '';
+      this.assignmentId = state.assignmentId ?? '';
+      this.hasState = true;
       this.resolveStudentNameAndWorksheet();
     } else {
       // Hard-refresh / direct URL: fall back to query params and re-fetch from API
       const qp = this.route.snapshot.queryParamMap;
-      const worksheetId  = qp.get('worksheetId')  ?? '';
+      const worksheetId = qp.get('worksheetId') ?? '';
       const assignmentId = qp.get('assignmentId') ?? '';
-      const classId      = qp.get('classId')       ?? '';
+      const classId = qp.get('classId') ?? '';
 
       if (!worksheetId || !assignmentId) {
         this.router.navigate(['/student/my-classes']);
         return;
       }
 
-      this.classId      = classId;
+      this.classId = classId;
       this.assignmentId = assignmentId;
       this.isWorksheetLoading = true;
       this.cdr.markForCheck();
@@ -156,71 +173,88 @@ export class StudentWorksheetResultsPage implements OnInit {
       // Fetch submission, worksheet, and assignment deadline in parallel
       Promise.all([
         this.api.getMySubmissionByAssignment(worksheetId, assignmentId),
-        this.api.getById(worksheetId).toPromise().catch(() => null),
+        this.api
+          .getById(worksheetId)
+          .toPromise()
+          .catch(() => null),
         this.assignmentApi.getAssignmentById(assignmentId).catch(() => null),
-      ]).then(([sub, wsRes, assignmentRes]: [any, any, any]) => {
-        if (!sub) {
-          // No submission found — send student back to play the worksheet
-          this.router.navigate(['/student/worksheet', worksheetId], {
-            queryParams: { assignmentId, classId: classId || undefined },
-          });
-          return;
-        }
-        this.submission     = sub;
-        this.worksheetTitle = sub.worksheet?.title ?? '';
-        this.worksheet      = wsRes?.data ?? wsRes ?? null;
-        this.assignmentDeadline = assignmentRes?.deadline ? new Date(assignmentRes.deadline) : null;
-        this.hasState       = true;
-        this.isWorksheetLoading = false;
-        this.calculateSectionAnalytics();
-        this.cdr.markForCheck();
-        this.auth.getMeProfile().then(me => {
-          this.resolvedStudentName = me?.displayName || me?.email || '';
+      ])
+        .then(([sub, wsRes, assignmentRes]: [any, any, any]) => {
+          if (!sub) {
+            // No submission found — send student back to play the worksheet
+            this.router.navigate(['/student/worksheet', worksheetId], {
+              queryParams: { assignmentId, classId: classId || undefined },
+            });
+            return;
+          }
+          this.submission = sub;
+          this.worksheetTitle = sub.worksheet?.title ?? '';
+          this.worksheet = wsRes?.data ?? wsRes ?? null;
+          this.assignmentDeadline = assignmentRes?.deadline
+            ? new Date(assignmentRes.deadline)
+            : null;
+          this.hasState = true;
+          this.isWorksheetLoading = false;
+          this.calculateSectionAnalytics();
           this.cdr.markForCheck();
-        }).catch(() => {});
-      }).catch(() => {
-        this.isWorksheetLoading = false;
-        this.router.navigate(['/student/my-classes']);
-      });
+          this.auth
+            .getMeProfile()
+            .then((me) => {
+              this.resolvedStudentName = me?.displayName || me?.email || '';
+              this.cdr.markForCheck();
+            })
+            .catch(() => {});
+        })
+        .catch(() => {
+          this.isWorksheetLoading = false;
+          this.router.navigate(['/student/my-classes']);
+        });
     }
   }
 
   private resolveStudentNameAndWorksheet(): void {
-    this.auth.getMeProfile().then(me => {
-      this.resolvedStudentName = me?.displayName || me?.email || '';
-      this.cdr.markForCheck();
-    }).catch(() => {});
+    this.auth
+      .getMeProfile()
+      .then((me) => {
+        this.resolvedStudentName = me?.displayName || me?.email || '';
+        this.cdr.markForCheck();
+      })
+      .catch(() => {});
 
     if (this.submission?.worksheetId) {
       this.isWorksheetLoading = true;
-      
+
       // Fetch worksheet and assignment deadline in parallel
       const worksheetFetch = this.api.getById(this.submission.worksheetId).toPromise();
-      const assignmentFetch = this.assignmentId 
+      const assignmentFetch = this.assignmentId
         ? this.assignmentApi.getAssignmentById(this.assignmentId).catch(() => null)
         : Promise.resolve(null);
 
-      Promise.all([worksheetFetch, assignmentFetch]).then(([wsRes, assignmentRes]: [any, any]) => {
-        this.worksheet = wsRes?.data ?? wsRes ?? null;
-        this.assignmentDeadline = assignmentRes?.deadline ? new Date(assignmentRes.deadline) : null;
-        this.calculateSectionAnalytics();
-        this.isWorksheetLoading = false;
-        this.cdr.markForCheck();
-      }).catch(() => {
-        // If worksheet fetch fails, try worksheet alone
-        this.api.getById(this.submission!.worksheetId).subscribe({
-          next: (res: any) => {
-            this.worksheet = res?.data ?? res ?? null;
-            this.calculateSectionAnalytics();
-            this.isWorksheetLoading = false;
-            this.cdr.markForCheck();
-          },
-          error: () => {
-            this.isWorksheetLoading = false;
-            this.cdr.markForCheck();
-          },
+      Promise.all([worksheetFetch, assignmentFetch])
+        .then(([wsRes, assignmentRes]: [any, any]) => {
+          this.worksheet = wsRes?.data ?? wsRes ?? null;
+          this.assignmentDeadline = assignmentRes?.deadline
+            ? new Date(assignmentRes.deadline)
+            : null;
+          this.calculateSectionAnalytics();
+          this.isWorksheetLoading = false;
+          this.cdr.markForCheck();
+        })
+        .catch(() => {
+          // If worksheet fetch fails, try worksheet alone
+          this.api.getById(this.submission!.worksheetId).subscribe({
+            next: (res: any) => {
+              this.worksheet = res?.data ?? res ?? null;
+              this.calculateSectionAnalytics();
+              this.isWorksheetLoading = false;
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.isWorksheetLoading = false;
+              this.cdr.markForCheck();
+            },
+          });
         });
-      });
     }
   }
 
@@ -228,23 +262,30 @@ export class StudentWorksheetResultsPage implements OnInit {
     if (!this.worksheet || !this.submission) return;
 
     // Use backend sections[] array if available (new submissions)
-    if (this.submission.sections && Array.isArray(this.submission.sections) && this.submission.sections.length > 0) {
-      this.sectionAnalytics = this.submission.sections.map(section => ({
+    if (
+      this.submission.sections &&
+      Array.isArray(this.submission.sections) &&
+      this.submission.sections.length > 0
+    ) {
+      this.sectionAnalytics = this.submission.sections.map((section) => ({
         id: section.sectionId,
         title: section.sectionName,
         type: section.activityType,
         score: section.score,
-        completion: section.totalPoints > 0 ? Math.round(((section.totalPoints - section.skippedCount) / section.totalPoints) * 100) : 0,
+        completion:
+          section.totalPoints > 0
+            ? Math.round(((section.totalPoints - section.skippedCount) / section.totalPoints) * 100)
+            : 0,
         totalQuestions: section.totalPoints,
         correct: section.correctCount,
         incorrect: section.incorrectCount,
-        skipped: section.skippedCount
+        skipped: section.skippedCount,
       }));
       return;
     }
 
     // Fallback: recalculate from answers[] for old submissions without sections[]
-    const answers = this.submission.answers as any[] || [];
+    const answers = (this.submission.answers as any[]) || [];
     const sectionMap: Record<string, { title: string; type: string }> = {};
 
     // Build section map from worksheet activities
@@ -273,11 +314,11 @@ export class StudentWorksheetResultsPage implements OnInit {
           matching: 'Matching',
           dragDrop: 'Drag & Drop',
           shortAnswer: 'Short Answer',
-          trueFalse: 'True/False'
+          trueFalse: 'True/False',
         };
         sectionMap[sectionId] = {
           title: activity.title || `Section ${index + 1}`,
-          type: typeNames[activity.type] || activity.type || 'Activity'
+          type: typeNames[activity.type] || activity.type || 'Activity',
         };
       });
     }
@@ -291,14 +332,16 @@ export class StudentWorksheetResultsPage implements OnInit {
       }
       sectionStats[sectionId].total++;
       if (answer.isCorrect) sectionStats[sectionId].correct++;
-      if (!answer.studentAnswer || answer.studentAnswer.trim() === '') sectionStats[sectionId].skipped++;
+      if (!answer.studentAnswer || answer.studentAnswer.trim() === '')
+        sectionStats[sectionId].skipped++;
     });
 
     // Build analytics array
     this.sectionAnalytics = Object.entries(sectionStats).map(([sectionId, stats]) => {
       const metadata = sectionMap[sectionId] || { title: sectionId, type: 'Activity' };
       const score = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
-      const completion = stats.total > 0 ? Math.round(((stats.total - stats.skipped) / stats.total) * 100) : 0;
+      const completion =
+        stats.total > 0 ? Math.round(((stats.total - stats.skipped) / stats.total) * 100) : 0;
 
       return {
         id: sectionId,
@@ -309,7 +352,7 @@ export class StudentWorksheetResultsPage implements OnInit {
         totalQuestions: stats.total,
         correct: stats.correct,
         incorrect: stats.total - stats.correct,
-        skipped: stats.skipped
+        skipped: stats.skipped,
       };
     });
   }
@@ -317,7 +360,10 @@ export class StudentWorksheetResultsPage implements OnInit {
   async downloadMyPdf(): Promise<void> {
     if (this.isPdfDownloading) return;
     if (!this.worksheet || !this.submission) {
-      this.alert.showWarning('Worksheet not ready', 'Please wait a moment for the worksheet to finish loading.');
+      this.alert.showWarning(
+        'Worksheet not ready',
+        'Please wait a moment for the worksheet to finish loading.',
+      );
       return;
     }
     this.isPdfDownloading = true;
@@ -325,9 +371,9 @@ export class StudentWorksheetResultsPage implements OnInit {
 
     try {
       const studentName = this.studentName || 'Student';
-      const safeName    = studentName.replace(/\s+/g, '-').toLowerCase();
-      const safeTitle   = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
-      const dateStr     = this.formattedDate;
+      const safeName = studentName.replace(/\s+/g, '-').toLowerCase();
+      const safeTitle = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
+      const dateStr = this.formattedDate;
 
       await this.pdfRenderer.renderViewerOffscreen(
         {
@@ -337,7 +383,8 @@ export class StudentWorksheetResultsPage implements OnInit {
           date: dateStr,
           submittedAnswers: (this.submission.answers as any[]) ?? [],
           totalPointsEarned: this.submission.earnedPoints ?? this.submission.totalPointsEarned ?? 0,
-          totalPointsPossible: this.submission.totalPoints ?? this.submission.totalPointsPossible ?? 0,
+          totalPointsPossible:
+            this.submission.totalPoints ?? this.submission.totalPointsPossible ?? 0,
           percentage: this.submission.score ?? this.submission.percentage ?? 0,
           timeTaken: this.submission.timeTaken,
         },
