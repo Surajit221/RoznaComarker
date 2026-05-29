@@ -1,0 +1,309 @@
+/* ─── Page wrapper ─────────────────────────────── */
+.worksheet-page {
+  width: 794px;
+  min-height: 1123px;
+  background: #ffffff;
+  padding: 32px 36px 80px 36px; /* bottom pad for footer */
+  box-sizing: border-box;
+  font-family: var(--ws-font, Arial, sans-serif);
+  color: var(--ws-text, #1a1a1a);
+  border: 3px solid var(--ws-primary, #2d6a2d);
+  position: relative;
+  margin: 0 auto;
+}
+
+@media print {
+  .worksheet-page {
+    width: 100%;
+    min-height: 100vh;
+    border: none;
+    padding: 20px 24px 60px 24px;
+    margin: 0;
+  }
+  .no-print { display: none !important; }
+}
+
+/* ─── Header ────────────────────────────────────── */
+.ws-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.ws-header-decorative-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.ws-header-right { flex: 1; }
+
+.ws-name-field {
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.ws-title-banner {
+  background: var(--ws-headerBg, #2d6a2d);
+  color: var(--ws-headerText, #ffffff);
+  font-size: 36px;
+  font-weight: 900;
+  padding: 10px 20px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+}
+
+.ws-student-fields {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.ws-student-field { display: flex; align-items: center; gap: 8px; }
+
+.ws-student-field-line {
+  border-bottom: 1.5px solid #333;
+  width: 120px;
+  height: 18px;
+}
+
+/* ─── Instructions ──────────────────────────────── */
+.ws-instructions {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 12px 0;
+  font-weight: bold;
+  text-align: justify;
+}
+
+/* ─── Diagram Labels (coconut-tree style) ────────── */
+.ws-diagram-container {
+  display: flex;
+  gap: 0;
+  min-height: 680px;
+  position: relative;
+  margin: 12px 0;
+}
+
+.ws-diagram-image-col {
+  width: 38%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+  flex-shrink: 0;
+}
+
+.ws-diagram-image {
+  max-width: 100%;
+  max-height: 640px;
+  object-fit: contain;
+}
+
+.ws-diagram-image-placeholder {
+  width: 260px;
+  height: 580px;
+  background: #f5f5f5;
+  border: 1px dashed #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
+}
+
+.ws-diagram-boxes-col {
+  width: 62%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 0 16px 12px;
+}
+
+/* Individual labeled box */
+.ws-label-box {
+  border: 2px solid var(--ws-boxBorder, #2d6a2d);
+  border-radius: 8px;
+  position: relative;
+  padding: 30px 14px 14px 14px;
+  background: #ffffff;
+  min-height: 88px;
+}
+
+/* Pill-shaped label tab centered on top edge */
+.ws-label-tab {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ws-labelBg, #2d6a2d);
+  color: var(--ws-labelText, #ffffff);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 5px 22px;
+  border-radius: 20px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+/* Write lines inside box */
+.ws-write-lines { display: flex; flex-direction: column; }
+
+.ws-write-line {
+  height: 24px;
+  border-bottom: 1px solid #aaa;
+  width: 100%;
+}
+
+/* ─── Question Block ────────────────────────────── */
+.ws-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ws-primary, #2d6a2d);
+  border-bottom: 2px solid var(--ws-primary, #2d6a2d);
+  padding-bottom: 4px;
+  margin: 16px 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ws-question {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  align-items: flex-start;
+}
+
+.ws-question-number {
+  font-weight: bold;
+  min-width: 24px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ws-question-body { flex: 1; }
+
+/* MCQ */
+.ws-mcq-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 24px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.ws-mcq-option { display: flex; align-items: center; gap: 6px; }
+
+.ws-option-bubble {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid #333;
+  flex-shrink: 0;
+}
+
+/* Answer lines */
+.ws-answer-lines { margin-top: 6px; }
+
+/* True/False */
+.ws-tf-options { display: flex; gap: 28px; margin-top: 6px; }
+
+.ws-tf-option { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+
+.ws-tf-box {
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid #333;
+  flex-shrink: 0;
+}
+
+/* Matching */
+.ws-matching-grid {
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 6px 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  align-items: center;
+}
+
+.ws-match-left { text-align: right; font-weight: 500; }
+
+.ws-match-line {
+  border-bottom: 1px solid #aaa;
+  height: 16px;
+  width: 100%;
+}
+
+.ws-match-right { font-weight: 500; }
+
+/* ─── Word Bank ──────────────────────────────────── */
+.ws-word-bank {
+  border: 2px solid var(--ws-primary, #2d6a2d);
+  border-radius: 6px;
+  padding: 10px 16px 12px;
+  margin: 12px 0;
+}
+
+.ws-word-bank-title {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--ws-primary, #2d6a2d);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.ws-word-bank-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 13px;
+}
+
+.ws-word-bank-word {
+  padding-bottom: 2px;
+  border-bottom: 1px solid #333;
+}
+
+/* ─── Footer ─────────────────────────────────────── */
+.ws-footer {
+  background: var(--ws-primary, #2d6a2d);
+  color: var(--ws-headerText, #ffffff);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  position: absolute;
+  bottom: 32px;
+  left: 36px;
+  right: 36px;
+  border-radius: 2px;
+}
+
+/* ─── Answer key highlight ───────────────────────── */
+.ws-answer-reveal {
+  font-size: 11px;
+  color: #d32f2f;
+  font-weight: 700;
+  margin-top: 2px;
+  font-style: italic;
+}

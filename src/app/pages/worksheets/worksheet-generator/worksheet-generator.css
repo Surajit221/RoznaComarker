@@ -1,0 +1,474 @@
+/* ── Page layout ─────────────────────────────────────── */
+.wg-wrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.wg-header {
+  margin-bottom: 24px;
+}
+.wg-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #1a1a1a;
+}
+.wg-subtitle {
+  color: #555;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* ── Tabs ──────────────────────────────────────────── */
+.wg-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 24px;
+}
+
+.wg-tab {
+  padding: 10px 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  border-bottom: 3px solid transparent;
+  color: #555;
+  margin-bottom: -2px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.wg-tab.active {
+  font-weight: 800;
+  border-bottom-color: #2d6a2d;
+  color: #2d6a2d;
+}
+
+/* ── Error banner ──────────────────────────────────── */
+.wg-error {
+  background: #fff3f3;
+  border: 1px solid #e57373;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  color: #c62828;
+  font-size: 0.875rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wg-error-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c62828;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+/* ── Form grid ─────────────────────────────────────── */
+.wg-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.wg-field {
+  display: flex;
+  flex-direction: column;
+}
+.wg-field--full {
+  grid-column: 1 / -1;
+}
+
+.wg-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.wg-input {
+  padding: 9px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.wg-input:focus {
+  border-color: #2d6a2d;
+}
+
+/* ── Question type chips ───────────────────────────── */
+.wg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.wg-chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 2px solid #ccc;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  transition: all 0.15s;
+}
+.wg-chip.selected {
+  border-color: #2d6a2d;
+  background: #2d6a2d;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── Slider ────────────────────────────────────────── */
+.wg-slider {
+  width: 100%;
+  margin-top: 8px;
+  accent-color: #2d6a2d;
+}
+
+/* ── Segmented difficulty ──────────────────────────── */
+.wg-seg {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.wg-seg-btn {
+  flex: 1;
+  padding: 8px;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  text-transform: capitalize;
+  transition: all 0.15s;
+}
+.wg-seg-btn.active {
+  border-color: #2d6a2d;
+  background: #2d6a2d;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── Color swatches ────────────────────────────────── */
+.wg-swatches {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.wg-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.wg-swatch.active {
+  border-color: #333;
+}
+
+/* ── Generate button ───────────────────────────────── */
+.wg-btn-generate {
+  width: 100%;
+  padding: 14px;
+  background: #2d6a2d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.15s;
+}
+.wg-btn-generate:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+/* ── Drop zone ─────────────────────────────────────── */
+.wg-dropzone {
+  border: 2px dashed #ccc;
+  border-radius: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.wg-dropzone.dragover {
+  border-color: #2d6a2d;
+  background: #f0fff0;
+}
+.wg-dropzone-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 12px;
+}
+.wg-dropzone-title {
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+.wg-dropzone-sub {
+  color: #777;
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+/* ── File row ──────────────────────────────────────── */
+.wg-file-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.wg-thumb {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f5f5;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wg-thumb-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.wg-thumb-pdf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+}
+.wg-thumb-name {
+  font-size: 0.75rem;
+  color: #777;
+  text-align: center;
+  word-break: break-all;
+}
+
+.wg-file-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wg-file-badge {
+  background: #f0fff0;
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: #2d6a2d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wg-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  font-size: 0.8125rem;
+  padding: 0;
+}
+
+.wg-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* ── Progress ──────────────────────────────────────── */
+.wg-progress {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fafafa;
+  grid-column: 1 / -1;
+}
+.wg-progress-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  margin: 0 0 12px;
+}
+
+.wg-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+  color: #999;
+}
+.wg-step--done {
+  color: #2d6a2d;
+}
+.wg-step--active {
+  color: #1a4f8a;
+  font-weight: 700;
+}
+.wg-step--error {
+  color: #c62828;
+}
+.wg-step-icon {
+  width: 20px;
+  text-align: center;
+}
+
+/* ── Action bar ────────────────────────────────────── */
+.wg-action-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.wg-action-btn {
+  padding: 8px 18px;
+  background: #fff;
+  color: #333;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+.wg-action-btn--answer.active {
+  background: #fff3e0;
+  border-color: #e65100;
+  color: #e65100;
+}
+.wg-action-btn--pdf {
+  background: #2d6a2d;
+  color: #fff;
+  border-color: #2d6a2d;
+}
+.wg-action-btn--pdf:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Activity type cards ───────────────────────────── */
+.wg-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.wg-activity-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.15s;
+  position: relative;
+}
+.wg-activity-card.selected {
+  border-color: #2d9b8a;
+  background: #f0faf8;
+}
+.wg-activity-card.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.wg-activity-check {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.wg-activity-check.checked {
+  background: #2d9b8a;
+}
+
+.wg-activity-label {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  margin-bottom: 3px;
+}
+.wg-activity-desc {
+  font-size: 0.75rem;
+  color: #777;
+  line-height: 1.4;
+}
+
+/* ── Custom Selection toggle ─────────────────────── */
+.wg-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: #ccc;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.wg-toggle.on {
+  background: #2d9b8a;
+}
+.wg-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.wg-toggle.on::after {
+  left: 22px;
+}
+
+/* ── Print ─────────────────────────────────────────── */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
