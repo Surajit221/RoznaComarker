@@ -120,8 +120,18 @@ export class UnsplashImageModal implements OnChanges, OnDestroy {
       }
     } catch (err: any) {
       console.error('[UNSPLASH MODAL] Search error:', err);
-      this.error =
-        err?.error?.message ?? err?.message ?? 'Failed to search images. Please try again.';
+      
+      // Provide user-friendly error messages for common issues
+      let errorMessage = 'Failed to search images. Please try again.';
+      if (err?.name === 'TimeoutError' || err?.message?.includes('timeout')) {
+        errorMessage = 'Search timed out. The Unsplash API is taking too long. Please try again.';
+      } else if (err?.status === 408) {
+        errorMessage = 'Search request timed out. Please try again.';
+      } else if (err?.error?.message) {
+        errorMessage = err.error.message;
+      }
+      
+      this.error = errorMessage;
       this.images = [];
     } finally {
       this.isLoading = false;

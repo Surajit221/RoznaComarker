@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, of, throwError } from 'rxjs';
+import { tap, timeout, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface UnsplashImage {
@@ -19,6 +19,7 @@ interface CacheEntry {
 export class UnsplashService {
   private readonly BASE_URL = environment.apiBaseUrl || environment.apiUrl;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly API_TIMEOUT = 15000; // 15 seconds — backend has 10s, this gives it buffer
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(private http: HttpClient) {}
@@ -46,12 +47,22 @@ export class UnsplashService {
         data: UnsplashImage[];
       }>(`${this.BASE_URL}/unsplash/search`, { params: { q: query.trim(), per_page: perPage.toString() } })
       .pipe(
+        // Add 15-second timeout to prevent hanging
+        timeout(this.API_TIMEOUT),
         tap((res) => {
           console.timeEnd(`[UNSPLASH] API "${query}"`);
           console.log(`[UNSPLASH] Received ${res.data?.length ?? 0} images for "${query}"`);
           if (res.success && res.data?.length) {
             this.cache.set(key, { data: res.data, ts: Date.now() });
           }
+        }),
+        catchError((err: any) => {
+          console.error(`[UNSPLASH] Search failed for "${query}":`, err.message);
+          // Return empty result on timeout instead of throwing — graceful degradation
+          if (err.name === 'TimeoutError') {
+            return of({ success: false, data: [] });
+          }
+          return throwError(() => err);
         }),
       );
   }
