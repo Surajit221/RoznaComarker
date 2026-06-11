@@ -1,26 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import 'tailwindcss';
+@import './app/components/worksheet/worksheet.css';
 
 :root {
-  --color-primary:      #008081;
-  --color-primary-dark: #136C6D;
-  --color-primary-bg:   #e6f4f4;
-  --color-warning:      #FFC300;
-  --color-warning-dark: #DBB12A;
-  --color-navy:         #203864;
-  --color-navy-dark:    #152E5E;
-  --color-danger:       #EE4E4E;
-  --color-danger-dark:  #E63D3D;
-  --color-text:         #374151;
-  --color-text-muted:   #6B7280;
-  --color-border:       #E7E7E7;
-  --color-surface:      #F3F3F3;
-  --color-white:        #FFFFFF;
-  --font-main:          'Poppins', sans-serif;
-  --radius-sm:          0.5rem;
-  --radius-md:          0.75rem;
-  --radius-lg:          1rem;
-  --radius-xl:          1.25rem;
+  --color-primary: #008081;
+  --color-primary-dark: #136c6d;
+  --color-primary-bg: #e6f4f4;
+  --color-warning: #ffc300;
+  --color-warning-dark: #dbb12a;
+  --color-navy: #203864;
+  --color-navy-dark: #152e5e;
+  --color-danger: #ee4e4e;
+  --color-danger-dark: #e63d3d;
+  --color-text: #374151;
+  --color-text-muted: #6b7280;
+  --color-border: #e7e7e7;
+  --color-surface: #f3f3f3;
+  --color-white: #ffffff;
+  --font-main: 'Poppins', sans-serif;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
 @theme {

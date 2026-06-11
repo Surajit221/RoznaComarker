@@ -1,42 +1,113 @@
 @if (show) {
-  <div class="uim-backdrop" (click)="onBackdropClick($event)">
-    <div class="uim-modal">
-      <div class="uim-header">
-        <h2 class="uim-title">Search Unsplash Images</h2>
-        <button class="uim-close-btn" (click)="close()" aria-label="Close">✕</button>
+<div class="uim-backdrop" (click)="onBackdropClick($event)">
+  <div class="uim-modal" role="dialog" aria-modal="true" aria-label="Search Unsplash Images">
+    <!-- ── Header ─────────────────────────────────────────── -->
+    <div class="uim-header">
+      <div class="uim-header-left">
+        <span class="uim-header-icon">🖼️</span>
+        <h2 class="uim-title">Search Images</h2>
       </div>
-
-      <div class="uim-search">
-        <input 
-          type="text" 
-          class="uim-search-input" 
-          placeholder="Enter keyword to search images..." 
-          [(ngModel)]="searchQuery"
-          (keyup.enter)="searchImages()"
-        />
-        <button class="uim-search-btn" [disabled]="isLoading" (click)="searchImages()">
-          <span *ngIf="!isLoading">Search</span>
-          <span *ngIf="isLoading" class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
-        </button>
-      </div>
-
-      @if (error) {
-        <div class="uim-error">{{ error }}</div>
-      }
-
-      <div class="uim-grid">
-        @for (image of images; track image.id) {
-          <div class="uim-image-item" (click)="selectImage(image.regular)">
-            <img [src]="image.thumb" [alt]="image.alt || 'Image'" class="uim-thumb" />
-            <div class="uim-overlay">Select</div>
-          </div>
-        }
-        @if (images.length === 0 && !isLoading && !error) {
-          <div class="uim-empty">
-            <p>Enter a keyword above to search for images</p>
-          </div>
-        }
-      </div>
+      <button class="uim-close-btn" (click)="close()" aria-label="Close">✕</button>
     </div>
+
+    <!-- ── Search bar ─────────────────────────────────────── -->
+    <div class="uim-search">
+      <div class="uim-search-field">
+        <span class="uim-search-icon">🔍</span>
+        <input
+          type="text"
+          class="uim-search-input"
+          placeholder="Search for images… (e.g. solar system)"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchInput()"
+          (keyup.enter)="searchImages()"
+          autocomplete="off"
+          autofocus
+        />
+        @if (searchQuery) {
+        <button
+          class="uim-clear-btn"
+          (click)="searchQuery = ''; images = []; error = null"
+          aria-label="Clear"
+        >
+          ✕
+        </button>
+        }
+      </div>
+      <button
+        class="uim-search-btn"
+        [disabled]="isLoading"
+        (click)="searchImages()"
+        aria-label="Search"
+      >
+        @if (isLoading) {
+        <span class="uim-btn-spinner"></span>
+        } @else { Search }
+      </button>
+    </div>
+
+    <!-- ── Suggestion chips ───────────────────────────────── -->
+    @if (images.length === 0 && !isLoading) {
+    <div class="uim-suggestions">
+      @for (s of suggestions; track s) {
+      <button class="uim-chip" (click)="searchSuggestion(s)">{{ s }}</button>
+      }
+    </div>
+    }
+
+    <!-- ── Error ──────────────────────────────────────────── -->
+    @if (error && !isLoading) {
+    <div class="uim-error" role="alert">{{ error }}</div>
+    }
+
+    <!-- ── Results grid ───────────────────────────────────── -->
+    <div class="uim-grid">
+      <!-- Skeleton cards while loading -->
+      @if (isLoading) { @for (s of skeletonItems; track $index) {
+      <div class="uim-skeleton-card">
+        <div class="uim-skeleton-img"></div>
+      </div>
+      } }
+
+      <!-- Real image cards -->
+      @if (!isLoading) { @for (image of images; track image.id) {
+      <button
+        class="uim-image-item"
+        (click)="selectImage(image.small)"
+        [title]="image.alt || 'Select image'"
+        aria-label="Select image"
+      >
+        <img
+          [src]="image.small"
+          [alt]="image.alt || 'Image'"
+          class="uim-thumb"
+          loading="lazy"
+          decoding="async"
+        />
+        <div class="uim-overlay">
+          <span class="uim-overlay-icon">✓</span>
+          <span>Select</span>
+        </div>
+      </button>
+      } }
+
+      <!-- Empty state (no results, not loading, no error) -->
+      @if (!isLoading && images.length === 0 && !error) {
+      <div class="uim-empty">
+        <div class="uim-empty-icon">🔍</div>
+        <p class="uim-empty-title">Search for images</p>
+        <p class="uim-empty-sub">Type a keyword above or pick a suggestion</p>
+      </div>
+      }
+    </div>
+
+    <!-- ── Footer attribution ─────────────────────────────── -->
+    @if (images.length > 0) {
+    <div class="uim-footer">
+      Photos from
+      <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash</a>
+    </div>
+    }
   </div>
+</div>
 }

@@ -1,5 +1,15 @@
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Component, inject, Input, Output, EventEmitter } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { UnsplashService, UnsplashImage } from '../../../services/unsplash.service';
@@ -9,61 +19,158 @@ import { UnsplashService, UnsplashImage } from '../../../services/unsplash.servi
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './unsplash-image-modal.html',
-  styleUrl: './unsplash-image-modal.css'
+  styleUrl: './unsplash-image-modal.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class UnsplashImageModal {
+export class UnsplashImageModal implements OnChanges, OnDestroy {
   @Input() show = false;
   @Output() showChange = new EventEmitter<boolean>();
   @Output() imageSelected = new EventEmitter<string>();
 
-  private unsplashService = inject(UnsplashService);
+  private readonly unsplashService = inject(UnsplashService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   searchQuery = '';
   images: UnsplashImage[] = [];
   isLoading = false;
   error: string | null = null;
 
-  async searchImages() {
-    if (!this.searchQuery.trim()) {
-      this.error = 'Please enter a search query';
-      return;
-    }
+  /** Fixed array for skeleton cards so *ngFor doesn't recalculate */
+  readonly skeletonItems = Array(12).fill(0);
 
-    this.isLoading = true;
-    this.error = null;
+  /** Quick-search suggestion chips */
+  readonly suggestions = [
+    'Education',
+    'Science',
+    'Mathematics',
+    'History',
+    'Biology',
+    'English',
+    'Technology',
+    'Nature',
+  ];
 
-    try {
-      const response = await firstValueFrom(this.unsplashService.searchImages(this.searchQuery, 12));
-      this.images = response.data || [];
-      
-      if (this.images.length === 0) {
-        this.error = 'No images found for this search query';
-      }
-    } catch (err: any) {
-      console.error('Unsplash search error:', err);
-      this.error = err.message || 'Failed to search images. Please try again.';
-      this.images = [];
-    } finally {
-      this.isLoading = false;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ── Lifecycle ────────────────────────────────────────────────────────────
+
+  ngOnChanges(): void {
+    if (this.show) {
+      // Pre-warm common topics so first click feels instant
+      this.unsplashService.prewarm();
     }
   }
 
-  selectImage(imageUrl: string) {
+  ngOnDestroy(): void {
+    this.clearDebounce();
+  }
+
+  // ── Search ───────────────────────────────────────────────────────────────
+
+  /** Called on every keystroke — debounces 400 ms then fires search */
+  onSearchInput(): void {
+    this.clearDebounce();
+    const q = this.searchQuery.trim();
+    if (!q) {
+      this.error = null;
+      return;
+    }
+    this.debounceTimer = setTimeout(() => this.performSearch(), 400);
+  }
+
+  /** Called on Enter key or Search button click — searches immediately */
+  searchImages(): void {
+    this.clearDebounce();
+    this.performSearch();
+  }
+
+  /** Search a suggestion chip */
+  searchSuggestion(topic: string): void {
+    this.searchQuery = topic;
+    this.clearDebounce();
+    this.performSearch();
+  }
+
+  private async performSearch(): Promise<void> {
+    const q = this.searchQuery.trim();
+    if (!q) {
+      this.error = 'Please enter a search term';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    console.time(`[UNSPLASH MODAL] Search "${q}"`);
+    const t0 = performance.now();
+
+    this.isLoading = true;
+    this.error = null;
+    this.images = [];
+    this.cdr.markForCheck();
+
+    try {
+      const response = await firstValueFrom(this.unsplashService.searchImages(q, 12));
+      this.images = response.data ?? [];
+
+      const elapsed = Math.round(performance.now() - t0);
+      console.timeEnd(`[UNSPLASH MODAL] Search "${q}"`);
+      console.log(`[UNSPLASH MODAL] Rendered ${this.images.length} images in ${elapsed} ms`);
+
+      if (this.images.length === 0) {
+        this.error = `No images found for "${q}". Try a different keyword.`;
+      }
+    } catch (err: any) {
+      console.error('[UNSPLASH MODAL] Search error:', err);
+      
+      // Provide user-friendly error messages for common issues
+      let errorMessage = 'Failed to search images. Please try again.';
+      if (err?.name === 'TimeoutError' || err?.message?.includes('timeout')) {
+        errorMessage = 'Search timed out. The Unsplash API is taking too long. Please try again.';
+      } else if (err?.status === 408) {
+        errorMessage = 'Search request timed out. Please try again.';
+      } else if (err?.error?.message) {
+        errorMessage = err.error.message;
+      }
+      
+      this.error = errorMessage;
+      this.images = [];
+    } finally {
+      this.isLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  // ── Selection & close ────────────────────────────────────────────────────
+
+  selectImage(imageUrl: string): void {
+    console.log('[UNSPLASH MODAL] Image selected:', imageUrl);
     this.imageSelected.emit(imageUrl);
     this.close();
   }
 
-  close() {
+  close(): void {
+    this.clearDebounce();
     this.show = false;
     this.showChange.emit(false);
     this.searchQuery = '';
     this.images = [];
     this.error = null;
+    this.isLoading = false;
   }
 
-  onBackdropClick(event: MouseEvent) {
+  onBackdropClick(event: MouseEvent): void {
     if ((event.target as HTMLElement).classList.contains('uim-backdrop')) {
       this.close();
+    }
+  }
+
+  trackById(_: number, img: UnsplashImage): string {
+    return img.id;
+  }
+
+  private clearDebounce(): void {
+    if (this.debounceTimer !== null) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
     }
   }
 }

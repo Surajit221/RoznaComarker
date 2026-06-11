@@ -33,7 +33,9 @@
 .fc-modal {
   background: #ffffff;
   border-radius: 1.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
   padding: 24px;
   width: 100%;
   max-width: 480px;
@@ -43,8 +45,14 @@
 }
 
 @keyframes fc-modal-in {
-  from { opacity: 0; transform: scale(0.9); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .fc-header {
@@ -58,7 +66,7 @@
 /* Back button — white bg, border-[#E7E7E7], hover teal */
 .fc-back-btn {
   background: #ffffff;
-  border: 2px solid #E7E7E7;
+  border: 2px solid #e7e7e7;
   color: #374151;
   padding: 6px 14px;
   border-radius: 0.75rem;
@@ -66,7 +74,9 @@
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
   font-family: inherit;
 }
 .fc-back-btn:hover {
@@ -105,7 +115,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #E7E7E7;
+  background: #e7e7e7;
   flex-shrink: 0;
   transition: background 0.2s;
 }
@@ -118,14 +128,14 @@
   flex: 1;
   max-width: 60px;
   height: 2px;
-  background: #E7E7E7;
+  background: #e7e7e7;
 }
 
 /* Tabs — border-[#E7E7E7] bottom, active tab color #008081 */
 .fc-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid #E7E7E7;
+  border-bottom: 2px solid #e7e7e7;
   margin-bottom: 16px;
 }
 
@@ -176,7 +186,7 @@
 .fc-textarea {
   width: 100%;
   background: #ffffff;
-  border: 2px solid #E7E7E7;
+  border: 2px solid #e7e7e7;
   border-radius: 0.75rem;
   padding: 12px 16px;
   color: #374151;
@@ -184,7 +194,9 @@
   font-family: inherit;
   resize: vertical;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
   box-sizing: border-box;
 }
 
@@ -194,7 +206,7 @@
 }
 
 .fc-textarea::placeholder {
-  color: #E7E7E7;
+  color: #e7e7e7;
 }
 
 .fc-textarea--tall {
@@ -203,7 +215,7 @@
 
 /* Dropzone — dashed border-[#E7E7E7], hover #008081 */
 .fc-dropzone {
-  border: 2px dashed #E7E7E7;
+  border: 2px dashed #e7e7e7;
   border-radius: 0.75rem;
   padding: 28px 16px;
   text-align: center;
@@ -252,7 +264,7 @@
 .fc-select {
   width: 100%;
   background: #ffffff;
-  border: 2px solid #E7E7E7;
+  border: 2px solid #e7e7e7;
   border-radius: 0.75rem;
   padding: 12px 16px;
   color: #374151;
@@ -260,7 +272,9 @@
   font-family: inherit;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
   appearance: auto;
 }
 
@@ -277,8 +291,8 @@
 .fc-generate-btn {
   width: 100%;
   background: #008081;
-  border: 2px solid #136C6D;
-  box-shadow: 0px 4px 0 #136C6D;
+  border: 2px solid #136c6d;
+  box-shadow: 0px 4px 0 #136c6d;
   border-radius: 0.75rem;
   color: #ffffff;
   font-size: 1rem;
@@ -306,14 +320,16 @@
 .fc-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #E7E7E7;
+  border: 3px solid #e7e7e7;
   border-top-color: #008081;
   border-radius: 50%;
   animation: fc-spin 0.7s linear infinite;
 }
 
 @keyframes fc-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .fc-generating-text {
@@ -367,8 +383,12 @@
 }
 
 @keyframes fc-drawer-in {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .fc-drawer-header {
@@ -413,21 +433,24 @@
 /* Nav buttons — white bg, border-[#E7E7E7], hover teal */
 .fc-nav-btn {
   background: #ffffff;
-  border: 2px solid #E7E7E7;
+  border: 2px solid #e7e7e7;
   color: #374151;
   width: 32px;
   height: 32px;
   border-radius: 0.75rem;
   cursor: pointer;
   font-size: 0.8rem;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .fc-nav-btn:hover:not(:disabled) {
-  background: #E6F2F2;
+  background: #e6f2f2;
   border-color: #008081;
   color: #008081;
 }
@@ -439,8 +462,8 @@
 
 /* Card display — bg-[#F3F3F3] border-[#E7E7E7], matches assignment row bg */
 .fc-card-display {
-  background: #F3F3F3;
-  border: 2px solid #E7E7E7;
+  background: #f3f3f3;
+  border: 2px solid #e7e7e7;
   border-radius: 0.75rem;
   padding: 16px;
   margin-bottom: 12px;
@@ -456,7 +479,7 @@
   border-radius: 0.5rem;
   overflow: hidden;
   background: #ffffff;
-  border: 1px solid #E7E7E7;
+  border: 1px solid #e7e7e7;
 }
 
 .fc-image-img {
@@ -503,7 +526,7 @@
 /* Dividers — border-[#E7E7E7] */
 .fc-card-divider {
   height: 1px;
-  background: #E7E7E7;
+  background: #e7e7e7;
   margin: 12px 0;
 }
 
@@ -511,7 +534,7 @@
 .fc-edit-textarea {
   width: 100%;
   background: #ffffff;
-  border: 2px solid #E7E7E7;
+  border: 2px solid #e7e7e7;
   border-radius: 0.5rem;
   padding: 8px 12px;
   color: #374151;
@@ -542,7 +565,9 @@
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 /* Edit card — matches the "Edit" button on assignment rows: border-gray-200 bg-white text-gray-700 */
@@ -562,7 +587,7 @@
 .fc-action-btn--delete {
   background: #fef2f2;
   border: 1px solid #fca5a5;
-  color: #EE4E4E;
+  color: #ee4e4e;
 }
 
 .fc-action-btn--delete:hover {
@@ -572,7 +597,7 @@
 /* Drawer divider */
 .fc-drawer-divider {
   height: 1px;
-  background: #E7E7E7;
+  background: #e7e7e7;
   margin: 0 0 16px 0;
 }
 
@@ -603,39 +628,6 @@
   margin-top: 4px;
 }
 
-/* Image Options */
-.fc-image-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.fc-radio-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  transition: all 150ms;
-}
-
-.fc-radio-label:hover {
-  border-color: var(--color-primary);
-  background: var(--color-primary-bg);
-}
-
-.fc-radio-label input[type="radio"] {
-  accent-color: var(--color-primary);
-}
-
-.fc-radio-text {
-  font-size: 0.875rem;
-  color: var(--color-text);
-}
-
 .fc-checkbox-label {
   display: flex;
   align-items: center;
@@ -645,7 +637,7 @@
   color: #374151;
 }
 
-.fc-checkbox-label input[type="checkbox"] {
+.fc-checkbox-label input[type='checkbox'] {
   width: 16px;
   height: 16px;
   accent-color: #008081;
@@ -659,8 +651,8 @@
 .fc-save-btn {
   width: 100%;
   background: #008081;
-  border: 2px solid #136C6D;
-  box-shadow: 0px 4px 0 #136C6D;
+  border: 2px solid #136c6d;
+  box-shadow: 0px 4px 0 #136c6d;
   border-radius: 0.75rem;
   color: #ffffff;
   font-size: 1rem;
@@ -680,7 +672,7 @@
 .fc-back-link {
   width: 100%;
   background: transparent;
-  border: 2px solid #E7E7E7;
+  border: 2px solid #e7e7e7;
   border-radius: 0.75rem;
   color: #374151;
   font-size: 0.82rem;
@@ -688,7 +680,10 @@
   padding: 10px;
   cursor: pointer;
   text-align: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
   font-family: inherit;
 }
 

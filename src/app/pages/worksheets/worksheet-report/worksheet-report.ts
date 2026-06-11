@@ -21,34 +21,50 @@ import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
 import { triggerBlobDownload } from '../../../utils/file-download.util';
 import { WorksheetPdfRenderService } from '../../../components/worksheet-pdf-template/worksheet-pdf-render.service';
-import { ComprehensiveReport, type ReportEntry } from '../../../components/comprehensive-report/comprehensive-report';
+import {
+  ComprehensiveReport,
+  type ReportEntry,
+} from '../../../components/comprehensive-report/comprehensive-report';
 import { QrCodeComponent } from 'ng-qrcode';
 import { WorksheetAssignModal } from '../../../components/teacher/worksheet-assign-modal/worksheet-assign-modal';
-import { WorksheetReportPdfService, type WorksheetReportData } from '../../../services/worksheet-report-pdf.service';
+import {
+  WorksheetReportPdfService,
+  type WorksheetReportData,
+} from '../../../services/worksheet-report-pdf.service';
 import { ReportPdfTemplateComponent } from './report-pdf-template/report-pdf-template.component';
 
 @Component({
   selector: 'app-worksheet-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, FormatTimePipe, ComprehensiveReport, QrCodeComponent, ErrorModal, SuccessModal, WorksheetAssignModal, ReportPdfTemplateComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FormatTimePipe,
+    ComprehensiveReport,
+    QrCodeComponent,
+    ErrorModal,
+    SuccessModal,
+    WorksheetAssignModal,
+    ReportPdfTemplateComponent,
+  ],
   templateUrl: './worksheet-report.html',
   styleUrl: './worksheet-report.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorksheetReport implements OnInit, OnDestroy {
   private readonly router = inject(Router);
-  private readonly route  = inject(ActivatedRoute);
-  private readonly api    = inject(WorksheetApiService);
-  private readonly cdr    = inject(ChangeDetectorRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly api = inject(WorksheetApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
-  private readonly pdfApi      = inject(PdfApiService);
+  private readonly pdfApi = inject(PdfApiService);
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
   private readonly pdfReportService = inject(WorksheetReportPdfService);
 
   worksheet: Worksheet | null = null;
   submissions: WorksheetSubmission[] = [];
-  isLoading  = true;
-  errorMsg   = '';
+  isLoading = true;
+  errorMsg = '';
   searchTerm = '';
 
   // Comprehensive report data
@@ -75,14 +91,14 @@ export class WorksheetReport implements OnInit, OnDestroy {
   isPdfReportDownloading = false;
   downloadingSubmissionId: string | null = null;
   showComprehensive = false;
-  errorModal  = { open: false, title: '', message: '' };
+  errorModal = { open: false, title: '', message: '' };
   successModal = { open: false, title: '', message: '' };
 
   /** Share modal state */
-  showShareModal  = false;
+  showShareModal = false;
   shareUrl: string | null = null;
-  shareLoading    = false;
-  shareCopied     = false;
+  shareLoading = false;
+  shareCopied = false;
 
   /** Worksheet assign modal state */
   showAssignModal = false;
@@ -94,7 +110,9 @@ export class WorksheetReport implements OnInit, OnDestroy {
     return this.route.snapshot.paramMap.get('id') ?? '';
   }
 
-  get totalSubmissions(): number { return this.submissions.length; }
+  get totalSubmissions(): number {
+    return this.submissions.length;
+  }
 
   get averageScore(): number {
     if (!this.submissions.length) return 0;
@@ -110,8 +128,8 @@ export class WorksheetReport implements OnInit, OnDestroy {
 
   get reportEntries(): ReportEntry[] {
     return this.submissions.map((s) => ({
-      name:      this.getStudentName(s),
-      score:     s.score ?? s.percentage ?? 0,
+      name: this.getStudentName(s),
+      score: s.score ?? s.percentage ?? 0,
       timeTaken: s.timeTaken ?? 0,
       submittedAt: s.submittedAt,
     }));
@@ -131,7 +149,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
     if (this.worksheet.activity1) {
       sectionMap['activity1'] = {
         title: this.worksheet.activity1.title,
-        type: 'Ordering'
+        type: 'Ordering',
       };
     }
 
@@ -139,7 +157,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
     if (this.worksheet.activity2) {
       sectionMap['activity2'] = {
         title: this.worksheet.activity2.title,
-        type: 'Classification'
+        type: 'Classification',
       };
     }
 
@@ -147,7 +165,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
     if (this.worksheet.activity3) {
       sectionMap['activity3'] = {
         title: this.worksheet.activity3.title,
-        type: 'Multiple Choice'
+        type: 'Multiple Choice',
       };
     }
 
@@ -155,7 +173,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
     if (this.worksheet.activity4) {
       sectionMap['activity4'] = {
         title: this.worksheet.activity4.title,
-        type: 'Fill in Blanks'
+        type: 'Fill in Blanks',
       };
     }
 
@@ -168,11 +186,11 @@ export class WorksheetReport implements OnInit, OnDestroy {
           activity5: 'Match Pairs',
           activity6: 'True/False',
           activity7: 'Image Label',
-          activity8: 'Enhanced Sequencing'
+          activity8: 'Enhanced Sequencing',
         };
         sectionMap[activityKey] = {
           title: activity.title,
-          type: typeNames[activityKey] || 'Activity'
+          type: typeNames[activityKey] || 'Activity',
         };
       }
     }
@@ -189,11 +207,11 @@ export class WorksheetReport implements OnInit, OnDestroy {
           matching: 'Matching',
           dragDrop: 'Drag & Drop',
           shortAnswer: 'Short Answer',
-          trueFalse: 'True/False'
+          trueFalse: 'True/False',
         };
         sectionMap[sectionId] = {
           title: activity.title || `Section ${index + 1}`,
-          type: typeNames[activity.type] || activity.type || 'Activity'
+          type: typeNames[activity.type] || activity.type || 'Activity',
         };
       });
     }
@@ -202,7 +220,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
     backendSectionStats.forEach((backendStat: any) => {
       const metadata = sectionMap[backendStat.sectionId] || {
         title: backendStat.sectionId,
-        type: 'Activity'
+        type: 'Activity',
       };
 
       // Use the authoritative aggregate counts from the backend (computed over ALL submissions).
@@ -228,13 +246,13 @@ export class WorksheetReport implements OnInit, OnDestroy {
 
   // Student performance analytics
   get weakSections(): any[] {
-    const sectionPerf = this.sectionAnalytics.map(section => ({
+    const sectionPerf = this.sectionAnalytics.map((section) => ({
       ...section,
-      performanceScore: section.averageScore
+      performanceScore: section.averageScore,
     }));
 
     return sectionPerf
-      .filter(section => section.averageScore < 70)
+      .filter((section) => section.averageScore < 70)
       .sort((a, b) => a.averageScore - b.averageScore)
       .slice(0, 3);
   }
@@ -243,21 +261,23 @@ export class WorksheetReport implements OnInit, OnDestroy {
     if (this.submissions.length < 2) return null;
 
     const sortedSubmissions = this.submissions
-      .filter(s => s.submittedAt)
+      .filter((s) => s.submittedAt)
       .sort((a, b) => new Date(a.submittedAt!).getTime() - new Date(b.submittedAt!).getTime());
 
     const recent = sortedSubmissions.slice(-5);
     const earlier = sortedSubmissions.slice(0, -5);
 
     const recentAvg = recent.reduce((sum, s) => sum + (s.percentage ?? 0), 0) / recent.length;
-    const earlierAvg = earlier.length > 0 ? 
-      earlier.reduce((sum, s) => sum + (s.percentage ?? 0), 0) / earlier.length : recentAvg;
+    const earlierAvg =
+      earlier.length > 0
+        ? earlier.reduce((sum, s) => sum + (s.percentage ?? 0), 0) / earlier.length
+        : recentAvg;
 
     return {
       trend: recentAvg > earlierAvg ? 'improving' : recentAvg < earlierAvg ? 'declining' : 'stable',
       recentAverage: Math.round(recentAvg),
       earlierAverage: Math.round(earlierAvg),
-      change: Math.round(recentAvg - earlierAvg)
+      change: Math.round(recentAvg - earlierAvg),
     };
   }
 
@@ -270,7 +290,9 @@ export class WorksheetReport implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void { this.loadReport(); }
+  ngOnInit(): void {
+    this.loadReport();
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -288,25 +310,28 @@ export class WorksheetReport implements OnInit, OnDestroy {
     if (this.dateFromFilter) params.dateFrom = this.dateFromFilter;
     if (this.dateToFilter) params.dateTo = this.dateToFilter;
 
-    this.api.getWorksheetReport(this.worksheetId, params).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res) => {
-        const data = res.data;
-        this.worksheet   = data.worksheet as unknown as Worksheet;
-        this.submissions = data.submissions ?? [];
-        this.overview     = data.overview;
-        this.analytics    = data.analytics;
-        this.pagination   = data.pagination;
-        this.scoreBands   = data.analytics?.scoreBands || null;
-        this.teacherInsights = this.mapTeacherInsights(data.analytics?.teacherInsights || []);
-        this.isLoading   = false;
-        this.cdr.markForCheck();
-      },
-      error: (err: any) => {
-        this.errorMsg  = err?.error?.message ?? 'Failed to load report';
-        this.isLoading = false;
-        this.cdr.markForCheck();
-      },
-    });
+    this.api
+      .getWorksheetReport(this.worksheetId, params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          const data = res.data;
+          this.worksheet = data.worksheet as unknown as Worksheet;
+          this.submissions = data.submissions ?? [];
+          this.overview = data.overview;
+          this.analytics = data.analytics;
+          this.pagination = data.pagination;
+          this.scoreBands = data.analytics?.scoreBands || null;
+          this.teacherInsights = this.mapTeacherInsights(data.analytics?.teacherInsights || []);
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: (err: any) => {
+          this.errorMsg = err?.error?.message ?? 'Failed to load report';
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   onSearch(event: Event): void {
@@ -348,8 +373,12 @@ export class WorksheetReport implements OnInit, OnDestroy {
     }
   }
 
-  goBack(): void { this.router.navigate(['/worksheets']); }
-  dismissError(): void { this.errorMsg = ''; }
+  goBack(): void {
+    this.router.navigate(['/worksheets']);
+  }
+  dismissError(): void {
+    this.errorMsg = '';
+  }
 
   async downloadReportPdf(): Promise<void> {
     const id = this.worksheetId;
@@ -362,7 +391,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
       this.cdr.markForCheck();
 
       // Wait for Angular to render the template
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const element = document.getElementById('report-pdf-container');
       if (!element) {
@@ -380,12 +409,12 @@ export class WorksheetReport implements OnInit, OnDestroy {
       } catch {
         /* font API unavailable – ignore */
       }
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Dynamic import html2canvas and jsPDF (same pattern as pdf-export.util.ts)
       const [html2canvasModule, jsPDFModule] = await Promise.all([
         import('html2canvas'),
-        import('jspdf')
+        import('jspdf'),
       ]);
 
       const html2canvas = html2canvasModule.default;
@@ -418,7 +447,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
         orientation: 'portrait',
         unit: 'px',
         format: 'a4',
-        hotfixes: ['px_scaling']
+        hotfixes: ['px_scaling'],
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -446,9 +475,12 @@ export class WorksheetReport implements OnInit, OnDestroy {
         filename: 'worksheet-report.pdf',
         mimeType: 'application/pdf',
       });
-
     } catch (err: any) {
-      this.errorModal = { open: true, title: 'PDF Failed', message: err?.error?.message ?? err?.message ?? 'Please try again.' };
+      this.errorModal = {
+        open: true,
+        title: 'PDF Failed',
+        message: err?.error?.message ?? err?.message ?? 'Please try again.',
+      };
       this.cdr.markForCheck();
     } finally {
       this.isPdfReportDownloading = false;
@@ -490,12 +522,18 @@ export class WorksheetReport implements OnInit, OnDestroy {
     const students: any[] = this.submissions.map((sub: any) => {
       const answers = sub.answers || [];
       const sectionScores = this.calculateSectionScores(answers, sectionStats);
-      
+
       return {
         name: this.getStudentName(sub),
         score: Math.round(sub.percentage || 0),
         time: sub.timeTaken || 0,
-        date: sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+        date: sub.submittedAt
+          ? new Date(sub.submittedAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : 'N/A',
         status: sub.isLate ? 'Late' : 'On Time',
         dragDropScore: sectionScores['activity1'] || 0,
         classificationScore: sectionScores['activity2'] || 0,
@@ -539,7 +577,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
         '90-100': scoreBands['90-100'] || 0,
         '80-89': scoreBands['80-89'] || 0,
         '70-79': scoreBands['70-79'] || 0,
-        'below70': scoreBands['below70'] || 0,
+        below70: scoreBands['below70'] || 0,
       },
       teacherInsights: this.teacherInsights || [],
       sections,
@@ -634,7 +672,11 @@ export class WorksheetReport implements OnInit, OnDestroy {
     const submissionId = sub._id;
     if (!submissionId || this.downloadingSubmissionId === submissionId) return;
     if (!this.worksheet) {
-      this.errorModal = { open: true, title: 'Not Ready', message: 'Please wait for the worksheet to finish loading.' };
+      this.errorModal = {
+        open: true,
+        title: 'Not Ready',
+        message: 'Please wait for the worksheet to finish loading.',
+      };
       this.cdr.markForCheck();
       return;
     }
@@ -645,7 +687,11 @@ export class WorksheetReport implements OnInit, OnDestroy {
       const safeName = studentName.replace(/\s+/g, '-').toLowerCase();
       const safeTitle = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
       const dateStr = sub.submittedAt
-        ? new Date(sub.submittedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+        ? new Date(sub.submittedAt).toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          })
         : '';
 
       await this.pdfRenderer.renderViewerOffscreen(
@@ -663,7 +709,11 @@ export class WorksheetReport implements OnInit, OnDestroy {
         `${safeName}_${safeTitle}.pdf`,
       );
     } catch (err: any) {
-      this.errorModal = { open: true, title: 'PDF Failed', message: err?.error?.message ?? err?.message ?? 'Please try again.' };
+      this.errorModal = {
+        open: true,
+        title: 'PDF Failed',
+        message: err?.error?.message ?? err?.message ?? 'Please try again.',
+      };
       this.cdr.markForCheck();
     } finally {
       this.downloadingSubmissionId = null;
@@ -677,11 +727,15 @@ export class WorksheetReport implements OnInit, OnDestroy {
   }
 
   getStudentInitials(sub: WorksheetSubmission): string {
-    return this.getStudentName(sub).split(' ').slice(0, 2).map((p: string) => p[0]?.toUpperCase() ?? '').join('');
+    return this.getStudentName(sub)
+      .split(' ')
+      .slice(0, 2)
+      .map((p: string) => p[0]?.toUpperCase() ?? '')
+      .join('');
   }
 
   private mapTeacherInsights(insights: string[]): string[] {
-    return insights.map(insight => {
+    return insights.map((insight) => {
       // Replace activity keys with readable names
       for (const [key, label] of Object.entries({
         activity1: 'Drag & Drop',
@@ -704,21 +758,28 @@ export class WorksheetReport implements OnInit, OnDestroy {
   /** Open share modal, generating a token if not already set */
   openShareModal(): void {
     this.showShareModal = true;
-    this.shareLoading   = true;
+    this.shareLoading = true;
     this.cdr.markForCheck();
-    this.api.shareSet(this.worksheetId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res) => {
-        this.shareUrl     = res.shareUrl;
-        this.shareLoading = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.shareLoading = false;
-        this.showShareModal = false;
-        this.errorModal = { open: true, title: 'Share Failed', message: 'Could not generate share link. Please try again.' };
-        this.cdr.markForCheck();
-      },
-    });
+    this.api
+      .shareSet(this.worksheetId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.shareUrl = res.shareUrl;
+          this.shareLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.shareLoading = false;
+          this.showShareModal = false;
+          this.errorModal = {
+            open: true,
+            title: 'Share Failed',
+            message: 'Could not generate share link. Please try again.',
+          };
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   /** Copy share URL to clipboard */
@@ -727,7 +788,10 @@ export class WorksheetReport implements OnInit, OnDestroy {
     navigator.clipboard.writeText(this.shareUrl).then(() => {
       this.shareCopied = true;
       this.cdr.markForCheck();
-      setTimeout(() => { this.shareCopied = false; this.cdr.markForCheck(); }, 2000);
+      setTimeout(() => {
+        this.shareCopied = false;
+        this.cdr.markForCheck();
+      }, 2000);
     });
   }
 
@@ -735,19 +799,26 @@ export class WorksheetReport implements OnInit, OnDestroy {
   revokeShare(): void {
     this.shareLoading = true;
     this.cdr.markForCheck();
-    this.api.revokeShare(this.worksheetId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.shareUrl     = null;
-        this.shareLoading = false;
-        this.showShareModal = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.shareLoading = false;
-        this.errorModal = { open: true, title: 'Revoke Failed', message: 'Could not revoke share link. Please try again.' };
-        this.cdr.markForCheck();
-      },
-    });
+    this.api
+      .revokeShare(this.worksheetId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.shareUrl = null;
+          this.shareLoading = false;
+          this.showShareModal = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.shareLoading = false;
+          this.errorModal = {
+            open: true,
+            title: 'Revoke Failed',
+            message: 'Could not revoke share link. Please try again.',
+          };
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   /** Close share modal */
@@ -774,11 +845,17 @@ export class WorksheetReport implements OnInit, OnDestroy {
   /** Handle worksheet assignment success */
   onWorksheetAssigned(event: { classId: string }): void {
     this.showAssignModal = false;
-    this.successModal = { open: true, title: 'Assigned!', message: 'Worksheet has been assigned to the class.' };
+    this.successModal = {
+      open: true,
+      title: 'Assigned!',
+      message: 'Worksheet has been assigned to the class.',
+    };
     this.cdr.markForCheck();
     // Redirect to class details page
     this.router.navigate(['/teachers/my-classes', event.classId]);
   }
 
-  trackById(_: number, item: { _id?: string }): string { return item._id ?? String(_); }
+  trackById(_: number, item: { _id?: string }): string {
+    return item._id ?? String(_);
+  }
 }
