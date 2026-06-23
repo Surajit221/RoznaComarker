@@ -26,6 +26,7 @@ import { AlertService } from '../../services/alert.service';
 import { WorksheetPdfRenderService } from '../worksheet-pdf-template/worksheet-pdf-render.service';
 import { AssignmentStateService } from '../../services/assignment-state.service';
 import { AuthService } from '../../auth/auth.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-worksheet-viewer',
@@ -81,6 +82,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   private autosaveTrigger = new Subject<void>();
   private destroy$ = new Subject<void>();
   private autosaveInterval: any = null;
+  protected readonly Math = Math;
 
   get scoreTier(): 'high' | 'mid' | 'low' {
     const p = this.reviewMeta?.percentage ?? 0;
@@ -140,6 +142,11 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   /* ── Activity 8: Enhanced Sequencing ─────────── */
   a8Sequences = signal<Record<string, string[]>>({});
   a8Checked = signal(false);
+
+  /* ── Activity 9: Overlay Worksheet ───────────── */
+  a9Answers = signal<Record<string, string>>({});
+  a9Results = signal<Record<string, boolean | null>>({});
+  a9Checked = signal(false);
 
   /* ── Computed scores ─────────────────────── */
   a1Total = computed(() => this.worksheet()?.activity1?.items?.length ?? 0);
@@ -205,13 +212,29 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     const labels = this.worksheet()?.activity7?.labels ?? [];
     return labels.filter(label => {
       const answer = this.a7Labels()[label.id];
-      return answer && answer === label.targetId;
+      return answer && answer === label.text;
     }).length;
   });
 
   a8Total = computed(() => {
     const sequences = this.worksheet()?.activity8?.sequences ?? [];
     return sequences.reduce((total, seq) => total + seq.items.length, 0);
+  });
+
+  a9Score = computed(() =>
+    Object.values(this.a9Results())
+      .filter(v => v === true).length
+  );
+
+  a9Total = computed(() => {
+    const fields = this.worksheet()?.activity9?.fields ?? [];
+    // Only count fields that have expected answers
+    if (this.worksheet()?.activity9?.hasAnswerKey) {
+      return fields.filter(f => 
+        f.expectedAnswer && f.expectedAnswer.trim() !== ''
+      ).length;
+    }
+    return fields.length;
   });
   a8Score = computed(() => {
     const sequences = this.worksheet()?.activity8?.sequences ?? [];
@@ -227,9 +250,9 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     return earned;
   });
 
-  totalScore    = computed(() => this.a1Score() + this.a2Score() + this.a3Score() + this.a4Score() + this.a5Score() + this.a6Score() + this.a7Score() + this.a8Score());
+  totalScore    = computed(() => this.a1Score() + this.a2Score() + this.a3Score() + this.a4Score() + this.a5Score() + this.a6Score() + this.a7Score() + this.a8Score() + this.a9Score());
   totalPossible = computed(() => {
-    return this.a1Total() + this.a2Total() + this.a3Total() + this.a4Total() + this.a5Total() + this.a6Total() + this.a7Total() + this.a8Total();
+    return this.a1Total() + this.a2Total() + this.a3Total() + this.a4Total() + this.a5Total() + this.a6Total() + this.a7Total() + this.a8Total() + this.a9Total();
   });
 
   completedActivities = computed(() => {
@@ -242,6 +265,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     if (Object.keys(this.a6Answers()).length >= this.a6Total() && this.a6Total() > 0) n++;
     if (this.a7Checked()) n++;
     if (this.a8Checked()) n++;
+    if (this.a9Checked()) n++;
     return n;
   });
 
@@ -257,6 +281,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     if (ws.activity6) n++;
     if (ws.activity7) n++;
     if (ws.activity8) n++;
+    if (ws.activity9) n++;
     return n || 4;
   });
 
@@ -265,6 +290,9 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
       ? Math.round((this.totalScore() / this.totalPossible()) * 100)
       : 0
   );
+
+  /* ── Overlay worksheet detection ───────────────────────────── */
+  isOverlayWorksheet = computed(() => !!this.worksheet()?.activity9);
 
   /* ── Lifecycle ───────────────────────────── */
 
@@ -299,6 +327,8 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
       fillBlanks:     'activity4',
       matching:       'activity5',
       trueFalse:      'activity6',
+      labeling:       'activity7',
+      overlay:        'activity9',
     };
 
     const patch: any = {};
@@ -858,6 +888,128 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     this.a8Checked.set(true);
     this.cdr.markForCheck();
     this.triggerAutosave();
+  }
+
+  /* ── Activity 9: Overlay Worksheet Methods ─────────── */
+  onA9Input(fieldId: string, event: any): void {
+    const value = event.target?.value ?? '';
+    this.a9Answers.update((answers) => ({ ...answers, [fieldId]: value }));
+    this.cdr.markForCheck();
+    this.triggerAutosave();
+  }
+
+  checkActivity9(): void {
+    const fields = this.worksheet()?.activity9?.fields ?? [];
+    const newResults: Record<string, boolean | null> = {};
+    let scoredCount = 0;
+    let correctCount = 0;
+    
+    for (const field of fields) {
+      const studentAnswer = (
+        this.a9Answers()[field.id] || ''
+      ).trim().toLowerCase();
+      
+      // Skip empty student answers
+      if (!studentAnswer) {
+        newResults[field.id] = null;
+        continue;
+      }
+      
+      // No expected answer → can't auto-score
+      if (!field.expectedAnswer || 
+          field.expectedAnswer.trim() === '') {
+        // Mark as manually reviewed (null = unscored)
+        newResults[field.id] = null;
+        continue;
+      }
+      
+      const correctAnswer = field.expectedAnswer
+        .trim().toLowerCase();
+      
+      // Multiple matching strategies:
+      // 1. Exact match
+      const exactMatch = studentAnswer === correctAnswer;
+      
+      // 2. Contains match (student wrote more than needed)
+      const containsMatch = studentAnswer.includes(correctAnswer) ||
+                            correctAnswer.includes(studentAnswer);
+      
+      // 3. Word-by-word match (at least 60% words match)
+      const correctWords = correctAnswer.split(/\s+/);
+      const studentWords = studentAnswer.split(/\s+/);
+      const matchingWords = correctWords.filter(w => 
+        studentWords.some(sw => 
+          sw.includes(w) || w.includes(sw)
+        )
+      );
+      const wordMatch = correctWords.length > 0 && 
+        (matchingWords.length / correctWords.length) >= 0.6;
+      
+      const isCorrect = exactMatch || containsMatch || wordMatch;
+      newResults[field.id] = isCorrect;
+      scoredCount++;
+      if (isCorrect) correctCount++;
+    }
+    
+    this.a9Results.set(newResults);
+    this.a9Checked.set(true);
+    
+    console.log('[ACTIVITY9] Score:', correctCount, '/', scoredCount);
+    
+    this.cdr.markForCheck();
+    this.triggerAutosave();
+  }
+
+  resetActivity9(): void {
+    this.a9Answers.set({});
+    this.a9Results.set({});
+    this.a9Checked.set(false);
+    this.cdr.markForCheck();
+    this.triggerAutosave();
+  }
+
+  onOverlayImageLoad(): void {
+    // Placeholder for any image load handling if needed
+  }
+
+  async downloadOverlayPdf(): Promise<void> {
+    const ws = this.worksheet();
+    if (!ws?.activity9) return;
+
+    const worksheetId = ws._id;
+
+    try {
+      const payload = {
+        answers: this.a9Answers(),
+        results: this.a9Results(),
+        studentName: this.studentNameValue || 'Student',
+        score: this.a9Score(),
+        total: this.a9Total()
+      };
+
+      const response = await fetch(`${environment.apiUrl}/api/worksheets/${worksheetId}/download-overlay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.authService.getBackendJwt()}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${ws.title || 'worksheet'}-results.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('[DOWNLOAD OVERLAY PDF] Error:', error);
+    }
   }
 
   /** Legacy click-based helpers — kept for backward compat; no longer wired to UI. */
