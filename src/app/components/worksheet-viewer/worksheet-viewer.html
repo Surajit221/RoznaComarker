@@ -6,11 +6,27 @@
       <h2 class="wv-success-title">Worksheet Submitted!</h2>
       <p class="wv-success-subtitle">{{ worksheet()?.title }}</p>
       <div class="wv-success-score">
-        <span class="wv-score-pct">{{ progressPercent() }}%</span>
-        <span class="wv-score-pts">{{ totalScore() }} / {{ totalPossible() }} pts</span>
+        @if (isOverlayWorksheet()) {
+          <span class="wv-score-pct">{{ a9Total() > 0 ? Math.round((a9Score() / a9Total()) * 100) : 0 }}%</span>
+          <span class="wv-score-pts">{{ a9Score() }} / {{ a9Total() }} pts</span>
+        } @else {
+          <span class="wv-score-pct">{{ progressPercent() }}%</span>
+          <span class="wv-score-pts">{{ totalScore() }} / {{ totalPossible() }} pts</span>
+        }
       </div>
       <div class="wv-success-actions">
-        @if (submittedSubmissionId()) {
+        @if (isOverlayWorksheet()) {
+          <button class="wv-btn-dl-pdf"
+                  [disabled]="isPdfDownloading()"
+                  (click)="downloadOverlayPdf()">
+            @if (isPdfDownloading()) {
+              <span class="wv-pdf-spinner" aria-hidden="true"></span>
+              Generating PDF...
+            } @else {
+              ⬇ Download Worksheet Results PDF
+            }
+          </button>
+        } @else if (submittedSubmissionId()) {
           <button class="wv-btn-dl-pdf"
                   [disabled]="isPdfDownloading()"
                   (click)="downloadMyPdf()">
@@ -771,12 +787,26 @@
 
             @if (worksheet()!.activity9!.hasAnswerKey) {
               <div class="wv-answer-key-badge">
-                🔑 Auto-graded worksheet — answers will be checked 
+                🔑 Auto-graded worksheet — answers will be checked
                 automatically
               </div>
             } @else {
               <div class="wv-no-key-badge">
                 📝 Fill in the fields below
+              </div>
+            }
+
+            @if (isEvaluating()) {
+              <div class="wv-a9-evaluating">
+                <div class="wv-evaluating-spinner"></div>
+                <div>
+                  <p class="wv-evaluating-title">
+                    🤖 AI is evaluating your answers...
+                  </p>
+                  <p class="wv-evaluating-sub">
+                    This takes a few seconds
+                  </p>
+                </div>
               </div>
             }
 
@@ -834,6 +864,12 @@
                         }
                       </div>
                     }
+
+                    @if (a9Checked() && a9Feedbacks()[field.id]) {
+                      <div class="wv-a9-feedback-tooltip">
+                        {{ a9Feedbacks()[field.id] }}
+                      </div>
+                    }
                   </div>
                 }
               </div>
@@ -849,8 +885,15 @@
                 </button>
                 <button class="wv-btn-check-answers"
                         (click)="checkActivity9()"
-                        [disabled]="a9Checked()">
-                  Check Answers
+                        [disabled]="a9Checked() || isEvaluating()">
+                  @if (isEvaluating()) {
+                    <span class="wv-spinner-small"></span>
+                    AI is checking answers...
+                  } @else if (a9Checked()) {
+                    Checked ✓
+                  } @else {
+                    Check Answers
+                  }
                 </button>
               </div>
 

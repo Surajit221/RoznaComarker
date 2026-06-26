@@ -286,6 +286,10 @@ export interface WorksheetSubmission {
   gradingStatus: string;
   worksheet?: { title?: string };
   timeSpentPerActivity?: Record<string, number>;
+  // Activity 9 overlay worksheet data
+  activity9Answers?: Record<string, string>;
+  activity9Results?: Record<string, boolean | null>;
+  activity9Feedbacks?: Record<string, string>;
 }
 
 export interface GenerateWorksheetDto {
@@ -311,6 +315,10 @@ export interface SubmitWorksheetDto {
   totalPointsEarned?: number;
   totalPointsPossible?: number;
   percentage?: number;
+  // Activity 9 overlay worksheet data
+  activity9Answers?: Record<string, string>;
+  activity9Results?: Record<string, boolean | null>;
+  activity9Feedbacks?: Record<string, string>;
 }
 
 @Injectable({ providedIn: 'root' })

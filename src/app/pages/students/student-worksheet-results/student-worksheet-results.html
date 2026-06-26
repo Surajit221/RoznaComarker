@@ -90,12 +90,12 @@
   <div class="swr-pdf-row">
     <button class="swr-btn-pdf"
             [disabled]="isPdfDownloading || isWorksheetLoading || !worksheet"
-            (click)="downloadMyPdf()">
+            (click)="downloadPdf()">
       @if (isPdfDownloading) {
         <span class="swr-spinner" aria-hidden="true"></span>
         Generating PDF…
       } @else {
-        ↓ Download My Worksheet PDF
+        ⬇ Download My Results PDF
       }
     </button>
   </div>
@@ -115,6 +115,9 @@
           [worksheetId]="submission!.worksheetId"
           [reviewMode]="true"
           [submittedAnswers]="normalizedAnswers"
+          [preloadedA9Answers]="submission!.activity9Answers"
+          [preloadedA9Results]="submission!.activity9Results"
+          [preloadedA9Feedbacks]="submission!.activity9Feedbacks"
           [reviewMeta]="{
             studentName: studentName,
             date: formattedDate,

@@ -9,6 +9,7 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { Subject, takeUntil } from 'rxjs';
 import {
   WorksheetApiService,
@@ -17,6 +18,8 @@ import {
 } from '../../../api/worksheet-api.service';
 import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
 import { PdfApiService } from '../../../api/pdf-api.service';
+import { AuthService } from '../../../auth/auth.service';
+import { environment } from '../../../../environments/environment';
 import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
 import { triggerBlobDownload } from '../../../utils/file-download.util';
@@ -32,6 +35,7 @@ import {
   type WorksheetReportData,
 } from '../../../services/worksheet-report-pdf.service';
 import { ReportPdfTemplateComponent } from './report-pdf-template/report-pdf-template.component';
+import { OverlayPdfService } from '../../../services/overlay-pdf.service';
 
 @Component({
   selector: 'app-worksheet-report',
@@ -60,6 +64,9 @@ export class WorksheetReport implements OnInit, OnDestroy {
   private readonly pdfApi = inject(PdfApiService);
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
   private readonly pdfReportService = inject(WorksheetReportPdfService);
+  private readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
+  private readonly overlayPdfService = inject(OverlayPdfService);
 
   worksheet: Worksheet | null = null;
   submissions: WorksheetSubmission[] = [];
@@ -668,56 +675,59 @@ export class WorksheetReport implements OnInit, OnDestroy {
     }
   }
 
-  async downloadStudentPdf(sub: WorksheetSubmission): Promise<void> {
-    const submissionId = sub._id;
-    if (!submissionId || this.downloadingSubmissionId === submissionId) return;
-    if (!this.worksheet) {
-      this.errorModal = {
-        open: true,
-        title: 'Not Ready',
-        message: 'Please wait for the worksheet to finish loading.',
-      };
-      this.cdr.markForCheck();
-      return;
-    }
-    this.downloadingSubmissionId = submissionId;
-    this.cdr.markForCheck();
+  async onDownloadStudentPdf(submission: any): Promise<void> {
     try {
-      const studentName = this.getStudentName(sub);
-      const safeName = studentName.replace(/\s+/g, '-').toLowerCase();
-      const safeTitle = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
-      const dateStr = sub.submittedAt
-        ? new Date(sub.submittedAt).toLocaleDateString('en-US', {
-            month: '2-digit',
-            day: '2-digit',
-            year: 'numeric',
-          })
-        : '';
-
-      await this.pdfRenderer.renderViewerOffscreen(
+      // Data is already in the submission object
+      const worksheetId = typeof submission.worksheetId === 'object'
+        ? submission.worksheetId._id
+        : submission.worksheetId;
+        
+      const studentName = submission.studentId?.displayName
+        || submission.studentId?.email
+        || 'Student';
+      
+      // Read directly from submission fields
+      const answers = submission.activity9Answers || {};
+      const results = submission.activity9Results || {};
+      const score = submission.totalPointsEarned || 0;
+      const total = submission.totalPointsPossible || 0;
+      
+      console.log('[TEACHER PDF] worksheetId:', worksheetId);
+      console.log('[TEACHER PDF] answers:', Object.keys(answers).length);
+      console.log('[TEACHER PDF] results:', Object.keys(results).length);
+      console.log('[TEACHER PDF] score:', score, '/', total);
+      
+      // Call backend directly - no overlayPdfService needed
+      const response = await this.http.post(
+        `${environment.apiUrl}/api/worksheets/${worksheetId}/download-overlay`,
         {
-          worksheet: this.worksheet,
-          worksheetId: sub.worksheetId,
+          answers,
+          results,
           studentName,
-          date: dateStr,
-          submittedAnswers: (sub.answers as any[]) ?? [],
-          totalPointsEarned: sub.totalPointsEarned,
-          totalPointsPossible: sub.totalPointsPossible,
-          percentage: sub.percentage,
-          timeTaken: sub.timeTaken,
+          score,
+          total,
+          subject: '',
+          grade: ''
         },
-        `${safeName}_${safeTitle}.pdf`,
-      );
-    } catch (err: any) {
-      this.errorModal = {
-        open: true,
-        title: 'PDF Failed',
-        message: err?.error?.message ?? err?.message ?? 'Please try again.',
-      };
-      this.cdr.markForCheck();
-    } finally {
-      this.downloadingSubmissionId = null;
-      this.cdr.markForCheck();
+        { responseType: 'blob' }
+      ).toPromise();
+      
+      const blob = new Blob([response as BlobPart], {
+        type: 'application/pdf'
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${studentName.replace(/\s+/g, '-')}_results.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('[TEACHER PDF] Download complete!');
+      
+    } catch(error) {
+      console.error('[TEACHER PDF] Error:', error);
     }
   }
 
