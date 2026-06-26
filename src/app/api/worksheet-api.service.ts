@@ -89,6 +89,18 @@ export interface WorksheetActivity8Sequence {
   }[];
 }
 
+export interface WorksheetActivity9Field {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  type: 'text' | 'textarea';
+  expectedAnswer: string;
+  hint: string;
+}
+
 export interface WorksheetThemeColorPalette {
   correct: string;
   wrong: string;
@@ -196,6 +208,15 @@ export interface WorksheetDraft {
     instructions: string;
     sequences: WorksheetActivity8Sequence[];
   } | null;
+  activity9?: {
+    title: string;
+    instructions: string;
+    backgroundImageUrl: string;
+    originalFileUrl: string;
+    fields: WorksheetActivity9Field[];
+    totalFields: number;
+    hasAnswerKey?: boolean;
+  } | null;
   activities?: Array<{
     type: string;
     title: string;
@@ -265,6 +286,10 @@ export interface WorksheetSubmission {
   gradingStatus: string;
   worksheet?: { title?: string };
   timeSpentPerActivity?: Record<string, number>;
+  // Activity 9 overlay worksheet data
+  activity9Answers?: Record<string, string>;
+  activity9Results?: Record<string, boolean | null>;
+  activity9Feedbacks?: Record<string, string>;
 }
 
 export interface GenerateWorksheetDto {
@@ -275,6 +300,7 @@ export interface GenerateWorksheetDto {
   fileName?: string;
   fileType?: string;
   activityTypes?: string[] | null;
+  templateStructure?: any;
 }
 
 export interface SubmitWorksheetDto {
@@ -289,6 +315,10 @@ export interface SubmitWorksheetDto {
   totalPointsEarned?: number;
   totalPointsPossible?: number;
   percentage?: number;
+  // Activity 9 overlay worksheet data
+  activity9Answers?: Record<string, string>;
+  activity9Results?: Record<string, boolean | null>;
+  activity9Feedbacks?: Record<string, string>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -380,6 +410,38 @@ export class WorksheetApiService {
       `${this.base}/gemini-html-generate`,
       formData,
     );
+  }
+
+  /**
+   * Generate a worksheet from an uploaded example file using Gemini Vision API.
+   * Analyzes the example file structure and generates a brand new worksheet on the teacher's topic.
+   * @param file    - Example worksheet file (PDF, DOCX, TXT, PNG, JPG — max 10 MB)
+   * @param options - Teacher form settings (topic, subject, grade, difficulty, language)
+   */
+  generateFromFile(
+    file: File,
+    options: {
+      topic: string;
+      subject?: string;
+      gradeLevel?: string;
+      difficulty?: string;
+      language?: string;
+    },
+  ): Observable<{ success: boolean; worksheet: WorksheetDraft; sourceContent: string; fileName?: string }> {
+    const formData = new FormData();
+    formData.append('worksheetFile', file);
+    formData.append('topic', options.topic);
+    if (options.subject) formData.append('subject', options.subject);
+    if (options.gradeLevel) formData.append('gradeLevel', options.gradeLevel);
+    if (options.difficulty) formData.append('difficulty', options.difficulty);
+    if (options.language) formData.append('language', options.language);
+
+    return this.http.post<{
+      success: boolean;
+      worksheet: WorksheetDraft;
+      sourceContent: string;
+      fileName?: string;
+    }>(`${this.base}/generate-from-file`, formData);
   }
 
   /**
@@ -637,6 +699,50 @@ export class WorksheetApiService {
     const separator = query ? '?' : '';
     return this.http.get<{ success: boolean; data: any }>(
       `${this.base}/${worksheetId}/report${separator}${query.replace('&', '?')}`,
+    );
+  }
+
+  /**
+   * Detect input fields in a PDF or image file using vision AI.
+   * @param file - PDF or image file to analyze
+   */
+  detectFields(file: File): Observable<{
+    success: boolean;
+    imageUrl: string;
+    fields: WorksheetActivity9Field[];
+    totalFields: number;
+    worksheetTitle: string;
+    subject: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{
+      success: boolean;
+      imageUrl: string;
+      fields: WorksheetActivity9Field[];
+      totalFields: number;
+      worksheetTitle: string;
+      subject: string;
+    }>(`${this.base}/detect-fields`, formData);
+  }
+
+  /**
+   * Save a PDF overlay worksheet with detected fields.
+   * @param payload - Overlay worksheet data
+   */
+  saveOverlayWorksheet(payload: {
+    worksheetId?: string;
+    title: string;
+    subject: string;
+    backgroundImageUrl: string;
+    originalFileUrl: string;
+    fields: WorksheetActivity9Field[];
+    gradeLevel?: string;
+    language?: string;
+  }): Observable<{ success: boolean; worksheet: Worksheet }> {
+    return this.http.post<{ success: boolean; worksheet: Worksheet }>(
+      `${this.base}/save-overlay`,
+      payload,
     );
   }
 }

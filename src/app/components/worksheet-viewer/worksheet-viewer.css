@@ -478,6 +478,20 @@
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
+
+/* ── Overlay mode: force single column for activity9 ─────────────────── */
+.wv-overlay-mode .wv-activities-row {
+  grid-template-columns: 1fr !important;
+}
+
+.wv-overlay-mode .wv-activity-card:has(.wv-overlay-container) {
+  grid-column: 1 / -1 !important;
+  padding: 0.75rem !important;
+}
+
+.wv-activity-card:has(.wv-overlay-container) {
+  padding: 0.75rem !important;
+}
 @media (max-width: 768px) {
   .wv-activities-row { grid-template-columns: 1fr; }
   .wv-header-body { grid-template-columns: 1fr; gap: 0.85rem; }
@@ -1562,4 +1576,483 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Activity 7: Image Labeling ─────────────────── */
+.wv-image-label-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wv-image-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--wv-primary-30);
+  background: #f8fafc;
+}
+
+.wv-label-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 450px;
+  object-fit: contain;
+}
+
+.wv-label-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 10;
+}
+
+.wv-label-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--wv-primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  border: 2px solid white;
+  transition: all 0.2s ease;
+}
+
+.wv-label-target.labeled .wv-label-marker {
+  background: var(--wv-correct);
+  transform: scale(1.1);
+}
+
+.wv-label-text {
+  position: absolute;
+  left: 50%;
+  bottom: 110%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.wv-label-text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1e293b;
+}
+
+.wv-label-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.wv-label-option {
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  border: 2px solid var(--wv-primary);
+  background: white;
+  color: var(--wv-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wv-label-option:hover:not(:disabled) {
+  background: var(--wv-primary);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.wv-label-option.used {
+  background: #e2e8f0;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.wv-label-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.wv-a7-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Correct/Wrong states for label targets */
+.wv-label-target.correct .wv-label-marker {
+  background: var(--wv-correct);
+}
+
+.wv-label-target.wrong .wv-label-marker {
+  background: var(--wv-wrong);
+}
+
+/* ── Activity 9: Overlay Worksheet ─────────────────── */
+.wv-overlay-container {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.wv-overlay-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  display: block !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+
+.wv-overlay-image {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+}
+
+.wv-overlay-field {
+  position: absolute !important;
+  box-sizing: border-box !important;
+  /* x=left%, y=top%, width=width% set via [style] binding */
+  /* height is also set via [style.height.%] */
+}
+
+.wv-overlay-input {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 20px;
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1.5px solid rgba(13, 148, 136, 0.65) !important;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 0.62rem;
+  font-family: inherit;
+  color: #1e293b;
+  box-sizing: border-box !important;
+  resize: none !important;
+  outline: none;
+  line-height: 1.3;
+}
+
+.wv-overlay-input:focus {
+  background: rgba(255,255,255,0.96) !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
+  position: relative;
+  z-index: 20;
+}
+
+.wv-overlay-input::placeholder {
+  color: rgba(100,116,139,0.45);
+  font-style: italic;
+  font-size: 0.55rem;
+}
+
+.wv-overlay-label { display: none !important; }
+
+.wv-overlay-field.correct .wv-overlay-input {
+  border-color: #16a34a !important;
+  background: rgba(240,253,244,0.88) !important;
+}
+
+.wv-overlay-field.wrong .wv-overlay-input {
+  border-color: #dc2626 !important;
+  background: rgba(254,242,242,0.88) !important;
+}
+
+.wv-overlay-result {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 0.5rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid white;
+  z-index: 30;
+  line-height: 1;
+}
+
+.wv-overlay-result.correct {
+  background: #16a34a; color: white;
+}
+.wv-overlay-result.wrong {
+  background: #dc2626; color: white;
+}
+
+.wv-a9-field-result {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 30;
+}
+
+.wv-a9-result-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 900;
+  border: 2px solid white;
+  flex-shrink: 0;
+}
+
+.wv-a9-field-result.correct .wv-a9-result-icon {
+  background: #16a34a;
+  color: white;
+}
+
+.wv-a9-field-result.wrong .wv-a9-result-icon {
+  background: #dc2626;
+  color: white;
+}
+
+.wv-a9-correct-answer {
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 0.6rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
+  white-space: nowrap;
+  font-weight: 600;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wv-a9-summary {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wv-a9-summary-score {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wv-a9-summary-score.perfect {
+  color: #16a34a;
+}
+
+.wv-a9-summary-score.good {
+  color: #0d9488;
+}
+
+.wv-a9-summary-score.needs-work {
+  color: #dc2626;
+}
+
+.wv-a9-summary-fraction {
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.wv-a9-summary-pct {
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.wv-a9-summary-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.wv-a9-summary-breakdown {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.wv-a9-correct-count { color: #16a34a; }
+.wv-a9-wrong-count { color: #dc2626; }
+
+.wv-a9-evaluating {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f0fdfa;
+  border: 1.5px solid #99f6e4;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.wv-evaluating-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #0d9488;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.wv-evaluating-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f766e;
+  margin: 0 0 2px 0;
+}
+
+.wv-evaluating-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.wv-spinner-small {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.wv-a9-feedback-tooltip {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 0;
+  background: #1e293b;
+  color: white;
+  font-size: 0.62rem;
+  padding: 4px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 200px;
+  white-space: normal;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  pointer-events: none;
+  display: none;
+}
+
+.wv-overlay-field:hover .wv-a9-feedback-tooltip {
+  display: block;
+}
+
+.wv-a9-feedback-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  border: 4px solid transparent;
+  border-top-color: #1e293b;
+}
+
+.wv-a9-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+/* Download button */
+.wv-btn-download {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  background: white;
+  border: 2px solid var(--wv-primary, #0d9488);
+  color: var(--wv-primary, #0d9488);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.wv-btn-download:hover {
+  background: var(--wv-primary, #0d9488);
+  color: white;
+}
+
+.wv-answer-key-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  color: #15803d;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.wv-no-key-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 0.75rem;
 }

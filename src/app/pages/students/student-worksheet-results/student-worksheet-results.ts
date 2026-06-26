@@ -19,6 +19,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import {
   WorksheetApiService,
   type Worksheet,
@@ -29,6 +30,8 @@ import { WorksheetViewerComponent } from '../../../components/worksheet-viewer/w
 import { WorksheetPdfRenderService } from '../../../components/worksheet-pdf-template/worksheet-pdf-render.service';
 import { AlertService } from '../../../services/alert.service';
 import { AuthService } from '../../../auth/auth.service';
+import { environment } from '../../../../environments/environment';
+import { OverlayPdfService } from '../../../services/overlay-pdf.service';
 
 interface ResultState {
   submission: WorksheetSubmission;
@@ -48,12 +51,14 @@ interface ResultState {
 export class StudentWorksheetResultsPage implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly http = inject(HttpClient);
   private readonly api = inject(WorksheetApiService);
   private readonly assignmentApi = inject(AssignmentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
   private readonly alert = inject(AlertService);
   private readonly auth = inject(AuthService);
+  private readonly overlayPdfService = inject(OverlayPdfService);
 
   submission: WorksheetSubmission | null = null;
   worksheetTitle = '';
@@ -66,12 +71,23 @@ export class StudentWorksheetResultsPage implements OnInit {
   isPdfDownloading = false;
   resolvedStudentName = '';
   assignmentDeadline: Date | null = null;
+  className = '';
+  assignmentTitle = '';
 
   // Section-wise analytics
   sectionAnalytics: any[] = [];
   showSectionDetails = false;
 
+  // Display score (computed for overlay worksheets)
+  displayScore = 0;
+  displayTotal = 0;
+  displayPercentage = 0;
+
   get percentage(): number {
+    // For overlay worksheets, use computed display score
+    if (this.worksheet?.activity9) {
+      return this.displayPercentage;
+    }
     return this.submission?.score ?? 0;
   }
 
@@ -193,8 +209,52 @@ export class StudentWorksheetResultsPage implements OnInit {
           this.assignmentDeadline = assignmentRes?.deadline
             ? new Date(assignmentRes.deadline)
             : null;
+          this.className = (assignmentRes as any)?.className || '';
+          this.assignmentTitle = assignmentRes?.title ?? '';
           this.hasState = true;
           this.isWorksheetLoading = false;
+
+          // For overlay worksheets, compute score from activity9 data
+          if (this.worksheet?.activity9 && this.submission) {
+            const results = this.submission.activity9Results || {};
+            const fields = this.worksheet.activity9.fields || [];
+            let correctCount = 0;
+            for (const field of fields) {
+              if (results[field.id] === true) correctCount++;
+            }
+            this.displayScore = correctCount;
+            this.displayTotal = fields.length;
+            this.displayPercentage = fields.length > 0
+              ? Math.round((correctCount / fields.length) * 100)
+              : 0;
+
+            // If submission has no activity9 results, try fetching from draft
+            if (Object.keys(results).length === 0 && assignmentId) {
+              this.http.get<any>(
+                `${environment.apiUrl}/api/worksheets/${sub.worksheetId}/draft?assignmentId=${assignmentId}`
+              ).subscribe({
+                next: (draft: any) => {
+                  if (draft?.activity9Results) {
+                    const draftResults = draft.activity9Results || {};
+                    let draftCorrectCount = 0;
+                    for (const field of fields) {
+                      if (draftResults[field.id] === true) draftCorrectCount++;
+                    }
+                    this.displayScore = draftCorrectCount;
+                    this.displayTotal = fields.length;
+                    this.displayPercentage = fields.length > 0
+                      ? Math.round((draftCorrectCount / fields.length) * 100)
+                      : 0;
+                    this.cdr.markForCheck();
+                  }
+                },
+                error: () => {
+                  // Ignore draft fetch errors
+                }
+              });
+            }
+          }
+
           this.calculateSectionAnalytics();
           this.cdr.markForCheck();
           this.auth
@@ -236,6 +296,50 @@ export class StudentWorksheetResultsPage implements OnInit {
           this.assignmentDeadline = assignmentRes?.deadline
             ? new Date(assignmentRes.deadline)
             : null;
+          this.className = (assignmentRes as any)?.className || '';
+          this.assignmentTitle = assignmentRes?.title ?? '';
+
+          // For overlay worksheets, compute score from activity9 data
+          if (this.worksheet?.activity9 && this.submission) {
+            const results = this.submission.activity9Results || {};
+            const fields = this.worksheet.activity9.fields || [];
+            let correctCount = 0;
+            for (const field of fields) {
+              if (results[field.id] === true) correctCount++;
+            }
+            this.displayScore = correctCount;
+            this.displayTotal = fields.length;
+            this.displayPercentage = fields.length > 0
+              ? Math.round((correctCount / fields.length) * 100)
+              : 0;
+
+            // If submission has no activity9 results, try fetching from draft
+            if (Object.keys(results).length === 0 && this.assignmentId) {
+              this.http.get<any>(
+                `${environment.apiUrl}/api/worksheets/${this.submission.worksheetId}/draft?assignmentId=${this.assignmentId}`
+              ).subscribe({
+                next: (draft: any) => {
+                  if (draft?.activity9Results) {
+                    const draftResults = draft.activity9Results || {};
+                    let draftCorrectCount = 0;
+                    for (const field of fields) {
+                      if (draftResults[field.id] === true) draftCorrectCount++;
+                    }
+                    this.displayScore = draftCorrectCount;
+                    this.displayTotal = fields.length;
+                    this.displayPercentage = fields.length > 0
+                      ? Math.round((draftCorrectCount / fields.length) * 100)
+                      : 0;
+                    this.cdr.markForCheck();
+                  }
+                },
+                error: () => {
+                  // Ignore draft fetch errors
+                }
+              });
+            }
+          }
+
           this.calculateSectionAnalytics();
           this.isWorksheetLoading = false;
           this.cdr.markForCheck();
@@ -245,6 +349,48 @@ export class StudentWorksheetResultsPage implements OnInit {
           this.api.getById(this.submission!.worksheetId).subscribe({
             next: (res: any) => {
               this.worksheet = res?.data ?? res ?? null;
+
+              // For overlay worksheets, compute score from activity9 data
+              if (this.worksheet?.activity9 && this.submission) {
+                const results = this.submission.activity9Results || {};
+                const fields = this.worksheet.activity9.fields || [];
+                let correctCount = 0;
+                for (const field of fields) {
+                  if (results[field.id] === true) correctCount++;
+                }
+                this.displayScore = correctCount;
+                this.displayTotal = fields.length;
+                this.displayPercentage = fields.length > 0
+                  ? Math.round((correctCount / fields.length) * 100)
+                  : 0;
+
+                // If submission has no activity9 results, try fetching from draft
+                if (Object.keys(results).length === 0 && this.assignmentId) {
+                  this.http.get<any>(
+                    `${environment.apiUrl}/api/worksheets/${this.submission.worksheetId}/draft?assignmentId=${this.assignmentId}`
+                  ).subscribe({
+                    next: (draft) => {
+                      if (draft?.activity9Results) {
+                        const draftResults = draft.activity9Results || {};
+                        let draftCorrectCount = 0;
+                        for (const field of fields) {
+                          if (draftResults[field.id] === true) draftCorrectCount++;
+                        }
+                        this.displayScore = draftCorrectCount;
+                        this.displayTotal = fields.length;
+                        this.displayPercentage = fields.length > 0
+                          ? Math.round((draftCorrectCount / fields.length) * 100)
+                          : 0;
+                        this.cdr.markForCheck();
+                      }
+                    },
+                    error: () => {
+                      // Ignore draft fetch errors
+                    }
+                  });
+                }
+              }
+
               this.calculateSectionAnalytics();
               this.isWorksheetLoading = false;
               this.cdr.markForCheck();
@@ -398,6 +544,79 @@ export class StudentWorksheetResultsPage implements OnInit {
     } finally {
       this.isPdfDownloading = false;
       this.cdr.markForCheck();
+    }
+  }
+
+  async downloadPdf(): Promise<void> {
+    // For activity9 overlay worksheets, use download-overlay endpoint
+    if (this.worksheet?.activity9) {
+      await this.downloadOverlayPdf();
+    } else {
+      // For regular worksheets, use the standard PDF renderer
+      await this.downloadMyPdf();
+    }
+  }
+
+  async downloadOverlayPdf(): Promise<void> {
+    if (!this.worksheet?.activity9 || !this.submission) {
+      this.alert.showWarning(
+        'Overlay worksheet not available',
+        'This worksheet does not have an overlay activity.',
+      );
+      return;
+    }
+
+    try {
+      const worksheetId = this.submission.worksheetId;
+      const assignmentId = this.assignmentId;
+
+      // Get answers from submission (service will also try draft if empty)
+      const answers = this.submission.activity9Answers || {};
+      const results = this.submission.activity9Results || {};
+      const score = this.displayScore;
+      const total = this.displayTotal;
+
+      console.log('[STUDENT PDF FRONTEND] === ANSWERS OBJECT INSPECTION ===');
+      console.log('[STUDENT PDF FRONTEND] typeof answers:', typeof answers);
+      console.log('[STUDENT PDF FRONTEND] answers instanceof Map:', answers instanceof Map);
+      console.log('[STUDENT PDF FRONTEND] Object.keys(answers):', Object.keys(answers));
+      console.log('[STUDENT PDF FRONTEND] answers count:', Object.keys(answers).length);
+      console.log('[STUDENT PDF FRONTEND] full answers object:', JSON.stringify(answers, null, 2));
+      console.log('[STUDENT PDF FRONTEND] score:', score, '/', total);
+
+      // Log field-level answer lookup
+      const fields = this.worksheet.activity9?.fields || [];
+      console.log('[STUDENT PDF FRONTEND] === FIELD-LEVEL ANSWER LOOKUP ===');
+      console.log('[STUDENT PDF FRONTEND] total fields:', fields.length);
+      fields.forEach(field => {
+        console.log('[STUDENT PDF FRONTEND] field lookup:', {
+          fieldId: field.id,
+          answer: answers?.[field.id],
+          hasAnswer: field.id in answers,
+          answerType: typeof answers?.[field.id]
+        });
+      });
+
+      await this.overlayPdfService.downloadOverlayPdf({
+        worksheetId,
+        assignmentId,
+        answers,
+        results,
+        score,
+        total,
+        studentName: this.studentName || 'Student',
+        subject: (this.worksheet as any)?.meta?.subject || (this.worksheet as any)?.subject || '',
+        grade: (this.worksheet as any)?.meta?.gradeLevel || (this.worksheet as any)?.gradeLevel || '',
+        className: this.className || '',
+        assignmentTitle: this.assignmentTitle || '',
+        dueDate: this.assignmentDeadline ? this.assignmentDeadline.toLocaleDateString() : '',
+      });
+    } catch (error) {
+      console.error('[DOWNLOAD OVERLAY PDF] Error:', error);
+      this.alert.showError(
+        'Failed to generate PDF',
+        'Please try again later.',
+      );
     }
   }
 

@@ -364,7 +364,7 @@
         <span>
           <button class="btn-dl-row"
                   [disabled]="downloadingSubmissionId === s._id"
-                  (click)="downloadStudentPdf(s)">
+                  (click)="$event.stopPropagation(); onDownloadStudentPdf(s)">
             @if (downloadingSubmissionId === s._id) {
               <span class="pdf-spinner" aria-hidden="true"></span>
             } @else {
@@ -386,7 +386,7 @@
           </div>
           <button class="btn-dl-row"
                   [disabled]="downloadingSubmissionId === s._id"
-                  (click)="downloadStudentPdf(s)">
+                  (click)="$event.stopPropagation(); onDownloadStudentPdf(s)">
             @if (downloadingSubmissionId === s._id) {
               <span class="pdf-spinner" aria-hidden="true"></span>
             } @else {

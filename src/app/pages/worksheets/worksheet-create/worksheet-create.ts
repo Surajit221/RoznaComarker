@@ -16,17 +16,21 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { HttpClient } from '@angular/common/http';
 import { Subject, takeUntil } from 'rxjs';
 import {
   WorksheetApiService,
   type Worksheet,
   type WorksheetDraft,
 } from '../../../api/worksheet-api.service';
+import { environment } from '../../../../environments/environment';
 import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
 import { WorksheetAssignInlineModal } from '../../../components/teacher/worksheet-assign-inline-modal/worksheet-assign-inline-modal';
+import { FieldEditorModalComponent } from '../../../components/teacher/field-editor-modal/field-editor-modal.component';
+import type { WorksheetActivity9Field } from '../../../api/worksheet-api.service';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -41,7 +45,7 @@ const GRADE_MAP: Record<string, string[]> = {
 @Component({
   selector: 'app-worksheet-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorModal, SuccessModal, WorksheetAssignInlineModal],
+  imports: [CommonModule, FormsModule, RouterModule, ErrorModal, SuccessModal, WorksheetAssignInlineModal, FieldEditorModalComponent],
   templateUrl: './worksheet-create.html',
   styleUrl: './worksheet-create.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,6 +56,7 @@ export class WorksheetCreatePage implements OnDestroy {
   private readonly api = inject(WorksheetApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly http = inject(HttpClient);
   private readonly destroy$ = new Subject<void>();
 
   /* ── Form fields ─────────────────────────── */
@@ -103,7 +108,38 @@ export class WorksheetCreatePage implements OnDestroy {
   gradeOptions: string[] = [];
   selectedFile: File | null = null;
   isUploading = false;
+  fileError = '';
   showAssignModal = false;
+  useGeminiFileGeneration = false; // Toggle between old and new file flow
+
+  /* ── Tab System ───────────────────────────────── */
+  activeTab: 'topic' | 'upload' | 'generate' = 'topic';
+
+  /* ── Overlay Worksheet (Upload Tab) ───────────────── */
+  overlayFile: File | null = null;
+  overlayTitle = '';
+  overlaySubject: string = '';
+  overlayCefrLevel: string = '';
+  overlayGradeCategory: string = '';
+  overlayGradeLevel: string = '';
+  overlayDifficulty: string = 'Medium';
+  overlayDeadline: string = '';
+  isAnalyzing = false;
+  createdWorksheetId: string | null = null;
+
+  worksheetStatus: 'blank' | 'filled' | 'partial' = 'blank';
+  hasAnswerKey: boolean = false;
+  overlayDetectResult: any = null;
+  analyzeButtonLabel = 'Analyze & Create Overlay Worksheet';
+
+  /* ── Field Editor Modal ───────────────────────── */
+  showFieldEditor: boolean = false;
+  fieldEditorFields: WorksheetActivity9Field[] = [];
+  fieldEditorImageUrl: string = '';
+  fieldEditorImageWidth: number = 0;
+  fieldEditorImageHeight: number = 0;
+  fieldEditorTitle: string = '';
+
 
   /* ── Gemini HTML Worksheet state ─────────────────────────
    * These fields are ONLY for the new file→Gemini→HTML flow.
@@ -115,6 +151,199 @@ export class WorksheetCreatePage implements OnDestroy {
   isGeneratingHtml = false; // spinner for Gemini call
   isDownloadingPdf = false; // spinner for PDF export
   private _blobUrl: string | null = null; // kept so we can revoke on destroy
+
+  /* ── Tab Methods ───────────────────────────────── */
+  switchTab(tab: 'topic' | 'upload' | 'generate'): void {
+    this.activeTab = tab;
+    this.cdr.markForCheck();
+  }
+
+  /* ── Overlay Worksheet Methods ───────────────────── */
+  onOverlayFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      // Validate file type (PDF or image only)
+      const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+      if (!validTypes.includes(file.type)) {
+        this.errorModal = {
+          open: true,
+          title: 'Invalid File Type',
+          message: 'Please upload a PDF, PNG, or JPG file.',
+        };
+        return;
+      }
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        this.errorModal = {
+          open: true,
+          title: 'File Too Large',
+          message: 'File size must be less than 10 MB.',
+        };
+        return;
+      }
+      this.overlayFile = file;
+      this.cdr.markForCheck();
+    }
+  }
+
+  removeOverlayFile(): void {
+    this.overlayFile = null;
+    this.overlayTitle = '';
+    this.cdr.markForCheck();
+  }
+
+  async analyzeAndCreateOverlay(): Promise<void> {
+    if (!this.overlayFile) return;
+    
+    // PHASE 1: Detection only
+    if (!this.overlayDetectResult) {
+      this.isAnalyzing = true;
+      this.analyzeButtonLabel = 'Analyzing...';
+      this.cdr.markForCheck();
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', this.overlayFile);
+        
+        const detectData = await this.http.post<any>(
+          `${environment.apiUrl}/api/worksheets/detect-fields`,
+          formData
+        ).toPromise();
+        
+        this.overlayDetectResult = detectData;
+        this.worksheetStatus = detectData.worksheetStatus || 'blank';
+        this.hasAnswerKey = detectData.hasAnswerKey || false;
+        
+        // Check for parse error - show warning but don't block creation
+        if (detectData.parseError) {
+          this.worksheetStatus = 'blank';
+          this.overlayDetectResult = detectData;
+          console.warn('[OVERLAY] Field detection failed, using empty fields');
+        }
+        
+        // Open field editor modal
+        this.fieldEditorImageUrl = detectData.imageUrl;
+        this.fieldEditorImageWidth = detectData.imageWidth || 0;
+        this.fieldEditorImageHeight = detectData.imageHeight || 0;
+        this.fieldEditorFields = detectData.fields || [];
+        this.fieldEditorTitle = detectData.worksheetTitle || '';
+        this.showFieldEditor = true;
+        this.analyzeButtonLabel = 'Analyze & Create Overlay Worksheet';
+
+        // Reset phase so next click re-analyzes
+        this.overlayDetectResult = null;
+        
+      } catch (error: any) {
+        this.errorModal = {
+          open: true,
+          title: 'Analysis Failed',
+          message: error.message || 'Failed to analyze worksheet.'
+        };
+      } finally {
+        this.isAnalyzing = false;
+        this.cdr.markForCheck();
+      }
+      return; // Stop here — wait for teacher to review
+    }
+    
+    // PHASE 2: Save worksheet (second button click)
+    this.isAnalyzing = true;
+    this.analyzeButtonLabel = 'Creating Worksheet...';
+    this.cdr.markForCheck();
+    
+    try {
+      const detectData = this.overlayDetectResult;
+      
+      const savePayload = {
+        title: this.overlayTitle || detectData.worksheetTitle || 
+               'Overlay Worksheet',
+        subject: this.overlaySubject || detectData.subject || '',
+        cefrLevel: this.overlayCefrLevel || '',
+        gradeCategory: this.overlayGradeCategory || '',
+        gradeLevel: this.overlayGradeLevel || '',
+        difficulty: this.overlayDifficulty || 'Medium',
+        assignmentDeadline: this.overlayDeadline || '',
+        backgroundImageUrl: detectData.imageUrl,
+        originalFileUrl: detectData.imageUrl,
+        fields: detectData.fields,
+        totalFields: detectData.totalFields,
+        worksheetStatus: detectData.worksheetStatus,
+        hasAnswerKey: detectData.hasAnswerKey,
+        instructions: detectData.worksheetStatus === 'filled'
+          ? 'Fill in the blank fields. Your answers will be checked against the answer key.'
+          : 'Fill in each field with the correct answer based on the worksheet.'
+      };
+      
+      const saveData = await this.http.post<any>(
+        `${environment.apiUrl}/api/worksheets/save-overlay`,
+        savePayload
+      ).toPromise();
+      
+      const createdWs = saveData?.data?.worksheet || saveData?.data;
+      if (!createdWs?._id) {
+        throw new Error('Could not retrieve worksheet ID');
+      }
+      
+      // Reset detection state for next upload
+      this.overlayDetectResult = null;
+      this.worksheetStatus = 'blank';
+      this.hasAnswerKey = false;
+      this.analyzeButtonLabel = 'Analyze & Create Overlay Worksheet';
+      
+      // Show saved state with assign button
+      this.savedWorksheet = createdWs;
+      this.draft = null;
+      this.activeTab = 'generate';
+      this.cdr.markForCheck();
+      
+    } catch (error: any) {
+      this.errorModal = {
+        open: true,
+        title: 'Save Failed',
+        message: error.message || 'Failed to create worksheet.'
+      };
+    } finally {
+      this.isAnalyzing = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onFieldEditorConfirmed(fields: WorksheetActivity9Field[]): void {
+    // Teacher confirmed fields - now save
+    this.showFieldEditor = false;
+
+    // Override fields with teacher-adjusted ones
+    this.overlayDetectResult = {
+      imageUrl: this.fieldEditorImageUrl,
+      imageWidth: this.fieldEditorImageWidth,
+      imageHeight: this.fieldEditorImageHeight,
+      worksheetTitle: this.fieldEditorTitle,
+      fields: fields,
+      totalFields: fields.length,
+      worksheetStatus: this.worksheetStatus,
+      hasAnswerKey: fields.some(
+        f => f.expectedAnswer && f.expectedAnswer.trim() !== ''
+      )
+    };
+
+    // Trigger save phase
+    this.analyzeAndCreateOverlay();
+  }
+
+  onFieldEditorCancelled(): void {
+    this.showFieldEditor = false;
+    this.overlayDetectResult = null;
+    this.analyzeButtonLabel = 'Analyze & Create Overlay Worksheet';
+  }
+
+  resetOverlayDetection(): void {
+    this.overlayDetectResult = null;
+    this.worksheetStatus = 'blank';
+    this.hasAnswerKey = false;
+    this.analyzeButtonLabel = 'Analyze & Create Overlay Worksheet';
+    this.cdr.markForCheck();
+  }
 
   readonly languages = ['English', 'Arabic', 'French', 'Spanish'];
   readonly difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
@@ -223,6 +452,8 @@ export class WorksheetCreatePage implements OnDestroy {
       this.cdr.markForCheck();
       return;
     }
+
+    // Standard generation
     this.isGenerating = true;
     this.draft = null;
     this.cdr.markForCheck();
@@ -257,7 +488,33 @@ export class WorksheetCreatePage implements OnDestroy {
       });
   }
 
+
   generateFromFile(): void {
+    if (!this.selectedFile || this.isUploading) return;
+
+    // Use the topic field to get the topic, or default to "Generated from example"
+    const topicText = this.topic.trim();
+    if (!topicText) {
+      this.errorModal = {
+        open: true,
+        title: 'Topic Required',
+        message: 'Please enter a topic before generating from file.',
+      };
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (this.useGeminiFileGeneration) {
+      this.generateFromFileGemini();
+    } else {
+      this.generateFromFileOpenAI();
+    }
+  }
+
+  /**
+   * Generate from file using OpenAI backend (existing flow)
+   */
+  generateFromFileOpenAI(): void {
     if (!this.selectedFile || this.isUploading) return;
 
     this.isUploading = true;
@@ -295,9 +552,69 @@ export class WorksheetCreatePage implements OnDestroy {
       });
   }
 
+  /**
+   * Generate from file using Gemini 2.0 Flash API (new flow)
+   * Analyzes the example file structure and generates a new worksheet on the teacher's topic
+   */
+  generateFromFileGemini(): void {
+    if (!this.selectedFile || this.isUploading) return;
+
+    const topicText = this.topic.trim();
+    if (!topicText) {
+      this.errorModal = {
+        open: true,
+        title: 'Topic Required',
+        message: 'Please enter a topic before generating from file.',
+      };
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.isUploading = true;
+    this.isGenerating = true;
+    this.draft = null;
+    this.cdr.markForCheck();
+
+    this.api
+      .generateFromFile(this.selectedFile, {
+        topic: topicText,
+        subject: this.subject,
+        gradeLevel: this.gradeLevel,
+        difficulty: this.difficulty,
+        language: this.language,
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.draft = res.worksheet ?? null;
+          this.sourceContent = res.sourceContent ?? this.selectedFile?.name ?? 'Uploaded file';
+          this.isUploading = false;
+          this.isGenerating = false;
+          this.cdr.markForCheck();
+        },
+        error: (err: any) => {
+          this.isUploading = false;
+          this.isGenerating = false;
+          console.error('[GENERATE FROM FILE GEMINI] Error:', err);
+          this.errorModal = {
+            open: true,
+            title: 'Generation Failed',
+            message: err?.error?.message ?? err?.message ?? 'Please try again.',
+          };
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
   onFileSelected(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
+
+    console.log('[FILE UPLOAD] File selected:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
 
     // Validate file type — extended to include images for Gemini vision
     const allowedTypes = [
@@ -356,6 +673,9 @@ export class WorksheetCreatePage implements OnDestroy {
     }
     this.cdr.markForCheck();
   }
+
+
+
 
   toggleActivityType(typeId: string): void {
     if (this.selectedActivityTypes.includes(typeId)) {
@@ -478,6 +798,11 @@ export class WorksheetCreatePage implements OnDestroy {
   onGradeCategoryChange(): void {
     this.gradeOptions = GRADE_MAP[this.gradeCategory] ?? [];
     this.gradeLevel = '';
+  }
+
+  onOverlayGradeCategoryChange(): void {
+    this.gradeOptions = GRADE_MAP[this.overlayGradeCategory] ?? [];
+    this.overlayGradeLevel = '';
   }
 
   get themePatternLabel(): string {
@@ -612,6 +937,15 @@ export class WorksheetCreatePage implements OnDestroy {
 
   onWorksheetAssigned(result: { classId: string; assignmentId: string }): void {
     this.showAssignModal = false;
+    // Reset overlay fields
+    this.overlayFile = null;
+    this.overlayTitle = '';
+    this.overlaySubject = '';
+    this.overlayCefrLevel = '';
+    this.overlayGradeCategory = '';
+    this.overlayGradeLevel = '';
+    this.overlayDifficulty = 'Medium';
+    this.overlayDeadline = '';
     this.cdr.markForCheck();
     // Navigate to class details page
     this.router.navigate(['/teacher/my-classes/detail', result.classId]);
@@ -622,12 +956,51 @@ export class WorksheetCreatePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onOverlaySuccessOk(): void {
+    this.successModal = { open: false, title: '', message: '' };
+    if (this.createdWorksheetId) {
+      // Navigate to worksheet edit page (correct route path)
+      this.router.navigate(['/worksheets', this.createdWorksheetId, 'edit']);
+    }
+  }
+
   cancel(): void {
     const returnToClassId = this.route.snapshot.queryParamMap.get('returnToClassId');
     this.router.navigate(
       returnToClassId ? ['/teacher/my-classes/detail', returnToClassId] : ['/teacher/my-classes'],
     );
   }
+
+  /* ── Overlay Worksheet Editor Methods ───────────────────────── */
+  isPdfOrImageFile(): boolean {
+    const OVERLAY_TYPES = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp'
+    ];
+
+    const file = this.selectedFile;
+    const result = !!file && (
+      OVERLAY_TYPES.includes(file.type) ||
+      file.name.toLowerCase().endsWith('.pdf') ||
+      file.name.toLowerCase().endsWith('.png') ||
+      file.name.toLowerCase().endsWith('.jpg') ||
+      file.name.toLowerCase().endsWith('.jpeg') ||
+      file.name.toLowerCase().endsWith('.webp')
+    );
+
+    console.log('[OVERLAY BTN] isPdfOrImageFile check:', {
+      uploadedFile: file,
+      fileType: file?.type,
+      fileName: file?.name,
+      result
+    });
+
+    return result;
+  }
+
 
   // ── Gemini HTML Worksheet Methods ───────────────────────────────────────────
   // These methods are NEW. They are completely independent of the existing

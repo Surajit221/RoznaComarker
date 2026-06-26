@@ -6,11 +6,27 @@
       <h2 class="wv-success-title">Worksheet Submitted!</h2>
       <p class="wv-success-subtitle">{{ worksheet()?.title }}</p>
       <div class="wv-success-score">
-        <span class="wv-score-pct">{{ progressPercent() }}%</span>
-        <span class="wv-score-pts">{{ totalScore() }} / {{ totalPossible() }} pts</span>
+        @if (isOverlayWorksheet()) {
+          <span class="wv-score-pct">{{ a9Total() > 0 ? Math.round((a9Score() / a9Total()) * 100) : 0 }}%</span>
+          <span class="wv-score-pts">{{ a9Score() }} / {{ a9Total() }} pts</span>
+        } @else {
+          <span class="wv-score-pct">{{ progressPercent() }}%</span>
+          <span class="wv-score-pts">{{ totalScore() }} / {{ totalPossible() }} pts</span>
+        }
       </div>
       <div class="wv-success-actions">
-        @if (submittedSubmissionId()) {
+        @if (isOverlayWorksheet()) {
+          <button class="wv-btn-dl-pdf"
+                  [disabled]="isPdfDownloading()"
+                  (click)="downloadOverlayPdf()">
+            @if (isPdfDownloading()) {
+              <span class="wv-pdf-spinner" aria-hidden="true"></span>
+              Generating PDF...
+            } @else {
+              ⬇ Download Worksheet Results PDF
+            }
+          </button>
+        } @else if (submittedSubmissionId()) {
           <button class="wv-btn-dl-pdf"
                   [disabled]="isPdfDownloading()"
                   (click)="downloadMyPdf()">
@@ -47,7 +63,7 @@
 
 <!-- WORKSHEET VIEWER -->
 @if ((reviewMode || !isSubmitted()) && !isLoading() && !loadError() && worksheet()) {
-  <div class="wv-root" [class.wv-review-mode]="reviewMode">
+  <div class="wv-root" [class.wv-review-mode]="reviewMode" [class.wv-overlay-mode]="isOverlayWorksheet()">
 
     <!-- ══ DARK TEAL HEADER ══ -->
     <div class="wv-header">
@@ -747,6 +763,175 @@
                   Check Sequence
                 </button>
               </div>
+            }
+          </div>
+        }
+
+        <!-- ACTIVITY 9: Overlay Worksheet -->
+        @if (worksheet()!.activity9) {
+          <div class="wv-card wv-activity-card">
+            <div class="wv-activity-header">
+              <div class="wv-activity-header-text">
+                <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
+                <h3 class="wv-activity-title">
+                  {{ worksheet()!.activity9!.title }}
+                </h3>
+                <p class="wv-activity-inst">
+                  {{ worksheet()!.activity9!.instructions }}
+                </p>
+              </div>
+              <span class="wv-score-badge">
+                {{ a9Score() }} / {{ a9Total() }}
+              </span>
+            </div>
+
+            @if (worksheet()!.activity9!.hasAnswerKey) {
+              <div class="wv-answer-key-badge">
+                🔑 Auto-graded worksheet — answers will be checked
+                automatically
+              </div>
+            } @else {
+              <div class="wv-no-key-badge">
+                📝 Fill in the fields below
+              </div>
+            }
+
+            @if (isEvaluating()) {
+              <div class="wv-a9-evaluating">
+                <div class="wv-evaluating-spinner"></div>
+                <div>
+                  <p class="wv-evaluating-title">
+                    🤖 AI is evaluating your answers...
+                  </p>
+                  <p class="wv-evaluating-sub">
+                    This takes a few seconds
+                  </p>
+                </div>
+              </div>
+            }
+
+            <!-- Image with overlaid input fields -->
+            <div class="wv-overlay-container">
+              <div class="wv-overlay-wrapper" #overlayWrapper>
+                <img 
+                  [src]="worksheet()!.activity9!.backgroundImageUrl" 
+                  class="wv-overlay-image"
+                  alt="Worksheet"
+                  (load)="onOverlayImageLoad()">
+                
+                @for (field of worksheet()!.activity9!.fields; track field.id) {
+                  <div
+                    class="wv-overlay-field"
+                    [style.left.%]="field.x"
+                    [style.top.%]="field.y"
+                    [style.width.%]="field.width"
+                    [style.height.%]="field.height"
+                    [class.correct]="a9Results()[field.id] === true"
+                    [class.wrong]="a9Results()[field.id] === false"
+                    >
+
+                    @if (field.type === 'text') {
+                      <input
+                        type="text"
+                        class="wv-overlay-input"
+                        [placeholder]="field.hint || ''"
+                        [disabled]="reviewMode || a9Checked()"
+                        (input)="onA9Input(field.id, $any($event.target).value)"
+                        [value]="a9Answers()[field.id] || ''">
+                    } @else {
+                      <textarea
+                        class="wv-overlay-input"
+                        [placeholder]="field.hint || ''"
+                        [disabled]="reviewMode || a9Checked()"
+                        (input)="onA9Input(field.id, $any($event.target).value)"
+                        style="resize:none"
+                        >{{ a9Answers()[field.id] || '' }}</textarea>
+                    }
+
+                    @if (a9Checked() && a9Results()[field.id] !== null) {
+                      <div class="wv-a9-field-result"
+                           [class.correct]="a9Results()[field.id] === true"
+                           [class.wrong]="a9Results()[field.id] === false">
+                        @if (a9Results()[field.id] === true) {
+                          <span class="wv-a9-result-icon">✓</span>
+                        } @else {
+                          <span class="wv-a9-result-icon">✗</span>
+                          @if (field.expectedAnswer) {
+                            <span class="wv-a9-correct-answer">
+                              Answer: {{ field.expectedAnswer }}
+                            </span>
+                          }
+                        }
+                      </div>
+                    }
+
+                    @if (a9Checked() && a9Feedbacks()[field.id]) {
+                      <div class="wv-a9-feedback-tooltip">
+                        {{ a9Feedbacks()[field.id] }}
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+
+            @if (!reviewMode) {
+              <div class="wv-a9-actions">
+                <button class="wv-btn-download" (click)="downloadOverlayPdf()">
+                  ⬇ Download PDF
+                </button>
+                <button class="wv-btn-reset" (click)="resetActivity9()">
+                  Reset
+                </button>
+                <button class="wv-btn-check-answers"
+                        (click)="checkActivity9()"
+                        [disabled]="a9Checked() || isEvaluating()">
+                  @if (isEvaluating()) {
+                    <span class="wv-spinner-small"></span>
+                    AI is checking answers...
+                  } @else if (a9Checked()) {
+                    Checked ✓
+                  } @else {
+                    Check Answers
+                  }
+                </button>
+              </div>
+
+              @if (a9Checked()) {
+                <div class="wv-a9-summary">
+                  <div class="wv-a9-summary-score"
+                       [class.perfect]="a9Score() === a9Total()"
+                       [class.good]="a9Score() >= a9Total() * 0.7 && a9Score() < a9Total()"
+                       [class.needs-work]="a9Score() < a9Total() * 0.7">
+
+                    <span class="wv-a9-summary-fraction">
+                      {{ a9Score() }}/{{ a9Total() }}
+                    </span>
+                    <span class="wv-a9-summary-pct">
+                      {{ a9Total() > 0 ?
+                         Math.round((a9Score()/a9Total())*100) : 0 }}%
+                    </span>
+                    <span class="wv-a9-summary-label">
+                      @if (a9Score() === a9Total()) {
+                        🎉 Perfect Score!
+                      } @else if (a9Score() >= a9Total() * 0.7) {
+                        👍 Good Job!
+                      } @else {
+                        📚 Keep Practicing!
+                      }
+                    </span>
+                  </div>
+
+                  <div class="wv-a9-summary-breakdown">
+                    <span class="wv-a9-correct-count">
+                      ✓ {{ a9Score() }} correct
+                    </span>
+                    <span class="wv-a9-wrong-count">
+                      ✗ {{ a9Total() - a9Score() }} incorrect
+                    </span>
+                  </div>
+                </div>
+              }
             }
           </div>
         }

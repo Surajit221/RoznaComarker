@@ -5,53 +5,32 @@
     <button class="wcp-back-btn" (click)="cancel()">← Back</button>
     <div>
       <h1 class="wcp-title">Create Worksheet</h1>
-      <p class="wcp-subtitle">AI generates 4 interactive activities from your topic.</p>
+      <p class="wcp-subtitle">Choose how you want to create your worksheet.</p>
     </div>
   </div>
 
-  <!-- ── GENERATION FORM ────────────────────────────────── -->
-  @if (!draft || isGenerating) {
+  <!-- ── TAB NAVIGATION ───────────────────────────────────── -->
+  <div class="wcp-tabs">
+    <button 
+      class="wcp-tab" 
+      [class.wcp-tab--active]="activeTab === 'topic'"
+      (click)="switchTab('topic')">
+      ✏️ Generate from Topic
+    </button>
+    <button 
+      class="wcp-tab" 
+      [class.wcp-tab--active]="activeTab === 'upload'"
+      (click)="switchTab('upload')">
+      📄 Upload Worksheet
+    </button>
+  </div>
+
+  <!-- ── TAB 1: GENERATE FROM TOPIC ───────────────────────── -->
+  @if (activeTab === 'topic' && (!draft || isGenerating)) {
   <div class="wcp-card">
     <div class="wcp-section-label">TOPIC / SOURCE TEXT</div>
 
-    <!-- File Upload Area -->
-    <div class="wcp-upload-area" [class.wcp-upload-area--has-file]="selectedFile">
-      @if (!selectedFile) {
-      <div class="wcp-upload-dropzone" (click)="fileInput.click()">
-        <div class="wcp-upload-icon">📁</div>
-        <p class="wcp-upload-text">Drop a file or click to browse</p>
-        <p class="wcp-upload-hint">PDF, DOCX, TXT, PNG or JPG (max 10 MB)</p>
-        <input
-          #fileInput
-          type="file"
-          class="wcp-file-input"
-          accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
-          (change)="onFileSelected($event)"
-          [disabled]="isGenerating || isUploading"
-        />
-      </div>
-      } @else {
-      <div class="wcp-file-selected">
-        <div class="wcp-file-info">
-          <span class="wcp-file-icon">📄</span>
-          <div class="wcp-file-details">
-            <p class="wcp-file-name">{{ selectedFile.name }}</p>
-            <p class="wcp-file-size">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
-          </div>
-        </div>
-        <button
-          class="wcp-remove-file-btn"
-          (click)="removeFile()"
-          [disabled]="isGenerating || isUploading"
-        >
-          ✕
-        </button>
-      </div>
-      }
-    </div>
-
-    <!-- Topic Textarea — hidden when a file is uploaded (mutually exclusive) -->
-    @if (!selectedFile) {
+    <!-- Topic Textarea -->
     <textarea
       class="wcp-textarea"
       rows="5"
@@ -60,7 +39,6 @@
       [disabled]="isGenerating"
     >
     </textarea>
-    }
 
     <!-- Description -->
     <div class="wcp-form-group">
@@ -211,35 +189,22 @@
       }
     </div>
 
-    <!-- ── EXISTING: Topic-based generate button (hidden when file uploaded) ── -->
-    @if (!selectedFile) {
     <button
       class="wcp-btn-generate"
       [disabled]="isGenerating || !topic.trim()"
       (click)="generate()"
     >
       @if (isGenerating) {
-      <span class="wcp-spinner"></span> Generating… } @else { ✨ Generate Worksheet }
+      <span class="wcp-spinner"></span> Generating worksheet…
+      } @else {
+        ✨ Generate Worksheet
+      }
     </button>
-    }
-
-    <!-- ── NEW: Gemini HTML Worksheet button (shown only when file is selected) ── -->
-    @if (selectedFile) {
-    <button
-      class="wcp-btn-generate-html"
-      [disabled]="isGeneratingHtml"
-      (click)="generateHtmlFromFile()"
-    >
-      @if (isGeneratingHtml) {
-      <span class="wcp-spinner wcp-spinner-white"></span>
-      Generating worksheet from uploaded file… } @else { 🤖 Generate Printable Worksheet (AI) }
-    </button>
-    }
   </div>
   }
 
-  <!-- ── GENERATING SKELETON ────────────────────────────── -->
-  @if (isGenerating) {
+  <!-- ── GENERATING SKELETON (TOPIC TAB) ───────────────────── -->
+  @if (isGenerating && activeTab === 'topic') {
   <div class="wcp-card wcp-skeleton-card">
     <div class="wcp-skel wcp-skel-title"></div>
     <div class="wcp-skel wcp-skel-line"></div>
@@ -250,8 +215,227 @@
   </div>
   }
 
-  <!-- ── DRAFT PREVIEW ───────────────────────────────────── -->
-  @if (draft && !isGenerating) {
+  <!-- ── TAB 2: UPLOAD WORKSHEET (OVERLAY) ─────────────────── -->
+  @if (activeTab === 'upload' && (!draft || isAnalyzing)) {
+  <div class="wcp-card">
+    <div class="wcp-section-label">UPLOAD WORKSHEET PDF/IMAGE</div>
+
+    <!-- Large File Upload Area -->
+    <div class="wcp-overlay-upload-area" [class.wcp-overlay-upload-area--has-file]="overlayFile">
+      @if (!overlayFile) {
+      <div class="wcp-overlay-dropzone" (click)="overlayFileInput.click()">
+        <div class="wcp-overlay-icon">📄</div>
+        <p class="wcp-overlay-text">Drop a PDF or image worksheet here</p>
+        <p class="wcp-overlay-hint">AI will detect input fields and create an interactive overlay worksheet</p>
+        <p class="wcp-overlay-formats">Supported: PDF, PNG, JPG (max 10 MB)</p>
+        <input
+          #overlayFileInput
+          type="file"
+          class="wcp-file-input"
+          accept=".pdf,.png,.jpg,.jpeg"
+          (change)="onOverlayFileSelected($event)"
+          [disabled]="isAnalyzing"
+        />
+      </div>
+      } @else {
+      <div class="wcp-overlay-file-selected">
+        <div class="wcp-file-info">
+          <span class="wcp-file-icon">📄</span>
+          <div class="wcp-file-details">
+            <p class="wcp-file-name">{{ overlayFile.name }}</p>
+            <p class="wcp-file-size">{{ (overlayFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+          </div>
+        </div>
+        <button
+          class="wcp-remove-file-btn"
+          (click)="removeOverlayFile()"
+          [disabled]="isAnalyzing"
+        >
+          ✕
+        </button>
+      </div>
+      }
+    </div>
+
+    <!-- Optional Title Input -->
+    <div class="wcp-form-group">
+      <label class="wcp-label">Worksheet Title <span class="wcp-label-optional">(optional)</span></label>
+      <input
+        type="text"
+        class="wcp-textarea"
+        placeholder="AI will auto-generate a title if left blank"
+        [(ngModel)]="overlayTitle"
+        [disabled]="isAnalyzing"
+      />
+    </div>
+
+    <!-- Metadata fields - same as Tab 1 -->
+    <div class="wcp-form-row">
+      <div class="wcp-form-group">
+        <label class="wcp-label">Subject</label>
+        <select class="wcp-select" [(ngModel)]="overlaySubject" [disabled]="isAnalyzing">
+          @for (s of subjects; track s) {
+          <option [value]="s">{{ s || 'Select subject…' }}</option>
+          }
+        </select>
+      </div>
+      <div class="wcp-form-group">
+        <label class="wcp-label">CEFR Level</label>
+        <select class="wcp-select" [(ngModel)]="overlayCefrLevel" [disabled]="isAnalyzing">
+          @for (c of cefrLevels; track c.value) {
+          <option [value]="c.value">{{ c.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="wcp-form-row">
+      <div class="wcp-form-group">
+        <label class="wcp-label">Grade Category</label>
+        <select
+          class="wcp-select"
+          [(ngModel)]="overlayGradeCategory"
+          (ngModelChange)="onOverlayGradeCategoryChange()"
+          [disabled]="isAnalyzing"
+        >
+          @for (g of gradeCategories; track g) {
+          <option [value]="g">{{ g || 'Select category…' }}</option>
+          }
+        </select>
+      </div>
+      <div class="wcp-form-group">
+        <label class="wcp-label">Grade Level</label>
+        <select
+          class="wcp-select"
+          [(ngModel)]="overlayGradeLevel"
+          [disabled]="isAnalyzing || !overlayGradeCategory"
+        >
+          <option value="">{{ overlayGradeCategory ? 'Select grade…' : 'Pick category first' }}</option>
+          @for (g of gradeOptions; track g) {
+          <option [value]="g">{{ g }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="wcp-form-row">
+      <div class="wcp-form-group">
+        <label class="wcp-label">Difficulty</label>
+        <select class="wcp-select" [(ngModel)]="overlayDifficulty" [disabled]="isAnalyzing">
+          @for (d of difficulties; track d) {
+          <option [value]="d">
+            {{ d === 'easy' ? 'Easy' : d === 'medium' ? 'Medium' : 'Hard' }}
+          </option>
+          }
+        </select>
+      </div>
+      <div class="wcp-form-group">
+        <label class="wcp-label">Assignment Deadline</label>
+        <input
+          type="date"
+          class="wcp-input"
+          [(ngModel)]="overlayDeadline"
+          [disabled]="isAnalyzing"
+        />
+      </div>
+    </div>
+
+    <!-- Status Indicator -->
+    @if (overlayDetectResult) {
+      <div class="wcp-detect-result" 
+           [class.wcp-detect-filled]="worksheetStatus === 'filled'"
+           [class.wcp-detect-blank]="worksheetStatus === 'blank'"
+           [class.wcp-detect-partial]="worksheetStatus === 'partial'">
+        
+        @if (worksheetStatus === 'blank') {
+          <span class="wcp-detect-icon">📄</span>
+          <div>
+            <p class="wcp-detect-title">Blank Worksheet Detected</p>
+            <p class="wcp-detect-sub">
+              Students will fill in {{ overlayDetectResult.totalFields }} 
+              empty fields. No answer key available.
+            </p>
+          </div>
+        }
+        
+        @if (worksheetStatus === 'filled') {
+          <span class="wcp-detect-icon">✅</span>
+          <div>
+            <p class="wcp-detect-title">Filled Worksheet Detected!</p>
+            <p class="wcp-detect-sub">
+              AI found {{ overlayDetectResult.totalFields }} answers.
+              Students will see a blank version and get 
+              auto-scored when they submit.
+            </p>
+          </div>
+        }
+        
+        @if (worksheetStatus === 'partial') {
+          <span class="wcp-detect-icon">📝</span>
+          <div>
+            <p class="wcp-detect-title">Partially Filled Detected</p>
+            <p class="wcp-detect-sub">
+              AI found some filled answers to use as answer key.
+              Empty fields will need manual answers or stay unscored.
+            </p>
+          </div>
+        }
+      </div>
+    }
+
+    @if (overlayDetectResult?.parseError) {
+      <div class="wcp-detect-result wcp-detect-warning">
+        <span class="wcp-detect-icon">⚠️</span>
+        <div>
+          <p class="wcp-detect-title">Fields Could Not Be Detected</p>
+          <p class="wcp-detect-sub">
+            The worksheet image was saved but input fields 
+            could not be automatically detected. You can still 
+            create the worksheet — students will see the image.
+          </p>
+        </div>
+      </div>
+    }
+
+    @if (overlayDetectResult && !isAnalyzing) {
+      <button class="wcp-reanalyze-btn" 
+              (click)="resetOverlayDetection()">
+        ↺ Re-analyze file
+      </button>
+    }
+
+    <!-- Analyze Button -->
+    <button
+      class="wcp-btn-analyze"
+      [disabled]="isAnalyzing || !overlayFile"
+      (click)="analyzeAndCreateOverlay()"
+    >
+      @if (isAnalyzing) {
+        <span class="wcp-spinner"></span> 
+        {{ analyzeButtonLabel }}
+      } @else {
+        🎯 {{ analyzeButtonLabel }}
+      }
+    </button>
+  </div>
+  }
+
+  <!-- ── ANALYZING SKELETON (UPLOAD TAB) ───────────────────── -->
+  @if (isAnalyzing && activeTab === 'upload') {
+  <div class="wcp-card wcp-skeleton-card">
+    <div class="wcp-gemini-loading">
+      <div class="wcp-gemini-loading-icon">🎯</div>
+      <p class="wcp-gemini-loading-title">Analyzing worksheet with AI…</p>
+      <p class="wcp-gemini-loading-sub">
+        Vision AI is detecting input fields and creating an interactive overlay worksheet. This may take up to 30 seconds.
+      </p>
+      <div class="wcp-gemini-dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+  }
+
+  <!-- ── DRAFT PREVIEW (SHARED) ───────────────────────────── -->
+  @if (draft && !isGenerating && !isAnalyzing) {
   <div class="wcp-card wcp-draft-card">
     <div class="wcp-draft-header">
       <div>
@@ -310,6 +494,23 @@
         <p class="wcp-saved-sub">{{ savedWorksheet.title }}</p>
       </div>
     </div>
+
+    @if (savedWorksheet.activity9) {
+      <div class="wcp-overlay-note">
+        <span>📋</span>
+        <p>
+          PDF overlay worksheet created with 
+          {{ savedWorksheet.activity9.totalFields }} input fields.
+          Students will fill in answers directly on the worksheet image.
+        </p>
+      </div>
+      <a 
+        class="wcp-adjust-link"
+        [routerLink]="['/worksheets', savedWorksheet._id, 'adjust-fields']"
+        target="_blank">
+        ⚙ Adjust field positions if needed
+      </a>
+    }
 
     <!-- theme preview header -->
     <div class="wcp-theme-section-label">AI-GENERATED VISUAL THEME</div>
@@ -387,84 +588,6 @@
   }
 </div>
 
-<!-- ── GEMINI: Generating skeleton ─────────────────────────── -->
-@if (isGeneratingHtml) {
-<div class="wcp-card wcp-skeleton-card">
-  <div class="wcp-gemini-loading">
-    <div class="wcp-gemini-loading-icon">🤖</div>
-    <p class="wcp-gemini-loading-title">Analyzing your file with AI…</p>
-    <p class="wcp-gemini-loading-sub">
-      Gemini 1.5 Flash is reading the content and designing a printable worksheet. This may take up
-      to 30 seconds.
-    </p>
-    <div class="wcp-gemini-dots"><span></span><span></span><span></span></div>
-  </div>
-  <div class="wcp-skel wcp-skel-title" style="margin-top: 20px"></div>
-  <div class="wcp-skel wcp-skel-block"></div>
-  <div class="wcp-skel wcp-skel-line"></div>
-  <div class="wcp-skel wcp-skel-line wcp-skel-short"></div>
-</div>
-}
-
-<!-- ── GEMINI: HTML Worksheet Preview ──────────────────────── -->
-@if (htmlWorksheet && !isGeneratingHtml) {
-<div class="wcp-card wcp-html-preview-card">
-  <!-- Header: title + action buttons -->
-  <div class="wcp-html-preview-header">
-    <div class="wcp-html-preview-meta">
-      <div class="wcp-html-preview-badge">📄 Printable Worksheet Ready</div>
-      <h3 class="wcp-html-preview-title">{{ htmlWorksheetTitle }}</h3>
-      <p class="wcp-html-preview-hint">Generated from: <strong>{{ selectedFile?.name }}</strong></p>
-    </div>
-    <div class="wcp-html-preview-actions">
-      <button
-        class="wcp-btn-regen-theme"
-        [disabled]="isGeneratingHtml"
-        (click)="regenerateHtmlWorksheet()"
-      >
-        ↺ Regenerate
-      </button>
-      <button
-        class="wcp-btn-download-pdf"
-        [disabled]="isDownloadingPdf"
-        (click)="downloadHtmlAsPdf()"
-      >
-        @if (isDownloadingPdf) {
-        <span class="wcp-spinner wcp-spinner-white"></span> Generating PDF… } @else { ⬇ Download as
-        PDF }
-      </button>
-    </div>
-  </div>
-
-  <!-- Scrollable iframe preview -->
-  <div class="wcp-html-preview-scroll">
-    <iframe
-      class="wcp-html-preview-iframe"
-      [src]="htmlPreviewUrl"
-      title="Worksheet Preview"
-      sandbox="allow-same-origin allow-scripts"
-    >
-    </iframe>
-  </div>
-
-  <!-- Footer actions -->
-  <div class="wcp-html-preview-footer">
-    <p class="wcp-html-preview-note">
-      ℹ️ This worksheet is for printing / PDF download only. To create an interactive assignable
-      worksheet, use the topic input above instead.
-    </p>
-    <button
-      class="wcp-btn-download-pdf"
-      [disabled]="isDownloadingPdf"
-      (click)="downloadHtmlAsPdf()"
-    >
-      @if (isDownloadingPdf) {
-      <span class="wcp-spinner wcp-spinner-white"></span> Generating PDF… } @else { ⬇ Download as
-      PDF }
-    </button>
-  </div>
-</div>
-}
 
 <!-- Error Modal -->
 <app-error-modal
@@ -480,9 +603,10 @@
   [show]="successModal.open"
   [title]="successModal.title"
   [message]="successModal.message"
-  (closed)="successModal = { open: false, title: '', message: '' }"
+  (closed)="onOverlaySuccessOk()"
 >
 </app-success-modal>
+
 
 <!-- Worksheet Assign Inline Modal -->
 <app-worksheet-assign-inline-modal
@@ -493,3 +617,15 @@
   (assigned)="onWorksheetAssigned($event)"
 >
 </app-worksheet-assign-inline-modal>
+
+<!-- Field Editor Modal -->
+<app-field-editor-modal
+  [(show)]="showFieldEditor"
+  [imageUrl]="fieldEditorImageUrl"
+  [imageWidth]="fieldEditorImageWidth"
+  [imageHeight]="fieldEditorImageHeight"
+  [initialFields]="fieldEditorFields"
+  [worksheetTitle]="fieldEditorTitle"
+  (confirmed)="onFieldEditorConfirmed($event)"
+  (cancelled)="onFieldEditorCancelled()">
+</app-field-editor-modal>
