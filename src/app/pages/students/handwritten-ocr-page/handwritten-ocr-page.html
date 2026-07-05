@@ -43,11 +43,7 @@
             </div>
           } @else {
             <div class="w-full rounded-2xl overflow-hidden bg-[#F3F3F3]">
-              <app-image-annotation-overlay
-                [imageUrl]="fileUrl"
-                [annotations]="annotations"
-                [page]="1"
-              ></app-image-annotation-overlay>
+              <img [src]="fileUrl" alt="Uploaded image" class="w-full h-auto" />
             </div>
           }
         </div>

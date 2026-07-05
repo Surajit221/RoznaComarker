@@ -35,7 +35,6 @@ import {
   type WorksheetReportData,
 } from '../../../services/worksheet-report-pdf.service';
 import { ReportPdfTemplateComponent } from './report-pdf-template/report-pdf-template.component';
-import { OverlayPdfService } from '../../../services/overlay-pdf.service';
 
 @Component({
   selector: 'app-worksheet-report',
@@ -66,7 +65,6 @@ export class WorksheetReport implements OnInit, OnDestroy {
   private readonly pdfReportService = inject(WorksheetReportPdfService);
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
-  private readonly overlayPdfService = inject(OverlayPdfService);
 
   worksheet: Worksheet | null = null;
   submissions: WorksheetSubmission[] = [];

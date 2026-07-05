@@ -29,7 +29,6 @@ import { WorksheetPdfRenderService } from '../worksheet-pdf-template/worksheet-p
 import { AssignmentStateService } from '../../services/assignment-state.service';
 import { AuthService } from '../../auth/auth.service';
 import { environment } from '../../../environments/environment';
-import { OverlayPdfService } from '../../services/overlay-pdf.service';
 
 @Component({
   selector: 'app-worksheet-viewer',
@@ -73,7 +72,6 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   private readonly authService  = inject(AuthService);
   private readonly http         = inject(HttpClient);
   private readonly route        = inject(ActivatedRoute);
-  private readonly overlayPdfService = inject(OverlayPdfService);
 
   readonly OPTION_LETTERS = ['A', 'B', 'C', 'D'];
   readonly Object = Object;
@@ -202,6 +200,13 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
       }
     }
     return earned;
+  });
+
+  a4Progress = computed(() => {
+    const total = this.a4Total();
+    if (total === 0) return 0;
+    const filled = Object.keys(this.a4Blanks()).filter(key => this.a4Blanks()[key]?.trim()).length;
+    return Math.round((filled / total) * 100);
   });
 
   a5Total = computed(() => this.worksheet()?.activity5?.pairs?.length ?? 0);
@@ -1108,20 +1113,12 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     )?.value || this.studentNameValue || 'Student';
 
     try {
-      await this.overlayPdfService.downloadOverlayPdf({
-        worksheetId,
-        assignmentId: this.assignmentId || this.route.snapshot.queryParams['assignmentId'],
-        answers,
-        results,
-        score,
-        total,
-        studentName,
-        subject: (ws as any)?.meta?.subject || (ws as any)?.subject || '',
-        grade: (ws as any)?.meta?.gradeLevel || (ws as any)?.gradeLevel || '',
-        className: '',
-        assignmentTitle: '',
-        dueDate: '',
-      });
+      // Overlay PDF download temporarily disabled - service not available
+      this.alert.showWarning(
+        'PDF download unavailable',
+        'Overlay worksheet PDF download is currently disabled.'
+      );
+      return;
     } catch (error) {
       console.error('[DOWNLOAD OVERLAY PDF] Error:', error);
     }

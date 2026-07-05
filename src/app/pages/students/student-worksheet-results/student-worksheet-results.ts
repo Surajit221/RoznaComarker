@@ -31,7 +31,6 @@ import { WorksheetPdfRenderService } from '../../../components/worksheet-pdf-tem
 import { AlertService } from '../../../services/alert.service';
 import { AuthService } from '../../../auth/auth.service';
 import { environment } from '../../../../environments/environment';
-import { OverlayPdfService } from '../../../services/overlay-pdf.service';
 
 interface ResultState {
   submission: WorksheetSubmission;
@@ -58,7 +57,6 @@ export class StudentWorksheetResultsPage implements OnInit {
   private readonly pdfRenderer = inject(WorksheetPdfRenderService);
   private readonly alert = inject(AlertService);
   private readonly auth = inject(AuthService);
-  private readonly overlayPdfService = inject(OverlayPdfService);
 
   submission: WorksheetSubmission | null = null;
   worksheetTitle = '';
@@ -597,20 +595,12 @@ export class StudentWorksheetResultsPage implements OnInit {
         });
       });
 
-      await this.overlayPdfService.downloadOverlayPdf({
-        worksheetId,
-        assignmentId,
-        answers,
-        results,
-        score,
-        total,
-        studentName: this.studentName || 'Student',
-        subject: (this.worksheet as any)?.meta?.subject || (this.worksheet as any)?.subject || '',
-        grade: (this.worksheet as any)?.meta?.gradeLevel || (this.worksheet as any)?.gradeLevel || '',
-        className: this.className || '',
-        assignmentTitle: this.assignmentTitle || '',
-        dueDate: this.assignmentDeadline ? this.assignmentDeadline.toLocaleDateString() : '',
-      });
+      // Overlay PDF download temporarily disabled - service not available
+      this.alert.showWarning(
+        'PDF download unavailable',
+        'Overlay worksheet PDF download is currently disabled.'
+      );
+      return;
     } catch (error) {
       console.error('[DOWNLOAD OVERLAY PDF] Error:', error);
       this.alert.showError(

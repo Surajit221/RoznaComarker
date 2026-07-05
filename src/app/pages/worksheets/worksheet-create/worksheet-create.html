@@ -11,18 +11,41 @@
 
   <!-- ── TAB NAVIGATION ───────────────────────────────────── -->
   <div class="wcp-tabs">
-    <button 
-      class="wcp-tab" 
+    <button
+      class="wcp-tab"
       [class.wcp-tab--active]="activeTab === 'topic'"
       (click)="switchTab('topic')">
       ✏️ Generate from Topic
     </button>
-    <button 
-      class="wcp-tab" 
-      [class.wcp-tab--active]="activeTab === 'upload'"
-      (click)="switchTab('upload')">
-      📄 Upload Worksheet
+    <button
+      class="wcp-tab"
+      [class.wcp-tab--active]="activeTab === 'extract'"
+      (click)="switchTab('extract')">
+      📄 Upload & Extract
     </button>
+  </div>
+
+  <!-- ── SHARED FIELDS (visible on both tabs) ───────────────── -->
+  <div class="wcp-card wcp-shared-fields">
+    <div class="wcp-form-row">
+      <div class="wcp-form-group">
+        <label class="wcp-label">Assignment Deadline</label>
+        <input
+          class="wcp-select"
+          type="datetime-local"
+          [(ngModel)]="assignmentDeadline"
+          [disabled]="isGenerating"
+        />
+      </div>
+      <div class="wcp-form-group">
+        <label class="wcp-label">Theme</label>
+        <select class="wcp-select" [(ngModel)]="selectedTheme" [disabled]="isGenerating">
+          @for (t of themes; track t.value) {
+          <option [value]="t.value">{{ t.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
   </div>
 
   <!-- ── TAB 1: GENERATE FROM TOPIC ───────────────────────── -->
@@ -107,7 +130,7 @@
       </div>
     </div>
 
-    <!-- Classification row 3: Difficulty + Language + Deadline + Theme -->
+    <!-- Classification row 3: Difficulty + Language -->
     <div class="wcp-form-row">
       <div class="wcp-form-group">
         <label class="wcp-label">Difficulty</label>
@@ -124,23 +147,6 @@
         <select class="wcp-select" [(ngModel)]="language" [disabled]="isGenerating">
           @for (l of languages; track l) {
           <option [value]="l">{{ l }}</option>
-          }
-        </select>
-      </div>
-      <div class="wcp-form-group">
-        <label class="wcp-label">Assignment Deadline</label>
-        <input
-          class="wcp-select"
-          type="datetime-local"
-          [(ngModel)]="assignmentDeadline"
-          [disabled]="isGenerating"
-        />
-      </div>
-      <div class="wcp-form-group">
-        <label class="wcp-label">Theme</label>
-        <select class="wcp-select" [(ngModel)]="selectedTheme" [disabled]="isGenerating">
-          @for (t of themes; track t.value) {
-          <option [value]="t.value">{{ t.label }}</option>
           }
         </select>
       </div>
@@ -215,26 +221,26 @@
   </div>
   }
 
-  <!-- ── TAB 2: UPLOAD WORKSHEET (OVERLAY) ─────────────────── -->
-  @if (activeTab === 'upload' && (!draft || isAnalyzing)) {
+  <!-- ── TAB 2: UPLOAD & EXTRACT (NEW FLOW) ───────────────────── -->
+  @if (activeTab === 'extract' && (!draft || isGenerating)) {
   <div class="wcp-card">
-    <div class="wcp-section-label">UPLOAD WORKSHEET PDF/IMAGE</div>
+    <div class="wcp-section-label">UPLOAD WORKSHEET TO EXTRACT</div>
 
-    <!-- Large File Upload Area -->
-    <div class="wcp-overlay-upload-area" [class.wcp-overlay-upload-area--has-file]="overlayFile">
-      @if (!overlayFile) {
-      <div class="wcp-overlay-dropzone" (click)="overlayFileInput.click()">
+    <!-- File Upload Area -->
+    <div class="wcp-overlay-upload-area" [class.wcp-overlay-upload-area--has-file]="selectedFile">
+      @if (!selectedFile) {
+      <div class="wcp-overlay-dropzone" (click)="fileInput.click()">
         <div class="wcp-overlay-icon">📄</div>
         <p class="wcp-overlay-text">Drop a PDF or image worksheet here</p>
-        <p class="wcp-overlay-hint">AI will detect input fields and create an interactive overlay worksheet</p>
-        <p class="wcp-overlay-formats">Supported: PDF, PNG, JPG (max 10 MB)</p>
+        <p class="wcp-overlay-hint">AI will extract questions and convert them to the native worksheet format</p>
+        <p class="wcp-overlay-formats">Supported: PDF, PNG, JPG, DOCX, TXT (max 10 MB)</p>
         <input
-          #overlayFileInput
+          #fileInput
           type="file"
           class="wcp-file-input"
-          accept=".pdf,.png,.jpg,.jpeg"
-          (change)="onOverlayFileSelected($event)"
-          [disabled]="isAnalyzing"
+          accept=".pdf,.png,.jpg,.jpeg,.docx,.txt"
+          (change)="onFileSelected($event)"
+          [disabled]="isGenerating"
         />
       </div>
       } @else {
@@ -242,14 +248,14 @@
         <div class="wcp-file-info">
           <span class="wcp-file-icon">📄</span>
           <div class="wcp-file-details">
-            <p class="wcp-file-name">{{ overlayFile.name }}</p>
-            <p class="wcp-file-size">{{ (overlayFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+            <p class="wcp-file-name">{{ selectedFile.name }}</p>
+            <p class="wcp-file-size">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
           </div>
         </div>
         <button
           class="wcp-remove-file-btn"
-          (click)="removeOverlayFile()"
-          [disabled]="isAnalyzing"
+          (click)="removeFile()"
+          [disabled]="isGenerating"
         >
           ✕
         </button>
@@ -257,23 +263,11 @@
       }
     </div>
 
-    <!-- Optional Title Input -->
-    <div class="wcp-form-group">
-      <label class="wcp-label">Worksheet Title <span class="wcp-label-optional">(optional)</span></label>
-      <input
-        type="text"
-        class="wcp-textarea"
-        placeholder="AI will auto-generate a title if left blank"
-        [(ngModel)]="overlayTitle"
-        [disabled]="isAnalyzing"
-      />
-    </div>
-
     <!-- Metadata fields - same as Tab 1 -->
     <div class="wcp-form-row">
       <div class="wcp-form-group">
         <label class="wcp-label">Subject</label>
-        <select class="wcp-select" [(ngModel)]="overlaySubject" [disabled]="isAnalyzing">
+        <select class="wcp-select" [(ngModel)]="subject" [disabled]="isGenerating">
           @for (s of subjects; track s) {
           <option [value]="s">{{ s || 'Select subject…' }}</option>
           }
@@ -281,7 +275,7 @@
       </div>
       <div class="wcp-form-group">
         <label class="wcp-label">CEFR Level</label>
-        <select class="wcp-select" [(ngModel)]="overlayCefrLevel" [disabled]="isAnalyzing">
+        <select class="wcp-select" [(ngModel)]="cefrLevel" [disabled]="isGenerating">
           @for (c of cefrLevels; track c.value) {
           <option [value]="c.value">{{ c.label }}</option>
           }
@@ -292,27 +286,17 @@
     <div class="wcp-form-row">
       <div class="wcp-form-group">
         <label class="wcp-label">Grade Category</label>
-        <select
-          class="wcp-select"
-          [(ngModel)]="overlayGradeCategory"
-          (ngModelChange)="onOverlayGradeCategoryChange()"
-          [disabled]="isAnalyzing"
-        >
-          @for (g of gradeCategories; track g) {
-          <option [value]="g">{{ g || 'Select category…' }}</option>
+        <select class="wcp-select" [(ngModel)]="gradeCategory" (change)="onGradeCategoryChange()" [disabled]="isGenerating">
+          @for (cat of gradeCategories; track cat) {
+          <option [value]="cat">{{ cat }}</option>
           }
         </select>
       </div>
       <div class="wcp-form-group">
         <label class="wcp-label">Grade Level</label>
-        <select
-          class="wcp-select"
-          [(ngModel)]="overlayGradeLevel"
-          [disabled]="isAnalyzing || !overlayGradeCategory"
-        >
-          <option value="">{{ overlayGradeCategory ? 'Select grade…' : 'Pick category first' }}</option>
+        <select class="wcp-select" [(ngModel)]="gradeLevel" [disabled]="isGenerating">
           @for (g of gradeOptions; track g) {
-          <option [value]="g">{{ g }}</option>
+          <option [value]="g">{{ g || 'Select grade level…' }}</option>
           }
         </select>
       </div>
@@ -321,121 +305,54 @@
     <div class="wcp-form-row">
       <div class="wcp-form-group">
         <label class="wcp-label">Difficulty</label>
-        <select class="wcp-select" [(ngModel)]="overlayDifficulty" [disabled]="isAnalyzing">
+        <select class="wcp-select" [(ngModel)]="difficulty" [disabled]="isGenerating">
           @for (d of difficulties; track d) {
-          <option [value]="d">
-            {{ d === 'easy' ? 'Easy' : d === 'medium' ? 'Medium' : 'Hard' }}
-          </option>
+          <option [value]="d">{{ d.charAt(0).toUpperCase() + d.slice(1) }}</option>
           }
         </select>
       </div>
       <div class="wcp-form-group">
-        <label class="wcp-label">Assignment Deadline</label>
-        <input
-          type="date"
-          class="wcp-input"
-          [(ngModel)]="overlayDeadline"
-          [disabled]="isAnalyzing"
-        />
+        <label class="wcp-label">Language</label>
+        <select class="wcp-select" [(ngModel)]="language" [disabled]="isGenerating">
+          @for (lang of languages; track lang) {
+          <option [value]="lang">{{ lang }}</option>
+          }
+        </select>
       </div>
     </div>
 
-    <!-- Status Indicator -->
-    @if (overlayDetectResult) {
-      <div class="wcp-detect-result" 
-           [class.wcp-detect-filled]="worksheetStatus === 'filled'"
-           [class.wcp-detect-blank]="worksheetStatus === 'blank'"
-           [class.wcp-detect-partial]="worksheetStatus === 'partial'">
-        
-        @if (worksheetStatus === 'blank') {
-          <span class="wcp-detect-icon">📄</span>
-          <div>
-            <p class="wcp-detect-title">Blank Worksheet Detected</p>
-            <p class="wcp-detect-sub">
-              Students will fill in {{ overlayDetectResult.totalFields }} 
-              empty fields. No answer key available.
-            </p>
-          </div>
-        }
-        
-        @if (worksheetStatus === 'filled') {
-          <span class="wcp-detect-icon">✅</span>
-          <div>
-            <p class="wcp-detect-title">Filled Worksheet Detected!</p>
-            <p class="wcp-detect-sub">
-              AI found {{ overlayDetectResult.totalFields }} answers.
-              Students will see a blank version and get 
-              auto-scored when they submit.
-            </p>
-          </div>
-        }
-        
-        @if (worksheetStatus === 'partial') {
-          <span class="wcp-detect-icon">📝</span>
-          <div>
-            <p class="wcp-detect-title">Partially Filled Detected</p>
-            <p class="wcp-detect-sub">
-              AI found some filled answers to use as answer key.
-              Empty fields will need manual answers or stay unscored.
-            </p>
-          </div>
-        }
-      </div>
-    }
+    <div class="wcp-form-group">
+      <label class="wcp-label">Description <span class="wcp-label-optional">(optional)</span></label>
+      <textarea
+        class="wcp-textarea wcp-desc-textarea"
+        rows="2"
+        maxlength="500"
+        placeholder="Short description of this worksheet…"
+        [(ngModel)]="description"
+        [disabled]="isGenerating"
+      >
+      </textarea>
+      <span class="wcp-char-counter">{{ description.length }}/500</span>
+    </div>
 
-    @if (overlayDetectResult?.parseError) {
-      <div class="wcp-detect-result wcp-detect-warning">
-        <span class="wcp-detect-icon">⚠️</span>
-        <div>
-          <p class="wcp-detect-title">Fields Could Not Be Detected</p>
-          <p class="wcp-detect-sub">
-            The worksheet image was saved but input fields 
-            could not be automatically detected. You can still 
-            create the worksheet — students will see the image.
-          </p>
-        </div>
-      </div>
-    }
-
-    @if (overlayDetectResult && !isAnalyzing) {
-      <button class="wcp-reanalyze-btn" 
-              (click)="resetOverlayDetection()">
-        ↺ Re-analyze file
-      </button>
-    }
-
-    <!-- Analyze Button -->
+    <!-- Extract Button -->
     <button
-      class="wcp-btn-analyze"
-      [disabled]="isAnalyzing || !overlayFile"
-      (click)="analyzeAndCreateOverlay()"
+      class="btn-primary"
+      (click)="extractFileStructure()"
+      [disabled]="isGenerating || !selectedFile"
     >
-      @if (isAnalyzing) {
-        <span class="wcp-spinner"></span> 
-        {{ analyzeButtonLabel }}
+      @if (isGenerating) {
+        <span class="wcp-spinner"></span>
+        Extracting…
       } @else {
-        🎯 {{ analyzeButtonLabel }}
+        Extract & Review
       }
     </button>
   </div>
   }
 
-  <!-- ── ANALYZING SKELETON (UPLOAD TAB) ───────────────────── -->
-  @if (isAnalyzing && activeTab === 'upload') {
-  <div class="wcp-card wcp-skeleton-card">
-    <div class="wcp-gemini-loading">
-      <div class="wcp-gemini-loading-icon">🎯</div>
-      <p class="wcp-gemini-loading-title">Analyzing worksheet with AI…</p>
-      <p class="wcp-gemini-loading-sub">
-        Vision AI is detecting input fields and creating an interactive overlay worksheet. This may take up to 30 seconds.
-      </p>
-      <div class="wcp-gemini-dots"><span></span><span></span><span></span></div>
-    </div>
-  </div>
-  }
-
   <!-- ── DRAFT PREVIEW (SHARED) ───────────────────────────── -->
-  @if (draft && !isGenerating && !isAnalyzing) {
+  @if (draft && !isGenerating) {
   <div class="wcp-card wcp-draft-card">
     <div class="wcp-draft-header">
       <div>
@@ -494,23 +411,6 @@
         <p class="wcp-saved-sub">{{ savedWorksheet.title }}</p>
       </div>
     </div>
-
-    @if (savedWorksheet.activity9) {
-      <div class="wcp-overlay-note">
-        <span>📋</span>
-        <p>
-          PDF overlay worksheet created with 
-          {{ savedWorksheet.activity9.totalFields }} input fields.
-          Students will fill in answers directly on the worksheet image.
-        </p>
-      </div>
-      <a 
-        class="wcp-adjust-link"
-        [routerLink]="['/worksheets', savedWorksheet._id, 'adjust-fields']"
-        target="_blank">
-        ⚙ Adjust field positions if needed
-      </a>
-    }
 
     <!-- theme preview header -->
     <div class="wcp-theme-section-label">AI-GENERATED VISUAL THEME</div>
@@ -603,7 +503,7 @@
   [show]="successModal.open"
   [title]="successModal.title"
   [message]="successModal.message"
-  (closed)="onOverlaySuccessOk()"
+  (closed)="successModal = { open: false, title: '', message: '' }"
 >
 </app-success-modal>
 
@@ -618,14 +518,11 @@
 >
 </app-worksheet-assign-inline-modal>
 
-<!-- Field Editor Modal -->
-<app-field-editor-modal
-  [(show)]="showFieldEditor"
-  [imageUrl]="fieldEditorImageUrl"
-  [imageWidth]="fieldEditorImageWidth"
-  [imageHeight]="fieldEditorImageHeight"
-  [initialFields]="fieldEditorFields"
-  [worksheetTitle]="fieldEditorTitle"
-  (confirmed)="onFieldEditorConfirmed($event)"
-  (cancelled)="onFieldEditorCancelled()">
-</app-field-editor-modal>
+<!-- Extract Review Modal -->
+<app-worksheet-extract-review
+  [isOpen]="showExtractReview"
+  [extractedStructure]="extractedStructure"
+  [fileName]="extractedFileName"
+  (closed)="onExtractReviewClosed()"
+  (confirmed)="onExtractReviewConfirmed($event)">
+</app-worksheet-extract-review>

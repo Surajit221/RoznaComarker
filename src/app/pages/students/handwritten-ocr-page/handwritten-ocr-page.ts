@@ -10,7 +10,6 @@ import { AlertService } from '../../../services/alert.service';
 
 import { environment } from '../../../../environments/environment';
 
-import { ImageAnnotationOverlayComponent } from '../../../components/image-annotation-overlay/image-annotation-overlay';
 import { TokenizedTranscript } from '../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
@@ -18,7 +17,7 @@ import type { OcrWord } from '../../../models/ocr-token.model';
 
 @Component({
   selector: 'app-handwritten-ocr-page',
-  imports: [CommonModule, ImageAnnotationOverlayComponent, TokenizedTranscript],
+  imports: [CommonModule, TokenizedTranscript],
   templateUrl: './handwritten-ocr-page.html',
   styleUrl: './handwritten-ocr-page.css'
 })
