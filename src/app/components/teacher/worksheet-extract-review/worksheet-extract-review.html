@@ -1,0 +1,157 @@
+@if (isOpen) {
+  <div class="wer-backdrop" (click)="onBackdropClick($event)">
+    <div class="wer-modal">
+      <!-- Header -->
+      <div class="wer-header">
+        <h2 class="wer-title">Review Extracted Worksheet</h2>
+        <button class="wer-close-btn" (click)="close()" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="wer-content">
+        @if (extractedStructure) {
+          <!-- Summary -->
+          <div class="wer-summary">
+            <div class="wer-summary-item">
+              <span class="wer-summary-label">File:</span>
+              <span class="wer-summary-value">{{ fileName }}</span>
+            </div>
+            <div class="wer-summary-item">
+              <span class="wer-summary-label">Title:</span>
+              <input 
+                type="text" 
+                class="wer-summary-input" 
+                [(ngModel)]="extractedStructure.title"
+                placeholder="Worksheet title"
+              >
+            </div>
+            <div class="wer-summary-item">
+              <span class="wer-summary-label">Subject:</span>
+              <input 
+                type="text" 
+                class="wer-summary-input" 
+                [(ngModel)]="extractedStructure.subject"
+                placeholder="Subject"
+              >
+            </div>
+            <div class="wer-summary-item">
+              <span class="wer-summary-label">Total Questions:</span>
+              <span class="wer-summary-value">{{ totalQuestions }}</span>
+            </div>
+            <div class="wer-summary-item">
+              <span class="wer-summary-label">Low Confidence:</span>
+              <span class="wer-summary-value wer-warning">{{ lowConfidenceCount }}</span>
+            </div>
+          </div>
+
+          <!-- Sections -->
+          <div class="wer-sections">
+            @for (section of extractedStructure.sections; track section; let sectionIndex = $index) {
+              <div class="wer-section">
+                <div class="wer-section-header" (click)="toggleSection(sectionIndex)">
+                  <span class="wer-section-title">{{ section.instruction }}</span>
+                  <span class="wer-section-count">{{ section.questions.length }} questions</span>
+                  <svg class="wer-section-chevron" [class.expanded]="expandedSections.has(sectionIndex)" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+
+                @if (expandedSections.has(sectionIndex)) {
+                  <div class="wer-section-questions">
+                    @for (question of section.questions; track question.id; let questionIndex = $index) {
+                      <div class="wer-question">
+                        <!-- View Mode -->
+                        @if (editingQuestion?.id !== question.id) {
+                          <div class="wer-question-view">
+                            <div class="wer-question-header">
+                              <span class="wer-question-id">{{ question.id }}</span>
+                              <span class="wer-confidence-badge {{ getConfidenceBadgeClass(question.confidence) }}">
+                                {{ getConfidenceLabel(question.confidence) }}
+                              </span>
+                              <span class="wer-question-type">{{ question.type }}</span>
+                            </div>
+                            <div class="wer-question-prompt">{{ question.prompt }}</div>
+                            <div class="wer-question-meta">
+                              <span class="wer-topic">Topic: {{ question.topic }}</span>
+                              <span class="wer-answer">Answer: {{ formatAnswer(question.correct_answer) }}</span>
+                            </div>
+                            <button class="wer-edit-btn" (click)="editQuestion(sectionIndex, question)">Edit</button>
+                          </div>
+                        } @else {
+                          <!-- Edit Mode -->
+                          @if (editingQuestion) {
+                          <div class="wer-question-edit">
+                            <div class="wer-edit-row">
+                              <label class="wer-edit-label">Question ID:</label>
+                              <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion.id">
+                            </div>
+                            <div class="wer-edit-row">
+                              <label class="wer-edit-label">Type:</label>
+                              <select class="wer-edit-select" [(ngModel)]="editingQuestion.type">
+                                @for (type of questionTypes; track type.value) {
+                                  <option [value]="type.value">{{ type.label }}</option>
+                                }
+                              </select>
+                            </div>
+                            <div class="wer-edit-row">
+                              <label class="wer-edit-label">Confidence:</label>
+                              <select class="wer-edit-select" [(ngModel)]="editingQuestion.confidence">
+                                @for (level of confidenceLevels; track level) {
+                                  <option [value]="level">{{ level.charAt(0).toUpperCase() + level.slice(1) }}</option>
+                                }
+                              </select>
+                            </div>
+                            <div class="wer-edit-row">
+                              <label class="wer-edit-label">Prompt:</label>
+                              <textarea class="wer-edit-textarea" [(ngModel)]="editingQuestion.prompt" rows="3"></textarea>
+                            </div>
+                            <div class="wer-edit-row">
+                              <label class="wer-edit-label">Topic:</label>
+                              <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion.topic">
+                            </div>
+                            <div class="wer-edit-row">
+                              <label class="wer-edit-label">Correct Answer:</label>
+                              @if (editingQuestion.type === 'multiple_choice' || editingQuestion.type === 'matching') {
+                                <div class="wer-options-edit">
+                                  @for (opt of editingQuestion.options || []; track $index; let optIndex = $index) {
+                                    <div class="wer-option-row">
+                                      <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion.options![optIndex]">
+                                      <button class="wer-remove-option-btn" (click)="removeOption(editingQuestion, optIndex)">×</button>
+                                    </div>
+                                  }
+                                  <button class="wer-add-option-btn" (click)="addOption(editingQuestion)">+ Add Option</button>
+                                </div>
+                              } @else {
+                                <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion!.correct_answer">
+                              }
+                            </div>
+                            <div class="wer-edit-actions">
+                              <button class="wer-cancel-btn" (click)="cancelEdit()">Cancel</button>
+                              <button class="wer-save-btn" (click)="saveQuestion(sectionIndex, questionIndex)">Save</button>
+                            </div>
+                          </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="wer-footer">
+        <button class="wer-cancel-btn wer-footer-btn" (click)="close()">Cancel</button>
+        <button class="wer-confirm-btn wer-footer-btn" (click)="confirm()">Confirm & Create Worksheet</button>
+      </div>
+    </div>
+  </div>
+}

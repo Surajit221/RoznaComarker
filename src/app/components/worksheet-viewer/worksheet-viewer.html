@@ -404,6 +404,9 @@
                 <p class="wv-section-label">INTERACTIVE ACTIVITY</p>
                 <h3 class="wv-activity-title">{{ worksheet()!.activity4!.title }}</h3>
                 <p class="wv-activity-inst">{{ worksheet()!.activity4!.instructions }}</p>
+                <div class="wv-activity-progress">
+                  <div class="wv-activity-progress-fill" [style.width.%]="a4Progress()"></div>
+                </div>
               </div>
               <span class="wv-score-badge">{{ a4Score() }} / {{ a4Total() }}</span>
             </div>

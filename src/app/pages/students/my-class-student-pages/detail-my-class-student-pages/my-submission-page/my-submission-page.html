@@ -34,10 +34,8 @@
         </div>
         } @else {
         <div class="w-full rounded-2xl overflow-hidden">
-          <app-image-annotation-overlay
-            [imageUrl]="(submissionFileUrls[activeFileIndex] || uploadedFileUrl || 'img/default-img.png')"
-            [annotations]="getAnnotationsForFileId(submissionFileIds[activeFileIndex])"
-            [page]="1"></app-image-annotation-overlay>
+          <img [src]="(submissionFileUrls[activeFileIndex] || uploadedFileUrl || 'img/default-img.png')"
+               alt="Submission image" class="w-full h-auto" />
         </div>
         @if (submissionFileUrls.length > 1) {
         <div class="w-full mt-3">
@@ -353,12 +351,8 @@
             max-h-[85vh] flex items-center justify-center">
 
             <div class="w-full h-full flex items-center justify-center p-2">
-
-              <app-image-annotation-overlay class="max-w-full max-h-full object-contain"
-                [imageUrl]="(submissionFileUrls[activeFileIndex] || 'img/default-img.png')"
-                [annotations]="getAnnotationsForFileId(submissionFileIds[activeFileIndex])" [page]="1">
-              </app-image-annotation-overlay>
-
+              <img [src]="(submissionFileUrls[activeFileIndex] || 'img/default-img.png')"
+                   alt="Submission image" class="max-w-full max-h-full object-contain" />
             </div>
 
           </div>

@@ -82,10 +82,6 @@ import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 
 
 
-import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
-
-
-
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 
 
@@ -162,10 +158,6 @@ import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api
 
 
     AppBarBackButton,
-
-
-
-    ImageAnnotationOverlayComponent,
 
 
 

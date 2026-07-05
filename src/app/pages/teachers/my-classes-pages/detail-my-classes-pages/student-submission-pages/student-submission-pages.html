@@ -33,9 +33,8 @@
             </button>
           </div>
           <div class="w-full rounded-2xl overflow-hidden">
-            <app-image-annotation-overlay
-              [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || 'img/default-img.png'"
-              [annotations]="annotations" [page]="1"></app-image-annotation-overlay>
+            <img [src]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || 'img/default-img.png'"
+                 alt="Submission image" class="w-full h-auto" />
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
@@ -388,9 +387,8 @@
 
         <ng-container *ngIf="activeTab === 'uploaded-file'">
           <div class="w-full rounded-2xl overflow-hidden">
-            <app-image-annotation-overlay
-              [imageUrl]="essayImageUrl || currentSubmission?.fileUrl || 'img/default-img.png'"
-              [annotations]="annotations" [page]="1"></app-image-annotation-overlay>
+            <img [src]="essayImageUrl || currentSubmission?.fileUrl || 'img/default-img.png'"
+                 alt="Submission image" class="w-full h-auto" />
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">

@@ -26,14 +26,13 @@ import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../..
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
 import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-legend.default';
-import { ImageAnnotationOverlayComponent } from '../../../../../components/image-annotation-overlay/image-annotation-overlay';
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { environment } from '../../../../../../environments/environment';
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ImageAnnotationOverlayComponent, ModalDialog],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ModalDialog],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
