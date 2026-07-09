@@ -1,15 +1,15 @@
 export const environment = {
   production: false,
 
-  apiUrl: 'http://82.112.234.151:5000',
+  apiUrl: 'https://comarkerback.roznahub.com',
 
-  API_URL: 'http://82.112.234.151:5000/api',
+  API_URL: 'https://comarkerback.roznahub.com/api',
 
-  UPLOADS_URL: 'http://82.112.234.151:5000/uploads',
+  UPLOADS_URL: 'https://comarkerback.roznahub.com/uploads',
 
-  FRONTEND_URL: 'http://82.112.234.151:4200',
+  FRONTEND_URL: 'https://comarkers.roznahub.com',
 
-  apiBaseUrl: 'http://82.112.234.151:5000/api',
+  apiBaseUrl: 'https://comarkerback.roznahub.com/api',
 
   firebase: {
     apiKey: 'AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM',
