@@ -32,9 +32,9 @@
               View Student Transcribed Text
             </button>
           </div>
-          <div class="w-full rounded-2xl overflow-hidden">
-            <img [src]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || 'img/default-img.png'"
-                 alt="Submission image" class="w-full h-auto" />
+          <div class="w-full rounded-2xl overflow-visible">
+            <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
+              [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
@@ -386,9 +386,9 @@
         </div>
 
         <ng-container *ngIf="activeTab === 'uploaded-file'">
-          <div class="w-full rounded-2xl overflow-hidden">
-            <img [src]="essayImageUrl || currentSubmission?.fileUrl || 'img/default-img.png'"
-                 alt="Submission image" class="w-full h-auto" />
+          <div class="w-full rounded-2xl overflow-visible">
+            <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
+              [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">

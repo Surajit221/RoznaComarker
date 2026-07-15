@@ -33,9 +33,9 @@
             (click)="onOpenUploadedPdf($event)">Open PDF</a>
         </div>
         } @else {
-        <div class="w-full rounded-2xl overflow-hidden">
-          <img [src]="(submissionFileUrls[activeFileIndex] || uploadedFileUrl || 'img/default-img.png')"
-               alt="Submission image" class="w-full h-auto" />
+        <div class="w-full rounded-2xl overflow-visible">
+          <app-correction-overlay [imageUrl]="submissionFileUrls[activeFileIndex] || uploadedFileUrl || null"
+            [annotations]="annotations" alt="Submission image"></app-correction-overlay>
         </div>
         @if (submissionFileUrls.length > 1) {
         <div class="w-full mt-3">
@@ -347,12 +347,12 @@
               (click)="onOpenUploadedPdf($event)">Open PDF</a>
           </div>
           } @else {
-          <div class="main-preview w-full rounded-2xl overflow-hidden bg-gray-50 
+          <div class="main-preview w-full rounded-2xl overflow-visible bg-gray-50
             max-h-[85vh] flex items-center justify-center">
 
             <div class="w-full h-full flex items-center justify-center p-2">
-              <img [src]="(submissionFileUrls[activeFileIndex] || 'img/default-img.png')"
-                   alt="Submission image" class="max-w-full max-h-full object-contain" />
+              <app-correction-overlay class="max-w-full max-h-full" [imageUrl]="submissionFileUrls[activeFileIndex] || null"
+                [annotations]="annotations" alt="Submission image"></app-correction-overlay>
             </div>
 
           </div>

@@ -15,6 +15,7 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
+import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -32,7 +33,7 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ModalDialog],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
@@ -1002,7 +1003,8 @@ export class MySubmissionPage {
         return {
           id,
           text,
-          bbox
+          bbox,
+          separatorBefore: w?.separatorBefore === '\n\n' ? '\n\n' : w?.separatorBefore === '\n' ? '\n' : w?.separatorBefore === ' ' ? ' ' : ''
         } satisfies OcrWord;
       })
       .filter(Boolean) as OcrWord[];
@@ -1224,7 +1226,7 @@ export class MySubmissionPage {
   }
 
   get isOcrPending(): boolean {
-    return this.ocrStatus === 'pending' && !this.extractedText;
+    return this.ocrStatus === 'pending' || this.ocrStatus === ('processing' as BackendSubmission['ocrStatus']);
   }
 
   async ngOnInit() {
@@ -1374,7 +1376,7 @@ export class MySubmissionPage {
 
       if (submission?._id) {
         await this.loadOcrCorrections(submission._id);
-        this.hasLoadedOcrCorrections = true;
+        this.hasLoadedOcrCorrections = submission.ocrStatus === 'completed';
       }
 
       this.rebuildHighlightedTranscript();
@@ -1423,7 +1425,7 @@ export class MySubmissionPage {
       return;
     }
 
-    if (this.submission.ocrStatus === 'pending' && !this.extractedText) {
+    if (this.submission.ocrStatus === 'pending' || (this.submission.ocrStatus === 'completed' && !this.hasLoadedOcrCorrections)) {
       this.startOcrPolling();
       return;
     }
@@ -1483,9 +1485,9 @@ export class MySubmissionPage {
       await this.setUploadedFileUrl(updated?.fileUrl || this.rawUploadedFileUrl);
       this.rebuildOcrWords();
 
-      if (updated?._id && !this.hasLoadedOcrCorrections) {
+      if (updated?._id && (!this.hasLoadedOcrCorrections || updated.ocrStatus === 'completed')) {
         await this.loadOcrCorrections(updated._id);
-        this.hasLoadedOcrCorrections = true;
+        this.hasLoadedOcrCorrections = updated.ocrStatus === 'completed';
       }
 
       this.rebuildHighlightedTranscript();
@@ -1497,7 +1499,7 @@ export class MySubmissionPage {
         this.ocrErrorMessage = null;
       }
 
-      if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed' || this.extractedText) {
+      if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed') {
         this.stopOcrPolling();
         return;
       }

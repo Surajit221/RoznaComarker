@@ -83,6 +83,7 @@ import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 
 
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
+import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 
 
 
@@ -162,6 +163,7 @@ import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api
 
 
     TokenizedTranscript,
+    CorrectionOverlay,
 
 
 
@@ -2713,6 +2715,7 @@ export class StudentSubmissionPages {
 
 
           const text = typeof w?.text === 'string' ? w.text : '';
+          const separatorBefore: OcrWord['separatorBefore'] = w?.separatorBefore === '\n\n' ? '\n\n' : w?.separatorBefore === '\n' ? '\n' : w?.separatorBefore === ' ' ? ' ' : '';
 
 
 
@@ -2736,7 +2739,7 @@ export class StudentSubmissionPages {
 
 
 
-            words.push({ id, text, bbox: null });
+            words.push({ id, text, bbox: null, separatorBefore });
 
 
 
@@ -2744,7 +2747,7 @@ export class StudentSubmissionPages {
 
 
 
-            words.push({ id, text, bbox });
+            words.push({ id, text, bbox, separatorBefore });
 
 
 

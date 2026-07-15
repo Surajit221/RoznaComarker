@@ -1,0 +1,76 @@
+<div class="correction-overlay" #overlayEl>
+  <img class="correction-overlay__image" [src]="imageUrl || 'img/default-img.png'" [alt]="alt" (load)="onImageLoad($event)" />
+
+  @for (marker of markers; track marker.annotation._id) {
+    <button
+      type="button"
+      class="correction-overlay__marker"
+      [style.left.%]="marker.left"
+      [style.top.%]="marker.top"
+      [style.--marker-offset-x.px]="marker.offsetX"
+      [style.--marker-offset-y.px]="marker.offsetY"
+      [style.--marker-color]="marker.annotation.color || '#d64545'"
+      [style.color]="marker.textColor"
+      [attr.aria-label]="marker.label"
+      [attr.aria-expanded]="activeMarker?.annotation?._id === marker.annotation._id"
+      [attr.aria-describedby]="activeMarker?.annotation?._id === marker.annotation._id ? 'correction-detail-card' : null"
+      (pointerenter)="onMarkerEnter(marker, $event)"
+      (pointerleave)="onMarkerLeave(marker, $event)"
+      (focus)="onMarkerFocus(marker, $event)"
+      (blur)="onMarkerBlur()"
+      (click)="onMarkerClick(marker, $event)"
+      (keydown)="onMarkerKeydown(marker, $event)"
+    >{{ marker.code }}</button>
+  }
+
+  @if (activeMarker && isMobile) {
+    <button type="button" class="correction-overlay__backdrop" aria-label="Close correction details" (click)="closeFromControl($event)"></button>
+  }
+
+  @if (activeMarker) {
+    <section
+      #tooltipEl
+      id="correction-detail-card"
+      class="correction-overlay__tooltip"
+      [class.is-pinned]="isPinned"
+      [class.is-mobile]="isMobile"
+      [attr.data-placement]="tooltipPlacement"
+      [attr.role]="isMobile ? 'dialog' : 'tooltip'"
+      [attr.aria-modal]="isMobile ? 'true' : null"
+      [attr.aria-label]="activeMarker.code + ' correction details'"
+      [style.--marker-color]="activeMarker.annotation.color || '#d64545'"
+      [ngStyle]="tooltipStyle"
+    >
+      <div class="correction-overlay__tooltip-card">
+        <div class="correction-overlay__accent" aria-hidden="true"></div>
+      <header class="correction-overlay__header">
+        <span class="correction-overlay__code" [style.background]="activeMarker.annotation.color || '#d64545'" [style.color]="activeMarker.textColor">{{ activeMarker.code }}</span>
+        <div class="correction-overlay__heading">
+          <strong>{{ categoryName }}</strong>
+          <span>Correction guidance</span>
+        </div>
+        <button type="button" class="correction-overlay__close" aria-label="Close correction details" (click)="closeFromControl($event)">&times;</button>
+      </header>
+
+      @if (explanation) {
+        <div class="correction-overlay__section">
+          <span class="correction-overlay__label">What to improve</span>
+          <p>{{ explanation }}</p>
+        </div>
+      }
+      @if (suggestion) {
+        <div class="correction-overlay__section correction-overlay__suggestion">
+          <span class="correction-overlay__label">Suggested correction</span>
+          <p>{{ suggestion }}</p>
+        </div>
+      }
+      @if (tip) {
+        <div class="correction-overlay__section correction-overlay__tip">
+          <span class="correction-overlay__label">Tip</span>
+          <p>{{ tip }}</p>
+        </div>
+      }
+      </div>
+    </section>
+  }
+</div>
