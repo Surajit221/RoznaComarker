@@ -308,12 +308,11 @@ export class TokenizedTranscript {
       if (!text) continue;
 
       if (prevWord) {
-        const needsNewline = this.isNewLine(prevWord, w);
-        if (needsNewline) {
-          out.push({ kind: 'newline', trackId: `nl_${prevWord.id}_${w.id}`, value: '\n' });
-        } else {
-          out.push({ kind: 'space', trackId: `sp_${prevWord.id}_${w.id}`, value: ' ' });
-        }
+        const separator = typeof w.separatorBefore === 'string'
+          ? w.separatorBefore
+          : (this.isNewLine(prevWord, w) ? '\n' : ' ');
+        if (separator === '\n' || separator === '\n\n') out.push({ kind: 'newline', trackId: `nl_${prevWord.id}_${w.id}`, value: separator });
+        if (separator === ' ') out.push({ kind: 'space', trackId: `sp_${prevWord.id}_${w.id}`, value: separator });
       }
 
       out.push({ kind: 'word', trackId: w.id, word: w });

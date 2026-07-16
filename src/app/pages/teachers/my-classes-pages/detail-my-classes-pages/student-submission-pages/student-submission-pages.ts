@@ -83,6 +83,7 @@ import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 
 
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
+import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 
 
 
@@ -162,6 +163,7 @@ import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api
 
 
     TokenizedTranscript,
+    CorrectionOverlay,
 
 
 
@@ -1819,11 +1821,11 @@ export class StudentSubmissionPages {
 
 
 
-  private defaultRubricItem(): RubricItem {
+  private defaultRubricItem(maxScore: number = 5): RubricItem {
 
 
 
-    return { score: 0, maxScore: 5, comment: '' };
+    return { score: 0, maxScore, comment: '' };
 
 
 
@@ -1837,7 +1839,15 @@ export class StudentSubmissionPages {
 
   private buildEmptyFeedback(submissionId: string): SubmissionFeedback {
 
-
+    // Category defaults for weighted writing assessment
+    const categoryDefaults: Record<string, number> = {
+      GRAMMAR: 25,
+      VOCABULARY: 20,
+      ORGANIZATION: 20,
+      CONTENT: 20,
+      MECHANICS: 10,
+      PRESENTATION: 5
+    };
 
     return {
 
@@ -1847,27 +1857,34 @@ export class StudentSubmissionPages {
 
 
 
+      assessmentVersion: 'writing-rubric-100-v1',
+      maxOverallScore: 100,
+
+
+
       rubricScores: {
 
 
 
-        CONTENT: this.defaultRubricItem(),
+        CONTENT: this.defaultRubricItem(categoryDefaults['CONTENT']),
 
 
 
-        ORGANIZATION: this.defaultRubricItem(),
+        ORGANIZATION: this.defaultRubricItem(categoryDefaults['ORGANIZATION']),
 
 
 
-        GRAMMAR: this.defaultRubricItem(),
+        GRAMMAR: this.defaultRubricItem(categoryDefaults['GRAMMAR']),
 
 
 
-        VOCABULARY: this.defaultRubricItem(),
+        VOCABULARY: this.defaultRubricItem(categoryDefaults['VOCABULARY']),
 
 
 
-        MECHANICS: this.defaultRubricItem()
+        MECHANICS: this.defaultRubricItem(categoryDefaults['MECHANICS']),
+
+        PRESENTATION: this.defaultRubricItem(categoryDefaults['PRESENTATION'])
 
 
 
@@ -1971,11 +1988,11 @@ export class StudentSubmissionPages {
 
 
 
-      CONTENT: 'Content Relevance',
+      CONTENT: 'Content & Task Achievement',
 
 
 
-      ORGANIZATION: 'Structure & Organization',
+      ORGANIZATION: 'Organization & Structure',
 
 
 
@@ -1985,9 +2002,8 @@ export class StudentSubmissionPages {
 
       VOCABULARY: 'Vocabulary',
 
-
-
-      MECHANICS: 'Mechanics'
+      MECHANICS: 'Spelling & Punctuation',
+      PRESENTATION: 'Presentation & Handwriting'
 
 
 
@@ -2011,7 +2027,7 @@ export class StudentSubmissionPages {
 
 
 
-      maxScore: 5,
+      maxScore: Number.isFinite(Number(item?.maxScore)) ? Number(item.maxScore) : 5,
 
 
 
@@ -2123,7 +2139,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.content);
+    const n = Number(this.currentFeedback?.correctionStatistics?.content ?? this.currentFeedback?.correctionStats?.content ?? this.currentSubmission?.correctionStatistics?.content);
 
 
 
@@ -2143,7 +2159,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.grammar);
+    const n = Number(this.currentFeedback?.correctionStatistics?.grammar ?? this.currentFeedback?.correctionStats?.grammar ?? this.currentSubmission?.correctionStatistics?.grammar);
 
 
 
@@ -2163,7 +2179,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.organization);
+    const n = Number(this.currentFeedback?.correctionStatistics?.organization ?? this.currentFeedback?.correctionStats?.organization ?? this.currentSubmission?.correctionStatistics?.organization);
 
 
 
@@ -2183,7 +2199,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.vocabulary);
+    const n = Number(this.currentFeedback?.correctionStatistics?.vocabulary ?? this.currentFeedback?.correctionStats?.vocabulary ?? this.currentSubmission?.correctionStatistics?.vocabulary);
 
 
 
@@ -2203,7 +2219,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.mechanics);
+    const n = Number(this.currentFeedback?.correctionStatistics?.mechanics ?? this.currentFeedback?.correctionStats?.mechanics ?? this.currentSubmission?.correctionStatistics?.mechanics);
 
 
 
@@ -2713,6 +2729,7 @@ export class StudentSubmissionPages {
 
 
           const text = typeof w?.text === 'string' ? w.text : '';
+          const separatorBefore: OcrWord['separatorBefore'] = w?.separatorBefore === '\n\n' ? '\n\n' : w?.separatorBefore === '\n' ? '\n' : w?.separatorBefore === ' ' ? ' ' : '';
 
 
 
@@ -2736,7 +2753,7 @@ export class StudentSubmissionPages {
 
 
 
-            words.push({ id, text, bbox: null });
+            words.push({ id, text, bbox: null, separatorBefore });
 
 
 
@@ -2744,7 +2761,7 @@ export class StudentSubmissionPages {
 
 
 
-            words.push({ id, text, bbox });
+            words.push({ id, text, bbox, separatorBefore });
 
 
 
@@ -2954,32 +2971,9 @@ export class StudentSubmissionPages {
     console.log('Generating dynamic AI Feedback for submission', submission._id);
     this.isLoading = true;
     try {
-      const res: AiRubricStructuredResponse = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
+      const updatedFeedback: SubmissionFeedback = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
 
-      if (!this.currentFeedback) {
-        this.currentFeedback = this.buildEmptyFeedback(submission._id);
-      }
-
-      const fb: any = this.currentFeedback as any;
-      if (!fb.rubricScores || typeof fb.rubricScores !== 'object') {
-        fb.rubricScores = {
-          CONTENT: { score: 0, maxScore: 5, comment: '' },
-          ORGANIZATION: { score: 0, maxScore: 5, comment: '' },
-          GRAMMAR: { score: 0, maxScore: 5, comment: '' },
-          VOCABULARY: { score: 0, maxScore: 5, comment: '' },
-          MECHANICS: { score: 0, maxScore: 5, comment: '' }
-        };
-      }
-
-      // Only patch the feedback text fields. Preserve the existing scores and titles.
-      fb.rubricScores.GRAMMAR.comment = res.grammar.text;
-
-      fb.rubricScores.ORGANIZATION.comment = res.structure.text;
-
-      fb.rubricScores.CONTENT.comment = res.content.text;
-
-      // UI maps "Overall Rubric Score" to MECHANICS in rubricScoresToFeedbackItems().
-      fb.rubricScores.MECHANICS.comment = res.overall.text;
+      this.currentFeedback = updatedFeedback;
 
       this.ensureFixedRubricScoresAndComments();
       this.recomputeRubricFeedbackItems();
@@ -3673,17 +3667,23 @@ export class StudentSubmissionPages {
 
     const la = this.legendAligned;
 
-
-
     const rs = fb.rubricScores || {};
 
 
 
+    // Category defaults for weighted writing assessment
+    const categoryDefaults: Record<string, number> = {
+      GRAMMAR: 25,
+      VOCABULARY: 20,
+      ORGANIZATION: 20,
+      CONTENT: 20,
+      MECHANICS: 10,
+      PRESENTATION: 5
+    };
 
 
 
-
-    const scoreOf = (key: 'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS'): number => {
+    const scoreOf = (key: 'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS' | 'PRESENTATION'): number => {
 
 
 
@@ -3693,7 +3693,7 @@ export class StudentSubmissionPages {
 
       // Single source of truth: prefer the persisted backend rubric score, even if it is 0.
 
-      if (Number.isFinite(fromFb)) return this.clamp(fromFb, 0, 5);
+      if (Number.isFinite(fromFb)) return fromFb;
 
 
 
@@ -3701,11 +3701,11 @@ export class StudentSubmissionPages {
 
       // fall back to the precomputed legend-aligned score (do not overwrite valid persisted scores).
 
-      const fromLa = Number(la?.perCategoryScores5?.[key]);
+      const fromLa = key === 'PRESENTATION' ? NaN : Number((la?.perCategoryScores5 as Record<string, any>)?.[key]);
 
 
 
-      if (Number.isFinite(fromLa)) return this.clamp(fromLa, 0, 5);
+      if (Number.isFinite(fromLa)) return fromLa;
 
 
 
@@ -3733,11 +3733,11 @@ export class StudentSubmissionPages {
 
 
 
-    // IMPORTANT: do not recompute Overall Rubric Score from averages here.
+    const vocabularyScore = this.round1(scoreOf('VOCABULARY'));
 
-    // Use the persisted MECHANICS rubric score as the single source of truth.
+    const mechanicsScore = this.round1(scoreOf('MECHANICS'));
 
-    const overallRubricScore = this.round1(scoreOf('MECHANICS'));
+    const presentationScore = this.round1(scoreOf('PRESENTATION'));
 
 
 
@@ -3749,7 +3749,7 @@ export class StudentSubmissionPages {
 
 
 
-      const existing = rs?.[k] || { score: 0, maxScore: 5, comment: '' };
+      const existing = rs?.[k] || { score: 0, maxScore: categoryDefaults[k] || 5, comment: '' };
 
 
 
@@ -3758,6 +3758,8 @@ export class StudentSubmissionPages {
 
 
       const existingComment = typeof (existing as any).comment === 'string' ? (existing as any).comment : '';
+
+      const maxScore = Number((existing as any).maxScore) || categoryDefaults[k] || 5;
 
 
 
@@ -3771,11 +3773,11 @@ export class StudentSubmissionPages {
 
         // Never override a persisted score; only backfill if it is missing/invalid.
 
-        score: Number.isFinite(existingScore) ? this.clamp(existingScore, 0, 5) : score,
+        score: Number.isFinite(existingScore) ? this.clamp(existingScore, 0, maxScore) : score,
 
 
 
-        maxScore: 5,
+        maxScore,
 
 
 
@@ -3809,7 +3811,11 @@ export class StudentSubmissionPages {
 
 
 
-    const overallMsg = '';
+    const vocMsg = '';
+
+    const mechMsg = '';
+
+    const presMsg = '';
 
 
 
@@ -3827,9 +3833,14 @@ export class StudentSubmissionPages {
 
     ensureItem('CONTENT', contentScore, crMsg);
 
+    ensureItem('VOCABULARY', vocabularyScore, vocMsg);
+
+    ensureItem('MECHANICS', mechanicsScore, mechMsg);
+
+    ensureItem('PRESENTATION', presentationScore, presMsg);
 
 
-    ensureItem('MECHANICS', overallRubricScore, overallMsg);
+
 
 
 
@@ -3841,6 +3852,55 @@ export class StudentSubmissionPages {
 
 
 
+  }
+
+  private validateAndNormalizeFeedback(fb: SubmissionFeedback): SubmissionFeedback {
+    const normalized: any = { ...fb };
+
+    // Category defaults for weighted writing assessment
+    const categoryDefaults: Record<string, number> = {
+      GRAMMAR: 25,
+      VOCABULARY: 20,
+      ORGANIZATION: 20,
+      CONTENT: 20,
+      MECHANICS: 10,
+      PRESENTATION: 5
+    };
+
+    // Ensure rubricScores exists and has all six categories
+    if (!normalized.rubricScores || typeof normalized.rubricScores !== 'object') {
+      normalized.rubricScores = {};
+    }
+
+    const categories: Array<'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS' | 'PRESENTATION'> = [
+      'CONTENT', 'ORGANIZATION', 'GRAMMAR', 'VOCABULARY', 'MECHANICS', 'PRESENTATION'
+    ];
+
+    categories.forEach((cat) => {
+      const item = normalized.rubricScores[cat] || { score: 0, maxScore: categoryDefaults[cat] || 5, comment: '' };
+      
+      // Validate and normalize score
+      const score = Number(item.score);
+      normalized.rubricScores[cat].score = Number.isFinite(score) ? Math.max(0, score) : 0;
+      
+      // Validate and normalize maxScore
+      const maxScore = Number(item.maxScore);
+      normalized.rubricScores[cat].maxScore = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : (categoryDefaults[cat] || 5);
+      
+      // Ensure comment is a string
+      normalized.rubricScores[cat].comment = typeof item.comment === 'string' ? item.comment : '';
+    });
+
+    // Ensure maxOverallScore is valid
+    const maxOverallScore = Number(normalized.maxOverallScore);
+    normalized.maxOverallScore = Number.isFinite(maxOverallScore) && maxOverallScore > 0 ? maxOverallScore : 100;
+
+    // Ensure assessmentVersion exists
+    if (!normalized.assessmentVersion || typeof normalized.assessmentVersion !== 'string') {
+      normalized.assessmentVersion = '1.0';
+    }
+
+    return normalized as SubmissionFeedback;
   }
 
 
@@ -4835,11 +4895,15 @@ export class StudentSubmissionPages {
 
     const overallComments = typeof overallCommentsRaw === 'string' ? overallCommentsRaw : (overallCommentsRaw == null ? '' : String(overallCommentsRaw));
 
+    const safeScore = (value: unknown, fallback = 0): number => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    };
 
-
-
-
-
+    const safeMaxScore = (value: unknown, fallback: number): number => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
 
     const coerceScore = (x: any) => {
 
@@ -4902,49 +4966,36 @@ export class StudentSubmissionPages {
 
 
       rubricScores: {
-
-
-
-        // Store the required rubric fields using existing schema keys.
-
-
-
-        // GRAMMAR -> Grammar & Mechanics
-
-
-
-        // ORGANIZATION -> Structure & Organization
-
-
-
-        // CONTENT -> Content Relevance
-
-
-
-        // MECHANICS -> Overall Rubric Score
-
-
-
-        CONTENT: { ...base.rubricScores.CONTENT, score: coerceScore(v.contentScore), maxScore: 5 },
-
-
-
-        ORGANIZATION: { ...base.rubricScores.ORGANIZATION, score: coerceScore(v.structureScore), maxScore: 5 },
-
-
-
-        GRAMMAR: { ...base.rubricScores.GRAMMAR, score: coerceScore(v.grammarScore), maxScore: 5 },
-
-
-
-        VOCABULARY: { ...base.rubricScores.VOCABULARY, score: coerceScore(v.vocabularyScore), maxScore: 5 },
-
-
-
-        MECHANICS: { ...base.rubricScores.MECHANICS, score: coerceScore(v.taskAchievementScore), maxScore: 5 }
-
-
-
+        CONTENT: {
+          score: safeScore(base.rubricScores?.CONTENT?.score),
+          maxScore: safeMaxScore(base.rubricScores?.CONTENT?.maxScore, 20),
+          comment: base.rubricScores?.CONTENT?.comment || ''
+        },
+        ORGANIZATION: {
+          score: safeScore(base.rubricScores?.ORGANIZATION?.score),
+          maxScore: safeMaxScore(base.rubricScores?.ORGANIZATION?.maxScore, 20),
+          comment: base.rubricScores?.ORGANIZATION?.comment || ''
+        },
+        GRAMMAR: {
+          score: safeScore(base.rubricScores?.GRAMMAR?.score),
+          maxScore: safeMaxScore(base.rubricScores?.GRAMMAR?.maxScore, 25),
+          comment: base.rubricScores?.GRAMMAR?.comment || ''
+        },
+        VOCABULARY: {
+          score: safeScore(base.rubricScores?.VOCABULARY?.score),
+          maxScore: safeMaxScore(base.rubricScores?.VOCABULARY?.maxScore, 20),
+          comment: base.rubricScores?.VOCABULARY?.comment || ''
+        },
+        MECHANICS: {
+          score: safeScore(base.rubricScores?.MECHANICS?.score),
+          maxScore: safeMaxScore(base.rubricScores?.MECHANICS?.maxScore, 10),
+          comment: base.rubricScores?.MECHANICS?.comment || ''
+        },
+        PRESENTATION: {
+          score: safeScore(base.rubricScores?.PRESENTATION?.score),
+          maxScore: safeMaxScore(base.rubricScores?.PRESENTATION?.maxScore, 5),
+          comment: base.rubricScores?.PRESENTATION?.comment || ''
+        }
       },
 
 
@@ -6142,7 +6193,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.currentFeedback = fb;
+      this.currentFeedback = this.validateAndNormalizeFeedback(fb);
 
 
 

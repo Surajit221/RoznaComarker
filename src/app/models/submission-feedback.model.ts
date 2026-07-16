@@ -1,6 +1,6 @@
 export interface RubricItem {
   score: number;
-  maxScore: 5;
+  maxScore: number;
   comment: string;
 }
 
@@ -10,6 +10,7 @@ export interface CorrectionStats {
   organization: number;
   vocabulary: number;
   mechanics: number;
+  total?: number;
 }
 
 export interface DetailedFeedback {
@@ -21,7 +22,9 @@ export interface DetailedFeedback {
 export interface AiFeedbackPerCategory {
   category: string;
   message: string;
-  scoreOutOf5: number;
+  score: number;
+  maxScore: number;
+  scoreOutOf5?: number;
 }
 
 export interface AiFeedback {
@@ -54,18 +57,23 @@ export interface SubmissionFeedback {
   overallComments?: string;
   teacherComments?: string;
 
+  assessmentVersion?: string;
+  maxOverallScore: number;
+
   rubricScores: {
     CONTENT: RubricItem;
     ORGANIZATION: RubricItem;
     GRAMMAR: RubricItem;
     VOCABULARY: RubricItem;
     MECHANICS: RubricItem;
+    PRESENTATION: RubricItem;
   };
 
   overallScore: number;
   grade: string;
 
   correctionStats: CorrectionStats;
+  correctionStatistics?: CorrectionStats;
   detailedFeedback: DetailedFeedback;
   aiFeedback: AiFeedback;
 

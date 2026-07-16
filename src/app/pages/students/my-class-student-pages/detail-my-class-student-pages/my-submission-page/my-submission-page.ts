@@ -15,6 +15,7 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
+import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -32,7 +33,7 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, ModalDialog],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
@@ -451,16 +452,42 @@ export class MySubmissionPage {
   }
 
   private buildEmptyFeedback(submissionId: string): SubmissionFeedback {
-    const emptyItem = () => ({ score: 0, maxScore: 5 as const, comment: '' });
     return {
       submissionId,
+      assessmentVersion: 'writing-rubric-100-v1',
+      maxOverallScore: 100,
       rubricScores: {
-        CONTENT: emptyItem(),
-        ORGANIZATION: emptyItem(),
-        GRAMMAR: emptyItem(),
-        VOCABULARY: emptyItem(),
-        MECHANICS: emptyItem()
-      },
+  CONTENT: {
+    score: 0,
+    maxScore: 20,
+    comment: ''
+  },
+  ORGANIZATION: {
+    score: 0,
+    maxScore: 20,
+    comment: ''
+  },
+  GRAMMAR: {
+    score: 0,
+    maxScore: 25,
+    comment: ''
+  },
+  VOCABULARY: {
+    score: 0,
+    maxScore: 20,
+    comment: ''
+  },
+  MECHANICS: {
+    score: 0,
+    maxScore: 10,
+    comment: ''
+  },
+  PRESENTATION: {
+    score: 0,
+    maxScore: 5,
+    comment: ''
+  }
+},
       overallScore: 0,
       grade: 'F',
       correctionStats: {
@@ -680,27 +707,27 @@ export class MySubmissionPage {
   }
 
   get contentIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.CONTENT ?? this.feedback?.correctionStats?.content);
+    const n = Number(this.feedback?.correctionStatistics?.content ?? this.feedback?.correctionStats?.content ?? this.submission?.correctionStatistics?.content);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get grammarIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.GRAMMAR ?? this.feedback?.correctionStats?.grammar);
+    const n = Number(this.feedback?.correctionStatistics?.grammar ?? this.feedback?.correctionStats?.grammar ?? this.submission?.correctionStatistics?.grammar);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get organizationIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.ORGANIZATION ?? this.feedback?.correctionStats?.organization);
+    const n = Number(this.feedback?.correctionStatistics?.organization ?? this.feedback?.correctionStats?.organization ?? this.submission?.correctionStatistics?.organization);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get vocabularyIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.VOCABULARY ?? this.feedback?.correctionStats?.vocabulary);
+    const n = Number(this.feedback?.correctionStatistics?.vocabulary ?? this.feedback?.correctionStats?.vocabulary ?? this.submission?.correctionStatistics?.vocabulary);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get mechanicsIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.MECHANICS ?? this.feedback?.correctionStats?.mechanics);
+    const n = Number(this.feedback?.correctionStatistics?.mechanics ?? this.feedback?.correctionStats?.mechanics ?? this.submission?.correctionStatistics?.mechanics);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
@@ -1002,7 +1029,8 @@ export class MySubmissionPage {
         return {
           id,
           text,
-          bbox
+          bbox,
+          separatorBefore: w?.separatorBefore === '\n\n' ? '\n\n' : w?.separatorBefore === '\n' ? '\n' : w?.separatorBefore === ' ' ? ' ' : ''
         } satisfies OcrWord;
       })
       .filter(Boolean) as OcrWord[];
@@ -1224,7 +1252,7 @@ export class MySubmissionPage {
   }
 
   get isOcrPending(): boolean {
-    return this.ocrStatus === 'pending' && !this.extractedText;
+    return this.ocrStatus === 'pending' || this.ocrStatus === ('processing' as BackendSubmission['ocrStatus']);
   }
 
   async ngOnInit() {
@@ -1374,7 +1402,7 @@ export class MySubmissionPage {
 
       if (submission?._id) {
         await this.loadOcrCorrections(submission._id);
-        this.hasLoadedOcrCorrections = true;
+        this.hasLoadedOcrCorrections = submission.ocrStatus === 'completed';
       }
 
       this.rebuildHighlightedTranscript();
@@ -1423,7 +1451,7 @@ export class MySubmissionPage {
       return;
     }
 
-    if (this.submission.ocrStatus === 'pending' && !this.extractedText) {
+    if (this.submission.ocrStatus === 'pending' || (this.submission.ocrStatus === 'completed' && !this.hasLoadedOcrCorrections)) {
       this.startOcrPolling();
       return;
     }
@@ -1483,9 +1511,9 @@ export class MySubmissionPage {
       await this.setUploadedFileUrl(updated?.fileUrl || this.rawUploadedFileUrl);
       this.rebuildOcrWords();
 
-      if (updated?._id && !this.hasLoadedOcrCorrections) {
+      if (updated?._id && (!this.hasLoadedOcrCorrections || updated.ocrStatus === 'completed')) {
         await this.loadOcrCorrections(updated._id);
-        this.hasLoadedOcrCorrections = true;
+        this.hasLoadedOcrCorrections = updated.ocrStatus === 'completed';
       }
 
       this.rebuildHighlightedTranscript();
@@ -1497,7 +1525,7 @@ export class MySubmissionPage {
         this.ocrErrorMessage = null;
       }
 
-      if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed' || this.extractedText) {
+      if (updated?.ocrStatus === 'completed' || updated?.ocrStatus === 'failed') {
         this.stopOcrPolling();
         return;
       }

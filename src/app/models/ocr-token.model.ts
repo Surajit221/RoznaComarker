@@ -9,6 +9,7 @@ export interface OcrWord {
     id: string;
     text: string;
     bbox: OcrBBox | null;
+    separatorBefore?: '' | ' ' | '\n' | '\n\n';
 }
 
 export interface OcrLine {

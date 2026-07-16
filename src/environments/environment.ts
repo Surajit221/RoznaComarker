@@ -7,7 +7,7 @@ export const environment = {
 
   UPLOADS_URL: 'https://comarkerback.roznahub.com/uploads',
 
-  FRONTEND_URL: 'https://comarkers.roznahub.com',
+  FRONTEND_URL: 'https://comarkers.roznahub.com/',
 
   apiBaseUrl: 'https://comarkerback.roznahub.com/api',
 

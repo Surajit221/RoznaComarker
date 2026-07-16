@@ -178,3 +178,27 @@
                 border-radius: 12px;
             }
         }
+
+        .score-badge {
+            display: inline-flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 2px;
+            width: auto;
+            min-width: max-content;
+            padding: 6px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .score-earned {
+            font-weight: 800;
+        }
+
+        .score-maximum {
+            font-size: 12px;
+            opacity: 0.85;
+        }

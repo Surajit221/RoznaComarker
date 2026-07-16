@@ -32,9 +32,9 @@
               View Student Transcribed Text
             </button>
           </div>
-          <div class="w-full rounded-2xl overflow-hidden">
-            <img [src]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || 'img/default-img.png'"
-                 alt="Submission image" class="w-full h-auto" />
+          <div class="w-full rounded-2xl overflow-visible">
+            <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
+              [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
@@ -294,11 +294,9 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-row gap-2 items-center flex-wrap">
                   <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
-                  <div class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
-                    [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'">
-                    <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                      {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                    </p>
+                  <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
+                    <span class="score-earned text-white">{{ item.score | number:'1.1-1' }}</span>
+                    <span class="score-maximum text-white"> / {{ item.maxScore }}</span>
                   </div>
                 </div>
                 <p class="break-words">{{ item.description }}</p>
@@ -386,9 +384,9 @@
         </div>
 
         <ng-container *ngIf="activeTab === 'uploaded-file'">
-          <div class="w-full rounded-2xl overflow-hidden">
-            <img [src]="essayImageUrl || currentSubmission?.fileUrl || 'img/default-img.png'"
-                 alt="Submission image" class="w-full h-auto" />
+          <div class="w-full rounded-2xl overflow-visible">
+            <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
+              [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
@@ -609,11 +607,9 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-row gap-2 items-center flex-wrap">
                     <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
-                    <div class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
-                      [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'">
-                      <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                        {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                      </p>
+                    <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
+                      <span class="score-earned">{{ item.score | number:'1.1-1' }}</span>
+                      <span class="score-maximum"> / {{ item.maxScore }}</span>
                     </div>
                   </div>
                   <p class="break-words">{{ item.description }}</p>

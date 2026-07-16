@@ -6,7 +6,7 @@ export const environment = {
   UPLOADS_URL: 'https://comarkerback.roznahub.com/uploads',
   apiBaseUrl: 'https://comarkerback.roznahub.com/api',
 
-  FRONTEND_URL: 'https://comarkers.roznahub.com',
+  FRONTEND_URL: 'https://comarkers.roznahub.com/',
 
   firebase: {
     apiKey: 'AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM',
