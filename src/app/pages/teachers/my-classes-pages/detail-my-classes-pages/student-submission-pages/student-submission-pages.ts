@@ -79,6 +79,7 @@ import { applyLegendToAnnotations, applyLegendToIssues } from '../../../../../ut
 
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
+import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 
 
 
@@ -5469,25 +5470,19 @@ export class StudentSubmissionPages {
 
 
   private async fetchAsObjectUrl(url: string): Promise<string> {
+    const normalizedUrl = normalizeToHttps(url);
+    console.log('[TEACHER FILE URL DEBUG]', { rawUrl: url, normalizedUrl });
 
-
-
-    const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
-
-
-
-    const objectUrl = URL.createObjectURL(blob);
-
-
-
-    this.objectUrls.push(objectUrl);
-
-
-
-    return objectUrl;
-
-
-
+    try {
+      const blob = await firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));
+      const objectUrl = URL.createObjectURL(blob);
+      this.objectUrls.push(objectUrl);
+      return objectUrl;
+    } catch (err: any) {
+      console.error('[TEACHER FILE LOAD ERROR]', { url: normalizedUrl, error: err?.message || err });
+      // Re-throw to allow caller to handle file-specific errors
+      throw new Error('Failed to load file');
+    }
   }
 
 
@@ -5497,18 +5492,11 @@ export class StudentSubmissionPages {
 
 
   private async fetchAsEphemeralObjectUrl(url: string): Promise<string> {
+    const normalizedUrl = normalizeToHttps(url);
 
-
-
-    const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
-
-
+    const blob = await firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));
 
     const objectUrl = URL.createObjectURL(blob);
-
-
-
-
 
 
 
@@ -5541,10 +5529,6 @@ export class StudentSubmissionPages {
 
 
     }, 60000);
-
-
-
-
 
 
 
@@ -5884,34 +5868,32 @@ export class StudentSubmissionPages {
 
 
     if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
-
-
-
       const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
-      const objectUrl = await this.fetchAsObjectUrl(previewUrl);
-      if (seq !== this.applyCurrentSubmissionSeq) {
-        this.tryRevokeObjectUrl(objectUrl);
-        return;
+      try {
+        const objectUrl = await this.fetchAsObjectUrl(previewUrl);
+        if (seq !== this.applyCurrentSubmissionSeq) {
+          this.tryRevokeObjectUrl(objectUrl);
+          return;
+        }
+        this.essayImageUrl = objectUrl;
+      } catch (fileErr) {
+        console.error('[TEACHER PDF FILE LOAD ERROR]', fileErr);
+        // Don't block submission loading for file errors
+        this.essayImageUrl = null;
       }
-
-      this.essayImageUrl = objectUrl;
-
-
-
     } else if (this.isProbablyImageUrl(url) && url) {
-
-
-
-      const objectUrl = await this.fetchAsObjectUrl(url);
-      if (seq !== this.applyCurrentSubmissionSeq) {
-        this.tryRevokeObjectUrl(objectUrl);
-        return;
+      try {
+        const objectUrl = await this.fetchAsObjectUrl(url);
+        if (seq !== this.applyCurrentSubmissionSeq) {
+          this.tryRevokeObjectUrl(objectUrl);
+          return;
+        }
+        this.essayImageUrl = objectUrl;
+      } catch (fileErr) {
+        console.error('[TEACHER IMAGE FILE LOAD ERROR]', fileErr);
+        // Don't block submission loading for file errors
+        this.essayImageUrl = null;
       }
-
-      this.essayImageUrl = objectUrl;
-
-
-
     }
 
 
