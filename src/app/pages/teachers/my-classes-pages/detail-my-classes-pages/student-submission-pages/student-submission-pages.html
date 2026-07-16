@@ -294,11 +294,9 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-row gap-2 items-center flex-wrap">
                   <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
-                  <div class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
-                    [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'">
-                    <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                      {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                    </p>
+                  <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
+                    <span class="score-earned text-white">{{ item.score | number:'1.1-1' }}</span>
+                    <span class="score-maximum text-white"> / {{ item.maxScore }}</span>
                   </div>
                 </div>
                 <p class="break-words">{{ item.description }}</p>
@@ -609,11 +607,9 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-row gap-2 items-center flex-wrap">
                     <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
-                    <div class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
-                      [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'">
-                      <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
-                        {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
-                      </p>
+                    <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
+                      <span class="score-earned">{{ item.score | number:'1.1-1' }}</span>
+                      <span class="score-maximum"> / {{ item.maxScore }}</span>
                     </div>
                   </div>
                   <p class="break-words">{{ item.description }}</p>
