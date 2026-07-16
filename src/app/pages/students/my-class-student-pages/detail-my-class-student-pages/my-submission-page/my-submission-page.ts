@@ -452,16 +452,42 @@ export class MySubmissionPage {
   }
 
   private buildEmptyFeedback(submissionId: string): SubmissionFeedback {
-    const emptyItem = () => ({ score: 0, maxScore: 5 as const, comment: '' });
     return {
       submissionId,
+      assessmentVersion: 'writing-rubric-100-v1',
+      maxOverallScore: 100,
       rubricScores: {
-        CONTENT: emptyItem(),
-        ORGANIZATION: emptyItem(),
-        GRAMMAR: emptyItem(),
-        VOCABULARY: emptyItem(),
-        MECHANICS: emptyItem()
-      },
+  CONTENT: {
+    score: 0,
+    maxScore: 20,
+    comment: ''
+  },
+  ORGANIZATION: {
+    score: 0,
+    maxScore: 20,
+    comment: ''
+  },
+  GRAMMAR: {
+    score: 0,
+    maxScore: 25,
+    comment: ''
+  },
+  VOCABULARY: {
+    score: 0,
+    maxScore: 20,
+    comment: ''
+  },
+  MECHANICS: {
+    score: 0,
+    maxScore: 10,
+    comment: ''
+  },
+  PRESENTATION: {
+    score: 0,
+    maxScore: 5,
+    comment: ''
+  }
+},
       overallScore: 0,
       grade: 'F',
       correctionStats: {

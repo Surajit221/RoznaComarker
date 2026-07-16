@@ -9,7 +9,7 @@ export type RubricFeedbackItem = {
 
 export type PersistedRubricScores = Partial<
   Record<
-    'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS',
+    'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS' | 'PRESENTATION',
     { score?: number; maxScore?: number; comment?: string }
   >
 >;
@@ -69,6 +69,10 @@ function buildSummaryForCategory(label: string, count: number, total: number, ad
   return `${label}: ${count} issue${count === 1 ? '' : 's'} (${pct}%). ${advice}`;
 }
 
+/**
+ * @deprecated Use buildWritingAssessment from writingAssessment.service.js for canonical weighted scoring.
+ * This function is kept for backward compatibility only.
+ */
 export function buildDynamicRubricFeedback(params: {
   issues: WritingCorrectionIssue[];
   overallScore100?: number;
@@ -132,36 +136,69 @@ export function buildDynamicRubricFeedback(params: {
 export function rubricScoresToFeedbackItems(rubricScores: PersistedRubricScores | null | undefined): RubricFeedbackItem[] {
   const rs: any = rubricScores && typeof rubricScores === 'object' ? rubricScores : {};
 
-  const clamp5 = (n: any): number => {
-    const x = Number(n);
-    if (!Number.isFinite(x)) return 0;
-    return clamp(round1(x), 0, 5);
+  // Category defaults for weighted writing assessment
+  const categoryDefaults: Record<string, number> = {
+    GRAMMAR: 25,
+    VOCABULARY: 20,
+    ORGANIZATION: 20,
+    CONTENT: 20,
+    MECHANICS: 10,
+    PRESENTATION: 5
+  };
+
+  // Defensive validation: use backend maxScore when valid, otherwise use category default
+  const getSafeScore = (key: string): number => {
+    const score = Number(rs?.[key]?.score);
+    if (!Number.isFinite(score)) return 0;
+    return Math.max(0, score);
+  };
+
+  const getSafeMaxScore = (key: string): number => {
+    const backendMax = Number(rs?.[key]?.maxScore);
+    if (Number.isFinite(backendMax) && backendMax > 0) return backendMax;
+    return categoryDefaults[key] || 5;
+  };
+
+  const clampToMax = (score: number, max: number): number => {
+    return Math.min(Math.max(score, 0), max);
   };
 
   return [
     {
-      category: 'Grammar & Mechanics',
-      score: clamp5(rs?.GRAMMAR?.score),
-      maxScore: 5,
+      category: 'Grammar',
+      score: clampToMax(getSafeScore('GRAMMAR'), getSafeMaxScore('GRAMMAR')),
+      maxScore: getSafeMaxScore('GRAMMAR'),
       description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
     },
     {
-      category: 'Structure & Organization',
-      score: clamp5(rs?.ORGANIZATION?.score),
-      maxScore: 5,
+      category: 'Vocabulary',
+      score: clampToMax(getSafeScore('VOCABULARY'), getSafeMaxScore('VOCABULARY')),
+      maxScore: getSafeMaxScore('VOCABULARY'),
+      description: typeof rs?.VOCABULARY?.comment === 'string' ? rs.VOCABULARY.comment : ''
+    },
+    {
+      category: 'Organization & Structure',
+      score: clampToMax(getSafeScore('ORGANIZATION'), getSafeMaxScore('ORGANIZATION')),
+      maxScore: getSafeMaxScore('ORGANIZATION'),
       description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
     },
     {
-      category: 'Content Relevance',
-      score: clamp5(rs?.CONTENT?.score),
-      maxScore: 5,
+      category: 'Content & Task Achievement',
+      score: clampToMax(getSafeScore('CONTENT'), getSafeMaxScore('CONTENT')),
+      maxScore: getSafeMaxScore('CONTENT'),
       description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
     },
     {
-      category: 'Overall Rubric Score',
-      score: clamp5(rs?.MECHANICS?.score),
-      maxScore: 5,
+      category: 'Spelling & Punctuation',
+      score: clampToMax(getSafeScore('MECHANICS'), getSafeMaxScore('MECHANICS')),
+      maxScore: getSafeMaxScore('MECHANICS'),
       description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
+    },
+    {
+      category: 'Presentation & Handwriting',
+      score: clampToMax(getSafeScore('PRESENTATION'), getSafeMaxScore('PRESENTATION')),
+      maxScore: getSafeMaxScore('PRESENTATION'),
+      description: typeof rs?.PRESENTATION?.comment === 'string' ? rs.PRESENTATION.comment : ''
     }
   ];
 }

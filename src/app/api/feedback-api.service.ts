@@ -112,10 +112,10 @@ export class FeedbackApiService {
     return resp.data;
   }
 
-  async generateAiSubmissionFeedback(submissionId: string): Promise<AiRubricStructuredResponse> {
+  async generateAiSubmissionFeedback(submissionId: string): Promise<SubmissionFeedback> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
-      this.http.post<BackendResponse<AiRubricStructuredResponse>>(
+      this.http.post<BackendResponse<SubmissionFeedback>>(
         `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/generate-ai`,
         {}
       )
