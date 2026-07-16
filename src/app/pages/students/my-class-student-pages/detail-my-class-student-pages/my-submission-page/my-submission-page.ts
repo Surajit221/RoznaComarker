@@ -681,27 +681,27 @@ export class MySubmissionPage {
   }
 
   get contentIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.CONTENT ?? this.feedback?.correctionStats?.content);
+    const n = Number(this.feedback?.correctionStatistics?.content ?? this.feedback?.correctionStats?.content ?? this.submission?.correctionStatistics?.content);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get grammarIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.GRAMMAR ?? this.feedback?.correctionStats?.grammar);
+    const n = Number(this.feedback?.correctionStatistics?.grammar ?? this.feedback?.correctionStats?.grammar ?? this.submission?.correctionStatistics?.grammar);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get organizationIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.ORGANIZATION ?? this.feedback?.correctionStats?.organization);
+    const n = Number(this.feedback?.correctionStatistics?.organization ?? this.feedback?.correctionStats?.organization ?? this.submission?.correctionStatistics?.organization);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get vocabularyIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.VOCABULARY ?? this.feedback?.correctionStats?.vocabulary);
+    const n = Number(this.feedback?.correctionStatistics?.vocabulary ?? this.feedback?.correctionStats?.vocabulary ?? this.submission?.correctionStatistics?.vocabulary);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 
   get mechanicsIssuesCount(): number {
-    const n = Number(this.legendAligned?.counts?.MECHANICS ?? this.feedback?.correctionStats?.mechanics);
+    const n = Number(this.feedback?.correctionStatistics?.mechanics ?? this.feedback?.correctionStats?.mechanics ?? this.submission?.correctionStatistics?.mechanics);
     return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
   }
 

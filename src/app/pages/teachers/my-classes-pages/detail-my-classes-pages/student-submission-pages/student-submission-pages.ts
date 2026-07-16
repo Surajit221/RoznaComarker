@@ -2125,7 +2125,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.content);
+    const n = Number(this.currentFeedback?.correctionStatistics?.content ?? this.currentFeedback?.correctionStats?.content ?? this.currentSubmission?.correctionStatistics?.content);
 
 
 
@@ -2145,7 +2145,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.grammar);
+    const n = Number(this.currentFeedback?.correctionStatistics?.grammar ?? this.currentFeedback?.correctionStats?.grammar ?? this.currentSubmission?.correctionStatistics?.grammar);
 
 
 
@@ -2165,7 +2165,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.organization);
+    const n = Number(this.currentFeedback?.correctionStatistics?.organization ?? this.currentFeedback?.correctionStats?.organization ?? this.currentSubmission?.correctionStatistics?.organization);
 
 
 
@@ -2185,7 +2185,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.vocabulary);
+    const n = Number(this.currentFeedback?.correctionStatistics?.vocabulary ?? this.currentFeedback?.correctionStats?.vocabulary ?? this.currentSubmission?.correctionStatistics?.vocabulary);
 
 
 
@@ -2205,7 +2205,7 @@ export class StudentSubmissionPages {
 
 
 
-    const n = Number(this.currentFeedback?.correctionStats?.mechanics);
+    const n = Number(this.currentFeedback?.correctionStatistics?.mechanics ?? this.currentFeedback?.correctionStats?.mechanics ?? this.currentSubmission?.correctionStatistics?.mechanics);
 
 
 

@@ -10,6 +10,7 @@ export interface CorrectionStats {
   organization: number;
   vocabulary: number;
   mechanics: number;
+  total?: number;
 }
 
 export interface DetailedFeedback {
@@ -66,6 +67,7 @@ export interface SubmissionFeedback {
   grade: string;
 
   correctionStats: CorrectionStats;
+  correctionStatistics?: CorrectionStats;
   detailedFeedback: DetailedFeedback;
   aiFeedback: AiFeedback;
 

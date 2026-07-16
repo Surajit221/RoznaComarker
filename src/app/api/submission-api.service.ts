@@ -50,6 +50,14 @@ export type BackendSubmission = {
   isLate: boolean;
   qrToken?: string;
   transcriptText?: string;
+  correctionStatistics?: {
+    content: number;
+    grammar: number;
+    organization: number;
+    vocabulary: number;
+    mechanics: number;
+    total: number;
+  };
   ocrStatus?: 'pending' | 'completed' | 'failed';
   ocrText?: string;
   combinedOcrText?: string;
