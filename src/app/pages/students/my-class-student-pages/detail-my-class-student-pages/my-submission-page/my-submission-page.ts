@@ -30,6 +30,7 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { environment } from '../../../../../../environments/environment';
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
+import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 
 @Component({
   selector: 'app-my-submission-page',
@@ -359,7 +360,7 @@ export class MySubmissionPage {
   private objectUrls: string[] = [];
 
   private normalizeUploadsUrl(url: string): string {
-    const raw = String(url || '').trim();
+    const raw = normalizeToHttps(url);
     if (!raw) return '';
 
     const cacheBustToken = this.lastRefreshToken;
@@ -840,7 +841,11 @@ export class MySubmissionPage {
   }
 
   private async fetchAsObjectUrl(url: string, trackForCleanup = true): Promise<string> {
-    const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
+    const normalizedUrl = normalizeToHttps(url);
+    if (!environment.production) {
+      console.debug('[STUDENT FILE URL]', normalizedUrl);
+    }
+    const blob = await firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));
     const objectUrl = URL.createObjectURL(blob);
 
     if (trackForCleanup) {
