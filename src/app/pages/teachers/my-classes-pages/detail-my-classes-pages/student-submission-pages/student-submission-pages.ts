@@ -84,7 +84,7 @@ import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 
 
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
-import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
+import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
 
 
 
@@ -128,6 +128,9 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
+import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
+
+type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 
 
@@ -174,7 +177,8 @@ import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api
 
     DialogViewSubmissions,
 
-    RubricDesignerModal
+    RubricDesignerModal,
+    AdaptivePracticeProgress
 
 
 
@@ -1594,6 +1598,32 @@ export class StudentSubmissionPages {
 
   isLoading = false;
 
+  submissionState: SectionLoadState = 'idle';
+  transcriptState: SectionLoadState = 'idle';
+  correctionsState: SectionLoadState = 'idle';
+  feedbackState: SectionLoadState = 'idle';
+  aiFeedbackState: SectionLoadState = 'idle';
+  teacherCommentState: SectionLoadState = 'idle';
+  scoreState: SectionLoadState = 'idle';
+
+  readonly skeletonRows = [0, 1, 2, 3, 4];
+  readonly feedbackSkeletonRows = [0, 1];
+
+  get scoreDependenciesLoading(): boolean {
+    return this.scoreState === 'loading';
+  }
+
+  private resetSectionLoadStates(hasSubmission: boolean): void {
+    const next: SectionLoadState = hasSubmission ? 'loading' : 'idle';
+    this.submissionState = hasSubmission ? 'loaded' : 'idle';
+    this.transcriptState = next;
+    this.correctionsState = next;
+    this.feedbackState = next;
+    this.aiFeedbackState = next;
+    this.teacherCommentState = next;
+    this.scoreState = next;
+  }
+
 
 
 
@@ -2553,6 +2583,7 @@ export class StudentSubmissionPages {
 
 
   essayImageUrl: string | null = null;
+  pdfMediaState: MediaLoadState = 'idle';
 
   uploadData: any = null;
 
@@ -5556,6 +5587,26 @@ export class StudentSubmissionPages {
 
   }
 
+  async retryUploadedPdf(): Promise<void> {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId) return;
+    const seq = this.applyCurrentSubmissionSeq;
+    this.pdfMediaState = 'fetching';
+    try {
+      const objectUrl = await this.fetchAsObjectUrl(this.buildSubmissionPreviewUrl(submissionId));
+      if (seq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) {
+        this.tryRevokeObjectUrl(objectUrl);
+        return;
+      }
+      this.essayImageUrl = objectUrl;
+      this.pdfMediaState = 'loaded';
+    } catch {
+      if (seq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return;
+      this.essayImageUrl = null;
+      this.pdfMediaState = 'error';
+    }
+  }
+
 
 
   async downloadPdfForCurrentSubmission(): Promise<void> {
@@ -5603,6 +5654,8 @@ export class StudentSubmissionPages {
 
 
     this.isLoading = true;
+    this.resetSectionLoadStates(true);
+    this.submissionState = 'loading';
 
 
 
@@ -5619,6 +5672,7 @@ export class StudentSubmissionPages {
 
 
       this.submissions = list || [];
+      this.submissionState = 'loaded';
 
 
 
@@ -5655,6 +5709,14 @@ export class StudentSubmissionPages {
 
 
     } catch (err: any) {
+
+      this.submissionState = 'error';
+      this.transcriptState = 'error';
+      this.correctionsState = 'error';
+      this.feedbackState = 'error';
+      this.aiFeedbackState = 'error';
+      this.teacherCommentState = 'error';
+      this.scoreState = 'error';
 
 
 
@@ -5748,6 +5810,10 @@ export class StudentSubmissionPages {
 
     const seq = ++this.applyCurrentSubmissionSeq;
 
+    ++this.loadOcrCorrectionsSeq;
+
+    this.resetSectionLoadStates(Boolean(submission));
+
 
 
     this.currentSubmission = submission;
@@ -5832,6 +5898,7 @@ export class StudentSubmissionPages {
 
 
     this.essayImageUrl = null;
+    this.pdfMediaState = 'idle';
 
 
 
@@ -5856,6 +5923,7 @@ export class StudentSubmissionPages {
 
 
     this.feedbackForm.patchValue({ message: '' });
+    this.feedbackForm.disable({ emitEvent: false });
 
 
 
@@ -5871,6 +5939,7 @@ export class StudentSubmissionPages {
 
     if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
       const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
+      this.pdfMediaState = 'fetching';
       try {
         const objectUrl = await this.fetchAsObjectUrl(previewUrl);
         if (seq !== this.applyCurrentSubmissionSeq) {
@@ -5878,10 +5947,12 @@ export class StudentSubmissionPages {
           return;
         }
         this.essayImageUrl = objectUrl;
+        this.pdfMediaState = 'loaded';
       } catch (fileErr) {
         console.error('[TEACHER PDF FILE LOAD ERROR]', fileErr);
         // Don't block submission loading for file errors
         this.essayImageUrl = null;
+        this.pdfMediaState = 'error';
       }
     } else if (this.isProbablyImageUrl(url) && url) {
       try {
@@ -5909,6 +5980,15 @@ export class StudentSubmissionPages {
       await this.loadOcrCorrections(this.currentSubmission._id);
       if (seq !== this.applyCurrentSubmissionSeq) return;
 
+      const selected: any = this.currentSubmission;
+      const hasStoredTranscript = Boolean(
+        String(selected?.transcriptText || '').trim()
+        || String(selected?.ocrText || '').trim()
+        || (Array.isArray(selected?.ocrPages) && selected.ocrPages.length)
+      );
+      this.transcriptState = this.correctionsError && !hasStoredTranscript ? 'error' : 'loaded';
+      this.correctionsState = this.correctionsError ? 'error' : 'loaded';
+
     }
 
 
@@ -5917,8 +5997,12 @@ export class StudentSubmissionPages {
 
 
 
-    await this.loadFeedback();
+    const feedbackLoaded = await this.loadFeedback(seq);
     if (seq !== this.applyCurrentSubmissionSeq) return;
+
+    this.feedbackState = feedbackLoaded ? 'loaded' : 'error';
+    this.teacherCommentState = feedbackLoaded ? 'loaded' : 'error';
+    this.feedbackForm.enable({ emitEvent: false });
 
     this.recomputeRubricFeedbackItems();
 
@@ -5930,6 +6014,9 @@ export class StudentSubmissionPages {
 
     await this.ensureAiFeedbackGeneratedOnce();
     if (seq !== this.applyCurrentSubmissionSeq) return;
+
+    this.aiFeedbackState = feedbackLoaded ? 'loaded' : 'error';
+    this.scoreState = this.feedbackState === 'error' ? 'error' : 'loaded';
 
 
 
@@ -6153,7 +6240,7 @@ export class StudentSubmissionPages {
 
 
 
-  private async loadFeedback() {
+  private async loadFeedback(expectedSeq = this.applyCurrentSubmissionSeq): Promise<boolean> {
 
 
 
@@ -6161,7 +6248,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (!submissionId) return;
+    if (!submissionId) return false;
 
 
 
@@ -6174,6 +6261,8 @@ export class StudentSubmissionPages {
 
 
       const fb = await this.feedbackApi.getSubmissionFeedback(submissionId);
+
+      if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return false;
 
 
 
@@ -6237,6 +6326,8 @@ export class StudentSubmissionPages {
 
 
 
+          if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return false;
+
           this.currentFeedback = saved;
 
 
@@ -6267,9 +6358,13 @@ export class StudentSubmissionPages {
 
       this.recomputeRubricFeedbackItems();
 
+      return true;
+
 
 
     } catch (err: any) {
+
+      if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return false;
 
 
 
@@ -6302,6 +6397,8 @@ export class StudentSubmissionPages {
 
 
       this.recomputeRubricFeedbackItems();
+
+      return Number(err?.status) === 404;
 
 
 

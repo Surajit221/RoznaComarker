@@ -1,7 +1,28 @@
-<div class="correction-overlay" #overlayEl>
-  <img class="correction-overlay__image" [src]="imageUrl || 'img/default-img.png'" [alt]="alt" (load)="onImageLoad($event)" />
+<div class="correction-overlay" #overlayEl [attr.aria-busy]="mediaState === 'fetching' || mediaState === 'decoding'">
+  @if (mediaState === 'fetching' || mediaState === 'decoding') {
+    <div class="document-skeleton" aria-hidden="true">
+      <div class="document-skeleton__page">
+        <span class="skeleton-line skeleton-line--title"></span>
+        <span class="skeleton-line skeleton-line--meta"></span>
+        <span class="document-skeleton__separator"></span>
+        @for (width of [95, 88, 92, 70, 96, 84, 62, 93, 86, 74]; track $index) {
+          <span class="skeleton-line" [class.skeleton-line--group]="$index === 4 || $index === 7" [style.width.%]="width"></span>
+        }
+      </div>
+    </div>
+    <span class="sr-only" role="status">Loading submitted file</span>
+  }
+  @if (mediaState === 'error') {
+    <div class="correction-overlay__media-error" role="alert">
+      <p>Unable to load this submitted file.</p>
+      <button type="button" (click)="retryImage()">Retry</button>
+    </div>
+  }
+  @if (displayImageUrl) {
+    <img #imageEl class="correction-overlay__image" [class.is-loaded]="mediaState === 'loaded'" [src]="displayImageUrl" [alt]="alt" (load)="onImageLoad($event)" (error)="onImageError()" />
+  }
 
-  @for (marker of markers; track marker.annotation._id) {
+  @for (marker of mediaState === 'loaded' ? markers : []; track marker.annotation._id) {
     <button
       type="button"
       class="correction-overlay__marker"

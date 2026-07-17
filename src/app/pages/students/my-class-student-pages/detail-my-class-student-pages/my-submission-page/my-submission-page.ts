@@ -15,7 +15,7 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
-import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
+import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -31,14 +31,19 @@ import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { environment } from '../../../../../../environments/environment';
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
+import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
+import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
+
+type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog, AdaptiveWritingStudio],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
 export class MySubmissionPage {
+  adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
   device = inject(DeviceService);
   activeTab = 'uploaded-file';
@@ -298,6 +303,15 @@ export class MySubmissionPage {
   }
 
   isLoading = false;
+  submissionState: SectionLoadState = 'idle';
+  transcriptState: SectionLoadState = 'idle';
+  correctionsState: SectionLoadState = 'idle';
+  feedbackState: SectionLoadState = 'idle';
+  aiFeedbackState: SectionLoadState = 'idle';
+  scoreState: SectionLoadState = 'idle';
+  pdfMediaState: MediaLoadState = 'idle';
+  readonly skeletonRows = [0, 1, 2, 3, 4];
+  readonly feedbackSkeletonRows = [0, 1];
   isPdfDownloading = false;
   submission: BackendSubmission | null = null;
   feedback: SubmissionFeedback | null = null;
@@ -358,6 +372,15 @@ export class MySubmissionPage {
   activeFileIndex = 0;
   private uploadedFileIsPdf = false;
   private objectUrls: string[] = [];
+
+  private resetSectionStates(): void {
+    this.submissionState = 'loading';
+    this.transcriptState = 'loading';
+    this.correctionsState = 'loading';
+    this.feedbackState = 'loading';
+    this.aiFeedbackState = 'loading';
+    this.scoreState = 'loading';
+  }
 
   private normalizeUploadsUrl(url: string): string {
     const raw = normalizeToHttps(url);
@@ -1128,6 +1151,27 @@ export class MySubmissionPage {
     }
   }
 
+  private buildAdaptiveSkillScores(feedback: SubmissionFeedback | null): readonly AdaptiveSkillScore[] {
+    const scores = feedback?.rubricScores;
+    const points = (key: keyof SubmissionFeedback['rubricScores']): Pick<AdaptiveSkillScore, 'earnedPoints' | 'maximumPoints'> => {
+      const item = scores?.[key];
+      const earned = Number(item?.score);
+      const maximum = Number(item?.maxScore);
+      return {
+        earnedPoints: item && Number.isFinite(earned) && earned >= 0 ? earned : null,
+        maximumPoints: item && Number.isFinite(maximum) && maximum > 0 ? maximum : null
+      };
+    };
+
+    return [
+      { id: 'task', label: 'Task Achievement', ...points('CONTENT') },
+      { id: 'coherence', label: 'Coherence & Flow', ...points('ORGANIZATION') },
+      { id: 'lexical', label: 'Lexical Resource', ...points('VOCABULARY') },
+      { id: 'grammar', label: 'Grammar', ...points('GRAMMAR') },
+      { id: 'mechanics', label: 'Mechanics', ...points('MECHANICS') }
+    ];
+  }
+
   async downloadPdf() {
     const submissionId = this.submission?._id;
     if (!submissionId) {
@@ -1308,6 +1352,18 @@ export class MySubmissionPage {
     this.isLoading = true;
     this.loadSeq += 1;
     const seq = this.loadSeq;
+    ++this.loadOcrCorrectionsSeq;
+    ++this.setUploadedFileUrlSeq;
+    this.resetSectionStates();
+    this.submission = null;
+    this.feedback = null;
+    this.assignment = null;
+    this.annotations = [];
+    this.ocrWords = [];
+    this.submissionFileUrls = [];
+    this.submissionFileIds = [];
+    this.uploadedFileUrl = null;
+    this.pdfMediaState = 'idle';
     this.hasLoadedOcrCorrections = false;
 
     try {
@@ -1325,6 +1381,7 @@ export class MySubmissionPage {
 
       if (this.destroyed || seq !== this.loadSeq) return;
       this.submission = submission;
+      this.submissionState = 'loaded';
 
       try {
         this.assignment = await this.assignmentApi.getAssignmentById(assignmentId);
@@ -1405,10 +1462,14 @@ export class MySubmissionPage {
 
       this.rebuildOcrWords();
 
+      let correctionsLoaded = true;
       if (submission?._id) {
-        await this.loadOcrCorrections(submission._id);
+        correctionsLoaded = await this.loadOcrCorrections(submission._id) !== false;
+        if (this.destroyed || seq !== this.loadSeq) return;
         this.hasLoadedOcrCorrections = submission.ocrStatus === 'completed';
       }
+
+      this.correctionsState = correctionsLoaded ? 'loaded' : 'error';
 
       this.rebuildHighlightedTranscript();
       await this.refreshWritingCorrections();
@@ -1419,6 +1480,8 @@ export class MySubmissionPage {
         this.ocrErrorMessage = submission.ocrError || 'OCR failed';
       }
 
+      this.transcriptState = this.ocrErrorMessage && !this.extractedText ? 'error' : 'loaded';
+
       this.syncOcrPolling();
 
       if (submission?._id) {
@@ -1428,25 +1491,44 @@ export class MySubmissionPage {
           if (this.destroyed || seq !== this.loadSeq) return;
 
           this.feedback = fb;
+          this.adaptiveSkillScores = this.buildAdaptiveSkillScores(fb);
           console.log('STUDENT FEEDBACK LOADED:', fb);
           this.teacherComment = typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : null;
 
           this.feedbackForm.patchValue({
             message: this.teacherComment || ''
           });
+          this.feedbackState = 'loaded';
+          this.aiFeedbackState = 'loaded';
+          this.scoreState = 'loaded';
         } catch (err: any) {
           if (this.destroyed || seq !== this.loadSeq) return;
           this.feedback = this.buildEmptyFeedback(submission._id);
+          this.adaptiveSkillScores = this.buildAdaptiveSkillScores(null);
           this.teacherComment = null;
           this.feedbackForm.patchValue({ message: '' });
+          const missingFeedback = Number(err?.status) === 404;
+          this.feedbackState = missingFeedback ? 'loaded' : 'error';
+          this.aiFeedbackState = missingFeedback ? 'loaded' : 'error';
+          this.scoreState = missingFeedback ? 'loaded' : 'error';
         }
       }
 
       if (this.destroyed || seq !== this.loadSeq) return;
 
     } catch (err: any) {
+      if (!this.destroyed && seq === this.loadSeq) {
+        this.submissionState = 'error';
+        this.transcriptState = 'error';
+        this.correctionsState = 'error';
+        this.feedbackState = 'error';
+        this.aiFeedbackState = 'error';
+        this.scoreState = 'error';
+      }
       console.error('Failed to load OCR corrections:', err?.error || err);
       throw err;
+    } finally {
+      if (seq === this.loadSeq) this.isLoading = false;
     }
   }
 
@@ -1564,6 +1646,7 @@ export class MySubmissionPage {
     this.rawUploadedFileUrl = url;
     this.uploadedFileUrl = null;
     this.uploadedFileIsPdf = false;
+    this.pdfMediaState = 'idle';
 
     if (!url) {
       return Promise.resolve();
@@ -1571,6 +1654,7 @@ export class MySubmissionPage {
 
     const lowered = url.toLowerCase().split('?')[0];
     this.uploadedFileIsPdf = lowered.endsWith('.pdf');
+    if (this.uploadedFileIsPdf) this.pdfMediaState = 'fetching';
 
     const normalizedUrl = this.normalizeUploadsUrl(url);
 
@@ -1582,12 +1666,22 @@ export class MySubmissionPage {
       .then((objectUrl) => {
         if (seq === this.setUploadedFileUrlSeq) {
           this.uploadedFileUrl = objectUrl;
+          if (this.uploadedFileIsPdf) this.pdfMediaState = 'loaded';
+        } else {
+          this.removeObjectUrl(objectUrl);
+          URL.revokeObjectURL(objectUrl);
         }
       })
       .catch(() => {
         if (seq === this.setUploadedFileUrlSeq) {
           this.uploadedFileUrl = normalizedUrl;
+          if (this.uploadedFileIsPdf) this.pdfMediaState = 'error';
         }
       });
+  }
+
+  retryUploadedPdf(): void {
+    if (!this.rawUploadedFileUrl) return;
+    void this.setUploadedFileUrl(this.rawUploadedFileUrl);
   }
 }

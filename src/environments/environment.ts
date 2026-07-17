@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
+  adaptivePracticeFixtureEnabled: false,
 
   apiUrl: 'https://comarkerback.roznahub.com',
 

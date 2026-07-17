@@ -33,8 +33,16 @@
             </button>
           </div>
           <div class="w-full rounded-2xl overflow-visible">
+            @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
+            <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
+              @if (pdfMediaState === 'fetching') { <div class="media-pdf-skeleton" aria-hidden="true"><div class="media-pdf-skeleton__page"><span class="media-pdf-line title"></span><span class="media-pdf-line meta"></span><span class="media-pdf-separator"></span><span class="media-pdf-line w95"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span><span class="media-pdf-line w95 group"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span></div></div><span class="sr-only" role="status">Loading submitted file</span> }
+              @else if (pdfMediaState === 'error') { <div class="section-load-error" role="alert">Unable to load this submitted PDF. <button type="button" (click)="retryUploadedPdf()">Retry</button></div> }
+              @else { <a class="btn-info" [href]="essayImageUrl" target="_blank" rel="noopener">Open PDF</a> }
+            </div>
+            } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
               [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
+            }
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
@@ -69,7 +77,12 @@
                 <div class="lg:col-span-1 space-y-4">
 
                   <!-- Score Card -->
-                  <div class="gradient-card p-6 hover-lift">
+                  <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
+                    @if (scoreState === 'loading') {
+                    <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
+                    } @else if (scoreState === 'error') {
+                    <div class="section-load-error" role="status">Unable to load the overall score.</div>
+                    } @else {
                     <div class="flex items-center justify-between mb-4">
                       <h3 class="font-semibold text-gray-700">Overall Score</h3>
                       <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
@@ -89,11 +102,17 @@
                     <div class="text-center text-sm text-gray-600">
                       <p>Strong effort with some areas for refinement</p>
                     </div>
+                    }
                   </div>
 
                   <!-- Correction Stats -->
-                  <div class="gradient-card p-6 hover-lift">
+                  <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
                     <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
+                    @if (correctionsState === 'loading') {
+                    <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container>
+                    } @else if (correctionsState === 'error') {
+                    <div class="section-load-error" role="status">Unable to load correction statistics.</div>
+                    } @else {
                     <div class="space-y-4">
                       <div>
                         <div class="flex justify-between text-sm mb-1">
@@ -141,6 +160,7 @@
                         </div>
                       </div>
                     </div>
+                    }
                   </div>
 
                   <!-- Correction Legend -->
@@ -166,7 +186,12 @@
                 <div class="lg:col-span-3 space-y-8">
 
                   <!-- Essay with Corrections -->
-                  <div class="gradient-card hover-lift fade-in p-4">
+                  <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="transcriptState === 'loading'">
+                    @if (transcriptState === 'loading') {
+                    <ng-container *ngTemplateOutlet="transcriptSkeleton"></ng-container>
+                    } @else if (transcriptState === 'error') {
+                    <div class="section-load-error" role="status">Unable to load the transcribed text.</div>
+                    } @else {
                     <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
                       <div>
                         <h2 class="text-2xl font-bold text-gray-800">
@@ -192,10 +217,16 @@
                         }
                       </section>
                     </article>
+                    }
                   </div>
 
                   <!-- Feedback and Suggestions -->
-                  <div class="gradient-card hover-lift fade-in p-4">
+                  <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="feedbackState === 'loading'">
+                    @if (feedbackState === 'loading') {
+                    <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container>
+                    } @else if (feedbackState === 'error') {
+                    <div class="section-load-error" role="status">Unable to load detailed feedback.</div>
+                    } @else {
                     <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
                       <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
                       Detailed Feedback & Suggestions
@@ -251,6 +282,7 @@
                         }
                       </ol>
                     </div>
+                    }
                   </div>
 
                 </div>
@@ -287,7 +319,11 @@
 
         <div class="">
           <div class="flex flex-col gap-3">
-            @if (rubricFeedbackItems.length) {
+            @if (aiFeedbackState === 'loading') {
+            <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
+            } @else if (aiFeedbackState === 'error') {
+            <div class="section-load-error" role="status">Unable to load AI feedback.</div>
+            } @else if (rubricFeedbackItems.length) {
             @for (item of rubricFeedbackItems; track item.category) {
             <div
               class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
@@ -315,7 +351,11 @@
               <div class="flex flex-col gap-1">
                 <div class="w-full">
                   <textarea formControlName="message" class="input-text w-full h-40 resize-none bg-white"
+                    [attr.aria-busy]="teacherCommentState === 'loading'"
                     placeholder="Type your message..."></textarea>
+                  @if (teacherCommentState === 'loading') {
+                  <p class="comment-loading" role="status">Loading saved teacher comment…</p>
+                  }
                 </div>
               </div>
               <div class="w-full flex justify-end mt-4">
@@ -385,8 +425,16 @@
 
         <ng-container *ngIf="activeTab === 'uploaded-file'">
           <div class="w-full rounded-2xl overflow-visible">
+            @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
+            <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
+              @if (pdfMediaState === 'fetching') { <div class="media-pdf-skeleton" aria-hidden="true"><div class="media-pdf-skeleton__page"><span class="media-pdf-line title"></span><span class="media-pdf-line meta"></span><span class="media-pdf-separator"></span><span class="media-pdf-line w95"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span><span class="media-pdf-line w95 group"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span></div></div><span class="sr-only" role="status">Loading submitted file</span> }
+              @else if (pdfMediaState === 'error') { <div class="section-load-error" role="alert">Unable to load this submitted PDF. <button type="button" (click)="retryUploadedPdf()">Retry</button></div> }
+              @else { <a class="btn-info-sm" [href]="essayImageUrl" target="_blank" rel="noopener">Open PDF</a> }
+            </div>
+            } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
               [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
+            }
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
@@ -411,7 +459,12 @@
               <div class="space-y-8">
 
                 <!-- Essay with Corrections -->
-                <div class="gradient-card p-2 hover-lift fade-in">
+                <div class="gradient-card p-2 hover-lift fade-in" [attr.aria-busy]="transcriptState === 'loading'">
+                  @if (transcriptState === 'loading') {
+                  <ng-container *ngTemplateOutlet="transcriptSkeleton"></ng-container>
+                  } @else if (transcriptState === 'error') {
+                  <div class="section-load-error" role="status">Unable to load the transcribed text.</div>
+                  } @else {
                   <div class="flex flex-col mb-6 pb-4 border-b border-gray-200">
                     <div>
                       <h2 class="text-lg font-bold text-gray-800">{{ submissionTitle }}</h2>
@@ -433,12 +486,18 @@
                     [innerHTML]="writingCorrectionsHtml"></pre>
                   }
                   }
+                  }
                 </div>
 
                 <ng-container *ngTemplateOutlet="aiFeedbackMobile"></ng-container>
 
                 <!-- Feedback and Suggestions -->
-                <div class="gradient-card hover-lift fade-in">
+                <div class="gradient-card hover-lift fade-in" [attr.aria-busy]="feedbackState === 'loading'">
+                  @if (feedbackState === 'loading') {
+                  <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container>
+                  } @else if (feedbackState === 'error') {
+                  <div class="section-load-error" role="status">Unable to load detailed feedback.</div>
+                  } @else {
                   <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
                     <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
                     Detailed Feedback & Suggestions
@@ -494,13 +553,19 @@
                       }
                     </ol>
                   </div>
+                  }
                 </div>
 
               </div>
 
               <div class="lg:col-span-1 space-y-6">
 
-                <div class="gradient-card p-6 hover-lift">
+                <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
+                  @if (scoreState === 'loading') {
+                  <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
+                  } @else if (scoreState === 'error') {
+                  <div class="section-load-error" role="status">Unable to load the overall score.</div>
+                  } @else {
                   <div class="flex items-center justify-between mb-4">
                     <h3 class="font-semibold text-gray-700">Overall Score</h3>
                     <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
@@ -520,49 +585,65 @@
                   <div class="text-center text-sm text-gray-600">
                     <p>Strong effort with some areas for refinement</p>
                   </div>
+                  }
                 </div>
 
                 <!-- Correction Stats -->
-                <div class="gradient-card p-6 hover-lift">
+                <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
                   <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
+                  @if (correctionsState === 'loading') {
+                  <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container>
+                  } @else if (correctionsState === 'error') {
+                  <div class="section-load-error" role="status">Unable to load correction statistics.</div>
+                  } @else {
                   <div class="space-y-4">
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Content Issues</span>
-                        <span class="font-medium">4</span>
+                        <span class="font-medium">{{ contentIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-red-400 rounded-full" style="width: 36%"></div>
+                        <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
                       </div>
                     </div>
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Grammar Issues</span>
-                        <span class="font-medium">3</span>
+                        <span class="font-medium">{{ grammarIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-green-400 rounded-full" style="width: 27%"></div>
+                        <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
                       </div>
                     </div>
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Organization Issues</span>
-                        <span class="font-medium">2</span>
+                        <span class="font-medium">{{ organizationIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-blue-400 rounded-full" style="width: 18%"></div>
+                        <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
                       </div>
                     </div>
                     <div>
                       <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-600">Vocabulary Issues</span>
-                        <span class="font-medium">3</span>
+                        <span class="font-medium">{{ vocabularyIssuesCount }}</span>
                       </div>
                       <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-400 rounded-full" style="width: 27%"></div>
+                        <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-600">Mechanics Issues</span>
+                        <span class="font-medium">{{ mechanicsIssuesCount }}</span>
+                      </div>
+                      <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-yellow-400 rounded-full" [style.width]="mechanicsIssuesBarWidth"></div>
                       </div>
                     </div>
                   </div>
+                  }
                 </div>
 
                 <!-- Correction Legend -->
@@ -600,7 +681,11 @@
           </div>
           <div class="">
             <div class="flex flex-col gap-3">
-              @if (rubricFeedbackItems.length) {
+              @if (aiFeedbackState === 'loading') {
+              <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
+              } @else if (aiFeedbackState === 'error') {
+              <div class="section-load-error" role="status">Unable to load AI feedback.</div>
+              } @else if (rubricFeedbackItems.length) {
               @for (item of rubricFeedbackItems; track item.category) {
               <div
                 class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
@@ -630,6 +715,65 @@
 
   </ng-template>
   <!-- END MOBILE -->
+
+  <ng-template #scoreSkeleton>
+    <div class="section-skeleton" aria-hidden="true">
+      <div class="skeleton-row"><span class="skeleton skeleton--text skeleton--label"></span><span class="skeleton skeleton--text skeleton--value"></span></div>
+      <span class="skeleton skeleton--circle"></span>
+      <span class="skeleton skeleton--text skeleton--description"></span>
+    </div>
+    <span class="sr-only">Loading overall score</span>
+  </ng-template>
+
+  <ng-template #correctionsSkeleton>
+    <div class="section-skeleton skeleton-statistics" aria-hidden="true">
+      @for (row of skeletonRows; track row) {
+      <div class="skeleton-stat-row">
+        <div class="skeleton-row"><span class="skeleton skeleton--text skeleton--stat-label"></span><span class="skeleton skeleton--text skeleton--count"></span></div>
+        <span class="skeleton skeleton--bar"></span>
+      </div>
+      }
+    </div>
+    <span class="sr-only">Loading correction statistics</span>
+  </ng-template>
+
+  <ng-template #transcriptSkeleton>
+    <div class="section-skeleton" aria-hidden="true">
+      <span class="skeleton skeleton--title"></span>
+      <span class="skeleton skeleton--text skeleton--metadata"></span>
+      <div class="skeleton-badges"><span class="skeleton skeleton--button"></span><span class="skeleton skeleton--button"></span></div>
+      <div class="skeleton-transcript">
+        <span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text"></span>
+        <span class="skeleton skeleton--text skeleton--wide"></span><span class="skeleton skeleton--text skeleton--short"></span>
+        <span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--wide"></span>
+      </div>
+    </div>
+    <span class="sr-only">Loading submission transcript</span>
+  </ng-template>
+
+  <ng-template #feedbackSkeleton>
+    <div class="section-skeleton" aria-hidden="true">
+      <span class="skeleton skeleton--title skeleton--feedback-heading"></span>
+      <div class="skeleton-feedback-grid">
+        @for (row of feedbackSkeletonRows; track row) {
+        <div><span class="skeleton skeleton--text skeleton--subheading"></span><span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--short"></span></div>
+        }
+      </div>
+      <div class="skeleton-action"><span class="skeleton skeleton--text skeleton--subheading"></span><span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--wide"></span></div>
+    </div>
+    <span class="sr-only">Loading detailed feedback</span>
+  </ng-template>
+
+  <ng-template #aiFeedbackSkeleton>
+    <div class="section-skeleton skeleton-rubric" aria-hidden="true">
+      @for (row of skeletonRows; track row) {
+      <div class="skeleton-rubric-row"><span class="skeleton skeleton--title"></span><span class="skeleton skeleton--text skeleton--wide"></span></div>
+      }
+    </div>
+    <span class="sr-only">Loading AI feedback</span>
+  </ng-template>
+
+  <app-adaptive-practice-progress class="block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
 
   <!-- Shared Modal Dialogs (outside desktop/mobile conditionals) -->
   <app-rubric-designer-modal [open]="showDialog" [rubricDesigner]="rubricDesignerForModal"

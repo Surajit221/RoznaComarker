@@ -11,7 +11,7 @@ import { environment } from '../../environments/environment';
  * Normalizes a URL to HTTPS for known production backend domains.
  * 
  * Rules:
- * - Upgrades http://comarkerback.roznahub.com to https://comarkerback.roznahub.com
+ * - Rewrites the legacy backend host to the configured local backend
  * - Preserves HTTPS URLs unchanged
  * - Preserves Blob URLs (blob:...)
  * - Preserves Data URLs (data:...)
@@ -41,7 +41,7 @@ export function normalizeToHttps(url: string): string {
 
   // Upgrade known production backend HTTP to HTTPS
   if (/^http:\/\/comarkerback\.roznahub\.com(?=\/|$)/i.test(raw)) {
-    return raw.replace(/^http:\/\/comarkerback\.roznahub\.com/i, 'https://comarkerback.roznahub.com');
+    return raw.replace(/^https?:\/\/comarkerback\.roznahub\.com/i, 'http://localhost:5000');
   }
 
   // Handle relative /uploads/ paths
