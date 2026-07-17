@@ -5,10 +5,12 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
   HostListener,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
   inject
@@ -30,6 +32,8 @@ interface CorrectionMarker {
   textColor: string;
 }
 
+export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
+
 @Component({
   selector: 'app-correction-overlay',
   standalone: true,
@@ -43,8 +47,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Input() annotations: FeedbackAnnotation[] | null = null;
   @Input() page = 1;
   @Input() alt = 'Uploaded submission';
+  @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
+  @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
   @ViewChild('tooltipEl') private tooltipEl?: ElementRef<HTMLElement>;
 
   markers: CorrectionMarker[] = [];
@@ -53,6 +59,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   isMobile = false;
   tooltipPlacement: TooltipPlacement = 'right';
   tooltipStyle: Record<string, string> = { visibility: 'hidden' };
+  mediaState: MediaLoadState = 'idle';
+  displayImageUrl: string | null = null;
 
   private readonly cdr = inject(ChangeDetectorRef);
   private imageWidth = 0;
@@ -63,6 +71,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private readonly documentScrollHandler = (): void => this.schedulePosition();
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['imageUrl']) {
+      this.beginImageLoad(this.imageUrl);
+    }
     if (changes['annotations'] || changes['page']) {
       this.rebuildMarkers();
       this.closeTooltip();
@@ -71,6 +82,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.updateResponsiveMode();
+    if (this.displayImageUrl) this.checkCachedImage(this.displayImageUrl);
     document.addEventListener('scroll', this.documentScrollHandler, true);
     if (typeof ResizeObserver !== 'undefined' && this.overlayEl?.nativeElement) {
       this.resizeObserver = new ResizeObserver(() => this.schedulePosition());
@@ -86,10 +98,38 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   onImageLoad(event: Event): void {
     const image = event.target as HTMLImageElement;
+    if (!this.displayImageUrl || image !== this.imageEl?.nativeElement) return;
+    if (!image.naturalWidth || !image.naturalHeight) {
+      this.setMediaState('error');
+      return;
+    }
     this.imageWidth = image.naturalWidth;
     this.imageHeight = image.naturalHeight;
+    this.setMediaState('loaded');
     this.rebuildMarkers();
     this.schedulePosition();
+  }
+
+  onImageError(): void {
+    this.imageWidth = 0;
+    this.imageHeight = 0;
+    this.markers = [];
+    this.setMediaState('error');
+  }
+
+  retryImage(): void {
+    const url = this.imageUrl;
+    if (!url) return;
+    this.displayImageUrl = null;
+    this.setMediaState('fetching');
+    this.cdr.detectChanges();
+    queueMicrotask(() => {
+      if (url !== this.imageUrl) return;
+      this.displayImageUrl = url;
+      this.setMediaState('decoding');
+      this.cdr.markForCheck();
+      this.checkCachedImage(url);
+    });
   }
 
   onMarkerEnter(marker: CorrectionMarker, event: PointerEvent): void {
@@ -176,6 +216,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private rebuildMarkers(): void {
+    if (this.mediaState !== 'loaded' || !this.imageWidth || !this.imageHeight) {
+      this.markers = [];
+      this.cdr.markForCheck();
+      return;
+    }
     const annotations = Array.isArray(this.annotations) ? this.annotations : [];
     const positions: { left: number; top: number }[] = [];
     this.markers = annotations
@@ -311,5 +356,35 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const g = parseInt(normalized.slice(2, 4), 16);
     const b = parseInt(normalized.slice(4, 6), 16);
     return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? '#172033' : '#ffffff';
+  }
+
+  private beginImageLoad(url: string | null): void {
+    this.closeTooltip();
+    this.imageWidth = 0;
+    this.imageHeight = 0;
+    this.markers = [];
+    this.displayImageUrl = url;
+    this.setMediaState(url ? 'decoding' : 'idle');
+    if (url) this.checkCachedImage(url);
+  }
+
+  private checkCachedImage(expectedUrl: string): void {
+    queueMicrotask(() => {
+      if (expectedUrl !== this.imageUrl) return;
+      const image = this.imageEl?.nativeElement;
+      if (!image?.complete) return;
+      if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+        this.onImageLoad({ target: image } as unknown as Event);
+      } else {
+        this.onImageError();
+      }
+    });
+  }
+
+  private setMediaState(state: MediaLoadState): void {
+    if (this.mediaState === state) return;
+    this.mediaState = state;
+    this.mediaStateChange.emit(state);
+    this.cdr.markForCheck();
   }
 }

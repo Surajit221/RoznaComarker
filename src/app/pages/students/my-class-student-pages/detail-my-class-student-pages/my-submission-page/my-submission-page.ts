@@ -15,7 +15,7 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
-import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
+import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -33,6 +33,8 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
+
+type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 @Component({
   selector: 'app-my-submission-page',
@@ -301,6 +303,15 @@ export class MySubmissionPage {
   }
 
   isLoading = false;
+  submissionState: SectionLoadState = 'idle';
+  transcriptState: SectionLoadState = 'idle';
+  correctionsState: SectionLoadState = 'idle';
+  feedbackState: SectionLoadState = 'idle';
+  aiFeedbackState: SectionLoadState = 'idle';
+  scoreState: SectionLoadState = 'idle';
+  pdfMediaState: MediaLoadState = 'idle';
+  readonly skeletonRows = [0, 1, 2, 3, 4];
+  readonly feedbackSkeletonRows = [0, 1];
   isPdfDownloading = false;
   submission: BackendSubmission | null = null;
   feedback: SubmissionFeedback | null = null;
@@ -361,6 +372,15 @@ export class MySubmissionPage {
   activeFileIndex = 0;
   private uploadedFileIsPdf = false;
   private objectUrls: string[] = [];
+
+  private resetSectionStates(): void {
+    this.submissionState = 'loading';
+    this.transcriptState = 'loading';
+    this.correctionsState = 'loading';
+    this.feedbackState = 'loading';
+    this.aiFeedbackState = 'loading';
+    this.scoreState = 'loading';
+  }
 
   private normalizeUploadsUrl(url: string): string {
     const raw = normalizeToHttps(url);
@@ -1332,6 +1352,18 @@ export class MySubmissionPage {
     this.isLoading = true;
     this.loadSeq += 1;
     const seq = this.loadSeq;
+    ++this.loadOcrCorrectionsSeq;
+    ++this.setUploadedFileUrlSeq;
+    this.resetSectionStates();
+    this.submission = null;
+    this.feedback = null;
+    this.assignment = null;
+    this.annotations = [];
+    this.ocrWords = [];
+    this.submissionFileUrls = [];
+    this.submissionFileIds = [];
+    this.uploadedFileUrl = null;
+    this.pdfMediaState = 'idle';
     this.hasLoadedOcrCorrections = false;
 
     try {
@@ -1349,6 +1381,7 @@ export class MySubmissionPage {
 
       if (this.destroyed || seq !== this.loadSeq) return;
       this.submission = submission;
+      this.submissionState = 'loaded';
 
       try {
         this.assignment = await this.assignmentApi.getAssignmentById(assignmentId);
@@ -1429,10 +1462,14 @@ export class MySubmissionPage {
 
       this.rebuildOcrWords();
 
+      let correctionsLoaded = true;
       if (submission?._id) {
-        await this.loadOcrCorrections(submission._id);
+        correctionsLoaded = await this.loadOcrCorrections(submission._id) !== false;
+        if (this.destroyed || seq !== this.loadSeq) return;
         this.hasLoadedOcrCorrections = submission.ocrStatus === 'completed';
       }
+
+      this.correctionsState = correctionsLoaded ? 'loaded' : 'error';
 
       this.rebuildHighlightedTranscript();
       await this.refreshWritingCorrections();
@@ -1442,6 +1479,8 @@ export class MySubmissionPage {
       if (submission?.ocrStatus === 'failed') {
         this.ocrErrorMessage = submission.ocrError || 'OCR failed';
       }
+
+      this.transcriptState = this.ocrErrorMessage && !this.extractedText ? 'error' : 'loaded';
 
       this.syncOcrPolling();
 
@@ -1459,20 +1498,37 @@ export class MySubmissionPage {
           this.feedbackForm.patchValue({
             message: this.teacherComment || ''
           });
+          this.feedbackState = 'loaded';
+          this.aiFeedbackState = 'loaded';
+          this.scoreState = 'loaded';
         } catch (err: any) {
           if (this.destroyed || seq !== this.loadSeq) return;
           this.feedback = this.buildEmptyFeedback(submission._id);
           this.adaptiveSkillScores = this.buildAdaptiveSkillScores(null);
           this.teacherComment = null;
           this.feedbackForm.patchValue({ message: '' });
+          const missingFeedback = Number(err?.status) === 404;
+          this.feedbackState = missingFeedback ? 'loaded' : 'error';
+          this.aiFeedbackState = missingFeedback ? 'loaded' : 'error';
+          this.scoreState = missingFeedback ? 'loaded' : 'error';
         }
       }
 
       if (this.destroyed || seq !== this.loadSeq) return;
 
     } catch (err: any) {
+      if (!this.destroyed && seq === this.loadSeq) {
+        this.submissionState = 'error';
+        this.transcriptState = 'error';
+        this.correctionsState = 'error';
+        this.feedbackState = 'error';
+        this.aiFeedbackState = 'error';
+        this.scoreState = 'error';
+      }
       console.error('Failed to load OCR corrections:', err?.error || err);
       throw err;
+    } finally {
+      if (seq === this.loadSeq) this.isLoading = false;
     }
   }
 
@@ -1590,6 +1646,7 @@ export class MySubmissionPage {
     this.rawUploadedFileUrl = url;
     this.uploadedFileUrl = null;
     this.uploadedFileIsPdf = false;
+    this.pdfMediaState = 'idle';
 
     if (!url) {
       return Promise.resolve();
@@ -1597,6 +1654,7 @@ export class MySubmissionPage {
 
     const lowered = url.toLowerCase().split('?')[0];
     this.uploadedFileIsPdf = lowered.endsWith('.pdf');
+    if (this.uploadedFileIsPdf) this.pdfMediaState = 'fetching';
 
     const normalizedUrl = this.normalizeUploadsUrl(url);
 
@@ -1608,12 +1666,22 @@ export class MySubmissionPage {
       .then((objectUrl) => {
         if (seq === this.setUploadedFileUrlSeq) {
           this.uploadedFileUrl = objectUrl;
+          if (this.uploadedFileIsPdf) this.pdfMediaState = 'loaded';
+        } else {
+          this.removeObjectUrl(objectUrl);
+          URL.revokeObjectURL(objectUrl);
         }
       })
       .catch(() => {
         if (seq === this.setUploadedFileUrlSeq) {
           this.uploadedFileUrl = normalizedUrl;
+          if (this.uploadedFileIsPdf) this.pdfMediaState = 'error';
         }
       });
+  }
+
+  retryUploadedPdf(): void {
+    if (!this.rawUploadedFileUrl) return;
+    void this.setUploadedFileUrl(this.rawUploadedFileUrl);
   }
 }

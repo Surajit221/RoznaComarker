@@ -1,0 +1,20 @@
+.submission-list { min-height: 276px; }
+.skeleton-list { display: flex; flex-direction: column; gap: 12px; }
+.submission-skeleton-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 54px; align-items: center; gap: 14px; min-height: 84px; padding: 8px; background: #f3f3f3; border-radius: 12px; }
+.skeleton-circle { width: 72px; height: 72px; border-radius: 12px; background: #d9dee5; }
+.skeleton-copy { display: block; min-width: 0; }
+.skeleton-line, .skeleton-button, .skeleton-circle { animation: submission-pulse 1.25s ease-in-out infinite alternate; }
+.skeleton-line { display: block; height: 12px; border-radius: 999px; background: #d9dee5; }
+.skeleton-name { width: min(58%, 250px); height: 16px; }
+.skeleton-date { width: min(38%, 170px); margin-top: 12px; }
+.skeleton-button { width: 42px; height: 14px; border-radius: 999px; background: #d9dee5; justify-self: end; }
+.modal-state { display: grid; place-items: center; min-height: 276px; margin: 0; padding: 24px; color: #64748b; text-align: center; }
+.modal-state--error { color: #991b1b; }
+.modal-state p { margin: 0; }
+.modal-state button { margin-top: 12px; padding: 8px 16px; color: #006b6c; background: #fff; border: 1px solid #008081; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+.modal-state button:focus-visible, .view-action:focus-visible { outline: 3px solid rgba(0, 128, 129, .3); outline-offset: 2px; }
+.view-action { padding: 4px; color: inherit; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@keyframes submission-pulse { to { opacity: .52; } }
+@media (max-width: 767px) { .submission-skeleton-row { grid-template-columns: 56px minmax(0, 1fr) 38px; min-height: 72px; gap: 10px; } .skeleton-circle { width: 56px; height: 56px; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-line, .skeleton-button, .skeleton-circle { animation: none; } }

@@ -4,7 +4,7 @@
     <span class="read-only-badge">Read only</span>
   </header>
   <div aria-live="polite">
-    @if (loading) { <div class="skeleton" role="status"><span></span><span></span><span></span></div> }
+    @if (loading) { <div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div><span class="sr-only" role="status">Loading adaptive practice progress</span> }
     @if (error) { <p class="message message--error" role="alert">{{ error }}</p> }
     @if (!loading && !error && progress; as data) {
       @if (data.sourceStatus === 'outdated') { <p class="source-warning">This practice session was generated from an earlier assessment version.</p> }
