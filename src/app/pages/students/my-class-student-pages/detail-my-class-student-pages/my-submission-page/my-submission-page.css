@@ -287,3 +287,27 @@
 @keyframes skeleton-pulse { to { opacity: .52; } }
 @media (max-width: 640px) { .skeleton-feedback-grid { grid-template-columns: 1fr; }.skeleton--title, .skeleton--feedback-heading { width: 70%; }.skeleton--metadata { width: 78%; }.skeleton-rubric-row { padding: 1rem; } }
 @media (prefers-reduced-motion: reduce) { .skeleton, .media-pdf-line { animation: none !important; } }
+
+.score-badge {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  width: auto;
+  min-width: max-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-earned {
+  font-weight: 800;
+}
+
+.score-maximum {
+  font-size: 12px;
+  opacity: 0.85;
+}
