@@ -128,6 +128,7 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
+import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
 
 
 
@@ -174,7 +175,8 @@ import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api
 
     DialogViewSubmissions,
 
-    RubricDesignerModal
+    RubricDesignerModal,
+    AdaptivePracticeProgress
 
 
 

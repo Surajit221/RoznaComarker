@@ -1,0 +1,51 @@
+<section class="panel" aria-labelledby="adaptive-progress-title">
+  <header class="panel__header">
+    <div><h2 id="adaptive-progress-title">Adaptive Practice Progress</h2><p>Practice only — does not affect the assignment grade</p></div>
+    <span class="read-only-badge">Read only</span>
+  </header>
+  <div aria-live="polite">
+    @if (loading) { <div class="skeleton" role="status"><span></span><span></span><span></span></div> }
+    @if (error) { <p class="message message--error" role="alert">{{ error }}</p> }
+    @if (!loading && !error && progress; as data) {
+      @if (data.sourceStatus === 'outdated') { <p class="source-warning">This practice session was generated from an earlier assessment version.</p> }
+      @if (data.state === 'not-started') { <p class="message">The student has not started adaptive practice yet.</p> }
+      @if (data.state === 'generating') { <p class="message">The student’s adaptive practice is being prepared.</p> }
+      @if (data.state === 'failed') { <p class="message message--warning">Adaptive practice could not be prepared.</p> }
+      @if (data.state === 'in-progress' || data.state === 'completed') {
+        <div class="summary">
+          <div class="progress"><div><span>Overall practice progress</span><strong>{{ data.summary.progressPercentage }}%</strong></div><div class="progress__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="data.summary.progressPercentage"><span [style.width.%]="data.summary.progressPercentage"></span></div></div>
+          <dl><div><dt>Improved</dt><dd>{{ data.summary.improvedActivities }} of {{ data.summary.totalActivities }}</dd></div><div><dt>Total attempts</dt><dd>{{ data.summary.totalAttempts }}</dd></div><div><dt>Last practiced</dt><dd>{{ data.summary.lastPracticedAt ? (data.summary.lastPracticedAt | date:'medium') : 'Not yet' }}</dd></div></dl>
+        </div>
+        <div class="skills">
+          @for (skill of data.skills; track skill.activityId) {
+            <article class="skill-card">
+              <div class="skill-card__title"><h3>{{ skill.label }}</h3><span [class.improved]="skill.improved">{{ skill.improved ? 'Improved' : 'Keep practicing' }}</span></div>
+              <dl class="metrics">
+                <div><dt>Original assessment at generation</dt><dd>{{ skill.originalPercentage === null ? 'Not assessed' : skill.originalPercentage + '%' }}</dd></div>
+                <div><dt>Latest practice</dt><dd>{{ skill.latestScore === null ? '—' : skill.latestScore + '%' }}</dd></div>
+                <div><dt>Best practice</dt><dd>{{ skill.bestScore === null ? '—' : skill.bestScore + '%' }}</dd></div>
+                <div><dt>Attempts</dt><dd>{{ skill.attemptCount }}</dd></div>
+                <div><dt>Last attempted</dt><dd>{{ skill.lastAttemptAt ? (skill.lastAttemptAt | date:'medium') : 'Not yet' }}</dd></div>
+              </dl>
+              <button type="button" class="history-toggle" (click)="toggleHistory(skill)" [attr.aria-expanded]="history(skill.activityId).open">{{ history(skill.activityId).open ? 'Hide Attempts' : 'View Attempts' }}</button>
+              @if (history(skill.activityId).open) {
+                <div class="history" aria-live="polite">
+                  @if (history(skill.activityId).loading && !history(skill.activityId).attempts.length) { <p>Loading attempts…</p> }
+                  @if (history(skill.activityId).error) { <p class="history__error" role="alert">{{ history(skill.activityId).error }}</p> }
+                  @for (attempt of history(skill.activityId).attempts; track attempt.id) {
+                    <article class="attempt"><header><strong>Attempt {{ attempt.attemptNumber }}</strong><time>{{ attempt.attemptedAt | date:'medium' }}</time></header>
+                      <p class="attempt__score">Practice score — does not affect assignment grade: <strong>{{ attempt.practiceScore === null ? 'Not scored' : attempt.practiceScore + '%' }}</strong> · {{ attempt.improved ? 'Improved' : 'Keep practicing' }}</p>
+                      <div><h4>Student response</h4><p class="response">{{ attempt.response }}</p></div>
+                      @if (attempt.status === 'ready') { <p><strong>Strength:</strong> {{ attempt.strength }}</p><p><strong>Next improvement:</strong> {{ attempt.nextImprovement }}</p><ul>@for (item of attempt.checklist; track item.item) { <li>{{ item.met ? '✓' : '○' }} {{ item.item }} — {{ item.feedback }}</li> }</ul>@if (attempt.suggestedRevision) { <details><summary>Suggested revision</summary><p>{{ attempt.suggestedRevision }}</p></details> } }
+                    </article>
+                  }
+                  @if (history(skill.activityId).hasMore) { <button type="button" class="load-more" [disabled]="history(skill.activityId).loading" (click)="loadMore(skill.activityId)">{{ history(skill.activityId).loading ? 'Loading…' : 'Load More' }}</button> }
+                </div>
+              }
+            </article>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>

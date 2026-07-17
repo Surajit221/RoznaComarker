@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { AdaptivePracticeAttempt, AdaptivePracticeCheckResponse, AdaptivePracticeProgress, AdaptivePracticeSessionResponse } from '../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
+import type { TeacherAdaptiveAttemptsResponse, TeacherAdaptiveProgressResponse } from '../components/teacher/adaptive-practice-progress/adaptive-practice-progress.types';
 
 interface BackendResponse<T> {
   success: boolean;
@@ -46,6 +47,18 @@ export class AdaptivePracticeApiService {
   getAttempts(sessionId: string, activityId: string): Observable<BackendResponse<{ attempts: AdaptivePracticeAttempt[]; progress: AdaptivePracticeProgress }>> {
     return this.http.get<BackendResponse<{ attempts: AdaptivePracticeAttempt[]; progress: AdaptivePracticeProgress }>>(
       `${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/attempts?activityId=${encodeURIComponent(activityId)}`
+    );
+  }
+
+  getTeacherProgress(submissionId: string): Observable<BackendResponse<TeacherAdaptiveProgressResponse>> {
+    return this.http.get<BackendResponse<TeacherAdaptiveProgressResponse>>(
+      `${this.baseUrl}/teacher/submissions/${encodeURIComponent(submissionId)}/progress`
+    );
+  }
+
+  getTeacherActivityAttempts(sessionId: string, activityId: string, page = 1, limit = 10): Observable<BackendResponse<TeacherAdaptiveAttemptsResponse>> {
+    return this.http.get<BackendResponse<TeacherAdaptiveAttemptsResponse>>(
+      `${this.baseUrl}/teacher/sessions/${encodeURIComponent(sessionId)}/activities/${encodeURIComponent(activityId)}/attempts?page=${page}&limit=${limit}`
     );
   }
 }

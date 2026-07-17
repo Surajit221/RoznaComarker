@@ -631,6 +631,8 @@
   </ng-template>
   <!-- END MOBILE -->
 
+  <app-adaptive-practice-progress class="block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
+
   <!-- Shared Modal Dialogs (outside desktop/mobile conditionals) -->
   <app-rubric-designer-modal [open]="showDialog" [rubricDesigner]="rubricDesignerForModal"
     [defaultTitle]="rubricDesignerTitle" [isGenerating]="isLoading" [isSaving]="isRubricSaving"
