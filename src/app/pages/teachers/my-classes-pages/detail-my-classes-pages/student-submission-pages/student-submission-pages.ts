@@ -5471,7 +5471,9 @@ export class StudentSubmissionPages {
 
   private async fetchAsObjectUrl(url: string): Promise<string> {
     const normalizedUrl = normalizeToHttps(url);
-    console.log('[TEACHER FILE URL DEBUG]', { rawUrl: url, normalizedUrl });
+    if (!environment.production) {
+      console.debug('[TEACHER FILE URL]', normalizedUrl);
+    }
 
     try {
       const blob = await firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));

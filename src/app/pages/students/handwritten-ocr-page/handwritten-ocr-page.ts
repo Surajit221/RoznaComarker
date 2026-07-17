@@ -9,6 +9,7 @@ import { DeviceService } from '../../../services/device.service';
 import { AlertService } from '../../../services/alert.service';
 
 import { environment } from '../../../../environments/environment';
+import { normalizeToHttps } from '../../../utils/url-normalizer.util';
 
 import { TokenizedTranscript } from '../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 
@@ -66,7 +67,7 @@ export class HandwrittenOcrPage {
     }
 
     try {
-      const blob = await firstValueFrom(this.http.get(rawUrl, { responseType: 'blob' }));
+      const blob = await firstValueFrom(this.http.get(normalizeToHttps(rawUrl), { responseType: 'blob' }));
       const objectUrl = URL.createObjectURL(blob);
 
       // Allow the new tab time to load the PDF before revoking.
@@ -100,7 +101,7 @@ export class HandwrittenOcrPage {
     if (!url) return;
 
     try {
-      const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
+      const blob = await firstValueFrom(this.http.get(normalizeToHttps(url), { responseType: 'blob' }));
       this.objectUrl = URL.createObjectURL(blob);
       this.fileUrl = this.objectUrl;
     } catch {

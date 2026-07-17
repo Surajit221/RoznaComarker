@@ -1,3 +1,5 @@
+import { environment } from '../../environments/environment';
+
 /**
  * URL Normalizer Utility
  * 
@@ -38,13 +40,16 @@ export function normalizeToHttps(url: string): string {
   if (/^http:\/\/127\.0\.0\.1(:\d+)?\//i.test(raw)) return raw;
 
   // Upgrade known production backend HTTP to HTTPS
-  if (raw.startsWith('http://comarkerback.roznahub.com/')) {
-    return raw.replace('http://comarkerback.roznahub.com/', 'https://comarkerback.roznahub.com/');
+  if (/^http:\/\/comarkerback\.roznahub\.com(?=\/|$)/i.test(raw)) {
+    return raw.replace(/^http:\/\/comarkerback\.roznahub\.com/i, 'https://comarkerback.roznahub.com');
   }
 
   // Handle relative /uploads/ paths
   if (raw.startsWith('/uploads/')) {
-    return `https://comarkerback.roznahub.com${raw}`;
+    const apiOrigin = String(environment.apiUrl || environment.API_URL || '')
+      .replace(/\/api\/?$/i, '')
+      .replace(/\/+$/, '');
+    return `${apiOrigin}${raw}`;
   }
 
   // Return other URLs unchanged (external URLs, etc.)
