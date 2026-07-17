@@ -31,14 +31,17 @@ import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { environment } from '../../../../../../environments/environment';
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
+import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
+import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog, AdaptiveWritingStudio],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
 export class MySubmissionPage {
+  adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
   device = inject(DeviceService);
   activeTab = 'uploaded-file';
@@ -1128,6 +1131,27 @@ export class MySubmissionPage {
     }
   }
 
+  private buildAdaptiveSkillScores(feedback: SubmissionFeedback | null): readonly AdaptiveSkillScore[] {
+    const scores = feedback?.rubricScores;
+    const points = (key: keyof SubmissionFeedback['rubricScores']): Pick<AdaptiveSkillScore, 'earnedPoints' | 'maximumPoints'> => {
+      const item = scores?.[key];
+      const earned = Number(item?.score);
+      const maximum = Number(item?.maxScore);
+      return {
+        earnedPoints: item && Number.isFinite(earned) && earned >= 0 ? earned : null,
+        maximumPoints: item && Number.isFinite(maximum) && maximum > 0 ? maximum : null
+      };
+    };
+
+    return [
+      { id: 'task', label: 'Task Achievement', ...points('CONTENT') },
+      { id: 'coherence', label: 'Coherence & Flow', ...points('ORGANIZATION') },
+      { id: 'lexical', label: 'Lexical Resource', ...points('VOCABULARY') },
+      { id: 'grammar', label: 'Grammar', ...points('GRAMMAR') },
+      { id: 'mechanics', label: 'Mechanics', ...points('MECHANICS') }
+    ];
+  }
+
   async downloadPdf() {
     const submissionId = this.submission?._id;
     if (!submissionId) {
@@ -1428,6 +1452,7 @@ export class MySubmissionPage {
           if (this.destroyed || seq !== this.loadSeq) return;
 
           this.feedback = fb;
+          this.adaptiveSkillScores = this.buildAdaptiveSkillScores(fb);
           console.log('STUDENT FEEDBACK LOADED:', fb);
           this.teacherComment = typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : null;
 
@@ -1437,6 +1462,7 @@ export class MySubmissionPage {
         } catch (err: any) {
           if (this.destroyed || seq !== this.loadSeq) return;
           this.feedback = this.buildEmptyFeedback(submission._id);
+          this.adaptiveSkillScores = this.buildAdaptiveSkillScores(null);
           this.teacherComment = null;
           this.feedbackForm.patchValue({ message: '' });
         }

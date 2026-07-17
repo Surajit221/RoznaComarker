@@ -1,0 +1,111 @@
+<section class="studio" aria-labelledby="adaptive-studio-title">
+  <header class="studio__header">
+    <div class="studio__intro">
+      <h2 id="adaptive-studio-title">Adaptive Writing Studio</h2>
+      <div class="studio__subtitle-row">
+        <p>Personalized practice based on your writing results.</p>
+        <span class="safety-badge">Practice only — does not affect your grade</span>
+      </div>
+    </div>
+
+    <div class="studio__actions">
+      <div class="progress" aria-label="Practice progress">
+        <div class="progress__label"><span>Practice progress</span><strong>{{ progressPercentage }}%</strong></div>
+        <div class="progress__track" role="progressbar" aria-label="Practice progress" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="progressPercentage">
+          <span [style.width.%]="progressPercentage"></span>
+        </div>
+      </div>
+      <button type="button" class="generate-button" (click)="startGeneration()" [disabled]="state === 'generating' || state === 'no-weaknesses'">
+        @if (state === 'generating') { <span class="spinner" aria-hidden="true"></span> }
+        {{ generateLabel }}
+      </button>
+    </div>
+  </header>
+
+  <div class="skills" aria-label="Writing skill scores">
+    @for (skill of normalizedSkills; track skill.id) {
+      <article class="skill-card" [class]="'skill-card skill-card--' + skill.status">
+        <h3>{{ skill.label }}</h3>
+        <p class="skill-card__score">{{ skill.percentage === null ? '—' : skill.percentage + '%' }}</p>
+        <p class="skill-card__status"><span aria-hidden="true"></span>{{ skill.statusLabel }}</p>
+        @if (bestPracticeScore(skill.id) !== null) { <p class="skill-card__practice">Best practice: {{ bestPracticeScore(skill.id) }}%</p> }
+      </article>
+    }
+  </div>
+
+  <div class="status-region" aria-live="polite">
+    @if (state === 'generating') {
+      <div class="loading-panel" role="status">
+        <span class="spinner spinner--teal" aria-hidden="true"></span>
+        <span>Generating personalized practice preview…</span>
+      </div>
+    }
+    @if (state === 'no-weaknesses') {
+      <p class="success-message">Great work — all assessed writing skills are currently on track.</p>
+    }
+    @if (state === 'error') {
+      <div class="error-panel" role="alert">
+        <p>{{ errorMessage }}</p>
+        <button type="button" class="secondary-button" (click)="retry()">Try Again</button>
+      </div>
+    }
+  </div>
+
+  @if (state === 'generated') {
+    <div class="practice-section">
+      <h3>Recommended Practice</h3>
+      @if (activities[0]?.isDevelopmentPreview) {
+        <p class="preview-notice">Development preview — examples below are not taken from your submission.</p>
+      }
+      <div class="practice-grid">
+        @for (activity of activities; track activity.id; let index = $index) {
+          <article class="practice-card">
+            <div class="practice-card__topline">
+              <span class="category-badge">{{ activity.category }}</span>
+              <span class="practice-number">Practice {{ index + 1 }}</span>
+            </div>
+            <h4>{{ activity.title }}</h4>
+            <p class="practice-card__description">{{ activity.description }}</p>
+
+            <div class="info-box info-box--evidence"><strong>From Your Writing</strong><p>{{ activity.evidence }}</p></div>
+            <div class="info-box info-box--task"><strong>Your Task</strong><p>{{ activity.task }}</p></div>
+            <div class="info-box info-box--tip"><strong>Tip</strong><p>{{ activity.tip }}</p></div>
+
+            <details class="checklist">
+              <summary>Success checklist</summary>
+              <ul>@for (item of activity.checklist; track item) { <li>{{ item }}</li> }</ul>
+            </details>
+
+            <label [for]="'practice-response-' + activity.id">Your improved version</label>
+            <textarea [id]="'practice-response-' + activity.id" rows="4" placeholder="Write your improved version here…" [value]="responses[activity.id] || ''" (input)="updateResponse(activity.id, $any($event.target).value)"></textarea>
+
+            <div class="practice-card__buttons">
+              <button type="button" class="primary-button" (click)="check(activity)" [disabled]="(responses[activity.id] || '').trim().length < 10 || checkStates[activity.id] === 'checking'">
+                @if (checkStates[activity.id] === 'checking') { <span class="spinner spinner--teal" aria-hidden="true"></span> Checking… } @else { Check My Writing }
+              </button>
+              <button type="button" class="secondary-button" (click)="toggleModel(activity)" [attr.aria-expanded]="expandedModels.has(activity.id)">Show Model Answer</button>
+            </div>
+            @if (checkErrors[activity.id]) {
+              <div class="attempt-error" role="alert"><p>{{ checkErrors[activity.id] }}</p><button type="button" class="secondary-button" (click)="retryCheck(activity)">Try Again</button></div>
+            }
+            @if (attempts[activity.id]?.result; as result) {
+              <section class="attempt-result" [class.attempt-result--passed]="result.passed" aria-live="polite">
+                <div class="attempt-result__score"><strong>{{ result.score }}%</strong><span>{{ result.passed ? 'Improved' : 'Keep practicing' }}</span></div>
+                <p>{{ result.summary }}</p>
+                <p><strong>Strength:</strong> {{ result.strength }}</p>
+                <p><strong>Next improvement:</strong> {{ result.nextImprovement }}</p>
+                <ul>@for (item of result.checklist; track item.item) { <li [class.met]="item.met">{{ item.met ? '✓' : '○' }} {{ item.item }} — {{ item.feedback }}</li> }</ul>
+                <details><summary>Suggested revision</summary><p>{{ result.suggestedRevision }}</p></details>
+                <p class="attempt-number">Attempt {{ attempts[activity.id].attemptNumber }} · Best {{ progress.activities[index]?.bestScore ?? result.score }}%</p>
+              </section>
+            }
+            @if (expandedModels.has(activity.id)) {
+              <div class="model-answer"><strong>Example model answer</strong><p>{{ activity.modelAnswer }}</p></div>
+            }
+          </article>
+        }
+      </div>
+      <p class="grade-note">Practice scores are saved separately and never change the original assignment grade.</p>
+    </div>
+  }
+</section>

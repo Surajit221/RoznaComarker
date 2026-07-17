@@ -601,6 +601,13 @@
   </ng-template>
   <!-- END MOBILE -->
 
+  <div class="w-full mt-6">
+    <app-adaptive-writing-studio
+      [submissionId]="submission?._id || ''"
+      [skills]="adaptiveSkillScores">
+    </app-adaptive-writing-studio>
+  </div>
+
   <!-- Shared Modal Dialog (outside desktop/mobile conditionals) -->
   <app-modal-dialog [open]="showRubricDialog" [maxWidthClass]="'max-w-none'" [panelClass]="'lg:w-[90vw]'"
     (closed)="closeRubricDialog()">
