@@ -134,6 +134,7 @@ import { AdaptivePracticeProgress } from '../../../../../components/teacher/adap
 import { categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
+import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
@@ -1867,6 +1868,7 @@ export class StudentSubmissionPages {
 
 
   annotations: FeedbackAnnotation[] = [];
+  transcriptPageViews: TranscriptPageView[] = [];
 
 
 
@@ -1877,6 +1879,8 @@ export class StudentSubmissionPages {
   isCorrectionsLoading = false;
 
   private loadOcrCorrectionsSeq = 0;
+  private loadTranscriptPagesSeq = 0;
+  private transcriptPagesSignature: string | null = null;
 
 
 
@@ -5256,9 +5260,41 @@ export class StudentSubmissionPages {
 
   }
 
+  private async loadCompleteTranscript(submissionId: string): Promise<void> {
+    const storedPages = Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission.ocrPages : [];
+    const signature = JSON.stringify({ submissionId, ocrStatus: this.currentSubmission?.ocrStatus,
+      correctionSourceHash: (this.currentSubmission as any)?.correctionSourceHash || null,
+      pages: storedPages.map((page: any) => [String(page?.fileId || ''), Number(page?.pageNumber || 1),
+        String(page?.status || page?.ocrStatus || ''), Array.isArray(page?.words) ? page.words.length : 0]) });
+    if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
+    const seq = ++this.loadTranscriptPagesSeq;
+    try {
+      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const resp = await firstValueFrom(this.http.post<any>(
+        `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, {}
+      ));
+      if (seq !== this.loadTranscriptPagesSeq || this.currentSubmission?._id !== submissionId) return;
+      const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};
+      const pages = Array.isArray(data.ocr) && data.ocr.length ? data.ocr
+        : (Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission.ocrPages : []);
+      const corrections = Array.isArray(data.corrections) ? data.corrections : [];
+      const legend = this.getAcademicLegendForColors();
+      this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds], ocrPages: pages,
+        corrections, overallOcrStatus: this.currentSubmission?.ocrStatus }).map((page) => ({ ...page,
+        annotations: applyLegendToAnnotations(page.annotations, legend) }));
+      this.transcriptPagesSignature = signature;
+    } catch {
+      if (seq !== this.loadTranscriptPagesSeq || this.currentSubmission?._id !== submissionId) return;
+      this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds],
+        ocrPages: Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission.ocrPages : [], corrections: [],
+        overallOcrStatus: this.currentSubmission?.ocrStatus });
+    }
+  }
+
   private async refreshRetriedAnalysis(submissionId: string): Promise<ResultRefreshSnapshot> {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     await this.loadOcrCorrections(submissionId);
+    await this.loadCompleteTranscript(submissionId);
     const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId);
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
@@ -5853,6 +5889,7 @@ export class StudentSubmissionPages {
     const seq = ++this.applyCurrentSubmissionSeq;
 
     ++this.loadOcrCorrectionsSeq;
+    ++this.loadTranscriptPagesSeq;
 
     this.resetSectionLoadStates(Boolean(submission));
 
@@ -5947,6 +5984,8 @@ export class StudentSubmissionPages {
 
 
     this.ocrWords = [];
+    this.transcriptPageViews = [];
+    this.transcriptPagesSignature = null;
 
 
 
@@ -6020,6 +6059,8 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id) {
 
       await this.loadOcrCorrections(this.currentSubmission._id);
+      if (seq !== this.applyCurrentSubmissionSeq) return;
+      await this.loadCompleteTranscript(this.currentSubmission._id);
       if (seq !== this.applyCurrentSubmissionSeq) return;
 
       const selected: any = this.currentSubmission;

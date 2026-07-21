@@ -211,9 +211,19 @@
                     </div>
                     <article class="text-gray-700 leading-relaxed text-lg space-y-6">
                       <section class="p-4 rounded-lg bg-white border border-gray-200">
-                        @if (ocrWords.length) {
-                        <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
-                          [ocrWords]="ocrWords" [annotations]="annotations"></app-tokenized-transcript>
+                        @if (transcriptPageViews.length) {
+                          @for (page of transcriptPageViews; track page.key) {
+                          <section class="transcript-page">
+                            @if (transcriptPageViews.length > 1) { <header>Submitted Page {{ page.displayNumber }}</header> }
+                            @if (page.status === 'ready' && page.words.length) {
+                            <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
+                              [ocrWords]="page.words" [annotations]="page.annotations"></app-tokenized-transcript>
+                            } @else if (page.status === 'ready' && page.text) {
+                            <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
+                            } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
+                            @else { <p class="text-sm text-gray-500">Preparing this page's transcript...</p> }
+                          </section>
+                          }
                         } @else {
                         @if (writingCorrectionsHtml) {
                         <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans"
@@ -484,9 +494,19 @@
                   </div>
 
                   <!-- Essay Text with Corrections -->
-                  @if (ocrWords.length) {
-                  <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
-                    [ocrWords]="ocrWords" [annotations]="annotations"></app-tokenized-transcript>
+                  @if (transcriptPageViews.length) {
+                    @for (page of transcriptPageViews; track page.key) {
+                    <section class="transcript-page">
+                      @if (transcriptPageViews.length > 1) { <header>Submitted Page {{ page.displayNumber }}</header> }
+                      @if (page.status === 'ready' && page.words.length) {
+                      <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
+                        [ocrWords]="page.words" [annotations]="page.annotations"></app-tokenized-transcript>
+                      } @else if (page.status === 'ready' && page.text) {
+                      <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
+                      } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
+                      @else { <p class="text-sm text-gray-500">Preparing this page's transcript...</p> }
+                    </section>
+                    }
                   } @else {
                   @if (writingCorrectionsHtml) {
                   <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans"

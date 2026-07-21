@@ -28,4 +28,27 @@ describe('TokenizedTranscript canonical separators', () => {
     const separator = component.tokens.find((token) => token.kind === 'newline');
     expect(separator && separator.kind === 'newline' ? separator.value : '').toBe('\n\n');
   });
+
+  it('renders a physical OCR line separator as a normal space', () => {
+    const component = new TokenizedTranscript();
+    component.ocrWords = [
+      { id: '1', text: 'line', bbox: null, separatorBefore: '' },
+      { id: '2', text: 'wraps.', bbox: null, separatorBefore: '\n' }
+    ];
+    component.ngOnChanges({ ocrWords: new SimpleChange(null, component.ocrWords, true) });
+    expect(component.tokens.map((token) => token.kind === 'word' ? token.word.text : token.value).join('')).toBe('line wraps.');
+    expect(component.tokens.some((token) => token.kind === 'newline')).toBeFalse();
+  });
+
+  it('does not insert a space before punctuation', () => {
+    const component = new TokenizedTranscript();
+    component.ocrWords = [
+      { id: '1', text: 'Hello', bbox: null, separatorBefore: '' },
+      { id: '2', text: ',', bbox: null, separatorBefore: '' },
+      { id: '3', text: 'world', bbox: null, separatorBefore: ' ' },
+      { id: '4', text: '!', bbox: null, separatorBefore: '' }
+    ];
+    component.ngOnChanges({ ocrWords: new SimpleChange(null, component.ocrWords, true) });
+    expect(component.tokens.map((token) => token.kind === 'word' ? token.word.text : token.value).join('')).toBe('Hello, world!');
+  });
 });

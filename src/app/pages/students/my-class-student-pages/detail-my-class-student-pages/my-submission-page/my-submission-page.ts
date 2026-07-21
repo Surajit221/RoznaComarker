@@ -38,6 +38,7 @@ import type { AdaptiveSkillScore } from '../../../../../components/student/adapt
 import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
+import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
@@ -374,6 +375,8 @@ export class MySubmissionPage {
   private loadSeq = 0;
   private hasLoadedOcrCorrections = false;
   private loadOcrCorrectionsSeq = 0;
+  private loadTranscriptPagesSeq = 0;
+  private transcriptPagesSignature: string | null = null;
   private setUploadedFileUrlSeq = 0;
 
   uploadedFileUrl: string | null = null;
@@ -560,6 +563,7 @@ export class MySubmissionPage {
 
   ocrWords: OcrWord[] = [];
   annotations: FeedbackAnnotation[] = [];
+  transcriptPageViews: TranscriptPageView[] = [];
 
   private toRubricVm(category: string, item: RubricItem | null | undefined) {
     const labelMap: Record<string, string> = {
@@ -1208,6 +1212,34 @@ export class MySubmissionPage {
     }
   }
 
+  private async loadCompleteTranscript(submissionId: string): Promise<void> {
+    const storedPages = Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : [];
+    const signature = JSON.stringify({ submissionId, ocrStatus: this.submission?.ocrStatus,
+      correctionSourceHash: (this.submission as any)?.correctionSourceHash || null,
+      pages: storedPages.map((page: any) => [String(page?.fileId || ''), Number(page?.pageNumber || 1),
+        String(page?.status || page?.ocrStatus || ''), Array.isArray(page?.words) ? page.words.length : 0]) });
+    if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
+    const seq = ++this.loadTranscriptPagesSeq;
+    try {
+      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, {}));
+      if (seq !== this.loadTranscriptPagesSeq || this.submission?._id !== submissionId) return;
+      const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};
+      const pages = Array.isArray(data.ocr) && data.ocr.length ? data.ocr : (Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : []);
+      const corrections = Array.isArray(data.corrections) ? data.corrections : [];
+      const legend = this.getAcademicLegendForColors();
+      this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds], ocrPages: pages,
+        corrections, overallOcrStatus: this.submission?.ocrStatus }).map((page) => ({ ...page,
+        annotations: applyLegendToAnnotations(page.annotations, legend) }));
+      this.transcriptPagesSignature = signature;
+    } catch {
+      if (seq !== this.loadTranscriptPagesSeq || this.submission?._id !== submissionId) return;
+      this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds],
+        ocrPages: Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : [], corrections: [],
+        overallOcrStatus: this.submission?.ocrStatus });
+    }
+  }
+
   private buildAdaptiveSkillScores(feedback: SubmissionFeedback | null): readonly AdaptiveSkillScore[] {
     const scores = feedback?.rubricScores;
     const points = (key: keyof SubmissionFeedback['rubricScores']): Pick<AdaptiveSkillScore, 'earnedPoints' | 'maximumPoints'> => {
@@ -1407,6 +1439,7 @@ export class MySubmissionPage {
     this.loadSeq += 1;
     const seq = this.loadSeq;
     ++this.loadOcrCorrectionsSeq;
+    ++this.loadTranscriptPagesSeq;
     ++this.setUploadedFileUrlSeq;
     this.resetSectionStates();
     this.submission = null;
@@ -1414,6 +1447,8 @@ export class MySubmissionPage {
     this.assignment = null;
     this.annotations = [];
     this.ocrWords = [];
+    this.transcriptPageViews = [];
+    this.transcriptPagesSignature = null;
     this.submissionFileUrls = [];
     this.submissionFileIds = [];
     this.uploadedFileUrl = null;
@@ -1519,6 +1554,8 @@ export class MySubmissionPage {
       let correctionsLoaded = true;
       if (submission?._id) {
         correctionsLoaded = await this.loadOcrCorrections(submission._id) !== false;
+        if (this.destroyed || seq !== this.loadSeq) return;
+        await this.loadCompleteTranscript(submission._id);
         if (this.destroyed || seq !== this.loadSeq) return;
         this.hasLoadedOcrCorrections = submission.ocrStatus === 'completed';
       }
@@ -1634,6 +1671,7 @@ export class MySubmissionPage {
     this.submission = updated;
     this.rebuildOcrWords();
     await this.loadOcrCorrections(submissionId);
+    await this.loadCompleteTranscript(submissionId);
     this.rebuildHighlightedTranscript();
     await this.refreshWritingCorrections();
 
@@ -1703,6 +1741,7 @@ export class MySubmissionPage {
 
       if (updated?._id && (!this.hasLoadedOcrCorrections || updated.ocrStatus === 'completed')) {
         await this.loadOcrCorrections(updated._id);
+        await this.loadCompleteTranscript(updated._id);
         this.hasLoadedOcrCorrections = updated.ocrStatus === 'completed';
       }
 

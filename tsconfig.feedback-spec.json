@@ -5,6 +5,8 @@
     "src/app/utils/canonical-result-state.util.spec.ts",
     "src/app/utils/detailed-feedback-display.util.spec.ts",
     "src/app/components/canonical-detailed-feedback/canonical-detailed-feedback.spec.ts",
-    "src/app/services/canonical-submission-result-coordinator.service.spec.ts"
+    "src/app/services/canonical-submission-result-coordinator.service.spec.ts",
+    "src/app/utils/transcript-page-views.util.spec.ts",
+    "src/app/components/submission-details/tokenized-transcript/tokenized-transcript.spec.ts"
   ]
 }

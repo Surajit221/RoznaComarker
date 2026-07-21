@@ -206,11 +206,21 @@
                     @if (ocrErrorMessage) {
                     <p class="text-sm text-red-500 font-medium">{{ ocrErrorMessage }}</p>
                     }
-                    @if (!ocrErrorMessage && extractedText) {
+                    @if (transcriptPageViews.length || (!ocrErrorMessage && extractedText)) {
                     <div class="transcript-scroll max-h-[420px] overflow-y-auto">
-                      @if (ocrWords.length) {
-                      <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
-                        [ocrWords]="ocrWords" [annotations]="annotations"></app-tokenized-transcript>
+                      @if (transcriptPageViews.length) {
+                        @for (page of transcriptPageViews; track page.key) {
+                        <section class="transcript-page">
+                          @if (transcriptPageViews.length > 1) { <header>Submitted Page {{ page.displayNumber }}</header> }
+                          @if (page.status === 'ready' && page.words.length) {
+                          <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
+                            [ocrWords]="page.words" [annotations]="page.annotations"></app-tokenized-transcript>
+                          } @else if (page.status === 'ready' && page.text) {
+                          <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
+                          } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
+                          @else { <p class="text-sm text-gray-500">Preparing this page's transcript...</p> }
+                        </section>
+                        }
                       } @else {
                       @if (writingCorrectionsHtml) {
                       <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans"
@@ -431,11 +441,21 @@
               @if (ocrErrorMessage) {
               <p class="text-sm text-red-500 font-medium">{{ ocrErrorMessage }}</p>
               }
-              @if (!ocrErrorMessage && extractedText) {
+              @if (transcriptPageViews.length || (!ocrErrorMessage && extractedText)) {
               <div class="w-full bg-white border border-gray-200 rounded-xl p-3 max-h-[320px] overflow-y-auto">
-                @if (ocrWords.length) {
-                <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans" [ocrWords]="ocrWords"
-                  [annotations]="annotations"></app-tokenized-transcript>
+                @if (transcriptPageViews.length) {
+                  @for (page of transcriptPageViews; track page.key) {
+                  <section class="transcript-page">
+                    @if (transcriptPageViews.length > 1) { <header>Submitted Page {{ page.displayNumber }}</header> }
+                    @if (page.status === 'ready' && page.words.length) {
+                    <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans" [ocrWords]="page.words"
+                      [annotations]="page.annotations"></app-tokenized-transcript>
+                    } @else if (page.status === 'ready' && page.text) {
+                    <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
+                    } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
+                    @else { <p class="text-sm text-gray-500">Preparing this page's transcript...</p> }
+                  </section>
+                  }
                 } @else {
                 @if (writingCorrectionsHtml) {
                 <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans"
