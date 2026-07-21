@@ -2,12 +2,12 @@ export const environment = {
   production: true,
   adaptivePracticeFixtureEnabled: false,
 
-  apiUrl: 'http://localhost:5000',
-  API_URL: 'http://localhost:5000/api',
-  UPLOADS_URL: 'http://localhost:5000/uploads',
-  apiBaseUrl: 'http://localhost:5000/api',
+  apiUrl: 'https://comarkerback.roznahub.com',
+  API_URL: 'https://comarkerback.roznahub.com/api',
+  UPLOADS_URL: 'https://comarkerback.roznahub.com/uploads',
+  apiBaseUrl: 'https://comarkerback.roznahub.com/api',
 
-  FRONTEND_URL: 'http://localhost:4200/',
+  FRONTEND_URL: 'https://comarkers.roznahub.com',
 
   firebase: {
     apiKey: 'AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM',

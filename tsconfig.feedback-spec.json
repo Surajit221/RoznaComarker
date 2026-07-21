@@ -11,6 +11,7 @@
     "src/app/api/adaptive-practice-api.service.spec.ts",
     "src/app/components/student/adaptive-writing-studio/adaptive-writing-studio.spec.ts",
     "src/app/components/teacher/adaptive-practice-progress/adaptive-practice-progress.spec.ts",
-    "src/app/pages/students/my-class-student-pages/detail-my-class-student-pages/my-submission-page/my-submission-assignment-loading.spec.ts"
+    "src/app/pages/students/my-class-student-pages/detail-my-class-student-pages/my-submission-page/my-submission-assignment-loading.spec.ts",
+    "src/environments/environment.prod.spec.ts"
   ]
 }
