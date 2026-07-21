@@ -1,0 +1,58 @@
+<section aria-labelledby="canonical-feedback-title" class="detailed-feedback">
+  <div class="section-title">
+    <span class="title-icon" aria-hidden="true"><i class="fas fa-comment-dots"></i></span>
+    <h3 id="canonical-feedback-title">Detailed Feedback &amp; Suggestions</h3>
+  </div>
+
+  @if (model.status === 'loading' || model.status === 'processing' || model.status === 'updating') {
+    <div class="feedback-state processing-state" role="status" aria-live="polite">
+      <span class="compact-spinner" aria-hidden="true"></span><p>{{ model.message }}</p>
+    </div>
+  } @else if (model.status === 'blocked' || model.status === 'failed') {
+    <div class="feedback-state unavailable-state" role="status">
+      <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+      <div><p>{{ model.message }}</p>
+        @if (manualRetryAllowed) {
+          <button type="button" [disabled]="retrying" (click)="retryRequested.emit()">{{ retrying ? 'Retrying…' : 'Retry analysis' }}</button>
+        }
+      </div>
+    </div>
+  } @else if (model.status === 'legacy') {
+    <div class="legacy-grid">
+      @if (model.legacyAreas.length) {<section><h4>Areas for Improvement</h4><ul>@for (item of model.legacyAreas; track item) {<li>{{ item }}</li>}</ul></section>}
+      @if (model.legacyStrengths.length) {<section><h4>Strengths</h4><ul>@for (item of model.legacyStrengths; track item) {<li>{{ item }}</li>}</ul></section>}
+    </div>
+    @if (model.legacyActionSteps.length) {<section class="actions-panel"><h4>Prioritized Action Steps for Improvement</h4><ol>@for (item of model.legacyActionSteps; track item; let index = $index) {<li><span>{{ index + 1 }}</span>{{ item }}</li>}</ol></section>}
+  } @else {
+    <section class="feedback-group" aria-labelledby="improvement-title">
+      <h4 id="improvement-title"><i class="fas fa-tools" aria-hidden="true"></i>Areas for Improvement</h4>
+      @if (model.areasForImprovement.length) {
+        <div class="feedback-grid">
+          @for (area of model.areasForImprovement; track area.id) {
+            <article class="feedback-card" [attr.data-category]="area.category">
+              <header><h5>{{ area.title }}</h5><div class="card-badges"><span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span><span class="issue-badge">{{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }}</span></div></header>
+              <p class="summary">{{ area.explanation || (area.issueCount + ' distinct issues affected this category.') }}</p>
+              @if (area.dominantSymbols.length) {<div class="symbols" aria-label="Dominant correction symbols">@for (symbol of area.dominantSymbols; track symbol) {<span>{{ symbol }}</span>}</div>}
+              @for (example of area.examples; track example.correctionId) {
+                <div class="evidence-panel"><div class="evidence-symbol"><b>{{ example.symbol }}</b>@if (example.symbolLabel) {<small>{{ example.symbolLabel }}</small>}</div><blockquote>“{{ example.quotedText }}”</blockquote>
+                  @if (example.message) {<p>{{ example.message }}</p>}
+                  @if (example.suggestedText) {<p class="suggestion"><strong>Suggested:</strong> {{ example.suggestedText }}</p>}
+                </div>
+              }
+            </article>
+          }
+        </div>
+      } @else {<div class="feedback-state empty-state" role="status"><i class="fas fa-circle-check" aria-hidden="true"></i><p>{{ model.message }}</p></div>}
+    </section>
+
+    @if (model.strengths.length) {
+      <section class="feedback-group" aria-labelledby="strength-title"><h4 id="strength-title"><i class="fas fa-star" aria-hidden="true"></i>Evidence-based Strengths</h4><div class="feedback-grid strengths-grid">
+        @for (strength of model.strengths; track strength.id) {<article class="feedback-card strength-card" [attr.data-category]="strength.category"><header><h5>{{ strength.title }}</h5><div class="card-badges"><span class="score-badge">{{ strength.score }}/{{ strength.maxScore }}</span>@if (strength.provisional) {<span class="provisional-badge">Provisional</span>}</div></header><p class="summary">{{ strength.explanation }}</p>@for (evidence of strength.evidence; track evidence) {<p class="strength-evidence"><i class="fas fa-check" aria-hidden="true"></i>{{ evidence }}</p>}</article>}
+      </div></section>
+    }
+
+    @if (model.actionSteps.length) {
+      <section class="actions-panel" aria-labelledby="actions-title"><h4 id="actions-title"><i class="fas fa-road" aria-hidden="true"></i>Prioritized Action Steps for Improvement</h4><ol>@for (step of model.actionSteps; track step.id) {<li><span>{{ step.priority }}</span><div><strong>{{ step.action }}</strong>@if (step.reason) {<p>{{ step.reason }}</p>}@if (step.relatedSymbols.length) {<div class="symbols">@for (symbol of step.relatedSymbols; track symbol) {<span>{{ symbol }}</span>}</div>}</div></li>}</ol></section>
+    }
+  }
+</section>

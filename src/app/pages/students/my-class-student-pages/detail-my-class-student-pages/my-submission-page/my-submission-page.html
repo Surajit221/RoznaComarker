@@ -42,6 +42,7 @@
         <div class="w-full rounded-2xl overflow-visible">
           <app-correction-overlay [imageUrl]="submissionFileUrls[activeFileIndex] || uploadedFileUrl || null"
             [annotations]="annotations" alt="Submission image"></app-correction-overlay>
+          <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
         </div>
         @if (submissionFileUrls.length > 1) {
         <div class="w-full mt-3">
@@ -78,7 +79,7 @@
               <!-- Score Card -->
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
                 @if (scoreState === 'loading') { <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container> }
-                @else if (scoreState === 'error') { <div class="section-load-error" role="status">Unable to load the overall score.</div> }
+                @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>A final score is unavailable because semantic analysis did not complete. @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : "Retry analysis" }}</button> }</div> }
                 @else {
                 <div class="flex items-center justify-between mb-4">
                   <h3 class="font-semibold text-gray-700">Overall Score</h3>
@@ -97,7 +98,7 @@
                   </div>
                 </div>
                 <div class="text-center text-sm text-gray-600">
-                  <p>Strong effort with some areas for refinement</p>
+                  <p>{{ scoreSummaryText }}</p>
                 </div>
                 }
               </div>
@@ -105,14 +106,16 @@
               <!-- Correction Stats -->
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
                 <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
-                @if (correctionsState === 'loading') { <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container> }
-                @else if (correctionsState === 'error') { <div class="section-load-error" role="status">Unable to load correction statistics.</div> }
+                @if (partialStatisticsMessage) { <p class="text-sm text-blue-700 mb-4" role="status">{{ partialStatisticsMessage }}</p> }
+                @if (statisticsState === 'loading') { <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container> }
+                @else if (statisticsState === 'processing') { <div class="text-sm text-blue-700" role="status">Still analyzing corrections…</div> }
+                @else if (statisticsState === 'error') { <div class="section-load-error" role="alert">Unable to load statistics — retrying is safe.</div> }
                 @else {
                 <div class="space-y-4">
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Content Issues</span>
-                      <span class="font-medium">{{ contentIssuesCount }}</span>
+                        <span class="font-medium">{{ contentIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
@@ -121,7 +124,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Grammar Issues</span>
-                      <span class="font-medium">{{ grammarIssuesCount }}</span>
+                        <span class="font-medium">{{ grammarIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
@@ -130,7 +133,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Organization Issues</span>
-                      <span class="font-medium">{{ organizationIssuesCount }}</span>
+                        <span class="font-medium">{{ organizationIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
@@ -139,7 +142,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Vocabulary Issues</span>
-                      <span class="font-medium">{{ vocabularyIssuesCount }}</span>
+                        <span class="font-medium">{{ vocabularyIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
@@ -148,7 +151,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Mechanics Issues</span>
-                      <span class="font-medium">{{ mechanicsIssuesCount }}</span>
+                        <span class="font-medium">{{ mechanicsIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-yellow-400 rounded-full" [style.width]="mechanicsIssuesBarWidth"></div>
@@ -226,14 +229,15 @@
 
               <!-- Feedback and Suggestions -->
               <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="feedbackState === 'loading'">
-                @if (feedbackState === 'loading') { <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container> }
-                @else if (feedbackState === 'error') { <div class="section-load-error" role="status">Unable to load detailed feedback.</div> }
-                @else {
-                <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="retryCanonicalAnalysis()"></app-canonical-detailed-feedback>
+                @if (false) { <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container> }
+                @else if (false && feedbackState === 'error') { <div class="section-load-error" role="status">Unable to load detailed feedback.</div> }
+                @else if (false) {
+                <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center" [class.hidden]="canonicalDetailedFeedback">
                   <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
                   Detailed Feedback & Suggestions
                 </h3>
-                <div class="grid md:grid-cols-2 gap-6">
+                <div class="grid md:grid-cols-2 gap-6" [class.hidden]="canonicalDetailedFeedback">
                   <div>
                     <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
                       <i class="fas fa-tools text-red-500 mr-2"></i>Areas for Improvement
@@ -264,7 +268,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200" [class.hidden]="canonicalDetailedFeedback">
                   <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
                     <i class="fas fa-road text-blue-500 mr-2"></i>Action Steps for Improvement
                   </h4>
@@ -290,10 +294,10 @@
           <button class="btn-warning w-fit" (click)="openRubricDialog()">View Rubric</button>
         </div>
         <div class="flex flex-col gap-3">
-          @if (aiFeedbackState === 'loading') {
+          @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
           <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
           } @else if (aiFeedbackState === 'error') {
-          <div class="section-load-error" role="status">Unable to load AI feedback.</div>
+          <div class="section-load-error" role="status">Detailed feedback is unavailable because semantic analysis did not complete. Retry analysis from the Score section above.</div>
           } @else {
           @if (rubricCriteriaPreview.length) {
           <div class="w-full flex flex-col gap-3">
@@ -385,6 +389,7 @@
             <div class="w-full h-full flex items-center justify-center p-2">
               <app-correction-overlay class="max-w-full max-h-full" [imageUrl]="submissionFileUrls[activeFileIndex] || null"
                 [annotations]="annotations" alt="Submission image"></app-correction-overlay>
+              <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
             </div>
 
           </div>
@@ -449,13 +454,14 @@
 
             <!-- Feedback and Suggestions -->
             <div class="gradient-card hover-lift fade-in" [attr.aria-busy]="feedbackState === 'loading'">
-              @if (feedbackState === 'loading') { <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container> }
-              @else if (feedbackState === 'error') { <div class="section-load-error" role="status">Unable to load detailed feedback.</div> }
-              @else {
-              <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+              <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="retryCanonicalAnalysis()"></app-canonical-detailed-feedback>
+              @if (false) { <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container> }
+              @else if (false && feedbackState === 'error') { <div class="section-load-error" role="status">Unable to load detailed feedback.</div> }
+              @else if (false) {
+              <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center" [class.hidden]="canonicalDetailedFeedback">
                 <i class="fas fa-comment-dots text-blue-500 mr-3"></i>Detailed Feedback & Suggestions
               </h3>
-              <div class="grid md:grid-cols-2 gap-6">
+              <div class="grid md:grid-cols-2 gap-6" [class.hidden]="canonicalDetailedFeedback">
                 <div>
                   <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
                     <i class="fas fa-tools text-red-500 mr-2"></i>Areas for Improvement
@@ -486,7 +492,7 @@
                   </div>
                 </div>
               </div>
-              <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+              <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200" [class.hidden]="canonicalDetailedFeedback">
                 <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
                   <i class="fas fa-road text-blue-500 mr-2"></i>Action Steps for Improvement
                 </h4>
@@ -501,7 +507,7 @@
             <div class="space-y-6">
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
                 @if (scoreState === 'loading') { <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container> }
-                @else if (scoreState === 'error') { <div class="section-load-error" role="status">Unable to load the overall score.</div> }
+                @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>A final score is unavailable because semantic analysis did not complete. @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : "Retry analysis" }}</button> }</div> }
                 @else {
                 <div class="flex items-center justify-between mb-4">
                   <h3 class="font-semibold text-gray-700">Overall Score</h3>
@@ -520,21 +526,23 @@
                   </div>
                 </div>
                 <div class="text-center text-sm text-gray-600">
-                  <p>Strong effort with some areas for refinement</p>
+                  <p>{{ scoreSummaryText }}</p>
                 </div>
                 }
               </div>
 
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
                 <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
-                @if (correctionsState === 'loading') { <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container> }
-                @else if (correctionsState === 'error') { <div class="section-load-error" role="status">Unable to load correction statistics.</div> }
+                @if (partialStatisticsMessage) { <p class="text-sm text-blue-700 mb-4" role="status">{{ partialStatisticsMessage }}</p> }
+                @if (statisticsState === 'loading') { <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container> }
+                @else if (statisticsState === 'processing') { <div class="text-sm text-blue-700" role="status">Still analyzing corrections…</div> }
+                @else if (statisticsState === 'error') { <div class="section-load-error" role="alert">Unable to load statistics — retrying is safe.</div> }
                 @else {
                 <div class="space-y-4">
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Content Issues</span>
-                      <span class="font-medium">{{ contentIssuesCount }}</span>
+                      <span class="font-medium">{{ contentIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
@@ -543,7 +551,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Grammar Issues</span>
-                      <span class="font-medium">{{ grammarIssuesCount }}</span>
+                      <span class="font-medium">{{ grammarIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
@@ -552,7 +560,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Organization Issues</span>
-                      <span class="font-medium">{{ organizationIssuesCount }}</span>
+                      <span class="font-medium">{{ organizationIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
@@ -561,7 +569,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Vocabulary Issues</span>
-                      <span class="font-medium">{{ vocabularyIssuesCount }}</span>
+                      <span class="font-medium">{{ vocabularyIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
@@ -570,7 +578,7 @@
                   <div>
                     <div class="flex justify-between text-sm mb-1">
                       <span class="text-gray-600">Mechanics Issues</span>
-                      <span class="font-medium">{{ mechanicsIssuesCount }}</span>
+                      <span class="font-medium">{{ mechanicsIssuesDisplay }}</span>
                     </div>
                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div class="h-full bg-yellow-400 rounded-full" [style.width]="mechanicsIssuesBarWidth"></div>
@@ -609,10 +617,10 @@
             <button class="btn-warning-sm w-fit" (click)="openRubricDialog()">View Rubric</button>
           </div>
           <div class="flex flex-col gap-3">
-            @if (aiFeedbackState === 'loading') {
+            @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
-            <div class="section-load-error" role="status">Unable to load AI feedback.</div>
+            <div class="section-load-error" role="status">Detailed feedback is unavailable because semantic analysis did not complete. @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : "Retry analysis" }}</button> }</div>
             } @else {
             @if (rubricCriteriaPreview.length) {
             <div class="w-full flex flex-col gap-3">
@@ -666,7 +674,8 @@
   <div class="w-full mt-6">
     <app-adaptive-writing-studio
       [submissionId]="submission?._id || ''"
-      [skills]="adaptiveSkillScores">
+      [skills]="adaptiveSkillScores"
+      [canonicalResultState]="canonicalResultState">
     </app-adaptive-writing-studio>
   </div>
 

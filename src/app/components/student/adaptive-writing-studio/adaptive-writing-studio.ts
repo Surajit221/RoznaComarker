@@ -16,6 +16,7 @@ import {
   type AdaptiveStudioState,
   type NormalizedAdaptiveSkill
 } from './adaptive-writing-studio.types';
+import type { CanonicalResultViewState } from '../../../utils/canonical-result-state.util';
 
 @Component({
   selector: 'app-adaptive-writing-studio',
@@ -57,6 +58,16 @@ export class AdaptiveWritingStudio {
     }
   }
 
+  @Input() set canonicalResultState(value: CanonicalResultViewState | null) {
+    this._canonicalResultState = value;
+    // If we were waiting for analysis and it just completed, reload the session
+    if (this.state === 'waiting_for_analysis' && value && !value.processingActive && value.evaluationStatus === 'completed' && value.semanticStatus === 'completed') {
+      this.loadExistingSession();
+    }
+  }
+  get canonicalResultState(): CanonicalResultViewState | null { return this._canonicalResultState; }
+  private _canonicalResultState: CanonicalResultViewState | null = null;
+
   @Output() readonly generatePractice = new EventEmitter<string>();
   @Output() readonly checkPractice = new EventEmitter<AdaptivePracticeAction>();
   @Output() readonly retryPractice = new EventEmitter<string>();
@@ -87,6 +98,12 @@ export class AdaptiveWritingStudio {
     if (this.state === 'generating') return 'Generating Your Practice…';
     if (this.state === 'generated') return 'Continue Practice';
     return 'Generate Adaptive Practice';
+  }
+
+  get generationStatusMessage(): string {
+    if (this.pollAttempts === 0) return 'Preparing your practice…';
+    if (this.pollAttempts < 4) return 'Creating personalized activities…';
+    return 'Finalizing your practice…';
   }
 
   startGeneration(): void {
@@ -138,6 +155,30 @@ export class AdaptiveWritingStudio {
 
   private loadExistingSession(): void {
     const version = ++this.requestVersion;
+    
+    // Check if canonical analysis is complete before calling adaptive API
+    if (this.canonicalResultState) {
+      const isProcessing = this.canonicalResultState.processingActive;
+      const evaluationStatus = this.canonicalResultState.evaluationStatus;
+      const semanticStatus = this.canonicalResultState.semanticStatus;
+      
+      // If analysis is still processing, show waiting state instead of calling API
+      if (isProcessing || evaluationStatus === 'processing' || evaluationStatus === 'pending' || semanticStatus === 'processing' || semanticStatus === 'pending') {
+        this.state = 'waiting_for_analysis';
+        this.errorMessage = '';
+        this.cdr.markForCheck();
+        return;
+      }
+      
+      // If semantic analysis failed, show error state
+      if (semanticStatus === 'failed' || evaluationStatus === 'failed') {
+        this.state = 'error';
+        this.errorMessage = 'Adaptive practice is unavailable because writing analysis failed. Please retry the analysis.';
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+    
     this.requestSubscription?.unsubscribe();
     this.requestSubscription = this.api.getSession(this.submissionId).subscribe({
       next: (response) => this.acceptResponse(version, response.data),
@@ -184,9 +225,14 @@ export class AdaptiveWritingStudio {
 
   private acceptError(version: number, error: unknown): void {
     if (version !== this.requestVersion) return;
-    const value = error as { error?: { message?: string } };
-    this.state = 'error';
-    this.errorMessage = value?.error?.message || 'Adaptive practice is temporarily unavailable.';
+    const value = error as { status?: number; error?: { message?: string } };
+    if (value?.status === 202) {
+      this.state = 'waiting_for_analysis';
+      this.errorMessage = '';
+    } else {
+      this.state = 'error';
+      this.errorMessage = value?.error?.message || 'Adaptive practice is temporarily unavailable.';
+    }
     this.cdr.markForCheck();
   }
 

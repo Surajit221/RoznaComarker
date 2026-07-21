@@ -22,6 +22,11 @@
     <img #imageEl class="correction-overlay__image" [class.is-loaded]="mediaState === 'loaded'" [src]="displayImageUrl" [alt]="alt" (load)="onImageLoad($event)" (error)="onImageError()" />
   }
 
+  @for (line of mediaState === 'loaded' ? underlineSegments : []; track line.id) {
+    <span class="correction-overlay__underline" [style.left.%]="line.left" [style.top.%]="line.top"
+      [style.width.%]="line.width" [style.--underline-color]="line.color" aria-hidden="true"></span>
+  }
+
   @for (marker of mediaState === 'loaded' ? markers : []; track marker.annotation._id) {
     <button
       type="button"

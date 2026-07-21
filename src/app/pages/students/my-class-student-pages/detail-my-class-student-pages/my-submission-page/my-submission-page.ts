@@ -16,6 +16,8 @@ import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
+import { WritingCorrectionsLegendComponent } from '../../../../../components/writing-corrections-legend/writing-corrections-legend';
+import { CanonicalDetailedFeedbackComponent } from '../../../../../components/canonical-detailed-feedback/canonical-detailed-feedback';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -33,16 +35,22 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
+import { categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
+import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 
-type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
+type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, ModalDialog, AdaptiveWritingStudio],
+  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
 export class MySubmissionPage {
+  canonicalResultState: CanonicalResultViewState | null = null;
+  get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
+  get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.feedback); }
   adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
   device = inject(DeviceService);
@@ -58,6 +66,7 @@ export class MySubmissionPage {
   private sanitizer = inject(DomSanitizer);
   private http = inject(HttpClient);
   private writingCorrectionsApi = inject(WritingCorrectionsApiService);
+  private resultCoordinator = inject(CanonicalSubmissionResultCoordinator);
 
   assignmentId: string | null = null;
   classId: string | null = null;
@@ -306,6 +315,7 @@ export class MySubmissionPage {
   submissionState: SectionLoadState = 'idle';
   transcriptState: SectionLoadState = 'idle';
   correctionsState: SectionLoadState = 'idle';
+  statisticsState: SectionLoadState = 'idle';
   feedbackState: SectionLoadState = 'idle';
   aiFeedbackState: SectionLoadState = 'idle';
   scoreState: SectionLoadState = 'idle';
@@ -357,6 +367,7 @@ export class MySubmissionPage {
   isOcrRefreshing = false;
   ocrErrorMessage: string | null = null;
   private ocrPollTimeoutId: any = null;
+  private ocrPollAttempts = 0;
   private destroyed = false;
   private refreshParamSub: Subscription | null = null;
   private lastRefreshToken: string | null = null;
@@ -377,6 +388,7 @@ export class MySubmissionPage {
     this.submissionState = 'loading';
     this.transcriptState = 'loading';
     this.correctionsState = 'loading';
+    this.statisticsState = 'loading';
     this.feedbackState = 'loading';
     this.aiFeedbackState = 'loading';
     this.scoreState = 'loading';
@@ -538,7 +550,7 @@ export class MySubmissionPage {
   showRubricDialog = false;
 
   highlightedTranscriptHtml: SafeHtml | null = null;
-  writingCorrectionsLegend: CorrectionLegend | null = null;
+  writingCorrectionsLegend: CorrectionLegend | null = DEFAULT_CORRECTION_LEGEND;
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
   writingCorrectionsHtml: SafeHtml | null = null;
   writingCorrectionsError: string | null = null;
@@ -567,16 +579,13 @@ export class MySubmissionPage {
     };
   }
 
-  private get effectiveOverallScore100(): number {
-    const fb: any = this.feedback;
-    const persisted = Number(fb?.overallScore);
-    if (fb?.overriddenByTeacher && Number.isFinite(persisted)) return persisted;
-    if (Number.isFinite(persisted)) return persisted;
-    return 0;
+  private get effectiveOverallScore100(): number | null {
+    return this.canonicalResultState?.score ?? null;
   }
 
   get overallScoreText(): string {
     const score = this.effectiveOverallScore100;
+    if (score === null) return this.canonicalResultState?.scoreMessage || 'Score pending';
     return formatGradingDisplay(score, this.classGradingScale).displayText;
   }
 
@@ -727,7 +736,23 @@ export class MySubmissionPage {
 
   get gradeLabel(): string {
     const score = this.effectiveOverallScore100;
+    if (score === null) return '—';
     return formatGradingDisplay(score, this.classGradingScale).badgeText;
+  }
+  get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
+    ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
+
+  get contentIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'content'); }
+  get grammarIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'grammar'); }
+  get organizationIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'organization'); }
+  get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
+  get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
+  get partialStatisticsMessage(): string | null {
+    if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
+    return this.canonicalResultState.correctionStatus === 'partial'
+      ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
+      : this.canonicalResultState.semanticProgressMessage
+        || 'Grammar and mechanics are available. Content, organization, and vocabulary are still being analyzed.';
   }
 
   get contentIssuesCount(): number {
@@ -791,7 +816,7 @@ export class MySubmissionPage {
 
   get overallScorePct(): number {
     const score100 = this.effectiveOverallScore100;
-    if (!Number.isFinite(score100)) return 0;
+    if (score100 === null || !Number.isFinite(score100)) return 0;
     return Math.max(0, Math.min(100, score100));
   }
 
@@ -958,8 +983,8 @@ export class MySubmissionPage {
   }
 
   private async ensureWritingCorrectionsLegendLoaded() {
-    if (this.writingCorrectionsLegend) return;
-    this.writingCorrectionsLegend = await this.writingCorrectionsApi.getLegend();
+    try { this.writingCorrectionsLegend = await this.writingCorrectionsApi.getLegend(); }
+    catch { this.writingCorrectionsLegend = DEFAULT_CORRECTION_LEGEND; }
   }
 
   private async refreshWritingCorrections() {
@@ -1068,9 +1093,14 @@ export class MySubmissionPage {
     const seq = ++this.loadOcrCorrectionsSeq;
     const requestedFileId = this.activeFileId;
 
+    // Legend availability is independent from persisted OCR availability.
     try {
       await this.ensureWritingCorrectionsLegendLoaded();
+    } catch (legendError) {
+      console.error('[loadWritingCorrectionsLegend]', legendError);
+    }
 
+    try {
       const apiBaseUrl = `${environment.apiUrl}/api`;
       const body = requestedFileId ? { fileId: requestedFileId } : {};
       const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, body));
@@ -1081,8 +1111,24 @@ export class MySubmissionPage {
       if (seq !== this.loadOcrCorrectionsSeq) return;
       if (requestedFileId && requestedFileId !== this.activeFileId) return;
 
+      if (data?.processing === true) {
+        this.correctionsState = 'processing';
+        this.statisticsState = 'processing';
+        this.hasLoadedOcrCorrections = false;
+        this.ocrErrorMessage = null;
+        this.startOcrPolling();
+        return true;
+      }
+
       if (success && data) {
+        this.canonicalResultState = normalizeCanonicalResult(data, this.canonicalResultState);
         const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
+        const statistics = (data as any).statistics;
+        if (statistics && ['content','grammar','organization','vocabulary','mechanics','total'].every((key) => Number.isFinite(Number(statistics[key])))) {
+          if (this.submission) (this.submission as any).correctionStatistics = { ...statistics };
+          this.statisticsState = (data as any).correctionStatus === 'partial' || (data as any).correctionStatus === 'processing' ? 'partial' : 'loaded';
+        } else this.statisticsState = corrections.length ? 'partial' : 'empty';
+        this.correctionsState = (data as any).correctionStatus === 'partial' || (data as any).correctionStatus === 'processing' ? 'partial' : 'loaded';
         const ocrPages: any[] = Array.isArray((data as any).ocr) ? (data as any).ocr : [];
 
         const knownWordIds = new Set<string>();
@@ -1131,7 +1177,7 @@ export class MySubmissionPage {
               suggestedText: typeof c?.suggestedText === 'string' ? c.suggestedText : '',
               startChar: typeof c?.startChar === 'number' ? c.startChar : undefined,
               endChar: typeof c?.endChar === 'number' ? c.endChar : undefined,
-              source: 'AI' as const,
+              source: c?.source === 'LANGUAGETOOL' ? 'LANGUAGETOOL' as const : 'AI' as const,
               editable: Boolean(c?.editable)
             } satisfies FeedbackAnnotation;
           })
@@ -1144,9 +1190,20 @@ export class MySubmissionPage {
       this.recomputeLegendAligned();
       return true;
     } catch (err) {
-      this.annotations = [];
-      this.recomputeLegendAligned();
-      this.alert.showWarning('OCR corrections unavailable', 'Word highlights may be limited.');
+      if (seq !== this.loadOcrCorrectionsSeq || (requestedFileId && requestedFileId !== this.activeFileId)) return false;
+      const failure: any = err;
+      console.error('[loadOcrCorrections]', {
+        submissionId,
+        fileId: requestedFileId,
+        status: failure?.status,
+        response: failure?.error,
+        message: failure?.message
+      });
+      // Keep the last known-good markers during a transient refresh failure.
+      const status = Number(failure?.status);
+      if ([202, 409, 429].includes(status)) { this.correctionsState = 'processing'; this.statisticsState = 'processing'; this.startOcrPolling(); return true; }
+      this.ocrErrorMessage = failure?.error?.data?.ocrError || failure?.error?.message || failure?.message || 'OCR corrections are unavailable.';
+      if (!this.submission?.correctionStatistics) this.statisticsState = 'error';
       return false;
     }
   }
@@ -1277,8 +1334,8 @@ export class MySubmissionPage {
   get extractedText(): string | null {
     const s = this.submission;
     if (!s) return null;
-    const activePages = this.activeOcrPages;
-    const pageText = activePages
+    const allPages = Array.isArray(s.ocrPages) ? s.ocrPages : [];
+    const pageText = allPages
       .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
       .map((t: string) => t.trim())
       .filter((t: string) => t.length)
@@ -1286,11 +1343,8 @@ export class MySubmissionPage {
 
     if (pageText) return pageText;
 
-    const combined = s.combinedOcrText && String(s.combinedOcrText).trim() ? String(s.combinedOcrText) : '';
-    if (combined) return combined;
-
     const fromTranscript = s.transcriptText && String(s.transcriptText).trim() ? String(s.transcriptText) : '';
-    if (fromTranscript) return fromTranscript;
+    if (fromTranscript && this.submissionFileIds.length <= 1) return fromTranscript;
 
     const fromOcr = s.ocrText && String(s.ocrText).trim() ? String(s.ocrText) : '';
     return fromOcr || null;
@@ -1301,7 +1355,7 @@ export class MySubmissionPage {
   }
 
   get isOcrPending(): boolean {
-    return this.ocrStatus === 'pending' || this.ocrStatus === ('processing' as BackendSubmission['ocrStatus']);
+    return this.ocrStatus === 'pending' || this.ocrStatus === 'processing';
   }
 
   async ngOnInit() {
@@ -1469,7 +1523,8 @@ export class MySubmissionPage {
         this.hasLoadedOcrCorrections = submission.ocrStatus === 'completed';
       }
 
-      this.correctionsState = correctionsLoaded ? 'loaded' : 'error';
+      if (!correctionsLoaded) this.correctionsState = 'error';
+      else if (!['processing', 'partial', 'loaded'].includes(this.correctionsState)) this.correctionsState = 'loaded';
 
       this.rebuildHighlightedTranscript();
       await this.refreshWritingCorrections();
@@ -1490,6 +1545,8 @@ export class MySubmissionPage {
 
           if (this.destroyed || seq !== this.loadSeq) return;
 
+          this.canonicalResultState = normalizeCanonicalResult(fb, this.canonicalResultState);
+          const evaluationPending = this.canonicalResultState.processingActive && this.canonicalResultState.evaluationStatus !== 'completed';
           this.feedback = fb;
           this.adaptiveSkillScores = this.buildAdaptiveSkillScores(fb);
           console.log('STUDENT FEEDBACK LOADED:', fb);
@@ -1498,12 +1555,15 @@ export class MySubmissionPage {
           this.feedbackForm.patchValue({
             message: this.teacherComment || ''
           });
-          this.feedbackState = 'loaded';
-          this.aiFeedbackState = 'loaded';
-          this.scoreState = 'loaded';
+          this.feedbackState = this.canonicalResultState.detailedFeedbackStatus === 'completed' ? 'loaded'
+            : ['failed', 'blocked'].includes(this.canonicalResultState.detailedFeedbackStatus) ? 'error' : 'processing';
+          this.aiFeedbackState = ['failed', 'blocked'].includes(this.canonicalResultState.evaluationStatus) ? 'error' : evaluationPending ? 'processing' : 'loaded';
+          this.scoreState = this.canonicalResultState.evaluationStatus === 'processing' ? 'processing'
+            : ['failed', 'blocked'].includes(this.canonicalResultState.evaluationStatus) ? 'error' : 'loaded';
+          this.syncOcrPolling();
         } catch (err: any) {
           if (this.destroyed || seq !== this.loadSeq) return;
-          this.feedback = this.buildEmptyFeedback(submission._id);
+          this.canonicalResultState = normalizeCanonicalResult({ __temporaryError: true }, this.canonicalResultState);
           this.adaptiveSkillScores = this.buildAdaptiveSkillScores(null);
           this.teacherComment = null;
           this.feedbackForm.patchValue({ message: '' });
@@ -1538,7 +1598,10 @@ export class MySubmissionPage {
       return;
     }
 
-    if (this.submission.ocrStatus === 'pending' || (this.submission.ocrStatus === 'completed' && !this.hasLoadedOcrCorrections)) {
+    const result = this.canonicalResultState;
+    if ((result && result.processingActive && result.automaticPollingAllowed && !result.terminal)
+      || (!result && ['pending', 'processing'].includes(this.submission.ocrStatus || 'pending'))
+      || (this.submission.ocrStatus === 'completed' && !this.hasLoadedOcrCorrections)) {
       this.startOcrPolling();
       return;
     }
@@ -1547,17 +1610,59 @@ export class MySubmissionPage {
   }
 
   private startOcrPolling() {
-    if (this.isOcrPolling) return;
+    if (this.isOcrPolling || !this.submission?._id) return;
     this.isOcrPolling = true;
-    this.scheduleNextOcrRefresh(1500);
+    this.ocrPollAttempts = 0;
+    this.resultCoordinator.start(this.submission._id, (submissionId, requestSequence) => this.refreshCanonicalResult(submissionId, requestSequence));
   }
 
   private stopOcrPolling() {
     this.isOcrPolling = false;
+    this.resultCoordinator.stop();
     if (this.ocrPollTimeoutId) {
       clearTimeout(this.ocrPollTimeoutId);
       this.ocrPollTimeoutId = null;
     }
+  }
+
+  private async refreshCanonicalResult(submissionId: string, _requestSequence: number): Promise<ResultRefreshSnapshot> {
+    const assignmentId = this.assignmentId;
+    if (!assignmentId || this.destroyed) throw { status: 0 };
+    const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId, Date.now());
+    if (this.destroyed || !updated || updated._id !== submissionId) throw { status: 409 };
+
+    this.submission = updated;
+    this.rebuildOcrWords();
+    await this.loadOcrCorrections(submissionId);
+    this.rebuildHighlightedTranscript();
+    await this.refreshWritingCorrections();
+
+    try {
+      const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId);
+      if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
+      this.feedback = feedback;
+      this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
+      this.adaptiveSkillScores = this.buildAdaptiveSkillScores(feedback);
+      this.teacherComment = typeof feedback?.aiFeedback?.overallComments === 'string' ? feedback.aiFeedback.overallComments : null;
+      this.feedbackForm.patchValue({ message: this.teacherComment || '' });
+    } catch (error: any) {
+      if (![404, 202, 409, 429].includes(Number(error?.status))) throw error;
+    }
+
+    this.canonicalResultState = normalizeCanonicalResult({
+      ...(this.canonicalResultState || {}),
+      ocrStatus: updated.ocrStatus,
+      correctionStatus: updated.correctionStatus,
+      evaluationStatus: updated.evaluationStatus
+    }, this.canonicalResultState);
+    const canonical = this.canonicalResultState;
+    this.transcriptState = updated.ocrStatus === 'failed' ? 'error' : updated.ocrStatus === 'completed' ? 'loaded' : 'processing';
+    this.correctionsState = canonical.correctionStatus === 'completed' ? 'loaded' : canonical.correctionStatus === 'failed' ? 'error' : canonical.correctionStatus === 'partial' ? 'partial' : 'processing';
+    this.statisticsState = canonical.statisticsStatus === 'complete' ? 'loaded' : canonical.statisticsStatus === 'failed' ? 'error' : canonical.statisticsStatus === 'partial' ? 'partial' : 'processing';
+    this.scoreState = canonical.evaluationStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error' : 'processing';
+    this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error' : canonical.processingActive ? 'processing' : 'loaded';
+    this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
+    return { submissionId, ocrStatus: updated.ocrStatus as any, canonical };
   }
 
   private scheduleNextOcrRefresh(delayMs: number) {
@@ -1589,6 +1694,7 @@ export class MySubmissionPage {
     }
 
     this.isOcrRefreshing = true;
+    this.ocrPollAttempts += 1;
 
     try {
       const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId, this.lastRefreshToken);
@@ -1617,11 +1723,22 @@ export class MySubmissionPage {
         return;
       }
 
-      this.scheduleNextOcrRefresh(3000);
+      const delays = [1200, 2000, 3000, 5000];
+      if (this.ocrPollAttempts >= delays.length) {
+        this.ocrErrorMessage = 'OCR is taking longer than expected. Please retry in a moment.';
+        this.stopOcrPolling();
+        return;
+      }
+      this.scheduleNextOcrRefresh(delays[this.ocrPollAttempts]);
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Failed to fetch OCR text';
       this.ocrErrorMessage = message;
-      this.stopOcrPolling();
+      if (this.ocrPollAttempts >= 4) {
+        this.stopOcrPolling();
+      } else {
+        const delays = [1200, 2000, 3000, 5000];
+        this.scheduleNextOcrRefresh(delays[this.ocrPollAttempts]);
+      }
     } finally {
       this.isOcrRefreshing = false;
     }
@@ -1684,4 +1801,26 @@ export class MySubmissionPage {
     if (!this.rawUploadedFileUrl) return;
     void this.setUploadedFileUrl(this.rawUploadedFileUrl);
   }
+  isRetryingAnalysis = false;
+
+  async retryCanonicalAnalysis(): Promise<void> {
+    const submissionId = this.submission?._id;
+    if (!submissionId || this.isRetryingAnalysis || !this.canonicalResultState?.manualRetryAllowed) return;
+    this.isRetryingAnalysis = true;
+    try {
+      await this.submissionApi.regenerateCanonicalCorrections(submissionId);
+      this.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'processing', correctionStage: 'semantic',
+        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' }, this.canonicalResultState);
+      this.scoreState = 'processing';
+      this.aiFeedbackState = 'processing';
+      this.feedbackState = 'processing';
+      this.resultCoordinator.start(submissionId, (id) => this.refreshCanonicalResult(id, 0));
+    } catch (err: any) {
+      this.alert.showError('Retry failed', err?.error?.message || err?.message || 'Please try again');
+    } finally {
+      this.isRetryingAnalysis = false;
+    }
+  }
+
 }

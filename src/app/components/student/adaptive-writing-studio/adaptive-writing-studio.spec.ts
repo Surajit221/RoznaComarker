@@ -77,6 +77,14 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.normalizedSkills.find((skill) => skill.id === 'mechanics')?.statusLabel).toBe('Not assessed');
   });
 
+  it('uses staged text-only generation messages', () => {
+    expect(component.generationStatusMessage).toBe('Preparing your practice…');
+    (component as any).pollAttempts = 1;
+    expect(component.generationStatusMessage).toBe('Creating personalized activities…');
+    (component as any).pollAttempts = 4;
+    expect(component.generationStatusMessage).toBe('Finalizing your practice…');
+  });
+
   it('uses the real checking API and derives progress from persisted improvement', () => {
     component.startGeneration();
     component.updateResponse('activity-1', 'However, the ideas connect.');

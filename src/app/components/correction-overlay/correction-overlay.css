@@ -28,6 +28,16 @@
 
 .correction-overlay__image.is-loaded { opacity: 1; }
 
+.correction-overlay__underline {
+  position: absolute;
+  z-index: 2;
+  height: 0;
+  border-bottom: 3px solid var(--underline-color, #d64545);
+  transform: translateY(2px);
+  pointer-events: none;
+  border-radius: 2px;
+}
+
 .document-skeleton {
   position: absolute;
   inset: 0;

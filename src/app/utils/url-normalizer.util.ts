@@ -43,6 +43,11 @@ export function normalizeToHttps(url: string): string {
   if (/^http:\/\/comarkerback\.roznahub\.com(?=\/|$)/i.test(raw)) {
     return raw.replace(/^https?:\/\/comarkerback\.roznahub\.com/i, 'http://localhost:5000');
   }
+  
+  // Upgrade known production backend HTTPS to localhost
+  if (/^https:\/\/comarkerback\.roznahub\.com(?=\/|$)/i.test(raw)) {
+    return raw.replace(/^https?:\/\/comarkerback\.roznahub\.com/i, 'http://localhost:5000');
+  }
 
   // Handle relative /uploads/ paths
   if (raw.startsWith('/uploads/')) {

@@ -16,7 +16,7 @@ export type BackendHandwrittenUploadResponse = {
   success: boolean;
   fileUrl: string;
   submissionId: string;
-  ocrStatus?: 'pending' | 'completed' | 'failed';
+  ocrStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   ocrText?: string;
   ocrError?: string;
   message?: string;

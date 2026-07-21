@@ -46,8 +46,12 @@ export class HandwrittenOcrPage {
 
   correctionsError: string | null = null;
   isCorrectionsLoading = false;
+  private destroyed = false;
+  private correctionsRequestSeq = 0;
 
   ngOnDestroy() {
+    this.destroyed = true;
+    this.correctionsRequestSeq += 1;
     if (this.objectUrl) {
       try {
         URL.revokeObjectURL(this.objectUrl);
@@ -206,6 +210,7 @@ export class HandwrittenOcrPage {
 
   private async loadOcrCorrectionsWithRetry(submissionId: string) {
     if (this.isCorrectionsLoading) return;
+    const seq = ++this.correctionsRequestSeq;
 
     this.isCorrectionsLoading = true;
     this.correctionsError = null;
@@ -217,6 +222,7 @@ export class HandwrittenOcrPage {
         if (delayMs) {
           await new Promise((r) => setTimeout(r, delayMs));
         }
+        if (this.destroyed || seq !== this.correctionsRequestSeq || submissionId !== this.submissionId) return;
 
         try {
           const ok = await this.loadOcrCorrections(submissionId);
@@ -249,6 +255,7 @@ export class HandwrittenOcrPage {
     const success = Boolean(resp && (resp as any).success);
     const data = resp && typeof resp === 'object' ? (resp as any).data : null;
     if (!success || !data) return false;
+    if (data.processing === true) return false;
 
     const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
     const ocrPages: any[] = Array.isArray((data as any).ocr) ? (data as any).ocr : [];

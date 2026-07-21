@@ -13,11 +13,11 @@ export interface CorrectionStats {
   total?: number;
 }
 
-export interface DetailedFeedback {
-  strengths: string[];
-  areasForImprovement: string[];
-  actionSteps: string[];
-}
+export interface DetailedFeedbackExample { correctionId: string; symbol: string; symbolLabel?: string; quotedText: string; message: string; suggestedText: string; }
+export interface DetailedFeedbackArea { id: string; category: string; title: string; issueCount: number; score: number; maxScore: number; explanation: string; dominantSymbols: string[]; examples: DetailedFeedbackExample[]; }
+export interface DetailedFeedbackStrength { id: string; category: string; title: string; score: number; maxScore: number; explanation: string; evidence: string[]; provisional: boolean; }
+export interface DetailedFeedbackActionStep { id: string; priority: number; category: string; action: string; reason: string; relatedSymbols: string[]; relatedCorrectionIds: string[]; }
+export interface DetailedFeedback { status?: string; sourceHash?: string; evaluationVersion?: string; strengths: any[]; areasForImprovement: any[]; actionSteps: any[]; }
 
 export interface AiFeedbackPerCategory {
   category: string;
@@ -69,8 +69,8 @@ export interface SubmissionFeedback {
     PRESENTATION: RubricItem;
   };
 
-  overallScore: number;
-  grade: string;
+  overallScore: number | null;
+  grade: string | null;
 
   correctionStats: CorrectionStats;
   correctionStatistics?: CorrectionStats;
@@ -80,6 +80,8 @@ export interface SubmissionFeedback {
   rubricDesigner?: RubricDesigner;
 
   overriddenByTeacher: boolean;
+  detailedFeedbackSourceHash?: string;
+  detailedFeedbackVersion?: string;
 
   createdAt?: string;
   updatedAt?: string;

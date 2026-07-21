@@ -37,7 +37,13 @@
     @if (state === 'generating') {
       <div class="loading-panel" role="status">
         <span class="spinner spinner--teal" aria-hidden="true"></span>
-        <span>Generating personalized practice preview…</span>
+        <span>{{ generationStatusMessage }}</span>
+      </div>
+    }
+    @if (state === 'waiting_for_analysis') {
+      <div class="loading-panel" role="status">
+        <span class="spinner spinner--teal" aria-hidden="true"></span>
+        <span>Adaptive practice will be available after writing analysis completes.</span>
       </div>
     }
     @if (state === 'no-weaknesses') {

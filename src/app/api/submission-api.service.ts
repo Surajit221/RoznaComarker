@@ -58,7 +58,16 @@ export type BackendSubmission = {
     mechanics: number;
     total: number;
   };
-  ocrStatus?: 'pending' | 'completed' | 'failed';
+  correctionStatus?: 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale';
+  correctionCurrent?: boolean;
+  transcriptLayoutVersion?: string;
+  evaluationStatus?: 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale';
+  processingActive?: boolean;
+  automaticPollingAllowed?: boolean;
+  manualRetryAllowed?: boolean;
+  terminal?: boolean;
+  semanticStatus?: 'pending' | 'processing' | 'retry_wait' | 'completed' | 'failed';
+  ocrStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   ocrText?: string;
   combinedOcrText?: string;
   ocrError?: string;
@@ -172,5 +181,10 @@ export class SubmissionApiService {
       this.logHttpError('getSubmissionsByAssignment', err);
       throw err;
     }
+  }
+
+  async regenerateCanonicalCorrections(submissionId: string): Promise<void> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    await firstValueFrom(this.http.post(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections/regenerate`, {}));
   }
 }

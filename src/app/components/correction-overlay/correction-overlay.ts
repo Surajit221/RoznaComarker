@@ -32,6 +32,8 @@ interface CorrectionMarker {
   textColor: string;
 }
 
+interface UnderlineSegment { id: string; left: number; top: number; width: number; color: string; }
+
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
 
 @Component({
@@ -54,6 +56,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('tooltipEl') private tooltipEl?: ElementRef<HTMLElement>;
 
   markers: CorrectionMarker[] = [];
+  underlineSegments: UnderlineSegment[] = [];
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
@@ -218,10 +221,20 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private rebuildMarkers(): void {
     if (this.mediaState !== 'loaded' || !this.imageWidth || !this.imageHeight) {
       this.markers = [];
+      this.underlineSegments = [];
       this.cdr.markForCheck();
       return;
     }
     const annotations = Array.isArray(this.annotations) ? this.annotations : [];
+    this.underlineSegments = annotations
+      .filter((annotation) => annotation && (!annotation.page || Number(annotation.page) === Number(this.page)))
+      .flatMap((annotation) => (annotation.bboxList || []).map((box, index) => {
+        const normalized = this.normalizedBox(box);
+        if (!normalized) return null;
+        return { id: `${annotation._id}_${index}`, left: normalized.x,
+          top: Math.min(99.8, normalized.y + normalized.h), width: normalized.w,
+          color: annotation.color || '#d64545' };
+      }).filter(Boolean) as UnderlineSegment[]);
     const positions: { left: number; top: number }[] = [];
     this.markers = annotations
       .filter((annotation) => annotation && Boolean(annotation.symbol?.trim()) && (!annotation.page || Number(annotation.page) === Number(this.page)))
@@ -264,6 +277,16 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const right = Math.max(...valid.map((box) => box.x + box.w));
     const bottom = Math.max(...valid.map((box) => box.y + box.h));
     return { x: left, y: top, w: right - left, h: bottom - top };
+  }
+
+  private normalizedBox(box: OcrBBox): OcrBBox | null {
+    const raw = { x: Number(box?.x), y: Number(box?.y), w: Number(box?.w), h: Number(box?.h) };
+    if (![raw.x, raw.y, raw.w, raw.h].every(Number.isFinite) || raw.w <= 0 || raw.h <= 0) return null;
+    const percent = [raw.x, raw.y, raw.w, raw.h].every((value) => value >= 0 && value <= 100);
+    const result = percent ? raw : { x: raw.x / this.imageWidth * 100, y: raw.y / this.imageHeight * 100,
+      w: raw.w / this.imageWidth * 100, h: raw.h / this.imageHeight * 100 };
+    if (![result.x, result.y, result.w, result.h].every(Number.isFinite) || result.x < 0 || result.y < 0 || result.x + result.w > 100.5 || result.y + result.h > 100.5) return null;
+    return result;
   }
 
   private openTooltip(marker: CorrectionMarker, target: HTMLElement, pinned: boolean): void {
@@ -363,6 +386,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.imageWidth = 0;
     this.imageHeight = 0;
     this.markers = [];
+    this.underlineSegments = [];
     this.displayImageUrl = url;
     this.setMediaState(url ? 'decoding' : 'idle');
     if (url) this.checkCachedImage(url);

@@ -36,14 +36,18 @@ export type WritingCorrectionsResponse = {
 @Injectable({ providedIn: 'root' })
 export class WritingCorrectionsApiService {
   constructor(private http: HttpClient) {}
+  private legendPromise: Promise<CorrectionLegend> | null = null;
 
   private getApiBaseUrl(): string {
     return `${environment.apiUrl}/api`;
   }
 
   async getLegend(): Promise<CorrectionLegend> {
-    const apiBaseUrl = this.getApiBaseUrl();
-    return firstValueFrom(this.http.get<CorrectionLegend>(`${apiBaseUrl}/writing-corrections/legend`));
+    if (!this.legendPromise) {
+      const apiBaseUrl = this.getApiBaseUrl();
+      this.legendPromise = firstValueFrom(this.http.get<CorrectionLegend>(`${apiBaseUrl}/writing-corrections/legend`));
+    }
+    return this.legendPromise;
   }
 
   async check(payload: { text: string; language?: string; submissionId?: string }): Promise<WritingCorrectionsResponse> {
