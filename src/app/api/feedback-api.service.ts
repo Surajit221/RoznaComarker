@@ -39,7 +39,7 @@ export type BackendFeedback = {
     contentScore?: number;
     vocabularyScore?: number;
     taskAchievementScore?: number;
-    overallScore?: number;
+    overallScore?: number | null;
   };
   overrideReason?: string;
   overriddenBy?: any;

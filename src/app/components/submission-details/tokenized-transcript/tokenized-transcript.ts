@@ -310,9 +310,9 @@ export class TokenizedTranscript {
       if (prevWord) {
         const separator = typeof w.separatorBefore === 'string'
           ? w.separatorBefore
-          : (this.isNewLine(prevWord, w) ? '\n' : ' ');
-        if (separator === '\n' || separator === '\n\n') out.push({ kind: 'newline', trackId: `nl_${prevWord.id}_${w.id}`, value: separator });
-        if (separator === ' ') out.push({ kind: 'space', trackId: `sp_${prevWord.id}_${w.id}`, value: separator });
+          : ' ';
+        if (separator === '\n\n') out.push({ kind: 'newline', trackId: `nl_${prevWord.id}_${w.id}`, value: separator });
+        if (separator === ' ' || separator === '\n') out.push({ kind: 'space', trackId: `sp_${prevWord.id}_${w.id}`, value: ' ' });
       }
 
       out.push({ kind: 'word', trackId: w.id, word: w });
@@ -320,17 +320,6 @@ export class TokenizedTranscript {
     }
 
     return out;
-  }
-
-  private isNewLine(prev: OcrWord, curr: OcrWord): boolean {
-    const pb = prev.bbox;
-    const cb = curr.bbox;
-    if (!pb || !cb) return false;
-
-    const prevBottom = pb.y + pb.h;
-    const currTop = cb.y;
-
-    return currTop > prevBottom + pb.h * 0.6;
   }
 
   private toRgba(color: string, alpha: number): string {

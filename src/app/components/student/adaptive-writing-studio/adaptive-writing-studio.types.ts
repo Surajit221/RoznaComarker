@@ -3,7 +3,7 @@ export const ADAPTIVE_PRACTICE_THRESHOLD = 70;
 export type AdaptiveSkillId = 'task' | 'coherence' | 'lexical' | 'grammar' | 'mechanics';
 export type AdaptiveRubricSkillId = 'CONTENT' | 'ORGANIZATION' | 'VOCABULARY' | 'GRAMMAR' | 'MECHANICS';
 export type AdaptiveSkillStatus = 'priority' | 'needs-practice' | 'on-track' | 'not-assessed';
-export type AdaptiveStudioState = 'idle' | 'generating' | 'generated' | 'error' | 'no-weaknesses';
+export type AdaptiveStudioState = 'idle' | 'generating' | 'generated' | 'error' | 'no-weaknesses' | 'unassessed' | 'waiting_for_analysis';
 
 export interface AdaptiveSkillScore {
   id: AdaptiveSkillId;

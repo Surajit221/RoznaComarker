@@ -28,7 +28,7 @@ export class AdaptivePracticeProgress {
   private loadProgress(submissionId: string): void {
     const version = ++this.requestVersion; this.loading = true;
     this.api.getTeacherProgress(submissionId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (response) => { if (version !== this.requestVersion || submissionId !== this.submissionId) return; this.progress = response.data; this.loading = false; this.cdr.markForCheck(); },
+      next: (response) => { if (version !== this.requestVersion || submissionId !== this.submissionId) return; this.progress = response; this.loading = false; this.cdr.markForCheck(); },
       error: () => { if (version !== this.requestVersion) return; this.error = 'Adaptive practice progress could not be loaded.'; this.loading = false; this.cdr.markForCheck(); }
     });
   }
@@ -37,7 +37,7 @@ export class AdaptivePracticeProgress {
     const version = this.requestVersion; const current = this.history(activityId);
     this.histories = { ...this.histories, [activityId]: { ...current, open: true, loading: true, error: '' } };
     this.api.getTeacherActivityAttempts(sessionId, activityId, page, 10).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (response) => { if (version !== this.requestVersion || sessionId !== this.progress?.sessionId) return; const latest = this.history(activityId); const merged = page === 1 ? response.data.attempts : [...latest.attempts, ...response.data.attempts]; this.histories = { ...this.histories, [activityId]: { ...latest, loading: false, attempts: merged, page: response.data.pagination.page, hasMore: response.data.pagination.hasMore } }; this.cdr.markForCheck(); },
+      next: (response) => { if (version !== this.requestVersion || sessionId !== this.progress?.sessionId) return; const latest = this.history(activityId); const merged = page === 1 ? response.attempts : [...latest.attempts, ...response.attempts]; this.histories = { ...this.histories, [activityId]: { ...latest, loading: false, attempts: merged, page: response.pagination.page, hasMore: response.pagination.hasMore } }; this.cdr.markForCheck(); },
       error: () => { if (version !== this.requestVersion) return; const latest = this.history(activityId); this.histories = { ...this.histories, [activityId]: { ...latest, loading: false, error: 'Attempt history could not be loaded.' } }; this.cdr.markForCheck(); }
     });
   }

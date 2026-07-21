@@ -85,6 +85,8 @@ import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
 import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
+import { WritingCorrectionsLegendComponent } from '../../../../../components/writing-corrections-legend/writing-corrections-legend';
+import { CanonicalDetailedFeedbackComponent } from '../../../../../components/canonical-detailed-feedback/canonical-detailed-feedback';
 
 
 
@@ -129,8 +131,12 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
+import { categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
+import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
+import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
-type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
+type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
 
 
@@ -168,6 +174,8 @@ type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
     TokenizedTranscript,
     CorrectionOverlay,
+    WritingCorrectionsLegendComponent,
+    CanonicalDetailedFeedbackComponent,
 
 
 
@@ -199,6 +207,28 @@ type SectionLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 
 export class StudentSubmissionPages {
+  canonicalResultState: CanonicalResultViewState | null = null;
+  get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
+  get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.currentFeedback); }
+  isRetryingAnalysis = false;
+
+  async retryCanonicalAnalysis(): Promise<void> {
+    const submissionId = this.currentSubmission?._id;
+    if (!submissionId || this.isRetryingAnalysis || !this.canonicalResultState?.manualRetryAllowed) return;
+    this.isRetryingAnalysis = true;
+    try {
+      await this.submissionApi.regenerateCanonicalCorrections(submissionId);
+      this.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'processing', correctionStage: 'semantic',
+        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' }, this.canonicalResultState);
+      this.scoreState = 'processing';
+      this.aiFeedbackState = 'processing';
+      this.feedbackState = 'processing';
+      this.resultCoordinator.start(submissionId, (id) => this.refreshRetriedAnalysis(id));
+    } finally {
+      this.isRetryingAnalysis = false;
+    }
+  }
 
 
 
@@ -243,6 +273,7 @@ export class StudentSubmissionPages {
 
 
   private submissionApi = inject(SubmissionApiService);
+  private resultCoordinator = inject(CanonicalSubmissionResultCoordinator);
 
 
 
@@ -1601,6 +1632,7 @@ export class StudentSubmissionPages {
   submissionState: SectionLoadState = 'idle';
   transcriptState: SectionLoadState = 'idle';
   correctionsState: SectionLoadState = 'idle';
+  statisticsState: SectionLoadState = 'idle';
   feedbackState: SectionLoadState = 'idle';
   aiFeedbackState: SectionLoadState = 'idle';
   teacherCommentState: SectionLoadState = 'idle';
@@ -1618,6 +1650,7 @@ export class StudentSubmissionPages {
     this.submissionState = hasSubmission ? 'loaded' : 'idle';
     this.transcriptState = next;
     this.correctionsState = next;
+    this.statisticsState = next;
     this.feedbackState = next;
     this.aiFeedbackState = next;
     this.teacherCommentState = next;
@@ -1794,7 +1827,7 @@ export class StudentSubmissionPages {
 
 
 
-  writingCorrectionsLegend: CorrectionLegend | null = null;
+  writingCorrectionsLegend: CorrectionLegend | null = DEFAULT_CORRECTION_LEGEND;
 
 
 
@@ -1835,6 +1868,7 @@ export class StudentSubmissionPages {
 
 
   annotations: FeedbackAnnotation[] = [];
+  transcriptPageViews: TranscriptPageView[] = [];
 
 
 
@@ -1845,6 +1879,8 @@ export class StudentSubmissionPages {
   isCorrectionsLoading = false;
 
   private loadOcrCorrectionsSeq = 0;
+  private loadTranscriptPagesSeq = 0;
+  private transcriptPagesSignature: string | null = null;
 
 
 
@@ -2078,27 +2114,8 @@ export class StudentSubmissionPages {
 
 
 
-  private get effectiveOverallScore100(): number {
-
-
-
-    const fb: any = this.currentFeedback;
-
-
-
-    const persisted = Number(fb?.overallScore);
-
-
-
-    // If a teacher explicitly overrode grading, the persisted score is authoritative.
-
-    if (fb?.overriddenByTeacher && Number.isFinite(persisted)) return persisted;
-
-
-
-    if (Number.isFinite(persisted)) return persisted;
-
-    return 0;
+  private get effectiveOverallScore100(): number | null {
+    return this.canonicalResultState?.score ?? null;
 
 
 
@@ -2115,9 +2132,7 @@ export class StudentSubmissionPages {
 
 
     const score = this.effectiveOverallScore100;
-
-
-
+    if (score === null) return this.canonicalResultState?.scoreMessage || 'Score pending';
     return formatGradingDisplay(score, this.classGradingScale).displayText;
 
 
@@ -2135,9 +2150,7 @@ export class StudentSubmissionPages {
 
 
     const score = this.effectiveOverallScore100;
-
-
-
+    if (score === null) return '—';
     return formatGradingDisplay(score, this.classGradingScale).badgeText;
 
 
@@ -2178,6 +2191,21 @@ export class StudentSubmissionPages {
 
 
 
+  }
+  get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
+    ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
+
+  get contentIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'content'); }
+  get grammarIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'grammar'); }
+  get organizationIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'organization'); }
+  get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
+  get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
+  get partialStatisticsMessage(): string | null {
+    if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
+    return this.canonicalResultState.correctionStatus === 'partial'
+      ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
+      : this.canonicalResultState.semanticProgressMessage
+        || 'Grammar and mechanics are available. Content, organization, and vocabulary are still being analyzed.';
   }
 
 
@@ -2410,7 +2438,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (!Number.isFinite(score100)) return 0;
+    if (score100 === null || !Number.isFinite(score100)) return 0;
 
 
 
@@ -2670,8 +2698,12 @@ export class StudentSubmissionPages {
 
 
     try {
-
       await this.ensureWritingCorrectionsLegendLoaded();
+    } catch (legendError) {
+      console.error('[loadWritingCorrectionsLegend]', legendError);
+    }
+
+    try {
 
       const apiBaseUrl = `${environment.apiUrl}/api`;
 
@@ -2702,17 +2734,16 @@ export class StudentSubmissionPages {
 
       if (seq !== this.loadOcrCorrectionsSeq) return false;
 
+      if (data?.processing === true) {
+        this.correctionsError = null;
+        this.correctionsState = 'processing';
+        this.statisticsState = 'processing';
+        return true;
+      }
+
 
 
       if (!success || !data) {
-
-
-
-        this.ocrWords = [];
-
-
-
-        this.annotations = [];
 
 
 
@@ -2728,7 +2759,14 @@ export class StudentSubmissionPages {
 
 
 
+      this.canonicalResultState = normalizeCanonicalResult(data, this.canonicalResultState);
       const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
+      const statistics = (data as any).statistics;
+      if (statistics && ['content','grammar','organization','vocabulary','mechanics','total'].every((key) => Number.isFinite(Number(statistics[key])))) {
+        if (this.currentSubmission) (this.currentSubmission as any).correctionStatistics = { ...statistics };
+        this.statisticsState = (data as any).correctionStatus === 'partial' || (data as any).correctionStatus === 'processing' ? 'partial' : 'loaded';
+      } else this.statisticsState = corrections.length ? 'partial' : 'empty';
+      this.correctionsState = (data as any).correctionStatus === 'partial' || (data as any).correctionStatus === 'processing' ? 'partial' : 'loaded';
 
 
 
@@ -2869,7 +2907,7 @@ export class StudentSubmissionPages {
 
 
 
-        source: 'AI' as const,
+        source: c?.source === 'LANGUAGETOOL' ? 'LANGUAGETOOL' as const : 'AI' as const,
 
 
 
@@ -2905,15 +2943,18 @@ export class StudentSubmissionPages {
 
 
 
-      this.ocrWords = [];
-
-
-
-      this.annotations = [];
-
-
-
-      this.correctionsError = err?.error?.message || err?.message || 'Failed to load AI corrections';
+      if (seq !== this.loadOcrCorrectionsSeq) return false;
+      console.error('[loadOcrCorrections]', {
+        submissionId,
+        fileId: this.activeFileId,
+        status: err?.status,
+        response: err?.error,
+        message: err?.message
+      });
+      this.correctionsError = err?.error?.data?.ocrError || err?.error?.message || err?.message || 'Failed to load AI corrections';
+      const status = Number(err?.status);
+      if ([202, 409, 429].includes(status)) { this.correctionsState = 'processing'; this.statisticsState = 'processing'; return true; }
+      if (!(this.currentSubmission as any)?.correctionStatistics) this.statisticsState = 'error';
 
 
 
@@ -3060,8 +3101,8 @@ export class StudentSubmissionPages {
 
 
 
-    const activePages = this.activeOcrPages;
-    const pageText = activePages
+    const allPages = Array.isArray((s as any).ocrPages) ? (s as any).ocrPages : [];
+    const pageText = allPages
       .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
       .map((t: string) => t.trim())
       .filter((t: string) => t.length)
@@ -3069,15 +3110,10 @@ export class StudentSubmissionPages {
 
     if (pageText) return pageText;
 
-    const combined = (s as any).combinedOcrText && String((s as any).combinedOcrText).trim()
-      ? String((s as any).combinedOcrText)
-      : '';
-    if (combined) return combined;
-
     const fromTranscript = (s as any).transcriptText && String((s as any).transcriptText).trim()
       ? String((s as any).transcriptText)
       : '';
-    if (fromTranscript) return fromTranscript;
+    if (fromTranscript && this.submissionFileIds.length <= 1) return fromTranscript;
 
 
 
@@ -3230,14 +3266,8 @@ export class StudentSubmissionPages {
 
 
   private async ensureWritingCorrectionsLegendLoaded() {
-
-
-
-    if (this.writingCorrectionsLegend) return;
-
-
-
-    this.writingCorrectionsLegend = await this.writingCorrectionsApi.getLegend();
+    try { this.writingCorrectionsLegend = await this.writingCorrectionsApi.getLegend(); }
+    catch { this.writingCorrectionsLegend = DEFAULT_CORRECTION_LEGEND; }
 
 
 
@@ -5230,6 +5260,52 @@ export class StudentSubmissionPages {
 
   }
 
+  private async loadCompleteTranscript(submissionId: string): Promise<void> {
+    const storedPages = Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission.ocrPages : [];
+    const signature = JSON.stringify({ submissionId, ocrStatus: this.currentSubmission?.ocrStatus,
+      correctionSourceHash: (this.currentSubmission as any)?.correctionSourceHash || null,
+      pages: storedPages.map((page: any) => [String(page?.fileId || ''), Number(page?.pageNumber || 1),
+        String(page?.status || page?.ocrStatus || ''), Array.isArray(page?.words) ? page.words.length : 0]) });
+    if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
+    const seq = ++this.loadTranscriptPagesSeq;
+    try {
+      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const resp = await firstValueFrom(this.http.post<any>(
+        `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, {}
+      ));
+      if (seq !== this.loadTranscriptPagesSeq || this.currentSubmission?._id !== submissionId) return;
+      const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};
+      const pages = Array.isArray(data.ocr) && data.ocr.length ? data.ocr
+        : (Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission.ocrPages : []);
+      const corrections = Array.isArray(data.corrections) ? data.corrections : [];
+      const legend = this.getAcademicLegendForColors();
+      this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds], ocrPages: pages,
+        corrections, overallOcrStatus: this.currentSubmission?.ocrStatus }).map((page) => ({ ...page,
+        annotations: applyLegendToAnnotations(page.annotations, legend) }));
+      this.transcriptPagesSignature = signature;
+    } catch {
+      if (seq !== this.loadTranscriptPagesSeq || this.currentSubmission?._id !== submissionId) return;
+      this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds],
+        ocrPages: Array.isArray(this.currentSubmission?.ocrPages) ? this.currentSubmission.ocrPages : [], corrections: [],
+        overallOcrStatus: this.currentSubmission?.ocrStatus });
+    }
+  }
+
+  private async refreshRetriedAnalysis(submissionId: string): Promise<ResultRefreshSnapshot> {
+    if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
+    await this.loadOcrCorrections(submissionId);
+    await this.loadCompleteTranscript(submissionId);
+    const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId);
+    if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
+    this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
+    const state = this.canonicalResultState;
+    this.scoreState = state.evaluationStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(state.evaluationStatus) ? 'error' : 'processing';
+    this.aiFeedbackState = state.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(state.detailedFeedbackStatus) ? 'error' : 'processing';
+    this.feedbackState = this.aiFeedbackState;
+    if (state.evaluationStatus === 'completed') this.currentFeedback = this.validateAndNormalizeFeedback(feedback);
+    return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
+  }
+
 
 
 
@@ -5489,6 +5565,7 @@ export class StudentSubmissionPages {
 
 
     this.revokeObjectUrls();
+    this.resultCoordinator.stop();
 
 
 
@@ -5808,9 +5885,11 @@ export class StudentSubmissionPages {
 
 
 
+    if (this.currentSubmission?._id && this.currentSubmission._id !== submission?._id) this.resultCoordinator.stop();
     const seq = ++this.applyCurrentSubmissionSeq;
 
     ++this.loadOcrCorrectionsSeq;
+    ++this.loadTranscriptPagesSeq;
 
     this.resetSectionLoadStates(Boolean(submission));
 
@@ -5905,6 +5984,8 @@ export class StudentSubmissionPages {
 
 
     this.ocrWords = [];
+    this.transcriptPageViews = [];
+    this.transcriptPagesSignature = null;
 
 
 
@@ -5979,6 +6060,8 @@ export class StudentSubmissionPages {
 
       await this.loadOcrCorrections(this.currentSubmission._id);
       if (seq !== this.applyCurrentSubmissionSeq) return;
+      await this.loadCompleteTranscript(this.currentSubmission._id);
+      if (seq !== this.applyCurrentSubmissionSeq) return;
 
       const selected: any = this.currentSubmission;
       const hasStoredTranscript = Boolean(
@@ -5987,7 +6070,8 @@ export class StudentSubmissionPages {
         || (Array.isArray(selected?.ocrPages) && selected.ocrPages.length)
       );
       this.transcriptState = this.correctionsError && !hasStoredTranscript ? 'error' : 'loaded';
-      this.correctionsState = this.correctionsError ? 'error' : 'loaded';
+      if (this.correctionsError && !['processing', 'partial'].includes(this.correctionsState)) this.correctionsState = 'error';
+      else if (!['processing', 'partial', 'loaded'].includes(this.correctionsState)) this.correctionsState = 'loaded';
 
     }
 
@@ -6000,7 +6084,9 @@ export class StudentSubmissionPages {
     const feedbackLoaded = await this.loadFeedback(seq);
     if (seq !== this.applyCurrentSubmissionSeq) return;
 
-    this.feedbackState = feedbackLoaded ? 'loaded' : 'error';
+    this.feedbackState = !feedbackLoaded ? 'error'
+      : this.canonicalResultState?.detailedFeedbackStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(this.canonicalResultState?.detailedFeedbackStatus || '') ? 'error' : 'processing';
     this.teacherCommentState = feedbackLoaded ? 'loaded' : 'error';
     this.feedbackForm.enable({ emitEvent: false });
 
@@ -6012,11 +6098,10 @@ export class StudentSubmissionPages {
 
 
 
-    await this.ensureAiFeedbackGeneratedOnce();
-    if (seq !== this.applyCurrentSubmissionSeq) return;
-
-    this.aiFeedbackState = feedbackLoaded ? 'loaded' : 'error';
-    this.scoreState = this.feedbackState === 'error' ? 'error' : 'loaded';
+    this.aiFeedbackState = !feedbackLoaded ? 'error'
+      : this.canonicalResultState?.evaluationStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(this.canonicalResultState?.evaluationStatus || '') ? 'error' : 'processing';
+    this.scoreState = !feedbackLoaded || ['failed', 'blocked'].includes(this.canonicalResultState?.evaluationStatus || '') ? 'error' : 'loaded';
 
 
 
@@ -6266,6 +6351,12 @@ export class StudentSubmissionPages {
 
 
 
+      this.canonicalResultState = normalizeCanonicalResult(fb, this.canonicalResultState);
+      const evaluationPending = this.canonicalResultState.evaluationStatus !== 'completed';
+      if (evaluationPending) {
+        this.currentFeedback = fb as SubmissionFeedback;
+        return true;
+      }
       this.currentFeedback = this.validateAndNormalizeFeedback(fb);
 
 
@@ -6311,36 +6402,6 @@ export class StudentSubmissionPages {
 
 
 
-
-
-
-        // Persist rubric designer so the modal is never empty on reload.
-
-
-
-        try {
-
-
-
-          const saved = await this.feedbackApi.upsertSubmissionFeedback(submissionId, this.currentFeedback as SubmissionFeedback);
-
-
-
-          if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return false;
-
-          this.currentFeedback = saved;
-
-
-
-        } catch {
-
-
-
-          // ignore persistence errors; UI still has seeded rubric designer in-memory
-
-
-
-        }
 
 
 

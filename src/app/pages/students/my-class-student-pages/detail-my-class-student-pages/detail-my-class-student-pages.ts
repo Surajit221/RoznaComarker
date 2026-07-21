@@ -324,7 +324,7 @@ export class DetailMyClassStudentPages {
     this.uploadedSubmission = null;
 
     try {
-      await new Promise<void>((resolve, reject) => {
+      const persistedSubmissionId = await new Promise<string>((resolve, reject) => {
         const subscription = this.uploadApi.submitSubmissionFiles(this.selectedFiles, assignmentId).subscribe({
           next: (event) => {
             if (event.type === HttpEventType.UploadProgress) {
@@ -343,9 +343,15 @@ export class DetailMyClassStudentPages {
               }
 
               this.uploadProgressPercent = 100;
-              this.uploadedSubmission = null;
+              const submissionId = String(body?.submissionId || body?.data?.submissionId || body?.data?._id || body?.submission?._id || '').trim();
+              if (!submissionId) {
+                reject(new Error('Upload succeeded without a persisted submission ID'));
+                subscription.unsubscribe();
+                return;
+              }
+              this.uploadedSubmission = body;
               this.uploadSuccessMessage = 'Upload successful';
-              resolve();
+              resolve(submissionId);
               subscription.unsubscribe();
             }
           },
@@ -389,7 +395,8 @@ export class DetailMyClassStudentPages {
       const tree = this.router.createUrlTree(['/student/my-classes/detail/my-submissions', assignmentId], {
         queryParams: {
           classId: this.classId || undefined,
-          refresh: refreshToken
+          refresh: refreshToken,
+          submissionId: persistedSubmissionId
         }
       });
       const url = this.router.serializeUrl(tree);
