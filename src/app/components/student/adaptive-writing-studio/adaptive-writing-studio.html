@@ -15,7 +15,7 @@
           <span [style.width.%]="progressPercentage"></span>
         </div>
       </div>
-      <button type="button" class="generate-button" (click)="startGeneration()" [disabled]="state === 'generating' || state === 'no-weaknesses'">
+      <button type="button" class="generate-button" (click)="startGeneration()" [disabled]="!canGenerate">
         @if (state === 'generating') { <span class="spinner" aria-hidden="true"></span> }
         {{ generateLabel }}
       </button>
@@ -49,10 +49,13 @@
     @if (state === 'no-weaknesses') {
       <p class="success-message">Great work — all assessed writing skills are currently on track.</p>
     }
+    @if (state === 'unassessed') {
+      <p class="success-message">No assessed skills available.</p>
+    }
     @if (state === 'error') {
       <div class="error-panel" role="alert">
         <p>{{ errorMessage }}</p>
-        <button type="button" class="secondary-button" (click)="retry()">Try Again</button>
+        @if (canGenerate) { <button type="button" class="secondary-button" (click)="retry()">Try Again</button> }
       </div>
     }
   </div>

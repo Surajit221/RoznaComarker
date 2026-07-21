@@ -70,6 +70,7 @@ export class MySubmissionPage {
   private resultCoordinator = inject(CanonicalSubmissionResultCoordinator);
 
   assignmentId: string | null = null;
+  assignmentUnavailable = false;
   classId: string | null = null;
   private hasLoadedClassSettings = false;
 
@@ -1212,6 +1213,29 @@ export class MySubmissionPage {
     }
   }
 
+  private resolveAssignmentIdFromSubmission(s: BackendSubmission | null): string | null {
+    const raw: any = s?.assignment;
+    const id = typeof raw === 'string' ? raw : raw && typeof raw === 'object' ? raw._id || raw.id : null;
+    const normalized = typeof id === 'string' ? id.trim() : '';
+    return /^[a-f\d]{24}$/i.test(normalized) ? normalized : null;
+  }
+
+  private async loadAssignmentMetadata(s: BackendSubmission | null, seq: number): Promise<void> {
+    const persistedAssignmentId = this.resolveAssignmentIdFromSubmission(s);
+    if (!persistedAssignmentId) return;
+    this.assignmentId = persistedAssignmentId;
+    try {
+      const loadedAssignment = await this.assignmentApi.getAssignmentById(persistedAssignmentId);
+      if (this.destroyed || seq !== this.loadSeq || this.resolveAssignmentIdFromSubmission(this.submission) !== persistedAssignmentId) return;
+      this.assignment = loadedAssignment;
+      this.assignmentUnavailable = false;
+    } catch {
+      if (this.destroyed || seq !== this.loadSeq || this.resolveAssignmentIdFromSubmission(this.submission) !== persistedAssignmentId) return;
+      this.assignment = null;
+      this.assignmentUnavailable = true;
+    }
+  }
+
   private async loadCompleteTranscript(submissionId: string): Promise<void> {
     const storedPages = Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : [];
     const signature = JSON.stringify({ submissionId, ocrStatus: this.submission?.ocrStatus,
@@ -1445,6 +1469,7 @@ export class MySubmissionPage {
     this.submission = null;
     this.feedback = null;
     this.assignment = null;
+    this.assignmentUnavailable = false;
     this.annotations = [];
     this.ocrWords = [];
     this.transcriptPageViews = [];
@@ -1472,11 +1497,8 @@ export class MySubmissionPage {
       this.submission = submission;
       this.submissionState = 'loaded';
 
-      try {
-        this.assignment = await this.assignmentApi.getAssignmentById(assignmentId);
-      } catch {
-        this.assignment = null;
-      }
+      await this.loadAssignmentMetadata(submission, seq);
+      if (this.destroyed || seq !== this.loadSeq) return;
 
       const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
       const filePairsFromObjects = rawFiles

@@ -1,4 +1,7 @@
 <ng-container>
+  @if (assignmentUnavailable) {
+    <div class="section-load-error" role="status">Assignment details are unavailable. Submission results remain available below.</div>
+  }
 
   <!-- ✅ DESKTOP -->
   <ng-container *ngIf="device.isDesktop(); else mobileView">

@@ -53,9 +53,10 @@ export class AdaptiveWritingStudio {
     const list = Array.isArray(value) ? value : [];
     this.normalizedSkills = list.map((skill) => this.normalizeSkill(skill));
     this.weakSkills = this.normalizedSkills.filter((skill) => skill.percentage !== null && skill.percentage < ADAPTIVE_PRACTICE_THRESHOLD);
-    if ((this.state === 'idle' || this.state === 'no-weaknesses') && !this.activities.length) {
-      this.state = this.weakSkills.length ? 'idle' : 'no-weaknesses';
+    if ((this.state === 'idle' || this.state === 'no-weaknesses' || this.state === 'unassessed') && !this.activities.length) {
+      this.state = this.skillSummaryState();
     }
+    this.cdr.markForCheck();
   }
 
   @Input() set canonicalResultState(value: CanonicalResultViewState | null) {
@@ -94,6 +95,15 @@ export class AdaptiveWritingStudio {
     return this.progress.percentage;
   }
 
+  get assessedSkillCount(): number { return this.normalizedSkills.filter((skill) => skill.percentage !== null).length; }
+  get canGenerate(): boolean {
+    const canonical = this.canonicalResultState;
+    return Boolean(this.submissionId && canonical && canonical.evaluationStatus === 'completed'
+      && canonical.semanticStatus === 'completed' && !canonical.processingActive
+      && canonical.correctionSourceHash && canonical.evaluationSourceHash === canonical.correctionSourceHash
+      && this.weakSkills.length > 0 && !['generating', 'generated'].includes(this.state));
+  }
+
   get generateLabel(): string {
     if (this.state === 'generating') return 'Generating Your Practice…';
     if (this.state === 'generated') return 'Continue Practice';
@@ -107,7 +117,7 @@ export class AdaptiveWritingStudio {
   }
 
   startGeneration(): void {
-    if (!this.submissionId || this.state === 'generating' || this.state === 'no-weaknesses' || this.state === 'generated') return;
+    if (!this.canGenerate) return;
     this.generatePractice.emit(this.submissionId);
     if (this.previewEnabled) {
       this.runExplicitFixturePreview();
@@ -118,19 +128,19 @@ export class AdaptiveWritingStudio {
     const version = ++this.requestVersion;
     this.requestSubscription?.unsubscribe();
     this.requestSubscription = this.api.generateSession(this.submissionId).subscribe({
-      next: (response) => this.acceptResponse(version, response.data),
+      next: (response) => this.acceptResponse(version, response),
       error: (error: unknown) => this.acceptError(version, error)
     });
   }
 
   retry(): void {
-    if (!this.submissionId || this.state === 'generating') return;
+    if (!this.canGenerate) return;
     this.retryPractice.emit(this.submissionId);
     this.state = 'generating';
     const version = ++this.requestVersion;
     this.requestSubscription?.unsubscribe();
     this.requestSubscription = this.api.retryGeneration(this.submissionId).subscribe({
-      next: (response) => this.acceptResponse(version, response.data),
+      next: (response) => this.acceptResponse(version, response),
       error: (error: unknown) => this.acceptError(version, error)
     });
   }
@@ -155,7 +165,13 @@ export class AdaptiveWritingStudio {
 
   private loadExistingSession(): void {
     const version = ++this.requestVersion;
-    
+    if (!this.canonicalResultState) {
+      this.state = 'waiting_for_analysis';
+      this.errorMessage = '';
+      this.cdr.markForCheck();
+      return;
+    }
+
     // Check if canonical analysis is complete before calling adaptive API
     if (this.canonicalResultState) {
       const isProcessing = this.canonicalResultState.processingActive;
@@ -171,7 +187,7 @@ export class AdaptiveWritingStudio {
       }
       
       // If semantic analysis failed, show error state
-      if (semanticStatus === 'failed' || evaluationStatus === 'failed') {
+      if (semanticStatus === 'failed' || ['failed', 'blocked', 'stale'].includes(evaluationStatus)) {
         this.state = 'error';
         this.errorMessage = 'Adaptive practice is unavailable because writing analysis failed. Please retry the analysis.';
         this.cdr.markForCheck();
@@ -181,7 +197,7 @@ export class AdaptiveWritingStudio {
     
     this.requestSubscription?.unsubscribe();
     this.requestSubscription = this.api.getSession(this.submissionId).subscribe({
-      next: (response) => this.acceptResponse(version, response.data),
+      next: (response) => this.acceptResponse(version, response),
       error: (error: unknown) => this.acceptError(version, error)
     });
   }
@@ -200,9 +216,9 @@ export class AdaptiveWritingStudio {
       this.state = 'error';
       this.errorMessage = response.session?.generation?.errorMessage || 'Adaptive practice could not be generated. Please try again.';
     } else if (response.state === 'no-weaknesses') {
-      this.state = 'no-weaknesses';
+      this.state = this.skillSummaryState();
     } else {
-      this.state = this.weakSkills.length ? 'idle' : 'no-weaknesses';
+      this.state = this.skillSummaryState();
     }
     this.cdr.markForCheck();
   }
@@ -217,7 +233,7 @@ export class AdaptiveWritingStudio {
     this.timer = setTimeout(() => {
       if (version !== this.requestVersion) return;
       this.requestSubscription = this.api.getSession(this.submissionId).subscribe({
-        next: (response) => this.acceptResponse(version, response.data),
+        next: (response) => this.acceptResponse(version, response),
         error: (error: unknown) => this.acceptError(version, error)
       });
     }, 2500);
@@ -262,7 +278,7 @@ export class AdaptiveWritingStudio {
     this.checkErrors = {};
     this.progress = { improvedActivities: 0, totalActivities: 0, percentage: 0, activities: [] };
     this.errorMessage = '';
-    this.state = this.weakSkills.length ? 'idle' : 'no-weaknesses';
+    this.state = this.skillSummaryState();
   }
   private cancelAsyncWork(): void { this.requestSubscription?.unsubscribe(); this.requestSubscription = null; this.checkSubscriptions.forEach((subscription) => subscription.unsubscribe()); this.checkSubscriptions.clear(); this.checkPollTimers.forEach((timer) => clearTimeout(timer)); this.checkPollTimers.clear(); this.checkPollCounts.clear(); this.clearTimer(); }
   private clearTimer(): void { if (this.timer !== null) clearTimeout(this.timer); this.timer = null; }
@@ -277,6 +293,11 @@ export class AdaptiveWritingStudio {
     return { ...skill, percentage, status, statusLabel: labels[status] };
   }
 
+  private skillSummaryState(): 'idle' | 'no-weaknesses' | 'unassessed' {
+    if (this.weakSkills.length) return 'idle';
+    return this.assessedSkillCount > 0 ? 'no-weaknesses' : 'unassessed';
+  }
+
   private runCheck(activity: AdaptivePracticeActivity, retry: boolean): void {
     const response = (this.responses[activity.id] || '').trim();
     if (!this.sessionId || response.length < 10 || this.checkStates[activity.id] === 'checking') return;
@@ -285,10 +306,10 @@ export class AdaptiveWritingStudio {
     this.checkSubscriptions.get(activity.id)?.unsubscribe();
     const subscription = this.api.checkResponse(this.sessionId, activity.id, response, retry).subscribe({
       next: (result) => {
-        this.attempts = { ...this.attempts, [activity.id]: result.data.attempt };
-        this.checkStates = { ...this.checkStates, [activity.id]: result.data.state === 'ready' ? 'ready' : result.data.state === 'failed' ? 'error' : 'checking' };
-        this.applyProgress(result.data.progress);
-        if (result.data.state === 'checking') this.scheduleCheckPoll(activity.id);
+        this.attempts = { ...this.attempts, [activity.id]: result.attempt };
+        this.checkStates = { ...this.checkStates, [activity.id]: result.state === 'ready' ? 'ready' : result.state === 'failed' ? 'error' : 'checking' };
+        this.applyProgress(result.progress);
+        if (result.state === 'checking') this.scheduleCheckPoll(activity.id);
         this.cdr.markForCheck();
       },
       error: (error: unknown) => {
@@ -327,8 +348,8 @@ export class AdaptiveWritingStudio {
     const timer = setTimeout(() => {
       const subscription = this.api.getAttempts(this.sessionId, activityId).subscribe({
         next: (result) => {
-          const latest = result.data.attempts.at(-1);
-          this.applyProgress(result.data.progress);
+          const latest = result.attempts.at(-1);
+          this.applyProgress(result.progress);
           if (latest?.status === 'ready') { this.attempts = { ...this.attempts, [activityId]: latest }; this.checkStates = { ...this.checkStates, [activityId]: 'ready' }; this.checkPollCounts.delete(activityId); }
           else if (latest?.status === 'failed') { this.checkStates = { ...this.checkStates, [activityId]: 'error' }; this.checkErrors = { ...this.checkErrors, [activityId]: latest.checking?.errorMessage || 'Your response could not be checked. Please try again.' }; }
           else this.scheduleCheckPoll(activityId);

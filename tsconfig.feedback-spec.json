@@ -7,6 +7,10 @@
     "src/app/components/canonical-detailed-feedback/canonical-detailed-feedback.spec.ts",
     "src/app/services/canonical-submission-result-coordinator.service.spec.ts",
     "src/app/utils/transcript-page-views.util.spec.ts",
-    "src/app/components/submission-details/tokenized-transcript/tokenized-transcript.spec.ts"
+    "src/app/components/submission-details/tokenized-transcript/tokenized-transcript.spec.ts",
+    "src/app/api/adaptive-practice-api.service.spec.ts",
+    "src/app/components/student/adaptive-writing-studio/adaptive-writing-studio.spec.ts",
+    "src/app/components/teacher/adaptive-practice-progress/adaptive-practice-progress.spec.ts",
+    "src/app/pages/students/my-class-student-pages/detail-my-class-student-pages/my-submission-page/my-submission-assignment-loading.spec.ts"
   ]
 }
