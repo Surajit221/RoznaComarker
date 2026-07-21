@@ -1,4 +1,4 @@
-import { categoryDisplay, normalizeCanonicalResult } from './canonical-result-state.util';
+import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
   it('keeps semantic categories pending while language results remain visible', () => {
@@ -17,6 +17,20 @@ describe('canonical result normalization', () => {
     const completed = normalizeCanonicalResult({ evaluationStatus: 'completed', overallScore: 0, grade: 'F' });
     expect(completed.score).toBe(0);
     expect(completed.grade).toBe('F');
+  });
+
+  it('does not regress an authoritative completed feedback response with a stale processing submission DTO', () => {
+    const completed = normalizeCanonicalResult({ submissionId: 'submission-1', correctionStatus: 'completed',
+      correctionSourceHash: 'hash', evaluationStatus: 'completed', evaluationSourceHash: 'hash', overallScore: 88,
+      detailedFeedbackStatus: 'completed', detailedFeedbackSourceHash: 'hash',
+      detailedFeedback: { sourceHash: 'hash', areasForImprovement: [{ id: 'area' }], strengths: [], actionSteps: [] } });
+    const finalState = applySubmissionLifecycleFallback(completed, { ocrStatus: 'completed',
+      correctionStatus: 'completed', evaluationStatus: 'processing' }, true);
+    expect(finalState).toBe(completed);
+    expect(finalState?.evaluationStatus).toBe('completed');
+    expect(finalState?.score).toBe(88);
+    expect(finalState?.detailedFeedbackStatus).toBe('completed');
+    expect(finalState?.detailedFeedback).not.toBeNull();
   });
 
   it('suppresses stale feedback and preserves state on temporary errors', () => {

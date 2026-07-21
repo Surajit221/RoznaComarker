@@ -35,7 +35,7 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
-import { categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 
@@ -1637,11 +1637,13 @@ export class MySubmissionPage {
     this.rebuildHighlightedTranscript();
     await this.refreshWritingCorrections();
 
+    let canonicalFeedbackLoaded = false;
     try {
       const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId);
       if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
       this.feedback = feedback;
       this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
+      canonicalFeedbackLoaded = true;
       this.adaptiveSkillScores = this.buildAdaptiveSkillScores(feedback);
       this.teacherComment = typeof feedback?.aiFeedback?.overallComments === 'string' ? feedback.aiFeedback.overallComments : null;
       this.feedbackForm.patchValue({ message: this.teacherComment || '' });
@@ -1649,12 +1651,7 @@ export class MySubmissionPage {
       if (![404, 202, 409, 429].includes(Number(error?.status))) throw error;
     }
 
-    this.canonicalResultState = normalizeCanonicalResult({
-      ...(this.canonicalResultState || {}),
-      ocrStatus: updated.ocrStatus,
-      correctionStatus: updated.correctionStatus,
-      evaluationStatus: updated.evaluationStatus
-    }, this.canonicalResultState);
+    this.canonicalResultState = applySubmissionLifecycleFallback(this.canonicalResultState, updated, canonicalFeedbackLoaded);
     const canonical = this.canonicalResultState;
     this.transcriptState = updated.ocrStatus === 'failed' ? 'error' : updated.ocrStatus === 'completed' ? 'loaded' : 'processing';
     this.correctionsState = canonical.correctionStatus === 'completed' ? 'loaded' : canonical.correctionStatus === 'failed' ? 'error' : canonical.correctionStatus === 'partial' ? 'partial' : 'processing';

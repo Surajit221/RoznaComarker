@@ -6364,36 +6364,6 @@ export class StudentSubmissionPages {
 
 
 
-        // Persist rubric designer so the modal is never empty on reload.
-
-
-
-        try {
-
-
-
-          const saved = await this.feedbackApi.upsertSubmissionFeedback(submissionId, this.currentFeedback as SubmissionFeedback);
-
-
-
-          if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return false;
-
-          this.currentFeedback = saved;
-
-
-
-        } catch {
-
-
-
-          // ignore persistence errors; UI still has seeded rubric designer in-memory
-
-
-
-        }
-
-
-
       }
 
 

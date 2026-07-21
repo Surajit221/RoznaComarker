@@ -45,6 +45,16 @@ describe('detailed feedback display normalization', () => {
     expect(display.areasForImprovement).toEqual([]); expect(display.strengths).toEqual([]); expect(display.actionSteps).toEqual([]);
   });
 
+  it('never renders completed cards while the evaluation score is still processing', () => {
+    const state = normalizeCanonicalResult({ correctionStatus: 'completed', correctionSourceHash: 'h',
+      evaluationStatus: 'processing', detailedFeedbackStatus: 'completed', detailedFeedbackSourceHash: 'h',
+      detailedFeedback: { sourceHash: 'h', areasForImprovement: [{ id: 'area', category: 'GRAMMAR' }],
+        strengths: [], actionSteps: [] } });
+    const display = buildDetailedFeedbackDisplayModel(state);
+    expect(display.status).toBe('processing');
+    expect(display.areasForImprovement).toEqual([]);
+  });
+
   it('maps the same completed persisted payload for student and teacher', () => {
     const raw = { submissionId: 'same-submission', correctionStatus: 'completed', correctionSourceHash: 'h',
       evaluationStatus: 'completed', evaluationSourceHash: 'h', detailedFeedbackStatus: 'completed',

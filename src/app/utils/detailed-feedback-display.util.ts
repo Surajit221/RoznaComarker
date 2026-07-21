@@ -77,6 +77,7 @@ export function buildDetailedFeedbackDisplayModel(
   if (!state) return { ...empty, status: 'loading', message: 'Loading detailed feedback…' };
   const status = state?.detailedFeedbackStatus || 'pending';
   const pending = ['pending', 'processing', 'retry_wait'].includes(state.semanticStatus)
+    || (Boolean(state.correctionSourceHash) && ['pending', 'processing'].includes(state.evaluationStatus))
     || ['pending', 'processing'].includes(status);
   if (state?.processingActive && status === 'stale') return { ...empty, status: 'updating', message: 'Updating detailed feedback…' };
   if (pending) return { ...empty, status: 'processing', message: 'Preparing detailed feedback…' };

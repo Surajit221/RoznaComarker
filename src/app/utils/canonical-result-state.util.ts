@@ -135,3 +135,13 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
   if (availability === 'failed') return 'Unavailable';
   return state.statistics[category] ?? 'Unavailable';
 }
+
+export function applySubmissionLifecycleFallback(
+  canonical: CanonicalResultViewState | null,
+  submission: { ocrStatus?: unknown; correctionStatus?: unknown; evaluationStatus?: unknown },
+  canonicalFeedbackLoaded: boolean
+): CanonicalResultViewState {
+  if (canonicalFeedbackLoaded && canonical) return canonical;
+  return normalizeCanonicalResult({ ...(canonical || {}), ocrStatus: submission.ocrStatus,
+    correctionStatus: submission.correctionStatus, evaluationStatus: submission.evaluationStatus }, canonical);
+}
