@@ -37,6 +37,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.closeTooltip();
+    this.tooltipEl?.nativeElement.remove();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -49,9 +50,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     }
 
     if (changes['ocrWords'] || changes['annotations']) {
-      this.activeWordId = null;
-      this.tooltipText = '';
-      this.tooltipStyle = { display: 'none' };
+      this.closeTooltip();
     }
   }
 
@@ -113,6 +112,11 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.scheduleActiveReposition();
   }
 
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    this.scheduleActiveReposition();
+  }
+
   private openTooltip(wordId: string, event: MouseEvent | PointerEvent): void {
     const text = this.getTooltipText(wordId);
     if (!text) return;
@@ -121,6 +125,9 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     const tooltip = this.tooltipEl?.nativeElement;
     const target = event.currentTarget as HTMLElement | null;
     if (!container || !tooltip || !target) return;
+
+    // Keep the overlay outside transformed/backdrop-filtered cards and clipping transcript pages.
+    if (tooltip.parentElement !== document.body) document.body.appendChild(tooltip);
 
     this.activeWordId = wordId;
     this.activeTarget = target;
@@ -250,12 +257,16 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     const clampPx = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
     const x = clampPx(chosen.x, bounds.left + padding, bounds.right - padding - tW);
     const y = clampPx(chosen.y, bounds.top + padding, bounds.bottom - padding - tH);
+    const positioningElement = tooltip.offsetParent as HTMLElement | null;
+    const positioningRect = (positioningElement || document.documentElement).getBoundingClientRect();
+    const localLeft = x - positioningRect.left;
+    const localTop = y - positioningRect.top;
 
     this.tooltipStyle = {
       display: 'block',
       visibility: 'visible',
-      left: `${x}px`,
-      top: `${y}px`,
+      left: `${localLeft}px`,
+      top: `${localTop}px`,
       '--tooltip-placement': chosen.placement,
     } as Record<string, string>;
   }
