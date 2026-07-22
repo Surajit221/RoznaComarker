@@ -211,6 +211,7 @@
                     </div>
                     <article class="text-gray-700 leading-relaxed text-lg space-y-6">
                       <section class="p-4 rounded-lg bg-white border border-gray-200">
+                        <div class="canonical-transcript-viewport">
                         @if (transcriptPageViews.length) {
                           @for (page of transcriptPageViews; track page.key) {
                           <section class="transcript-page">
@@ -230,6 +231,7 @@
                           [innerHTML]="writingCorrectionsHtml"></pre>
                         }
                         }
+                        </div>
                       </section>
                     </article>
                     }
@@ -494,6 +496,7 @@
                   </div>
 
                   <!-- Essay Text with Corrections -->
+                  <div class="canonical-transcript-viewport">
                   @if (transcriptPageViews.length) {
                     @for (page of transcriptPageViews; track page.key) {
                     <section class="transcript-page">
@@ -513,6 +516,7 @@
                     [innerHTML]="writingCorrectionsHtml"></pre>
                   }
                   }
+                  </div>
                   }
                 </div>
 
