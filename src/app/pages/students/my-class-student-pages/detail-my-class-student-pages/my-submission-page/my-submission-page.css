@@ -160,10 +160,6 @@
         }
 
 
-        .transcript-scroll:has(.correction-highlight:hover) {
-            overflow: visible;
-        }
-
         .submission-thumbs {
             display: flex;
             gap: 10px;

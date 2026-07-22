@@ -10,7 +10,6 @@
   overflow-wrap: break-word;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
 }
 
 .correction-highlight {
@@ -19,18 +18,17 @@
   border-bottom: 2px dashed;
   padding: 0 2px;
   border-radius: 2px;
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease;
   cursor: help;
   z-index: 1;
 }
 
 .correction-highlight:hover {
   background: rgba(255, 193, 7, 0.3);
-  transform: translateY(-1px);
 }
 
 .transcript-tooltip {
-  position: absolute;
+  position: fixed;
   background: rgba(0, 0, 0, 0.85);
   color: white;
   padding: 12px 16px;

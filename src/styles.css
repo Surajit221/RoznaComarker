@@ -24,6 +24,28 @@
   --radius-xl: 1.25rem;
 }
 
+/* Shared canonical transcript viewport used by student and teacher result pages. */
+.canonical-transcript-viewport {
+  width: 100%;
+  max-height: 420px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #fff;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .canonical-transcript-viewport {
+    padding: 0.75rem;
+  }
+}
+
 @theme {
   --font-sans: 'Poppins', 'sans-serif';
 }

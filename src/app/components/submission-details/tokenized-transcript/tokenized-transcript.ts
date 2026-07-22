@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, Input, type SimpleChanges, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, type OnChanges, type OnDestroy, type SimpleChanges, ViewChild } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
@@ -15,7 +15,7 @@ type TranscriptToken =
   templateUrl: './tokenized-transcript.html',
   styleUrl: './tokenized-transcript.css'
 })
-export class TokenizedTranscript {
+export class TokenizedTranscript implements OnChanges, OnDestroy {
   @Input() ocrWords: OcrWord[] | null = null;
   @Input() annotations: FeedbackAnnotation[] | null = null;
 
@@ -25,10 +25,19 @@ export class TokenizedTranscript {
   tokens: TranscriptToken[] = [];
 
   private annotationsByWordId = new Map<string, FeedbackAnnotation[]>();
+  private activeTarget: HTMLElement | null = null;
+  private activeViewport: HTMLElement | null = null;
+  private positionFrame: number | null = null;
+  private positionVersion = 0;
+  private readonly viewportScrollHandler = () => this.scheduleActiveReposition();
 
   activeWordId: string | null = null;
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
+
+  ngOnDestroy(): void {
+    this.closeTooltip();
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['ocrWords']) {
@@ -48,14 +57,17 @@ export class TokenizedTranscript {
 
   onWordPointerEnter(wordId: string, event: PointerEvent): void {
     // Hover only for mouse pointers.
-    if ((event as any).pointerType && (event as any).pointerType !== 'mouse') return;
+    if (event.pointerType && event.pointerType !== 'mouse') return;
     this.openTooltip(wordId, event);
   }
 
   onWordPointerLeave(wordId: string, event: PointerEvent): void {
-    if ((event as any).pointerType && (event as any).pointerType !== 'mouse') return;
+    if (event.pointerType && event.pointerType !== 'mouse') return;
     if (this.activeWordId !== wordId) return;
-    this.closeTooltip();
+    const version = this.positionVersion;
+    requestAnimationFrame(() => {
+      if (version === this.positionVersion && this.activeWordId === wordId) this.closeTooltip();
+    });
   }
 
   onWordPointerDown(wordId: string, event: PointerEvent): void {
@@ -70,7 +82,7 @@ export class TokenizedTranscript {
     // Avoid selecting text on touch/pen taps.
     try {
       event.preventDefault();
-      (event as any).stopPropagation?.();
+      event.stopPropagation();
     } catch {
       // ignore
     }
@@ -91,6 +103,16 @@ export class TokenizedTranscript {
     this.closeTooltip();
   }
 
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.closeTooltip();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.scheduleActiveReposition();
+  }
+
   private openTooltip(wordId: string, event: MouseEvent | PointerEvent): void {
     const text = this.getTooltipText(wordId);
     if (!text) return;
@@ -101,52 +123,67 @@ export class TokenizedTranscript {
     if (!container || !tooltip || !target) return;
 
     this.activeWordId = wordId;
+    this.activeTarget = target;
     this.tooltipText = text;
-    // Set an initial anchored position immediately so the tooltip never flashes at (0,0)
-    // if measurement isn't available until a later frame.
-    this.tooltipStyle = { display: 'block', left: '0%', top: '0%' };
-
-    // Anchor near the word immediately; refined positioning happens after measurement.
-    try {
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const containerW = containerRect.width || 1;
-      const containerH = containerRect.height || 1;
-      const x = (targetRect.left - containerRect.left + targetRect.width / 2) / containerW;
-      const y = (targetRect.top - containerRect.top) / containerH;
-      this.tooltipStyle = { display: 'block', left: `${Math.max(0, Math.min(100, x * 100))}%`, top: `${Math.max(0, Math.min(100, y * 100))}%` };
-    } catch {
-      // ignore
-    }
-
-    requestAnimationFrame(() => this.repositionTooltip(target, 0));
+    this.tooltipStyle = { display: 'block', visibility: 'hidden', left: '0px', top: '0px' };
+    this.bindViewport(container.closest('.canonical-transcript-viewport') as HTMLElement | null || container);
+    const version = ++this.positionVersion;
+    this.scheduleReposition(target, wordId, version, 0);
   }
 
   private closeTooltip(): void {
+    this.positionVersion += 1;
+    if (this.positionFrame !== null) cancelAnimationFrame(this.positionFrame);
+    this.positionFrame = null;
+    this.bindViewport(null);
     this.activeWordId = null;
+    this.activeTarget = null;
     this.tooltipText = '';
     this.tooltipStyle = { display: 'none' };
   }
 
-  private repositionTooltip(targetEl: HTMLElement, attempt: number): void {
-    const container = this.containerEl?.nativeElement;
+  private bindViewport(viewport: HTMLElement | null): void {
+    if (this.activeViewport === viewport) return;
+    this.activeViewport?.removeEventListener('scroll', this.viewportScrollHandler);
+    this.activeViewport = viewport;
+    this.activeViewport?.addEventListener('scroll', this.viewportScrollHandler, { passive: true });
+  }
+
+  private scheduleActiveReposition(): void {
+    if (!this.activeTarget || !this.activeWordId) return;
+    this.scheduleReposition(this.activeTarget, this.activeWordId, this.positionVersion, 0);
+  }
+
+  private scheduleReposition(targetEl: HTMLElement, wordId: string, version: number, attempt: number): void {
+    if (this.positionFrame !== null) cancelAnimationFrame(this.positionFrame);
+    this.positionFrame = requestAnimationFrame(() => {
+      this.positionFrame = null;
+      if (version !== this.positionVersion || wordId !== this.activeWordId || targetEl !== this.activeTarget || !targetEl.isConnected) return;
+      this.repositionTooltip(targetEl, wordId, version, attempt);
+    });
+  }
+
+  private repositionTooltip(targetEl: HTMLElement, wordId: string, version: number, attempt: number): void {
+    const viewport = this.activeViewport || this.containerEl?.nativeElement;
     const tooltip = this.tooltipEl?.nativeElement;
-    if (!container || !tooltip) return;
+    if (!viewport || !tooltip) return;
     if (this.tooltipStyle?.['display'] === 'none') return;
 
-    const cRect = container.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
     const tRect = targetEl.getBoundingClientRect();
-
-    const containerW = cRect.width;
-    const containerH = cRect.height;
-    if (!containerW || !containerH) return;
-
-    const bboxPx = {
-      x: tRect.left - cRect.left,
-      y: tRect.top - cRect.top,
-      w: tRect.width,
-      h: tRect.height
+    const browserWidth = document.documentElement.clientWidth || window.innerWidth;
+    const browserHeight = document.documentElement.clientHeight || window.innerHeight;
+    const bounds = {
+      left: Math.max(0, viewportRect.left), top: Math.max(0, viewportRect.top),
+      right: Math.min(browserWidth, viewportRect.right), bottom: Math.min(browserHeight, viewportRect.bottom)
     };
+    const containerW = bounds.right - bounds.left;
+    const containerH = bounds.bottom - bounds.top;
+    if (!containerW || !containerH || tRect.bottom < bounds.top || tRect.top > bounds.bottom
+      || tRect.right < bounds.left || tRect.left > bounds.right) {
+      this.closeTooltip();
+      return;
+    }
 
     const padding = Math.max(6, Math.min(14, Math.round(containerW * 0.02)));
     const gap = Math.max(6, Math.min(14, Math.round(containerW * 0.015)));
@@ -155,37 +192,38 @@ export class TokenizedTranscript {
     const hardMaxW = Math.max(0, Math.floor(containerW - padding * 2));
     const effectiveMaxW = Math.max(120, Math.min(maxTooltipWidthPx, hardMaxW));
     tooltip.style.maxWidth = `${effectiveMaxW}px`;
+    tooltip.style.maxHeight = `${Math.max(80, Math.floor(containerH * 0.55))}px`;
 
     // Force measurement after maxWidth is applied.
     const tW = Math.min(tooltip.offsetWidth || 0, effectiveMaxW);
     const tH = tooltip.offsetHeight || 0;
     if (!tW || !tH) {
       if (attempt < 3) {
-        requestAnimationFrame(() => this.repositionTooltip(targetEl, attempt + 1));
+        this.scheduleReposition(targetEl, wordId, version, attempt + 1);
       }
       return;
     }
 
-    const candidates: Array<{ placement: 'top' | 'bottom' | 'left' | 'right'; x: number; y: number }>= [
+    const candidates: { placement: 'top' | 'bottom' | 'left' | 'right'; x: number; y: number }[] = [
       {
         placement: 'top',
-        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
-        y: bboxPx.y - gap - tH,
+        x: tRect.left + tRect.width / 2 - tW / 2,
+        y: tRect.top - gap - tH,
       },
       {
         placement: 'bottom',
-        x: bboxPx.x + bboxPx.w / 2 - tW / 2,
-        y: bboxPx.y + bboxPx.h + gap,
+        x: tRect.left + tRect.width / 2 - tW / 2,
+        y: tRect.bottom + gap,
       },
       {
         placement: 'right',
-        x: bboxPx.x + bboxPx.w + gap,
-        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+        x: tRect.right + gap,
+        y: tRect.top + tRect.height / 2 - tH / 2,
       },
       {
         placement: 'left',
-        x: bboxPx.x - gap - tW,
-        y: bboxPx.y + bboxPx.h / 2 - tH / 2,
+        x: tRect.left - gap - tW,
+        y: tRect.top + tRect.height / 2 - tH / 2,
       },
     ];
 
@@ -194,12 +232,12 @@ export class TokenizedTranscript {
       const y0 = y;
       const x1 = x + tW;
       const y1 = y + tH;
-      const fitsX = x0 >= padding && x1 <= containerW - padding;
-      const fitsY = y0 >= padding && y1 <= containerH - padding;
+      const fitsX = x0 >= bounds.left + padding && x1 <= bounds.right - padding;
+      const fitsY = y0 >= bounds.top + padding && y1 <= bounds.bottom - padding;
       return { fitsX, fitsY, fits: fitsX && fitsY };
     };
 
-    const preferredOrder: Array<'top' | 'bottom' | 'right' | 'left'> = ['top', 'bottom', 'right', 'left'];
+    const preferredOrder: ('top' | 'bottom' | 'right' | 'left')[] = ['top', 'bottom', 'right', 'left'];
     let chosen = candidates[0];
     for (const p of preferredOrder) {
       const c = candidates.find((x) => x.placement === p)!;
@@ -210,13 +248,14 @@ export class TokenizedTranscript {
     }
 
     const clampPx = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-    const x = clampPx(chosen.x, padding, containerW - padding - tW);
-    const y = clampPx(chosen.y, padding, containerH - padding - tH);
+    const x = clampPx(chosen.x, bounds.left + padding, bounds.right - padding - tW);
+    const y = clampPx(chosen.y, bounds.top + padding, bounds.bottom - padding - tH);
 
     this.tooltipStyle = {
       display: 'block',
-      left: `${(x / containerW) * 100}%`,
-      top: `${(y / containerH) * 100}%`,
+      visibility: 'visible',
+      left: `${x}px`,
+      top: `${y}px`,
       '--tooltip-placement': chosen.placement,
     } as Record<string, string>;
   }
@@ -302,8 +341,7 @@ export class TokenizedTranscript {
 
     let prevWord: OcrWord | null = null;
 
-    for (let i = 0; i < list.length; i += 1) {
-      const w = list[i];
+    for (const w of list) {
       const text = typeof w.text === 'string' ? w.text : '';
       if (!text) continue;
 
