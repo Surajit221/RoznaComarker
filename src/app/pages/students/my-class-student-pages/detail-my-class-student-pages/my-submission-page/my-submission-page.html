@@ -210,7 +210,7 @@
                     <p class="text-sm text-red-500 font-medium">{{ ocrErrorMessage }}</p>
                     }
                     @if (transcriptPageViews.length || (!ocrErrorMessage && extractedText)) {
-                    <div class="canonical-transcript-viewport">
+                    <div class="w-full">
                       @if (transcriptPageViews.length) {
                         @for (page of transcriptPageViews; track page.key) {
                         <section class="transcript-page">
@@ -445,7 +445,7 @@
               <p class="text-sm text-red-500 font-medium">{{ ocrErrorMessage }}</p>
               }
               @if (transcriptPageViews.length || (!ocrErrorMessage && extractedText)) {
-              <div class="canonical-transcript-viewport">
+              <div class="w-full bg-white border border-gray-200 rounded-xl p-3">
                 @if (transcriptPageViews.length) {
                   @for (page of transcriptPageViews; track page.key) {
                   <section class="transcript-page">
