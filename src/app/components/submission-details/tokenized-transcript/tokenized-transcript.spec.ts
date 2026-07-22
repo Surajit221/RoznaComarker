@@ -77,7 +77,7 @@ describe('TokenizedTranscript tooltip stability', () => {
     fixture.detectChanges();
   });
 
-  function prepareGeometry() {
+  function prepareGeometry(positioningRect?: DOMRect) {
     const container = fixture.nativeElement.querySelector('.tokenized-transcript') as HTMLElement;
     const words = fixture.nativeElement.querySelectorAll('.correction-highlight') as NodeListOf<HTMLElement>;
     const tooltip = fixture.nativeElement.querySelector('.transcript-tooltip') as HTMLElement;
@@ -89,13 +89,37 @@ describe('TokenizedTranscript tooltip stability', () => {
       width: 50, height: 20, x: 160, y: 120, toJSON: () => ({}) } as DOMRect);
     Object.defineProperty(tooltip, 'offsetWidth', { configurable: true, value: 180 });
     Object.defineProperty(tooltip, 'offsetHeight', { configurable: true, value: 70 });
-    return { container, words, tooltip };
+    const positioningParent = document.createElement('div');
+    spyOn(positioningParent, 'getBoundingClientRect').and.returnValue(positioningRect || ({ left: 0, top: 0,
+      right: 800, bottom: 600, width: 800, height: 600, x: 0, y: 0, toJSON: () => ({}) } as DOMRect));
+    Object.defineProperty(tooltip, 'offsetParent', { configurable: true, get: () => positioningParent });
+    return { container, words, tooltip, positioningParent };
   }
+
+  it('converts clamped browser coordinates to the actual positioning parent', fakeAsync(() => {
+    const parentRect = { left: 25, top: 35, right: 825, bottom: 635, width: 800, height: 600,
+      x: 25, y: 35, toJSON: () => ({}) } as DOMRect;
+    const { words, tooltip } = prepareGeometry(parentRect);
+    words[0].dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    tick(20);
+    expect(tooltip.parentElement).toBe(document.body);
+    const localLeft = Number.parseFloat(component.tooltipStyle['left']);
+    const localTop = Number.parseFloat(component.tooltipStyle['top']);
+    const viewportLeft = localLeft + parentRect.left;
+    const viewportTop = localTop + parentRect.top;
+    expect(localLeft).not.toBe(viewportLeft);
+    expect(localTop).not.toBe(viewportTop);
+    expect(viewportLeft).toBeGreaterThanOrEqual(18);
+    expect(viewportLeft + tooltip.offsetWidth).toBeLessThanOrEqual(402);
+    expect(viewportTop).toBeGreaterThanOrEqual(18);
+    expect(viewportTop + tooltip.offsetHeight).toBeLessThanOrEqual(302);
+  }));
 
   it('opens and closes without changing scroll position, overflow, or viewport dimensions', fakeAsync(() => {
     const { container, words } = prepareGeometry();
     container.style.overflowY = 'auto';
-    container.scrollTop = 75;
+    let scrollTop = 75;
+    Object.defineProperty(container, 'scrollTop', { configurable: true, get: () => scrollTop, set: (value) => { scrollTop = value; } });
     const before = container.getBoundingClientRect();
     words[0].dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
     tick(20);
@@ -119,7 +143,7 @@ describe('TokenizedTranscript tooltip stability', () => {
     expect(component.tooltipText).toContain('COH');
     expect(component.tooltipText).not.toContain('DEV');
     expect(component.tooltipStyle['visibility']).toBe('visible');
-    expect(fixture.nativeElement.querySelectorAll('.transcript-tooltip').length).toBe(1);
+    expect(document.body.querySelectorAll('.transcript-tooltip').length).toBe(1);
   }));
 
   it('repositions safely on scroll and resize and closes with Escape', fakeAsync(() => {
@@ -128,9 +152,33 @@ describe('TokenizedTranscript tooltip stability', () => {
     tick(20);
     expect(() => container.dispatchEvent(new Event('scroll'))).not.toThrow();
     expect(() => component.onWindowResize()).not.toThrow();
+    expect(() => component.onWindowScroll()).not.toThrow();
     tick(20);
     component.onEscape();
     expect(component.activeWordId).toBeNull();
     expect(component.tooltipStyle['display']).toBe('none');
+  }));
+
+  it('clamps edge placements without increasing horizontal overflow', fakeAsync(() => {
+    const { container, words } = prepareGeometry();
+    const beforeWidth = document.documentElement.scrollWidth;
+    (words[0].getBoundingClientRect as jasmine.Spy).and.returnValue({ left: 398, top: 292, right: 410,
+      bottom: 310, width: 12, height: 18, x: 398, y: 292, toJSON: () => ({}) } as DOMRect);
+    words[0].dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    tick(20);
+    const left = Number.parseFloat(component.tooltipStyle['left']);
+    expect(left).toBeGreaterThanOrEqual(18);
+    expect(left + 180).toBeLessThanOrEqual(402);
+    expect(document.documentElement.scrollWidth).toBe(beforeWidth);
+    expect(container.getBoundingClientRect().width).toBe(400);
+  }));
+
+  it('preserves pen activation and outside-click closing', fakeAsync(() => {
+    const { words } = prepareGeometry();
+    words[0].dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'pen', bubbles: true }));
+    tick(20);
+    expect(component.activeWordId).toBe('1');
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'mouse', bubbles: true }));
+    expect(component.activeWordId).toBeNull();
   }));
 });
