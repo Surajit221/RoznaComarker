@@ -295,7 +295,7 @@
   background: rgba(15, 23, 42, .34);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   .document-skeleton { padding: 14px; }
   .document-skeleton__page { width: 100%; min-height: 88%; padding: 24px 20px; }
   .correction-overlay__marker {

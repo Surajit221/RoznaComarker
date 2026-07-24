@@ -1,0 +1,75 @@
+/* Base styles */
+:host {
+  display: block;
+}
+
+.legend-container {
+  position: relative;
+}
+
+.legend-close-btn {
+  display: none;
+}
+
+/* Mobile bottom sheet styles - applied when parent adds mobile-bottom-sheet class */
+:host(.mobile-bottom-sheet) {
+  .legend-container {
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    max-height: 75dvh;
+    max-height: min(75dvh, 600px);
+    overflow-y: auto;
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    animation: slideUp 0.3s ease-out;
+    padding-top: 48px;
+  }
+
+  .legend-close-btn {
+    display: flex;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 50%;
+    font-size: 18px;
+    font-weight: bold;
+    color: #374151;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.2s;
+  }
+
+  .legend-close-btn:hover {
+    background: #e5e7eb;
+  }
+
+  .legend-close-btn:active {
+    background: #d1d5db;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* The submission pages use their compact layout through 1024px. */
+@media (min-width: 1025px) {
+  .legend-close-btn {
+    display: none;
+  }
+}

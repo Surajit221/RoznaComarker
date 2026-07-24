@@ -9,7 +9,7 @@
     <div class="mb-6 flex flex-row justify-between items-center">
       <h1 class="text-4xl text-center font-bold text-gray-800">Your Submissions</h1>
       <div class="flex flex-row gap-2">
-        <button type="button" class="btn-info" (click)="scrollToAiFeedback()">View AI Feedback</button>
+        <button type="button" class="btn-info" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
         <button type="button" class="btn-primary" [disabled]="isPdfDownloading" (click)="downloadPdf()">
           @if (isPdfDownloading) {
           <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
@@ -303,7 +303,7 @@
     <div class="flex flex-col gap-4" id="ai-feedback-section">
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
         <div class="flex flex-row justify-between items-center">
-          <p class="text-2xl font-bold">AI Feedback</p>
+          <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
           <button class="btn-warning w-fit" (click)="openRubricDialog()">View Rubric</button>
         </div>
         <div class="flex flex-col gap-3">
@@ -363,7 +363,7 @@
     <app-app-bar-back-button [title]="classTitle" (back)="toBack()"></app-app-bar-back-button>
 
     <div class="w-full flex justify-between gap-2 mb-5">
-      <button type="button" class="btn-info-sm" (click)="scrollToAiFeedback()">View AI Feedback</button>
+      <button type="button" class="btn-info-sm" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
       <button type="button" class="btn-primary-sm" [disabled]="isPdfDownloading" (click)="downloadPdf()">
         @if (isPdfDownloading) {
         <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
@@ -399,10 +399,10 @@
           <div class="main-preview w-full rounded-2xl overflow-visible bg-gray-50
             max-h-[85vh] flex items-center justify-center">
 
-            <div class="w-full h-full flex items-center justify-center p-2">
-              <app-correction-overlay class="max-w-full max-h-full" [imageUrl]="submissionFileUrls[activeFileIndex] || null"
+            <div class="compact-uploaded-image w-full h-full flex flex-col items-center justify-center p-2">
+              <app-correction-overlay class="w-full max-w-full max-h-full" [imageUrl]="submissionFileUrls[activeFileIndex] || null"
                 [annotations]="annotations" alt="Submission image"></app-correction-overlay>
-              <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
+              <button type="button" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" (click)="openMobileLegend()">View correction legend</button>
             </div>
 
           </div>
@@ -469,6 +469,7 @@
                 }
                 }
               </div>
+              <button type="button" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" (click)="openMobileLegend()">View correction legend</button>
               }
               }
             </div>
@@ -636,7 +637,7 @@
       <div class="flex flex-col gap-4" id="ai-feedback-section-mobile">
         <div class="w-full bg-white p-4 rounded-3xl flex flex-col gap-6">
           <div class="flex flex-row justify-between items-center">
-            <p class="text-2xl font-bold">AI Feedback</p>
+            <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
             <button class="btn-warning-sm w-fit" (click)="openRubricDialog()">View Rubric</button>
           </div>
           <div class="flex flex-col gap-3">
@@ -763,5 +764,14 @@
       }
     </div>
   </app-modal-dialog>
+
+  <!-- Mobile Legend Bottom Sheet -->
+  @if (isMobileLegendOpen) {
+  <div class="mobile-legend-backdrop" (click)="closeMobileLegend()" role="presentation">
+    <div class="mobile-legend-sheet" role="dialog" aria-modal="true" aria-label="Correction legend" (click)="$event.stopPropagation()">
+      <app-writing-corrections-legend class="mobile-bottom-sheet" [legend]="writingCorrectionsLegend" (closeRequested)="closeMobileLegend()"></app-writing-corrections-legend>
+    </div>
+  </div>
+  }
 
 </ng-container>

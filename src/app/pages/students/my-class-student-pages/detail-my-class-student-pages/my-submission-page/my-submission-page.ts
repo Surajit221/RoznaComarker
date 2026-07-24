@@ -56,6 +56,8 @@ export class MySubmissionPage {
   isUploadedFile = true;
   device = inject(DeviceService);
   activeTab = 'uploaded-file';
+  isMobileLegendOpen = false;
+  private legendTrigger: HTMLElement | null = null;
 
   private route = inject(ActivatedRoute);
   private submissionApi = inject(SubmissionApiService);
@@ -363,6 +365,18 @@ export class MySubmissionPage {
     const d = raw ? new Date(raw) : null;
     if (!d || Number.isNaN(d.getTime())) return '';
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  openMobileLegend(): void {
+    this.legendTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.isMobileLegendOpen = true;
+  }
+
+  closeMobileLegend(): void {
+    this.isMobileLegendOpen = false;
+    const trigger = this.legendTrigger;
+    this.legendTrigger = null;
+    queueMicrotask(() => trigger?.focus());
   }
 
   isOcrPolling = false;
@@ -746,6 +760,16 @@ export class MySubmissionPage {
   }
   get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
     ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
+  get evaluationFeedbackHeading(): string {
+    const state = this.canonicalResultState;
+    if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
+    if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
+    if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
+    return 'Provisional Automated Evaluation';
+  }
+  get evaluationFeedbackButtonLabel(): string {
+    return this.canonicalResultState?.evaluationSource === 'ai' ? 'View AI-assisted Evaluation' : 'View Evaluation';
+  }
 
   get contentIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'content'); }
   get grammarIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'grammar'); }

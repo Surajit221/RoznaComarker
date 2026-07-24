@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, Output, inject } from '@angular/core';
 
 import type { CorrectionLegend } from '../../models/correction-legend.model';
 
@@ -9,8 +9,31 @@ import type { CorrectionLegend } from '../../models/correction-legend.model';
   templateUrl: './writing-corrections-legend.html',
   styleUrl: './writing-corrections-legend.css'
 })
-export class WritingCorrectionsLegendComponent {
+export class WritingCorrectionsLegendComponent implements AfterViewInit {
+  private readonly host = inject(ElementRef<HTMLElement>);
   @Input() legend: CorrectionLegend | null = null;
+  @Output() closeRequested = new EventEmitter<void>();
+
+  ngAfterViewInit(): void {
+    if (this.isDialog()) {
+      queueMicrotask(() => ((this.host.nativeElement as HTMLElement).querySelector('.legend-close-btn') as HTMLButtonElement | null)?.focus());
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscape(event: Event): void {
+    if (!this.isDialog()) return;
+    event.preventDefault();
+    this.closeLegend();
+  }
+
+  closeLegend(): void {
+    this.closeRequested.emit();
+  }
+
+  private isDialog(): boolean {
+    return this.host.nativeElement.classList.contains('mobile-bottom-sheet');
+  }
 
   toRgba(color: string | null | undefined, alpha: number): string {
     const c = typeof color === 'string' ? color.trim() : '';

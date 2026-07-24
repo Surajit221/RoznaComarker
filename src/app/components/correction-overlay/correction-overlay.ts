@@ -18,6 +18,7 @@ import {
 
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrBBox } from '../../models/ocr-token.model';
+import { DeviceService } from '../../services/device.service';
 
 type TooltipPlacement = 'right' | 'left' | 'bottom' | 'top' | 'mobile';
 
@@ -66,6 +67,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   displayImageUrl: string | null = null;
 
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly device = inject(DeviceService);
   private imageWidth = 0;
   private imageHeight = 0;
   private tooltipTarget: HTMLElement | null = null;
@@ -356,7 +358,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private updateResponsiveMode(): void {
-    const next = typeof window !== 'undefined' && window.innerWidth < 768;
+    const next = this.device.isCompact();
     if (next !== this.isMobile) {
       this.isMobile = next;
       this.cdr.markForCheck();

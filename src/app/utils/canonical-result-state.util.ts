@@ -6,10 +6,14 @@ export interface CanonicalResultViewState {
   submissionId: string | null;
   correctionStatus: ResultStatus;
   statisticsStatus: 'processing' | 'partial' | 'complete' | 'failed';
-  statisticsCompleteness: 'none' | 'language_only' | 'canonical';
+  statisticsCompleteness: 'none' | 'language_only' | 'semantic_only' | 'canonical';
   categoryAvailability: Record<CanonicalCategory, Availability>;
   statistics: Record<CanonicalCategory, number | null>;
   evaluationStatus: ResultStatus;
+  evaluationSource: 'ai' | 'deterministic_fallback' | 'provisional' | null;
+  evaluationVersion: string | null;
+  assessmentVersion: string | null;
+  evaluationErrorCode: string | null;
   score: number | null;
   grade: string | null;
   scoreMessage: string;
@@ -46,7 +50,7 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
   const submissionId = typeof value.submissionId === 'string' && value.submissionId.trim()
     ? value.submissionId.trim() : previous?.submissionId || null;
   const correctionStatus = status(value.correctionStatus, previous?.correctionStatus || 'pending');
-  const completeness = value.statisticsCompleteness === 'canonical' || value.statisticsCompleteness === 'language_only'
+  const completeness = value.statisticsCompleteness === 'canonical' || value.statisticsCompleteness === 'language_only' || value.statisticsCompleteness === 'semantic_only'
     ? value.statisticsCompleteness : correctionStatus === 'completed' ? 'canonical' : ['processing', 'partial'].includes(correctionStatus) ? 'language_only' : 'none';
   const rawAvailability = value.categoryAvailability || {};
   const availability = {} as Record<CanonicalCategory, Availability>;
@@ -61,6 +65,8 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
   }
   const prerequisiteFailed = ['partial', 'failed', 'stale'].includes(correctionStatus);
   const evaluationStatus = prerequisiteFailed ? 'blocked' : status(value.evaluationStatus, previous?.evaluationStatus || 'pending');
+  const rawSource = value.evaluationSource ?? value.evaluation?.evaluationSource ?? previous?.evaluationSource ?? null;
+  const evaluationSource = ['ai', 'deterministic_fallback', 'provisional'].includes(String(rawSource)) ? rawSource as any : null;
   const score = evaluationStatus === 'completed' ? finite(value.score ?? value.overallScore ?? value.evaluation?.overallScore) : null;
   const grade = evaluationStatus === 'completed' && typeof (value.grade ?? value.evaluation?.grade) === 'string'
     ? String(value.grade ?? value.evaluation?.grade) : null;
@@ -100,6 +106,12 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     categoryAvailability: availability,
     statistics,
     evaluationStatus,
+    evaluationSource,
+    evaluationVersion: typeof (value.evaluationVersion ?? value.evaluation?.evaluationVersion) === 'string'
+      ? String(value.evaluationVersion ?? value.evaluation?.evaluationVersion) : previous?.evaluationVersion || null,
+    assessmentVersion: typeof (value.assessmentVersion ?? value.evaluation?.assessmentVersion) === 'string'
+      ? String(value.assessmentVersion ?? value.evaluation?.assessmentVersion) : previous?.assessmentVersion || null,
+    evaluationErrorCode: typeof value.evaluationErrorCode === 'string' ? value.evaluationErrorCode : previous?.evaluationErrorCode || null,
     score,
     grade,
     scoreMessage,
