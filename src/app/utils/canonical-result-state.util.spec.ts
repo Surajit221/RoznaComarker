@@ -19,6 +19,18 @@ describe('canonical result normalization', () => {
     expect(completed.grade).toBe('F');
   });
 
+  it('exposes AI versus provisional evaluation source metadata', () => {
+    const ai = normalizeCanonicalResult({ evaluationStatus: 'completed', evaluationSource: 'ai',
+      assessmentVersion: 'writing-rubric-100-v2', evaluationVersion: 'canonical-evaluation-2', overallScore: 82, grade: 'B' });
+    expect(ai.evaluationSource).toBe('ai');
+    expect(ai.assessmentVersion).toBe('writing-rubric-100-v2');
+    const provisional = normalizeCanonicalResult({ evaluationStatus: 'failed', evaluationSource: 'provisional',
+      evaluationErrorCode: 'SEMANTIC_RUBRIC_SOURCE_MISMATCH' });
+    expect(provisional.evaluationSource).toBe('provisional');
+    expect(provisional.evaluationErrorCode).toBe('SEMANTIC_RUBRIC_SOURCE_MISMATCH');
+    expect(provisional.score).toBeNull();
+  });
+
   it('does not regress an authoritative completed feedback response with a stale processing submission DTO', () => {
     const completed = normalizeCanonicalResult({ submissionId: 'submission-1', correctionStatus: 'completed',
       correctionSourceHash: 'hash', evaluationStatus: 'completed', evaluationSourceHash: 'hash', overallScore: 88,

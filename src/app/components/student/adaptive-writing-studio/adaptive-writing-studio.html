@@ -19,6 +19,7 @@
         @if (state === 'generating') { <span class="spinner" aria-hidden="true"></span> }
         {{ generateLabel }}
       </button>
+      <p class="eligibility-message" [attr.data-reason]="eligibilityReason">{{ eligibilityMessage }}</p>
     </div>
   </header>
 
@@ -55,7 +56,7 @@
     @if (state === 'error') {
       <div class="error-panel" role="alert">
         <p>{{ errorMessage }}</p>
-        @if (canGenerate) { <button type="button" class="secondary-button" (click)="retry()">Try Again</button> }
+        @if (eligibilityReason === 'RETRYABLE_FAILURE') { <button type="button" class="secondary-button" (click)="retry()">Try Again</button> }
       </div>
     }
   </div>

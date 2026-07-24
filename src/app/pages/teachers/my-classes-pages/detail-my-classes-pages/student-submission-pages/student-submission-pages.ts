@@ -261,6 +261,8 @@ export class StudentSubmissionPages {
 
 
   activeTab = 'uploaded-file';
+  isMobileLegendOpen = false;
+  private legendTrigger: HTMLElement | null = null;
 
 
 
@@ -629,6 +631,18 @@ export class StudentSubmissionPages {
     } finally {
       this.isRubricUploading = false;
     }
+  }
+
+  openMobileLegend(): void {
+    this.legendTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.isMobileLegendOpen = true;
+  }
+
+  closeMobileLegend(): void {
+    this.isMobileLegendOpen = false;
+    const trigger = this.legendTrigger;
+    this.legendTrigger = null;
+    queueMicrotask(() => trigger?.focus());
   }
 
 
@@ -2194,6 +2208,13 @@ export class StudentSubmissionPages {
   }
   get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
     ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
+  get evaluationFeedbackHeading(): string {
+    const state = this.canonicalResultState;
+    if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
+    if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
+    if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
+    return 'Provisional Automated Evaluation';
+  }
 
   get contentIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'content'); }
   get grammarIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'grammar'); }
@@ -3041,7 +3062,6 @@ export class StudentSubmissionPages {
 
 
     console.log('Generate AI clicked for', submission._id);
-    console.log('Generating dynamic AI Feedback for submission', submission._id);
     this.isLoading = true;
     try {
       const updatedFeedback: SubmissionFeedback = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);

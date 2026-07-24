@@ -11,6 +11,7 @@ import {
   type AdaptivePracticeAttempt,
   type AdaptivePracticeProgress,
   type AdaptivePracticeSessionResponse,
+  type AdaptiveEligibilityReason,
   type AdaptiveSkillScore,
   type AdaptiveSkillStatus,
   type AdaptiveStudioState,
@@ -79,6 +80,7 @@ export class AdaptiveWritingStudio {
   activities: readonly AdaptivePracticeActivity[] = [];
   state: AdaptiveStudioState = 'idle';
   errorMessage = '';
+  private retryableFailure = false;
   responses: Readonly<Record<string, string>> = {};
   expandedModels: ReadonlySet<string> = new Set<string>();
   pendingMessages: Readonly<Record<string, string>> = {};
@@ -96,12 +98,38 @@ export class AdaptiveWritingStudio {
   }
 
   get assessedSkillCount(): number { return this.normalizedSkills.filter((skill) => skill.percentage !== null).length; }
-  get canGenerate(): boolean {
+  get eligibilityReason(): AdaptiveEligibilityReason {
     const canonical = this.canonicalResultState;
-    return Boolean(this.submissionId && canonical && canonical.evaluationStatus === 'completed'
-      && canonical.semanticStatus === 'completed' && !canonical.processingActive
-      && canonical.correctionSourceHash && canonical.evaluationSourceHash === canonical.correctionSourceHash
-      && this.weakSkills.length > 0 && !['generating', 'generated'].includes(this.state));
+    if (!this.submissionId) return 'NO_SUBMISSION';
+    if (this.state === 'generating') return 'GENERATING';
+    if (this.state === 'generated') return 'ALREADY_GENERATED';
+    if (this.state === 'error') return this.retryableFailure ? 'RETRYABLE_FAILURE' : 'NON_RETRYABLE_FAILURE';
+    if (!canonical || canonical.processingActive || ['pending', 'processing'].includes(canonical.evaluationStatus)
+      || ['pending', 'processing'].includes(canonical.semanticStatus)) return 'ANALYSIS_PROCESSING';
+    if (canonical.semanticStatus === 'failed' || ['failed', 'blocked'].includes(canonical.evaluationStatus)) return 'SEMANTIC_FAILED';
+    if (!canonical.correctionSourceHash || canonical.evaluationStatus !== 'completed'
+      || canonical.evaluationSourceHash !== canonical.correctionSourceHash) return 'STALE_EVALUATION';
+    if (!this.weakSkills.length) return 'NO_WEAK_SKILLS';
+    return 'READY';
+  }
+
+  get eligibilityMessage(): string {
+    return ({
+      NO_SUBMISSION: 'A submission is required before practice can be generated.',
+      ANALYSIS_PROCESSING: 'Practice will be available after writing analysis completes.',
+      SEMANTIC_FAILED: 'Practice is unavailable because semantic writing analysis failed.',
+      STALE_EVALUATION: 'Practice is unavailable until the evaluation matches the latest corrections.',
+      NO_WEAK_SKILLS: this.assessedSkillCount ? 'No weak skills currently require adaptive practice.' : 'No assessed skills are available yet.',
+      READY: 'Your current writing analysis is ready for personalized practice.',
+      GENERATING: 'A single practice generation job is in progress.',
+      ALREADY_GENERATED: 'Your generated practice is ready below.',
+      RETRYABLE_FAILURE: this.errorMessage || 'Generation failed temporarily. You can try again.',
+      NON_RETRYABLE_FAILURE: this.errorMessage || 'Practice cannot be generated for this submission.'
+    } satisfies Record<AdaptiveEligibilityReason, string>)[this.eligibilityReason];
+  }
+
+  get canGenerate(): boolean {
+    return this.eligibilityReason === 'READY';
   }
 
   get generateLabel(): string {
@@ -124,6 +152,7 @@ export class AdaptiveWritingStudio {
       return;
     }
     this.state = 'generating';
+    this.retryableFailure = false;
     this.errorMessage = '';
     const version = ++this.requestVersion;
     this.requestSubscription?.unsubscribe();
@@ -134,9 +163,10 @@ export class AdaptiveWritingStudio {
   }
 
   retry(): void {
-    if (!this.canGenerate) return;
+    if (this.eligibilityReason !== 'RETRYABLE_FAILURE') return;
     this.retryPractice.emit(this.submissionId);
     this.state = 'generating';
+    this.retryableFailure = false;
     const version = ++this.requestVersion;
     this.requestSubscription?.unsubscribe();
     this.requestSubscription = this.api.retryGeneration(this.submissionId).subscribe({
@@ -209,11 +239,13 @@ export class AdaptiveWritingStudio {
       this.activities = response.session.activities.map((activity) => ({ ...activity, id: activity.activityId, isDevelopmentPreview: false }));
       this.applyProgress(response.progress);
       this.state = 'generated';
+      this.retryableFailure = false;
     } else if (response.state === 'generating') {
       this.state = 'generating';
       this.schedulePoll(version);
     } else if (response.state === 'failed') {
       this.state = 'error';
+      this.retryableFailure = true;
       this.errorMessage = response.session?.generation?.errorMessage || 'Adaptive practice could not be generated. Please try again.';
     } else if (response.state === 'no-weaknesses') {
       this.state = this.skillSummaryState();
@@ -243,11 +275,13 @@ export class AdaptiveWritingStudio {
     if (version !== this.requestVersion) return;
     const value = error as { status?: number; error?: { message?: string } };
     if (value?.status === 202) {
-      this.state = 'waiting_for_analysis';
+      this.state = 'generating';
       this.errorMessage = '';
+      this.schedulePoll(version);
     } else {
       this.state = 'error';
       this.errorMessage = value?.error?.message || 'Adaptive practice is temporarily unavailable.';
+      this.retryableFailure = value?.status === 429 || !value?.status || value.status >= 500;
     }
     this.cdr.markForCheck();
   }
@@ -278,6 +312,7 @@ export class AdaptiveWritingStudio {
     this.checkErrors = {};
     this.progress = { improvedActivities: 0, totalActivities: 0, percentage: 0, activities: [] };
     this.errorMessage = '';
+    this.retryableFailure = false;
     this.state = this.skillSummaryState();
   }
   private cancelAsyncWork(): void { this.requestSubscription?.unsubscribe(); this.requestSubscription = null; this.checkSubscriptions.forEach((subscription) => subscription.unsubscribe()); this.checkSubscriptions.clear(); this.checkPollTimers.forEach((timer) => clearTimeout(timer)); this.checkPollTimers.clear(); this.checkPollCounts.clear(); this.clearTimer(); }

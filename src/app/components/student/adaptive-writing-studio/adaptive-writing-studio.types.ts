@@ -4,6 +4,17 @@ export type AdaptiveSkillId = 'task' | 'coherence' | 'lexical' | 'grammar' | 'me
 export type AdaptiveRubricSkillId = 'CONTENT' | 'ORGANIZATION' | 'VOCABULARY' | 'GRAMMAR' | 'MECHANICS';
 export type AdaptiveSkillStatus = 'priority' | 'needs-practice' | 'on-track' | 'not-assessed';
 export type AdaptiveStudioState = 'idle' | 'generating' | 'generated' | 'error' | 'no-weaknesses' | 'unassessed' | 'waiting_for_analysis';
+export type AdaptiveEligibilityReason =
+  | 'NO_SUBMISSION'
+  | 'ANALYSIS_PROCESSING'
+  | 'SEMANTIC_FAILED'
+  | 'STALE_EVALUATION'
+  | 'NO_WEAK_SKILLS'
+  | 'READY'
+  | 'GENERATING'
+  | 'ALREADY_GENERATED'
+  | 'RETRYABLE_FAILURE'
+  | 'NON_RETRYABLE_FAILURE';
 
 export interface AdaptiveSkillScore {
   id: AdaptiveSkillId;
