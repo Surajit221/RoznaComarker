@@ -307,13 +307,13 @@
   }
 
   .correction-overlay__tooltip.is-mobile {
-    inset: auto 8px 8px;
+    inset: auto 8px max(8px, env(safe-area-inset-bottom));
     width: auto;
     border-radius: 18px;
   }
 
   .correction-overlay__tooltip.is-mobile .correction-overlay__tooltip-card {
-    max-height: min(70vh, 520px);
+    max-height: min(70dvh, 520px);
     border-radius: 18px;
     box-shadow: 0 -8px 28px rgba(15, 23, 42, .2);
   }

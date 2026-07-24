@@ -74,6 +74,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private positionFrame: number | null = null;
   private readonly documentScrollHandler = (): void => this.schedulePosition();
+  private previousScrollY = 0;
+  private originalBodyStyle = '';
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['imageUrl']) {
@@ -99,6 +101,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     document.removeEventListener('scroll', this.documentScrollHandler, true);
     this.resizeObserver?.disconnect();
     if (this.positionFrame !== null) cancelAnimationFrame(this.positionFrame);
+    this.unlockBodyScroll();
   }
 
   onImageLoad(event: Event): void {
@@ -297,6 +300,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.isPinned = pinned || this.isMobile;
     this.tooltipStyle = { visibility: 'hidden', left: '-10000px', top: '-10000px' };
     this.cdr.markForCheck();
+    if (this.isMobile) {
+      this.lockBodyScroll();
+    }
     this.schedulePosition();
   }
 
@@ -366,10 +372,14 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private closeTooltip(): void {
+    const wasMobile = this.isMobile && this.activeMarker !== null;
     this.activeMarker = null;
     this.isPinned = false;
     this.tooltipTarget = null;
     this.tooltipStyle = { visibility: 'hidden' };
+    if (wasMobile) {
+      this.unlockBodyScroll();
+    }
     this.cdr.markForCheck();
   }
 
@@ -412,5 +422,26 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.mediaState = state;
     this.mediaStateChange.emit(state);
     this.cdr.markForCheck();
+  }
+
+  private lockBodyScroll(): void {
+    this.previousScrollY = window.scrollY;
+    this.originalBodyStyle = document.body.style.cssText || '';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${this.previousScrollY}px`;
+    document.body.style.width = '100%';
+  }
+
+  private unlockBodyScroll(): void {
+    if (this.originalBodyStyle !== '') {
+      document.body.style.cssText = this.originalBodyStyle;
+    } else {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    }
+    window.scrollTo(0, this.previousScrollY);
+    this.previousScrollY = 0;
+    this.originalBodyStyle = '';
   }
 }
