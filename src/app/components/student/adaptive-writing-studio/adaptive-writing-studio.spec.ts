@@ -98,6 +98,18 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.canGenerate).toBeFalse();
   });
 
+  it('becomes eligible when the canonical input reconciles from evaluation processing to completed', () => {
+    component.canonicalResultState = { ...currentCanonical, evaluationStatus: 'processing',
+      detailedFeedbackStatus: 'processing', processingActive: true, automaticPollingAllowed: true, terminal: false };
+    fixture.detectChanges();
+    expect(component.canGenerate).toBeFalse();
+
+    component.canonicalResultState = { ...currentCanonical, evaluationStatus: 'completed',
+      detailedFeedbackStatus: 'completed', processingActive: false, automaticPollingAllowed: false, terminal: true };
+    fixture.detectChanges();
+    expect(component.canGenerate).toBeTrue();
+  });
+
   it('does not mutate score inputs and marks missing scores not assessed', () => {
     const snapshot = JSON.stringify(skills);
     component.startGeneration();

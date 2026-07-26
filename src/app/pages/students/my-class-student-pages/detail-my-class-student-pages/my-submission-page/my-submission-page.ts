@@ -23,10 +23,12 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 import type { OcrWord } from '../../../../../models/ocr-token.model';
 import type { CorrectionLegend } from '../../../../../models/correction-legend.model';
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
+import { buildCanonicalWritingIssues } from '../../../../../utils/canonical-writing-corrections-display.util';
 import { applyLegendToAnnotations, applyLegendToIssues } from '../../../../../utils/correction-legend-mapping.util';
 import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
+import { submissionPdfErrorMessage } from '../../../../../utils/pdf-download-error.util';
 import { formatGradingDisplay, type GradingScale } from '../../../../../utils/grading-display.util';
 import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-legend.default';
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
@@ -35,9 +37,9 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
-import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
-import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
+import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
@@ -471,16 +473,21 @@ export class MySubmissionPage {
     void this.setUploadedFileUrl(this.activeFileUrlRaw);
 
     this.annotations = [];
+    this.canonicalWritingCorrections = [];
     this.recomputeLegendAligned();
     this.rebuildOcrWords();
 
     const submissionId = this.submission?._id;
     if (submissionId) {
-      void this.loadOcrCorrections(submissionId);
+      void this.loadOcrCorrections(submissionId).then(() => {
+        this.rebuildHighlightedTranscript();
+        return this.refreshWritingCorrections();
+      });
+    } else {
+      void this.refreshWritingCorrections();
     }
 
     this.rebuildHighlightedTranscript();
-    void this.refreshWritingCorrections();
   }
 
   get activeOcrPages(): Array<{ fileId?: string; pageNumber?: number; text?: string; words?: any }> {
@@ -570,6 +577,7 @@ export class MySubmissionPage {
   highlightedTranscriptHtml: SafeHtml | null = null;
   writingCorrectionsLegend: CorrectionLegend | null = DEFAULT_CORRECTION_LEGEND;
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
+  private canonicalWritingCorrections: any[] = [];
   writingCorrectionsHtml: SafeHtml | null = null;
   writingCorrectionsError: string | null = null;
   isWritingCorrectionsLoading = false;
@@ -1026,31 +1034,19 @@ export class MySubmissionPage {
       return;
     }
 
-    if (this.lastWritingCorrectionsText === text) {
-      return;
-    }
-
-    if (this.isWritingCorrectionsLoading) {
-      return;
-    }
-
     this.isWritingCorrectionsLoading = true;
     this.writingCorrectionsError = null;
-    this.lastWritingCorrectionsText = text;
 
     try {
       await this.ensureWritingCorrectionsLegendLoaded();
-      const resp = await this.writingCorrectionsApi.check({ text, language: 'en-US' });
-      const rawIssues = Array.isArray(resp?.issues) ? resp.issues : [];
+      const rawIssues = buildCanonicalWritingIssues(text, this.canonicalWritingCorrections);
       this.writingCorrectionsIssues = applyLegendToIssues(rawIssues, this.writingCorrectionsLegend);
       this.recomputeLegendAligned();
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
       this.writingCorrectionsHtml = this.sanitizer.bypassSecurityTrustHtml(html);
       this.lastWritingCorrectionsText = text;
     } catch (err: any) {
-      this.writingCorrectionsIssues = [];
-      this.writingCorrectionsHtml = null;
-      this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to check writing corrections';
+      this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to display persisted writing corrections';
     } finally {
       this.isWritingCorrectionsLoading = false;
     }
@@ -1152,6 +1148,7 @@ export class MySubmissionPage {
       if (success && data) {
         this.canonicalResultState = normalizeCanonicalResult(data, this.canonicalResultState);
         const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
+        this.canonicalWritingCorrections = corrections;
         const statistics = (data as any).statistics;
         if (statistics && ['content','grammar','organization','vocabulary','mechanics','total'].every((key) => Number.isFinite(Number(statistics[key])))) {
           if (this.submission) (this.submission as any).correctionStatistics = { ...statistics };
@@ -1321,7 +1318,7 @@ export class MySubmissionPage {
       const blob = await this.pdfApi.downloadSubmissionPdf(submissionId);
       triggerBlobDownload(blob, { filename: 'submission-feedback.pdf', mimeType: 'application/pdf' });
     } catch (err: any) {
-      this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+      this.alert.showError('Failed to generate PDF', await submissionPdfErrorMessage(err));
     } finally {
       this.isPdfDownloading = false;
     }
@@ -1633,7 +1630,7 @@ export class MySubmissionPage {
           this.feedback = fb;
           this.adaptiveSkillScores = this.buildAdaptiveSkillScores(fb);
           console.log('STUDENT FEEDBACK LOADED:', fb);
-          this.teacherComment = typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : null;
+          this.teacherComment = typeof fb?.teacherComments === 'string' ? fb.teacherComments : null;
 
           this.feedbackForm.patchValue({
             message: this.teacherComment || ''
@@ -1682,7 +1679,7 @@ export class MySubmissionPage {
     }
 
     const result = this.canonicalResultState;
-    if ((result && result.processingActive && result.automaticPollingAllowed && !result.terminal)
+    if ((result && shouldPollCanonicalResult(result))
       || (!result && ['pending', 'processing'].includes(this.submission.ocrStatus || 'pending'))
       || (this.submission.ocrStatus === 'completed' && !this.hasLoadedOcrCorrections)) {
       this.startOcrPolling();
@@ -1729,7 +1726,7 @@ export class MySubmissionPage {
       this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
       canonicalFeedbackLoaded = true;
       this.adaptiveSkillScores = this.buildAdaptiveSkillScores(feedback);
-      this.teacherComment = typeof feedback?.aiFeedback?.overallComments === 'string' ? feedback.aiFeedback.overallComments : null;
+      this.teacherComment = typeof feedback?.teacherComments === 'string' ? feedback.teacherComments : null;
       this.feedbackForm.patchValue({ message: this.teacherComment || '' });
     } catch (error: any) {
       if (![404, 202, 409, 429].includes(Number(error?.status))) throw error;
@@ -1890,10 +1887,17 @@ export class MySubmissionPage {
     if (!submissionId || this.isRetryingAnalysis || !this.canonicalResultState?.manualRetryAllowed) return;
     this.isRetryingAnalysis = true;
     try {
-      await this.submissionApi.regenerateCanonicalCorrections(submissionId);
-      this.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'processing', correctionStage: 'semantic',
+      const evaluationOnly = shouldRetryEvaluationOnly(this.canonicalResultState);
+      if (evaluationOnly) await this.submissionApi.retryCanonicalEvaluation(submissionId);
+      else await this.submissionApi.regenerateCanonicalCorrections(submissionId);
+      this.canonicalResultState = normalizeCanonicalResult(evaluationOnly ? {
+        correctionStatus: 'completed', correctionStage: 'complete', semanticStatus: 'completed',
         processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
-        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' }, this.canonicalResultState);
+        evaluationStatus: 'processing', detailedFeedbackStatus: 'processing'
+      } : { correctionStatus: 'processing', correctionStage: 'semantic',
+        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' },
+      this.canonicalResultState);
       this.scoreState = 'processing';
       this.aiFeedbackState = 'processing';
       this.feedbackState = 'processing';

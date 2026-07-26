@@ -187,4 +187,11 @@ export class SubmissionApiService {
     const apiBaseUrl = this.getApiBaseUrl();
     await firstValueFrom(this.http.post(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections/regenerate`, {}));
   }
+
+  async retryCanonicalEvaluation(submissionId: string): Promise<void> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    await firstValueFrom(this.http.post(
+      `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/evaluation/retry`, {}
+    ));
+  }
 }

@@ -24,6 +24,13 @@ type BackendResponse<T> = {
   message?: string;
 };
 
+export interface TeacherCommentResponse {
+  submissionId: string;
+  teacherComments: string;
+  teacherCommentsUpdatedAt: string;
+  teacherCommentsUpdatedBy: string;
+}
+
 export type BackendFeedback = {
   _id: string;
   teacher: any;
@@ -107,6 +114,17 @@ export class FeedbackApiService {
       this.http.put<BackendResponse<SubmissionFeedback>>(
         `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}`,
         payload
+      )
+    );
+    return resp.data;
+  }
+
+  async updateTeacherComments(submissionId: string, teacherComments: string): Promise<TeacherCommentResponse> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.patch<BackendResponse<TeacherCommentResponse>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/teacher-comments`,
+        { teacherComments }
       )
     );
     return resp.data;

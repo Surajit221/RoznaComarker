@@ -1,6 +1,13 @@
-import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult } from './canonical-result-state.util';
+import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
+  it('selects evaluation-only retry only when canonical corrections remain current', () => {
+    const evaluationFailed = normalizeCanonicalResult({ correctionStatus: 'completed', semanticStatus: 'completed',
+      evaluationStatus: 'failed', manualRetryAllowed: true });
+    expect(shouldRetryEvaluationOnly(evaluationFailed)).toBeTrue();
+    expect(shouldRetryEvaluationOnly(normalizeCanonicalResult({ correctionStatus: 'failed',
+      semanticStatus: 'failed', evaluationStatus: 'blocked' }))).toBeFalse();
+  });
   it('keeps semantic categories pending while language results remain visible', () => {
     const state = normalizeCanonicalResult({ correctionStatus: 'processing', statisticsCompleteness: 'language_only',
       statistics: { content: 0, grammar: 9, organization: 0, vocabulary: 0, mechanics: 6 } });

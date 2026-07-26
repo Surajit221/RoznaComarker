@@ -56,6 +56,8 @@ export interface SubmissionFeedback {
 
   overallComments?: string;
   teacherComments?: string;
+  teacherCommentsUpdatedAt?: string;
+  teacherCommentsUpdatedBy?: string;
 
   assessmentVersion?: string;
   maxOverallScore: number;

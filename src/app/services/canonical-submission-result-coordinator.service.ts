@@ -20,6 +20,13 @@ type Refresh = (submissionId: string, requestSequence: number) => Promise<Result
 
 const DELAYS = [0, 1200, 2000, 3000, 5000];
 
+export function shouldPollCanonicalResult(c: CanonicalResultViewState): boolean {
+  const activeStage = ['pending', 'processing', 'retry_wait'].includes(c.semanticStatus)
+    || ['pending', 'processing'].includes(c.evaluationStatus)
+    || ['pending', 'processing'].includes(c.detailedFeedbackStatus);
+  return activeStage || ((c.processingActive === true || c.automaticPollingAllowed === true) && c.terminal === false);
+}
+
 @Injectable({ providedIn: 'root' })
 export class CanonicalSubmissionResultCoordinator {
   readonly pollingState$ = new BehaviorSubject<ResultPollingState>({ submissionId: null, attempt: 0, running: false, timedOut: false, lastHttpStatus: null });
@@ -95,8 +102,7 @@ export class CanonicalSubmissionResultCoordinator {
   }
 
   private isActive(snapshot: ResultRefreshSnapshot): boolean {
-    const c = snapshot.canonical;
-    return c.processingActive === true && c.automaticPollingAllowed === true && c.terminal === false;
+    return shouldPollCanonicalResult(snapshot.canonical);
   }
 
   private diagnostic(submissionId: string, requestSequence: number, attempt: number, state: CanonicalResultViewState, httpStatus: number | null, applied: boolean, nextDelay: number): void {
@@ -105,7 +111,7 @@ export class CanonicalSubmissionResultCoordinator {
       correctionStatus: state.correctionStatus, correctionStage: state.correctionStage, processingActive: state.processingActive,
       statisticsStatus: state.statisticsStatus, evaluationStatus: state.evaluationStatus, detailedFeedbackStatus: state.detailedFeedbackStatus,
       terminal: state.terminal, manualRetryAllowed: state.manualRetryAllowed, pollingAttempt: attempt, nextDelay,
-      nextPollingDecision: state.processingActive && state.automaticPollingAllowed && !state.terminal ? 'continue' : 'stop',
+      nextPollingDecision: this.isActive({ submissionId, canonical: state }) ? 'continue' : 'stop',
       pollingReason: state.terminal ? 'terminal' : state.processingActive ? 'backend_processing_active' : 'no_active_backend_job',
       requestState: applied ? 'applied' : 'rejected-stale' });
   }
