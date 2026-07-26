@@ -224,7 +224,15 @@ export class FlashcardEditor implements OnInit, OnDestroy {
   dismissError(): void { this.errorMsg = null; this.cdr.markForCheck(); }
 
   /** TrackBy for card FormArray */
+  trackByControl(_: number, control: AbstractControl): AbstractControl { return control; }
   trackByIndex(index: number): number { return index; }
+
+  get selectedImageUrl(): string {
+    if (this.editingCardIndex === null || !this.editingSide) return '';
+    const cardGroup = this.cardsArray.at(this.editingCardIndex) as FormGroup;
+    const fieldName = this.editingSide === 'front' ? 'frontImage' : 'backImage';
+    return String(cardGroup.get(fieldName)?.value || '');
+  }
 
   /** Open Unsplash modal for image search */
   openUnsplashModal(index: number, side: 'front' | 'back'): void {
@@ -244,6 +252,15 @@ export class FlashcardEditor implements OnInit, OnDestroy {
     }
     this.editingCardIndex = null;
     this.editingSide = null;
+  }
+
+  onUnsplashVisibilityChange(show: boolean): void {
+    this.showUnsplashModal = show;
+    if (!show) {
+      this.editingCardIndex = null;
+      this.editingSide = null;
+    }
+    this.cdr.markForCheck();
   }
 
   /** Handle file upload for image */

@@ -18,7 +18,7 @@ import { CommonModule } from '@angular/common';
 
 
 
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 
 
 
@@ -70,6 +70,7 @@ import type { CorrectionLegend } from '../../../../../models/correction-legend.m
 
 
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
+import { buildCanonicalWritingIssues } from '../../../../../utils/canonical-writing-corrections-display.util';
 
 
 
@@ -79,6 +80,7 @@ import { applyLegendToAnnotations, applyLegendToIssues } from '../../../../../ut
 
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
+import { submissionPdfErrorMessage } from '../../../../../utils/pdf-download-error.util';
 import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 
 
@@ -131,9 +133,9 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
-import { categoryDisplay, normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
-import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
+import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
@@ -217,10 +219,17 @@ export class StudentSubmissionPages {
     if (!submissionId || this.isRetryingAnalysis || !this.canonicalResultState?.manualRetryAllowed) return;
     this.isRetryingAnalysis = true;
     try {
-      await this.submissionApi.regenerateCanonicalCorrections(submissionId);
-      this.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'processing', correctionStage: 'semantic',
+      const evaluationOnly = shouldRetryEvaluationOnly(this.canonicalResultState);
+      if (evaluationOnly) await this.submissionApi.retryCanonicalEvaluation(submissionId);
+      else await this.submissionApi.regenerateCanonicalCorrections(submissionId);
+      this.canonicalResultState = normalizeCanonicalResult(evaluationOnly ? {
+        correctionStatus: 'completed', correctionStage: 'complete', semanticStatus: 'completed',
         processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
-        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' }, this.canonicalResultState);
+        evaluationStatus: 'processing', detailedFeedbackStatus: 'processing'
+      } : { correctionStatus: 'processing', correctionStage: 'semantic',
+        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' },
+      this.canonicalResultState);
       this.scoreState = 'processing';
       this.aiFeedbackState = 'processing';
       this.feedbackState = 'processing';
@@ -1261,9 +1270,9 @@ export class StudentSubmissionPages {
 
       this.hydrateRubricDesignerFromFeedback();
 
-      this.hydrateRubricEditFormFromFeedback();
+      // Keep rubric and evaluation state untouched by a comment-only save.
 
-      this.recomputeRubricFeedbackItems();
+      
 
 
 
@@ -1846,6 +1855,7 @@ export class StudentSubmissionPages {
 
 
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
+  private canonicalWritingCorrections: any[] = [];
 
 
 
@@ -2782,6 +2792,7 @@ export class StudentSubmissionPages {
 
       this.canonicalResultState = normalizeCanonicalResult(data, this.canonicalResultState);
       const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
+      this.canonicalWritingCorrections = corrections;
       const statistics = (data as any).statistics;
       if (statistics && ['content','grammar','organization','vocabulary','mechanics','total'].every((key) => Number.isFinite(Number(statistics[key])))) {
         if (this.currentSubmission) (this.currentSubmission as any).correctionStatistics = { ...statistics };
@@ -3343,38 +3354,6 @@ export class StudentSubmissionPages {
 
 
 
-    if (this.lastWritingCorrectionsText === text) {
-
-
-
-      return;
-
-
-
-    }
-
-
-
-
-
-
-
-    if (this.isWritingCorrectionsLoading) {
-
-
-
-      return;
-
-
-
-    }
-
-
-
-
-
-
-
     this.isWritingCorrectionsLoading = true;
 
 
@@ -3395,11 +3374,7 @@ export class StudentSubmissionPages {
 
 
 
-      const resp = await this.writingCorrectionsApi.check({ text, language: 'en-US' });
-
-
-
-      const rawIssues = Array.isArray(resp?.issues) ? resp.issues : [];
+      const rawIssues = buildCanonicalWritingIssues(text, this.canonicalWritingCorrections);
 
 
 
@@ -3433,15 +3408,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.writingCorrectionsIssues = [];
-
-
-
-      this.writingCorrectionsHtml = null;
-
-
-
-      this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to check writing corrections';
+      this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to display persisted writing corrections';
 
 
 
@@ -3506,6 +3473,7 @@ export class StudentSubmissionPages {
 
 
   feedbackForm: FormGroup;
+  isTeacherCommentSaving = false;
 
 
 
@@ -4027,7 +3995,7 @@ export class StudentSubmissionPages {
 
 
 
-      message: ['']
+      message: ['', Validators.maxLength(5000)]
 
 
 
@@ -4907,7 +4875,7 @@ export class StudentSubmissionPages {
 
 
 
-      teacherComments: typeof fb?.aiFeedback?.overallComments === 'string' ? fb.aiFeedback.overallComments : ''
+      teacherComments: typeof fb?.teacherComments === 'string' ? fb.teacherComments : ''
 
 
 
@@ -4919,7 +4887,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (!fb?.aiFeedback?.overallComments) {
+    if (!fb?.teacherComments) {
 
 
 
@@ -5122,7 +5090,7 @@ export class StudentSubmissionPages {
 
 
 
-        overallComments: teacherComments
+        overallComments: typeof base?.aiFeedback?.overallComments === 'string' ? base.aiFeedback.overallComments : ''
 
 
 
@@ -5186,7 +5154,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.feedbackForm.patchValue({ message: updated?.aiFeedback?.overallComments || '' });
+      this.feedbackForm.patchValue({ message: updated?.teacherComments ?? this.feedbackForm.value.message ?? '' });
 
 
 
@@ -5315,6 +5283,7 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     await this.loadOcrCorrections(submissionId);
     await this.loadCompleteTranscript(submissionId);
+    await this.refreshWritingCorrections();
     const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId);
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
@@ -5724,7 +5693,7 @@ export class StudentSubmissionPages {
         : 'submission-feedback.pdf';
       triggerBlobDownload(blob, { filename, mimeType: 'application/pdf' });
     } catch (err: any) {
-      this.alert.showError('Failed to generate PDF', err?.error?.message || err?.message || 'Please try again');
+      this.alert.showError('Failed to generate PDF', await submissionPdfErrorMessage(err));
     } finally {
       this.isPdfDownloading = false;
     }
@@ -5905,7 +5874,10 @@ export class StudentSubmissionPages {
 
 
 
-    if (this.currentSubmission?._id && this.currentSubmission._id !== submission?._id) this.resultCoordinator.stop();
+    if (this.currentSubmission?._id && this.currentSubmission._id !== submission?._id) {
+      this.resultCoordinator.stop();
+      this.canonicalWritingCorrections = [];
+    }
     const seq = ++this.applyCurrentSubmissionSeq;
 
     ++this.loadOcrCorrectionsSeq;
@@ -6081,6 +6053,8 @@ export class StudentSubmissionPages {
       await this.loadOcrCorrections(this.currentSubmission._id);
       if (seq !== this.applyCurrentSubmissionSeq) return;
       await this.loadCompleteTranscript(this.currentSubmission._id);
+      if (seq !== this.applyCurrentSubmissionSeq) return;
+      await this.refreshWritingCorrections();
       if (seq !== this.applyCurrentSubmissionSeq) return;
 
       const selected: any = this.currentSubmission;
@@ -6372,9 +6346,13 @@ export class StudentSubmissionPages {
 
 
       this.canonicalResultState = normalizeCanonicalResult(fb, this.canonicalResultState);
+      this.feedbackForm.patchValue({ message: fb?.teacherComments ?? '' });
       const evaluationPending = this.canonicalResultState.evaluationStatus !== 'completed';
       if (evaluationPending) {
         this.currentFeedback = fb as SubmissionFeedback;
+        if (shouldPollCanonicalResult(this.canonicalResultState)) {
+          this.resultCoordinator.start(submissionId, (id) => this.refreshRetriedAnalysis(id));
+        }
         return true;
       }
       this.currentFeedback = this.validateAndNormalizeFeedback(fb);
@@ -6385,7 +6363,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.feedbackForm.patchValue({ message: fb?.aiFeedback?.overallComments || '' });
+      this.feedbackForm.patchValue({ message: fb?.teacherComments ?? '' });
 
 
 
@@ -6664,6 +6642,12 @@ export class StudentSubmissionPages {
 
 
     const teacherComments = typeof textFeedback === 'string' ? textFeedback : (textFeedback == null ? '' : String(textFeedback));
+    if (teacherComments.length > 5000) {
+      this.alert.showError('Failed to save feedback', 'Teacher comments must be at most 5000 characters.');
+      return;
+    }
+    if (this.isTeacherCommentSaving) return;
+    this.isTeacherCommentSaving = true;
 
 
 
@@ -6719,11 +6703,17 @@ export class StudentSubmissionPages {
 
 
 
-      const updated = await this.feedbackApi.upsertSubmissionFeedback(submission._id, payload);
+      const updated = await this.feedbackApi.updateTeacherComments(submission._id, teacherComments);
 
 
 
-      this.currentFeedback = updated;
+      this.currentFeedback = {
+        ...base,
+        teacherComments: updated.teacherComments,
+        teacherCommentsUpdatedAt: updated.teacherCommentsUpdatedAt,
+        teacherCommentsUpdatedBy: updated.teacherCommentsUpdatedBy
+      };
+      this.feedbackForm.patchValue({ message: updated.teacherComments });
 
 
 
@@ -6731,7 +6721,7 @@ export class StudentSubmissionPages {
 
       try {
 
-        this.teacherDashboardState.markReviewed(submission._id, updated);
+        // A standalone teacher comment does not mark the rubric evaluation overridden.
 
       } catch {
 
@@ -6749,15 +6739,15 @@ export class StudentSubmissionPages {
 
 
 
-        overallComments: updated?.aiFeedback?.overallComments,
+        teacherComments: updated.teacherComments,
 
 
 
-        length: typeof updated?.aiFeedback?.overallComments === 'string' ? updated.aiFeedback.overallComments.length : null,
+        length: updated.teacherComments.length,
 
 
 
-        overriddenByTeacher: (updated as any)?.overriddenByTeacher
+        overriddenByTeacher: base.overriddenByTeacher
 
 
 
@@ -6777,7 +6767,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.alert.showToast('Feedback saved', 'success');
+      this.alert.showToast('Teacher comment saved', 'success');
 
 
 
@@ -6785,7 +6775,7 @@ export class StudentSubmissionPages {
 
       // (Marking reviewed above avoids flicker; refresh keeps state consistent.)
 
-      this.teacherDashboardState.refresh();
+      this.isTeacherCommentSaving = false;
 
 
 
@@ -6794,6 +6784,7 @@ export class StudentSubmissionPages {
 
 
       this.alert.showError('Failed to save feedback', err?.error?.message || err?.message || 'Please try again');
+      this.isTeacherCommentSaving = false;
 
 
 

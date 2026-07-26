@@ -368,7 +368,7 @@
               <p class="text-xl font-bold mb-1">Teacher Comments</p>
               <div class="flex flex-col gap-1">
                 <div class="w-full">
-                  <textarea formControlName="message" class="input-text w-full h-40 resize-none bg-white"
+                  <textarea formControlName="message" maxlength="5000" class="input-text w-full h-40 resize-none bg-white"
                     [attr.aria-busy]="teacherCommentState === 'loading'"
                     placeholder="Type your message..."></textarea>
                   @if (teacherCommentState === 'loading') {
@@ -377,7 +377,8 @@
                 </div>
               </div>
               <div class="w-full flex justify-end mt-4">
-                <button type="button" class="btn-primary" (click)="submitFeedback()">Submit</button>
+                <button type="button" class="btn-primary" [disabled]="isTeacherCommentSaving"
+                  (click)="submitFeedback()">{{ isTeacherCommentSaving ? 'Saving…' : 'Submit' }}</button>
               </div>
             </div>
 

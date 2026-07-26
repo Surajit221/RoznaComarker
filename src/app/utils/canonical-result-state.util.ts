@@ -50,6 +50,9 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
   const submissionId = typeof value.submissionId === 'string' && value.submissionId.trim()
     ? value.submissionId.trim() : previous?.submissionId || null;
   const correctionStatus = status(value.correctionStatus, previous?.correctionStatus || 'pending');
+  const semanticStatus = ['pending', 'processing', 'retry_wait', 'completed', 'failed'].includes(String(value.semanticStatus))
+    ? value.semanticStatus as CanonicalResultViewState['semanticStatus']
+    : correctionStatus === 'completed' ? 'completed' : ['failed', 'stale'].includes(correctionStatus) ? 'failed' : 'pending';
   const completeness = value.statisticsCompleteness === 'canonical' || value.statisticsCompleteness === 'language_only' || value.statisticsCompleteness === 'semantic_only'
     ? value.statisticsCompleteness : correctionStatus === 'completed' ? 'canonical' : ['processing', 'partial'].includes(correctionStatus) ? 'language_only' : 'none';
   const rawAvailability = value.categoryAvailability || {};
@@ -63,7 +66,12 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     availability[category] = ['pending', 'available', 'failed'].includes(rawAvailability[category]) ? rawAvailability[category] : inferred;
     statistics[category] = availability[category] === 'available' ? finite(rawStats[category]) : null;
   }
-  const prerequisiteFailed = ['partial', 'failed', 'stale'].includes(correctionStatus);
+  const explicitLifecycleActive = value.processingActive === true || value.automaticPollingAllowed === true
+    || ['pending', 'processing', 'retry_wait'].includes(semanticStatus)
+    || ['pending', 'processing'].includes(String(value.evaluationStatus))
+    || ['pending', 'processing'].includes(String(value.detailedFeedbackStatus));
+  const prerequisiteFailed = ['failed', 'stale'].includes(correctionStatus)
+    || (correctionStatus === 'partial' && semanticStatus === 'failed' && !explicitLifecycleActive);
   const evaluationStatus = prerequisiteFailed ? 'blocked' : status(value.evaluationStatus, previous?.evaluationStatus || 'pending');
   const rawSource = value.evaluationSource ?? value.evaluation?.evaluationSource ?? previous?.evaluationSource ?? null;
   const evaluationSource = ['ai', 'deterministic_fallback', 'provisional'].includes(String(rawSource)) ? rawSource as any : null;
@@ -93,11 +101,14 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
   const previousStillCurrent = ['completed', 'partial'].includes(detailedFeedbackStatus)
     && (teacherOverride || (currentHash && previous?.detailedFeedbackSourceHash === currentHash));
   const detailedFeedback = suppliedCurrentFeedback ?? (embeddedDetailed === undefined && previousStillCurrent ? previous?.detailedFeedback : null);
-  const processingActive = value.processingActive === undefined ? Boolean(previous?.processingActive) : Boolean(value.processingActive);
-  const automaticPollingAllowed = (value.automaticPollingAllowed === undefined
-    ? Boolean(previous?.automaticPollingAllowed) : Boolean(value.automaticPollingAllowed)) && processingActive;
-  const terminal = value.terminal === undefined ? Boolean(previous?.terminal || (prerequisiteFailed && !processingActive))
-    : value.terminal === true;
+  const processingActive = value.processingActive === undefined
+    ? explicitLifecycleActive || Boolean(previous?.processingActive)
+    : Boolean(value.processingActive) || explicitLifecycleActive;
+  const automaticPollingAllowed = value.automaticPollingAllowed === undefined
+    ? processingActive || Boolean(previous?.automaticPollingAllowed)
+    : Boolean(value.automaticPollingAllowed) || explicitLifecycleActive;
+  const terminal = explicitLifecycleActive ? false : value.terminal === undefined
+    ? Boolean(previous?.terminal || prerequisiteFailed) : value.terminal === true;
   const next: CanonicalResultViewState = {
     submissionId,
     correctionStatus,
@@ -129,8 +140,7 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     evaluationBlockedReason: value.evaluationBlockedReason || (prerequisiteFailed ? 'corrections_incomplete' : null),
     detailedFeedbackBlockedReason: value.detailedFeedbackBlockedReason || (prerequisiteFailed ? 'evaluation_unavailable' : null),
     retryable: Boolean(value.retryable),
-    semanticStatus: ['pending', 'processing', 'retry_wait', 'completed', 'failed'].includes(String(value.semanticStatus))
-      ? value.semanticStatus : correctionStatus === 'completed' ? 'completed' : prerequisiteFailed ? 'failed' : 'pending',
+    semanticStatus,
     semanticProgressMessage: value.semanticStatus === 'retry_wait'
       ? 'Retrying content, organization, and vocabulary analysis…'
       : correctionStatus === 'processing'
@@ -146,6 +156,13 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
   if (availability === 'pending') return 'Analyzing…';
   if (availability === 'failed') return 'Unavailable';
   return state.statistics[category] ?? 'Unavailable';
+}
+
+export function shouldRetryEvaluationOnly(state: CanonicalResultViewState | null | undefined): boolean {
+  return Boolean(state
+    && state.correctionStatus === 'completed'
+    && state.semanticStatus === 'completed'
+    && ['failed', 'stale', 'blocked'].includes(state.evaluationStatus));
 }
 
 export function applySubmissionLifecycleFallback(

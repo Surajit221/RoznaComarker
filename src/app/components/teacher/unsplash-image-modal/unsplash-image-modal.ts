@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   EventEmitter,
+  HostListener,
   Input,
   OnChanges,
   OnDestroy,
@@ -24,6 +25,7 @@ import { UnsplashService, UnsplashImage } from '../../../services/unsplash.servi
 })
 export class UnsplashImageModal implements OnChanges, OnDestroy {
   @Input() show = false;
+  @Input() selectedImageUrl = '';
   @Output() showChange = new EventEmitter<boolean>();
   @Output() imageSelected = new EventEmitter<string>();
 
@@ -51,18 +53,30 @@ export class UnsplashImageModal implements OnChanges, OnDestroy {
   ];
 
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private selectionApplied = false;
+  private previousBodyOverflow = '';
+  private bodyScrollLocked = false;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   ngOnChanges(): void {
     if (this.show) {
+      this.selectionApplied = false;
+      if (!this.bodyScrollLocked) {
+        this.previousBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        this.bodyScrollLocked = true;
+      }
       // Pre-warm common topics so first click feels instant
       this.unsplashService.prewarm();
+    } else {
+      this.restoreBodyScroll();
     }
   }
 
   ngOnDestroy(): void {
     this.clearDebounce();
+    this.restoreBodyScroll();
   }
 
   // ── Search ───────────────────────────────────────────────────────────────
@@ -142,9 +156,15 @@ export class UnsplashImageModal implements OnChanges, OnDestroy {
   // ── Selection & close ────────────────────────────────────────────────────
 
   selectImage(imageUrl: string): void {
-    console.log('[UNSPLASH MODAL] Image selected:', imageUrl);
+    if (this.selectionApplied) return;
+    this.selectionApplied = true;
     this.imageSelected.emit(imageUrl);
     this.close();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.show) this.close();
   }
 
   close(): void {
@@ -155,6 +175,7 @@ export class UnsplashImageModal implements OnChanges, OnDestroy {
     this.images = [];
     this.error = null;
     this.isLoading = false;
+    this.restoreBodyScroll();
   }
 
   onBackdropClick(event: MouseEvent): void {
@@ -172,5 +193,11 @@ export class UnsplashImageModal implements OnChanges, OnDestroy {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+  }
+
+  private restoreBodyScroll(): void {
+    if (!this.bodyScrollLocked) return;
+    document.body.style.overflow = this.previousBodyOverflow;
+    this.bodyScrollLocked = false;
   }
 }

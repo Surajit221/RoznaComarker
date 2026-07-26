@@ -1,13 +1,13 @@
 <!-- SAVE MODAL OVERLAY -->
 <div class="modal-overlay" *ngIf="showSaveModal" (click)="closeSaveModal()">
-  <div class="modal-box" (click)="$event.stopPropagation()" [formGroup]="saveModalForm">
-    <h3 class="modal-title">Save Flashcard Set</h3>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="save-flashcard-title" (click)="$event.stopPropagation()" [formGroup]="saveModalForm">
+    <h3 class="modal-title" id="save-flashcard-title">Save Flashcard Set</h3>
 
     <div class="modal-field">
       <label>Set title</label>
       <div class="title-row">
         <input formControlName="title" class="modal-input" placeholder="Enter a title…" />
-        <button class="btn-ai" [disabled]="isNaming" (click)="generateTitle()">
+        <button type="button" class="btn-ai" [disabled]="isNaming" (click)="generateTitle()">
           <span *ngIf="!isNaming">✨ AI Name</span>
           <span *ngIf="isNaming" class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
         </button>
@@ -26,8 +26,8 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn-cancel" (click)="closeSaveModal()">Cancel</button>
-      <button class="btn-primary" [disabled]="isSaving" (click)="confirmSave()">
+      <button type="button" class="btn-cancel" [disabled]="isSaving" (click)="closeSaveModal()">Cancel</button>
+      <button type="button" class="btn-primary" [disabled]="isSaving" (click)="confirmSave()">
         <span *ngIf="!isSaving">Save</span>
         <span *ngIf="isSaving" class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
       </button>
@@ -40,18 +40,18 @@
 
   <!-- STICKY HEADER -->
   <div class="editor-header">
-    <button class="btn-back" (click)="cancel()">← Discard</button>
+    <button type="button" class="btn-back" (click)="cancel()">← Discard</button>
     <span class="editor-title">Edit Flashcards</span>
     <div class="header-actions">
-      <button class="btn-cancel" (click)="cancel()">Cancel</button>
-      <button class="btn-primary" (click)="openSaveModal()">✔ Save</button>
+      <button type="button" class="btn-cancel" [disabled]="isSaving" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn-primary" [disabled]="isSaving || isLoading" (click)="openSaveModal()">✔ Save</button>
     </div>
   </div>
 
   <!-- ERROR BANNER -->
   <div class="error-banner" *ngIf="errorMsg">
     <span>⚠ {{ errorMsg }}</span>
-    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+    <button type="button" class="dismiss-btn" aria-label="Dismiss error" (click)="dismissError()">✕</button>
   </div>
 
   <!-- SKELETON -->
@@ -64,7 +64,7 @@
 
   <!-- CARD LIST -->
   <div class="card-list" *ngIf="!isLoading" [formGroup]="editorForm">
-    <div class="card-item" *ngFor="let ctrl of cardsArray.controls; let i = index; trackBy: trackByIndex"
+    <div class="card-item" *ngFor="let ctrl of cardsArray.controls; let i = index; trackBy: trackByControl"
          [formGroup]="asGroup(ctrl)">
 
       <div class="card-number">#{{ i + 1 }}</div>
@@ -83,7 +83,7 @@
             @if (asGroup(ctrl).get('frontImage')?.value) {
               <div class="card-image-preview">
                 <img [src]="getImageUrl(asGroup(ctrl).get('frontImage')?.value)" alt="Front image" class="preview-img" />
-                <button type="button" class="remove-img-btn" (click)="removeImage(i, 'front')">✕</button>
+                <button type="button" class="remove-img-btn" aria-label="Remove front image" (click)="removeImage(i, 'front')">✕</button>
               </div>
             }
             <div class="image-actions">
@@ -110,7 +110,7 @@
             @if (asGroup(ctrl).get('backImage')?.value) {
               <div class="card-image-preview">
                 <img [src]="getImageUrl(asGroup(ctrl).get('backImage')?.value)" alt="Back image" class="preview-img" />
-                <button type="button" class="remove-img-btn" (click)="removeImage(i, 'back')">✕</button>
+                <button type="button" class="remove-img-btn" aria-label="Remove back image" (click)="removeImage(i, 'back')">✕</button>
               </div>
             }
             <div class="image-actions">
@@ -127,15 +127,15 @@
       </div>
 
       <div class="card-controls">
-        <button class="ctrl-btn" title="Move up"    [disabled]="i === 0" (click)="moveUp(i)">↑</button>
-        <button class="ctrl-btn" title="Move down"  [disabled]="i === cardsArray.length - 1" (click)="moveDown(i)">↓</button>
-        <button class="ctrl-btn insert-btn" title="Insert card below" (click)="insertAfter(i)">+</button>
-        <button class="ctrl-btn danger-btn" title="Delete card" (click)="removeCard(i)">✕</button>
+        <button type="button" class="ctrl-btn" title="Move up" [attr.aria-label]="'Move card ' + (i + 1) + ' up'" [disabled]="i === 0" (click)="moveUp(i)">↑</button>
+        <button type="button" class="ctrl-btn" title="Move down" [attr.aria-label]="'Move card ' + (i + 1) + ' down'" [disabled]="i === cardsArray.length - 1" (click)="moveDown(i)">↓</button>
+        <button type="button" class="ctrl-btn insert-btn" title="Insert card below" [attr.aria-label]="'Insert a card after card ' + (i + 1)" (click)="insertAfter(i)">+</button>
+        <button type="button" class="ctrl-btn danger-btn" title="Delete card" [attr.aria-label]="'Delete card ' + (i + 1)" (click)="removeCard(i)">✕</button>
       </div>
     </div>
 
     <!-- ADD CARD BUTTON -->
-    <button class="btn-add-card" (click)="addCard()">
+    <button type="button" class="btn-add-card" (click)="addCard()">
       + Add Card
     </button>
   </div>
@@ -144,7 +144,8 @@
 <!-- UNSPLASH IMAGE MODAL -->
 <app-unsplash-image-modal 
   [show]="showUnsplashModal" 
-  (showChange)="showUnsplashModal = $event"
+  [selectedImageUrl]="selectedImageUrl"
+  (showChange)="onUnsplashVisibilityChange($event)"
   (imageSelected)="onUnsplashImageSelected($event)"
 ></app-unsplash-image-modal>
 
