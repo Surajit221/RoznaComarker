@@ -169,6 +169,8 @@ export class FlashcardDetail implements OnInit, OnDestroy {
   /** Keyboard navigation: left/right arrow keys and space to flip */
   @HostListener('document:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement | null;
+    if (target?.matches('input, textarea, select, button, [contenteditable="true"]')) return;
     if (e.key === 'ArrowLeft')  { this.prev(); return; }
     if (e.key === 'ArrowRight') { this.next(); return; }
     if (e.key === ' ')          { this.flip(); e.preventDefault(); }
@@ -332,6 +334,14 @@ export class FlashcardDetail implements OnInit, OnDestroy {
 
   /** TrackBy for cards */
   trackById(_: number, card: FlashCard): string { return card._id ?? String(_); }
+
+  selectCard(index: number): void {
+    if (index < 0 || index >= this.cards.length || index === this.currentIndex) return;
+    this.currentIndex = index;
+    this.isFlipped = false;
+    this.imgError = false;
+    this.cdr.markForCheck();
+  }
 
   /** Open success modal */
   openSuccessModal(title: string, message: string): void {

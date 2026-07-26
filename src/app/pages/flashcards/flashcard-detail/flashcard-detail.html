@@ -2,7 +2,7 @@
 
   <!-- BREADCRUMB -->
   <div class="breadcrumb">
-    <button class="crumb-link" (click)="goBack()">Flashcards</button>
+    <button type="button" class="crumb-link" (click)="goBack()">Flashcards</button>
     <span class="crumb-sep">/</span>
     <span class="crumb-current">{{ displayTitle }}</span>
   </div>
@@ -10,7 +10,7 @@
   <!-- ERROR BANNER -->
   <div class="error-banner" *ngIf="errorMsg">
     <span>⚠ {{ errorMsg }}</span>
-    <button class="dismiss-btn" (click)="dismissError()">✕</button>
+    <button type="button" class="dismiss-btn" (click)="dismissError()" aria-label="Dismiss error">✕</button>
   </div>
 
   <!-- SKELETON -->
@@ -34,16 +34,18 @@
     <div class="progress-track">
       <div class="progress-fill" [style.width.%]="progress"></div>
     </div>
-    <div class="progress-label">{{ currentIndex + 1 }} / {{ cards.length }}</div>
+    <div class="progress-label" aria-live="polite">Card {{ currentIndex + 1 }} of {{ cards.length }}</div>
 
     <!-- TEMPLATE TOGGLE -->
     <div class="template-toggle">
-      <button class="template-btn" [class.active]="cardTemplate === 'with-image'" (click)="cardTemplate = 'with-image'">🖼 With Image</button>
-      <button class="template-btn" [class.active]="cardTemplate === 'text-only'" (click)="cardTemplate = 'text-only'">✏ Text Only</button>
+      <button type="button" class="template-btn" [class.active]="cardTemplate === 'with-image'" [attr.aria-pressed]="cardTemplate === 'with-image'" (click)="cardTemplate = 'with-image'">🖼 With Image</button>
+      <button type="button" class="template-btn" [class.active]="cardTemplate === 'text-only'" [attr.aria-pressed]="cardTemplate === 'text-only'" (click)="cardTemplate = 'text-only'">✏ Text Only</button>
     </div>
 
     <!-- FLIP CARD — swipe gesture via (touchstart)/(touchend) -->
-    <div class="card-stage" (click)="flip()"
+    <div class="card-stage" (click)="flip()" role="button" tabindex="0"
+         [attr.aria-label]="isFlipped ? 'Flashcard back. Press Enter or Space to show the front.' : 'Flashcard front. Press Enter or Space to show the back.'"
+         (keydown.enter)="flip()" (keydown.space)="flip(); $event.preventDefault()"
          (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
       <div class="flip-card" [class.flipped]="isFlipped">
 
@@ -55,7 +57,7 @@
             <div class="card-image-wrap">
               @if (currentCard?.frontImage && !imgError) {
                 <img [src]="getImageUrl(currentCard?.frontImage)"
-                     alt="Card image"
+                     [alt]="'Illustration for ' + (currentCard?.front || 'flashcard')"
                      class="card-image"
                      (error)="imgError = true" />
                 <div class="card-image-gradient"></div>
@@ -105,40 +107,40 @@
         </div>
 
       </div>
-      @if (!isFlipped) {
-        <span class="flip-hint">💡 Click card to reveal answer</span>
-      }
     </div>
 
     <!-- NAVIGATION -->
     <div class="card-nav">
-      <button class="nav-btn" [disabled]="currentIndex === 0" (click)="prev(); $event.stopPropagation()">← Prev</button>
-      <button class="nav-btn" [disabled]="currentIndex === cards.length - 1" (click)="next(); $event.stopPropagation()">Next →</button>
+      <button type="button" class="nav-btn" [disabled]="currentIndex === 0" (click)="prev(); $event.stopPropagation()">← Previous</button>
+      <span class="control-progress">Card {{ currentIndex + 1 }} of {{ cards.length }}</span>
+      <button type="button" class="flip-control" (click)="flip(); $event.stopPropagation()">{{ isFlipped ? 'Show front' : 'Flip card' }}</button>
+      <button type="button" class="nav-btn" [disabled]="currentIndex === cards.length - 1" (click)="next(); $event.stopPropagation()">Next →</button>
     </div>
 
     <!-- ACTION BAR -->
     <div class="action-bar">
-      <button class="btn-study" (click)="study()">▶ Study</button>
-      <button class="btn-assign" (click)="assignSet()">📋 Assign</button>
+      <button type="button" class="btn-study" (click)="study()">▶ Study mode</button>
+      <button type="button" class="btn-assign" (click)="assignSet()">📋 Assign</button>
 
       <div class="action-secondary">
         <!-- SPEAK / STOP -->
-        <button class="action-icon-btn" [class.speaking]="isSpeaking"
+        <button type="button" class="action-icon-btn" [class.speaking]="isSpeaking"
                 [title]="isSpeaking ? 'Stop' : 'Listen'"
+                [attr.aria-label]="isSpeaking ? 'Stop reading card aloud' : 'Read card aloud'"
                 (click)="isSpeaking ? stopSpeech() : speak()">
           {{ isSpeaking ? '⏹' : '🔊' }}
         </button>
 
-        <button class="action-icon-btn" title="Edit set" (click)="edit()">✎</button>
-        <button class="action-icon-btn" title="Report" (click)="viewReport()">📊</button>
-        <button class="action-icon-btn" title="Share set" (click)="openShareModal()">
+        <button type="button" class="action-icon-btn" title="Edit set" aria-label="Edit flashcard set" (click)="edit()">✎</button>
+        <button type="button" class="action-icon-btn" title="Report" aria-label="View flashcard report" (click)="viewReport()">📊</button>
+        <button type="button" class="action-icon-btn" title="Share set" aria-label="Share flashcard set" (click)="openShareModal()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
-        <button class="action-icon-btn" title="Export" (click)="exportCards()">⬇</button>
+        <button type="button" class="action-icon-btn" title="Export" aria-label="Export flashcards as JSON" (click)="exportCards()">⬇</button>
 
         <!-- MORE MENU -->
         <div class="more-menu-wrap">
-          <button class="action-icon-btn" title="More" (click)="toggleMoreMenu($event)">⋯</button>
+          <button type="button" class="action-icon-btn" title="More" aria-label="More flashcard actions" [attr.aria-expanded]="showMoreMenu" (click)="toggleMoreMenu($event)">⋯</button>
           <div class="more-dropdown" *ngIf="showMoreMenu">
             <button class="drop-item" (click)="edit()">Edit set</button>
             <button class="drop-item" (click)="viewReport()">View report</button>
@@ -156,13 +158,22 @@
         class="thumb"
         *ngFor="let card of cards; let i = index; trackBy: trackById"
         [class.active]="i === currentIndex"
-        (click)="currentIndex = i; isFlipped = false; $event.stopPropagation()"
+        type="button"
+        (click)="selectCard(i); $event.stopPropagation()"
+        [attr.aria-label]="'Go to card ' + (i + 1)"
+        [attr.aria-current]="i === currentIndex ? 'page' : null"
         [class.thumb-dot]="cards.length > 7">
         <span *ngIf="cards.length <= 7">{{ i + 1 }}</span>
       </button>
     </div>
 
   </ng-container>
+  <div class="empty-state" *ngIf="!isLoading && set && cards.length === 0">
+    <span class="empty-state-icon" aria-hidden="true">🗂</span>
+    <h3>This set has no cards yet</h3>
+    <p>Add a card to start building this flashcard set.</p>
+    <button type="button" class="btn-study" (click)="edit()">Edit flashcards</button>
+  </div>
 </div>
 
 <!-- ASSIGN MODAL (inline — no navigation) -->
@@ -196,7 +207,7 @@
 <div class="share-modal" *ngIf="showShareModal" role="dialog" aria-modal="true">
   <div class="share-modal-header">
     <h3 class="share-modal-title">Share this flashcard set</h3>
-    <button class="share-close-btn" (click)="closeShareModal()" aria-label="Close">✕</button>
+    <button type="button" class="share-close-btn" (click)="closeShareModal()" aria-label="Close share dialog">✕</button>
   </div>
 
   <div class="share-loading" *ngIf="shareLoading">

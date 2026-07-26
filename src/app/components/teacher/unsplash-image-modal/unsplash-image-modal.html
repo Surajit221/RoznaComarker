@@ -7,7 +7,7 @@
         <span class="uim-header-icon">🖼️</span>
         <h2 class="uim-title">Search Images</h2>
       </div>
-      <button class="uim-close-btn" (click)="close()" aria-label="Close">✕</button>
+      <button type="button" class="uim-close-btn" (click)="close()" aria-label="Close image search">✕</button>
     </div>
 
     <!-- ── Search bar ─────────────────────────────────────── -->
@@ -17,6 +17,7 @@
         <input
           type="text"
           class="uim-search-input"
+          aria-label="Search Unsplash images"
           placeholder="Search for images… (e.g. solar system)"
           [(ngModel)]="searchQuery"
           (ngModelChange)="onSearchInput()"
@@ -26,6 +27,7 @@
         />
         @if (searchQuery) {
         <button
+          type="button"
           class="uim-clear-btn"
           (click)="searchQuery = ''; images = []; error = null"
           aria-label="Clear"
@@ -35,6 +37,7 @@
         }
       </div>
       <button
+        type="button"
         class="uim-search-btn"
         [disabled]="isLoading"
         (click)="searchImages()"
@@ -50,7 +53,7 @@
     @if (images.length === 0 && !isLoading) {
     <div class="uim-suggestions">
       @for (s of suggestions; track s) {
-      <button class="uim-chip" (click)="searchSuggestion(s)">{{ s }}</button>
+      <button type="button" class="uim-chip" (click)="searchSuggestion(s)">{{ s }}</button>
       }
     </div>
     }
@@ -73,9 +76,12 @@
       @if (!isLoading) { @for (image of images; track image.id) {
       <button
         class="uim-image-item"
+        type="button"
+        [class.selected]="selectedImageUrl === image.small"
+        [attr.aria-pressed]="selectedImageUrl === image.small"
         (click)="selectImage(image.small)"
         [title]="image.alt || 'Select image'"
-        aria-label="Select image"
+        [attr.aria-label]="(selectedImageUrl === image.small ? 'Selected image: ' : 'Select image: ') + (image.alt || 'Unsplash result')"
       >
         <img
           [src]="image.small"
@@ -86,8 +92,11 @@
         />
         <div class="uim-overlay">
           <span class="uim-overlay-icon">✓</span>
-          <span>Select</span>
+          <span>{{ selectedImageUrl === image.small ? 'Selected' : 'Select' }}</span>
         </div>
+        @if (selectedImageUrl === image.small) {
+          <span class="uim-selected-check" aria-hidden="true">✓</span>
+        }
       </button>
       } }
 

@@ -16,8 +16,8 @@
   background: #ffffff;
   border-radius: 20px;
   width: 100%;
-  max-width: 820px;
-  max-height: 88vh;
+  max-width: 980px;
+  max-height: min(90vh, 820px);
   display: flex;
   flex-direction: column;
   box-shadow:
@@ -264,6 +264,29 @@
   outline: 3px solid #008081;
   outline-offset: 2px;
 }
+.uim-image-item.selected {
+  border-color: #008081;
+  box-shadow: 0 0 0 3px rgba(0, 128, 129, 0.18);
+}
+.uim-image-item.selected .uim-overlay {
+  opacity: 1;
+  background: rgba(0, 128, 129, 0.7);
+}
+.uim-selected-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #008081;
+  color: #fff;
+  border: 2px solid #fff;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
 
 .uim-thumb {
   width: 100%;
@@ -380,7 +403,7 @@
     max-height: 92vh;
   }
   .uim-grid {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 12px 16px 8px;
   }
@@ -392,5 +415,17 @@
   }
   .uim-suggestions {
     padding: 10px 16px 0;
+  }
+  .uim-search { flex-wrap: wrap; }
+  .uim-search-btn { width: 100%; min-height: 44px; }
+  .uim-search-input { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uim-modal,
+  .uim-skeleton-img,
+  .uim-btn-spinner {
+    animation: none;
+    transition: none;
   }
 }
