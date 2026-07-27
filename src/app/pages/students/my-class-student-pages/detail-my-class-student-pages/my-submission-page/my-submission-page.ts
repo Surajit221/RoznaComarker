@@ -34,7 +34,7 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
 import { environment } from '../../../../../../environments/environment';
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
-import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
+import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
@@ -1534,7 +1534,7 @@ export class MySubmissionPage {
 
       if (filePairsFromObjects.length) {
         this.submissionFileIds = filePairsFromObjects.map((p) => p.id);
-        this.submissionFileUrls = filePairsFromObjects.map((p) => p.url);
+        this.submissionFileUrls = normalizeAssetUrls(filePairsFromObjects.map((p) => p.url));
       } else {
         const urlsRaw = Array.isArray((submission as any)?.fileUrls) ? (submission as any).fileUrls : [];
         const urls = urlsRaw
@@ -1549,10 +1549,10 @@ export class MySubmissionPage {
         const idsCount = Array.isArray(idsRaw) ? idsRaw.length : 0;
 
         if (urlsCount > 0 && urlsCount === idsCount) {
-          this.submissionFileUrls = urlsRaw.map((u: any) => (typeof u === 'string' ? u.trim() : '')).filter((u: string) => Boolean(u));
+          this.submissionFileUrls = normalizeAssetUrls(urlsRaw);
           this.submissionFileIds = idsRaw.map((id: any) => (typeof id === 'string' ? id : ''));
         } else {
-          this.submissionFileUrls = urls.length ? urls : (submission?.fileUrl ? [submission.fileUrl] : []);
+          this.submissionFileUrls = normalizeAssetUrls(urls.length ? urls : (submission?.fileUrl ? [submission.fileUrl] : []));
           this.submissionFileIds = idsRaw.filter((id: string) => Boolean(id));
         }
       }
@@ -1580,7 +1580,7 @@ export class MySubmissionPage {
       }
 
       if (!Array.isArray(this.submissionFileUrls) || !this.submissionFileUrls.length) {
-        this.submissionFileUrls = submission?.fileUrl ? [submission.fileUrl] : [];
+        this.submissionFileUrls = normalizeAssetUrls(submission?.fileUrl ? [submission.fileUrl] : []);
       }
 
       if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) {

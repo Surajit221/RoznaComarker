@@ -32,18 +32,30 @@ export function normalizeToHttps(url: string): string {
   // Preserve Data URLs
   if (raw.startsWith('data:')) return raw;
 
-  // Preserve HTTPS URLs
-  if (raw.startsWith('https://')) return raw;
-
   const apiOrigin = String(environment.apiUrl || environment.API_URL || '')
     .replace(/\/api\/?$/i, '')
     .replace(/\/+$/, '');
 
-  // Preserve localhost in development, but narrowly repair legacy absolute
-  // backend URLs when a production response still contains a stored local URL.
-  if (/^http:\/\/(?:localhost|127\.0\.0\.1):5000(?=\/|$)/i.test(raw)) {
-    return environment.production ? raw.replace(/^http:\/\/(?:localhost|127\.0\.0\.1):5000/i, apiOrigin) : raw;
+  // Repair only legacy/private backend upload URLs. Do not rewrite arbitrary
+  // external assets (including Unsplash) or persist the repaired value.
+  const localOrPrivateHost = (hostname: string): boolean =>
+    /^(?:localhost|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})$/i
+      .test(hostname);
+  try {
+    const parsed = new URL(raw);
+    const isUpload = parsed.pathname.startsWith('/uploads/');
+    if (isUpload && environment.production
+      && (localOrPrivateHost(parsed.hostname) || parsed.hostname === 'comarkerback.roznahub.com')) {
+      return `${apiOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+  } catch {
+    // Relative paths are handled below.
   }
+
+  // Preserve HTTPS URLs, including third-party image providers.
+  if (raw.startsWith('https://')) return raw;
+
+  // Preserve localhost HTTP during local development.
   if (/^http:\/\/localhost(:\d+)?\//i.test(raw)) return raw;
   if (/^http:\/\/127\.0\.0\.1(:\d+)?\//i.test(raw)) return raw;
 
@@ -59,4 +71,11 @@ export function normalizeToHttps(url: string): string {
 
   // Return other URLs unchanged (external URLs, etc.)
   return raw;
+}
+
+export function normalizeAssetUrls(urls: unknown): string[] {
+  if (!Array.isArray(urls)) return [];
+  return urls
+    .map((value) => typeof value === 'string' ? normalizeToHttps(value) : '')
+    .filter(Boolean);
 }
