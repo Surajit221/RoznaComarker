@@ -81,7 +81,7 @@ import { applyLegendToAnnotations, applyLegendToIssues } from '../../../../../ut
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 import { submissionPdfErrorMessage } from '../../../../../utils/pdf-download-error.util';
-import { normalizeToHttps } from '../../../../../utils/url-normalizer.util';
+import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 
 
 
@@ -5926,9 +5926,9 @@ export class StudentSubmissionPages {
 
 
 
-    this.submissionFileUrls = Array.isArray((submission as any)?.fileUrls)
-      ? (submission as any).fileUrls.filter((u: any) => typeof u === 'string' && u.trim().length)
-      : (submission?.fileUrl ? [submission.fileUrl] : []);
+    this.submissionFileUrls = normalizeAssetUrls(Array.isArray((submission as any)?.fileUrls)
+      ? (submission as any).fileUrls
+      : (submission?.fileUrl ? [submission.fileUrl] : []));
 
     const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
     const idsFromFiles = rawFiles
@@ -5953,7 +5953,7 @@ export class StudentSubmissionPages {
     }
 
     if (!Array.isArray(this.submissionFileUrls) || !this.submissionFileUrls.length) {
-      this.submissionFileUrls = submission?.fileUrl ? [submission.fileUrl] : [];
+      this.submissionFileUrls = normalizeAssetUrls(submission?.fileUrl ? [submission.fileUrl] : []);
     }
 
     if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) {
