@@ -746,6 +746,23 @@
                   text to compute dynamic rubric.</p>
               </div>
               }
+              <section class="teacher-comments-editor w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl"
+                [formGroup]="feedbackForm">
+                <p class="text-xl font-bold mb-1">Teacher Comments</p>
+                <div class="w-full min-w-0">
+                  <textarea formControlName="message" maxlength="5000"
+                    class="teacher-comments-editor__textarea input-text w-full h-40 resize-none bg-white"
+                    [attr.aria-busy]="teacherCommentState === 'loading'"
+                    placeholder="Type your message..."></textarea>
+                  @if (teacherCommentState === 'loading') {
+                  <p class="comment-loading" role="status">Loading saved teacher commentâ€¦</p>
+                  }
+                </div>
+                <div class="teacher-comments-editor__actions w-full flex justify-end mt-4">
+                  <button type="button" class="btn-primary" [disabled]="isTeacherCommentSaving"
+                    (click)="submitFeedback()">{{ isTeacherCommentSaving ? 'Savingâ€¦' : 'Submit' }}</button>
+                </div>
+              </section>
             </div>
           </div>
         </div>

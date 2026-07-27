@@ -232,10 +232,15 @@
 .skeleton-rubric-row .skeleton--title { width: 36%; height: 1.25rem; }
 .section-load-error { padding: 0.875rem 1rem; color: #991b1b; background: #fff5f5; border: 1px solid #fecaca; border-radius: 0.625rem; font-size: 0.875rem; }
 .comment-loading { margin-top: 0.5rem; color: #6b7280; font-size: 0.75rem; font-weight: 500; }
+.teacher-comments-editor { min-width: 0; max-width: 100%; box-sizing: border-box; overflow: visible; }
+.teacher-comments-editor__textarea { display: block; min-width: 0; max-width: 100%; min-height: 10rem; box-sizing: border-box; white-space: pre-wrap; overflow-wrap: anywhere; }
+.teacher-comments-editor__actions { min-width: 0; }
 
 @keyframes skeleton-pulse { to { opacity: 0.52; } }
 
 @media (max-width: 640px) {
+  .teacher-comments-editor { padding: 1rem; }
+  .teacher-comments-editor__actions .btn-primary { max-width: 100%; min-height: 2.75rem; }
   .skeleton-feedback-grid { grid-template-columns: 1fr; }
   .skeleton--title, .skeleton--feedback-heading { width: 70%; }
   .skeleton--metadata { width: 78%; }

@@ -61,4 +61,22 @@ describe('StudentSubmissionPages', () => {
     expect(component.correctionsState).toBe('error');
     expect(component.feedbackState).toBe('loaded');
   });
+
+  it('renders exactly one editable Teacher Comments section in the mobile branch', () => {
+    (component.device as any).width.set(390);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.teacher-comments-editor').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('.teacher-comments-editor textarea[formControlName="message"]').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.teacher-comments-editor button')?.textContent).toContain('Submit');
+  });
+
+  it('keeps the mobile Teacher Comments editor available when evaluation fails', () => {
+    (component.device as any).width.set(320);
+    component.aiFeedbackState = 'error';
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.section-load-error')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.teacher-comments-editor textarea')).toBeTruthy();
+  });
 });
