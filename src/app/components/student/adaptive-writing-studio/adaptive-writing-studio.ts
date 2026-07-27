@@ -39,6 +39,7 @@ export class AdaptiveWritingStudio {
   private readonly checkSubscriptions = new Map<string, Subscription>();
   private readonly checkPollTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly checkPollCounts = new Map<string, number>();
+  private readonly checkRequestVersions = new Map<string, number>();
 
   @Input({ required: true }) set submissionId(value: string | null | undefined) {
     const next = typeof value === 'string' ? value.trim() : '';
@@ -315,7 +316,7 @@ export class AdaptiveWritingStudio {
     this.retryableFailure = false;
     this.state = this.skillSummaryState();
   }
-  private cancelAsyncWork(): void { this.requestSubscription?.unsubscribe(); this.requestSubscription = null; this.checkSubscriptions.forEach((subscription) => subscription.unsubscribe()); this.checkSubscriptions.clear(); this.checkPollTimers.forEach((timer) => clearTimeout(timer)); this.checkPollTimers.clear(); this.checkPollCounts.clear(); this.clearTimer(); }
+  private cancelAsyncWork(): void { this.requestSubscription?.unsubscribe(); this.requestSubscription = null; this.checkSubscriptions.forEach((subscription) => subscription.unsubscribe()); this.checkSubscriptions.clear(); this.checkPollTimers.forEach((timer) => clearTimeout(timer)); this.checkPollTimers.clear(); this.checkPollCounts.clear(); this.checkRequestVersions.clear(); this.clearTimer(); }
   private clearTimer(): void { if (this.timer !== null) clearTimeout(this.timer); this.timer = null; }
 
   private normalizeSkill(skill: AdaptiveSkillScore): NormalizedAdaptiveSkill {
@@ -336,11 +337,19 @@ export class AdaptiveWritingStudio {
   private runCheck(activity: AdaptivePracticeActivity, retry: boolean): void {
     const response = (this.responses[activity.id] || '').trim();
     if (!this.sessionId || response.length < 10 || this.checkStates[activity.id] === 'checking') return;
+    const requestVersion = (this.checkRequestVersions.get(activity.id) || 0) + 1;
+    this.checkRequestVersions.set(activity.id, requestVersion);
     this.checkStates = { ...this.checkStates, [activity.id]: 'checking' };
     this.checkErrors = { ...this.checkErrors, [activity.id]: '' };
     this.checkSubscriptions.get(activity.id)?.unsubscribe();
     const subscription = this.api.checkResponse(this.sessionId, activity.id, response, retry).subscribe({
       next: (result) => {
+        if (this.checkRequestVersions.get(activity.id) !== requestVersion
+          || (this.responses[activity.id] || '').trim() !== response) {
+          this.checkStates = { ...this.checkStates, [activity.id]: 'idle' };
+          this.cdr.markForCheck();
+          return;
+        }
         this.attempts = { ...this.attempts, [activity.id]: result.attempt };
         this.checkStates = { ...this.checkStates, [activity.id]: result.state === 'ready' ? 'ready' : result.state === 'failed' ? 'error' : 'checking' };
         this.applyProgress(result.progress);
@@ -348,6 +357,7 @@ export class AdaptiveWritingStudio {
         this.cdr.markForCheck();
       },
       error: (error: unknown) => {
+        if (this.checkRequestVersions.get(activity.id) !== requestVersion) return;
         const value = error as { error?: { message?: string } };
         this.checkStates = { ...this.checkStates, [activity.id]: 'error' };
         this.checkErrors = { ...this.checkErrors, [activity.id]: value?.error?.message || 'Your response could not be checked. Please try again.' };

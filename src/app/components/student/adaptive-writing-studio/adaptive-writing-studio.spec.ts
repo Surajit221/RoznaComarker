@@ -135,4 +135,35 @@ describe('AdaptiveWritingStudio', () => {
     expect(fixture.nativeElement.textContent).toContain('78%');
     expect(fixture.nativeElement.textContent).toContain('Improved');
   });
+
+  it('blocks a duplicate while checking and ignores a stale result after the answer changes', () => {
+    const pending = new Subject<AdaptivePracticeCheckResponse>();
+    api.checkResponse.and.returnValue(pending.asObservable());
+    component.startGeneration();
+    component.updateResponse('activity-1', 'However, the first answer connects.');
+    component.check(component.activities[0]);
+    component.check(component.activities[0]);
+    expect(api.checkResponse).toHaveBeenCalledTimes(1);
+
+    component.updateResponse('activity-1', 'However, a newer answer now connects.');
+    pending.next({
+      state: 'ready', reused: false,
+      attempt: { _id: 'old', activityId: 'activity-1', attemptNumber: 1, status: 'ready', response: 'However, the first answer connects.' },
+      progress: { improvedActivities: 1, totalActivities: 1, percentage: 100, activities: [] }
+    });
+    expect(component.responses['activity-1']).toBe('However, a newer answer now connects.');
+    expect(component.progressPercentage).toBe(0);
+    expect(component.checkStates['activity-1']).toBe('idle');
+  });
+
+  it('preserves the typed answer on failure and deliberate retry creates one request', () => {
+    api.checkResponse.and.returnValue(throwError(() => ({ error: { message: 'Try again.' } })));
+    component.startGeneration();
+    component.updateResponse('activity-1', 'However, my answer remains visible.');
+    component.check(component.activities[0]);
+    expect(component.responses['activity-1']).toBe('However, my answer remains visible.');
+    expect(api.checkResponse).toHaveBeenCalledTimes(1);
+    component.retryCheck(component.activities[0]);
+    expect(api.checkResponse).toHaveBeenCalledTimes(2);
+  });
 });
