@@ -22,40 +22,21 @@ describe('StudentWorksheetViewer', () => {
     expect(component).toBeTruthy();
   });
 
-  it('isLoading should be true on init', () => {
-    expect(component.isLoading).toBeTrue();
+  it('starts without a worksheet id before route initialization', () => {
+    expect(component.worksheetId).toBe('');
   });
 
-  it('allAnswered returns false when worksheet is null', () => {
-    component.worksheet = null;
-    expect(component.allAnswered).toBeFalse();
-  });
-
-  it('allAnswered returns true when all questions have answers', () => {
-    component.worksheet = {
-      _id: 'w1', title: 'Test', questions: [
-        { _id: 'q1', text: 'Q1', type: 'open' },
-        { _id: 'q2', text: 'Q2', type: 'mcq', options: ['A', 'B'] },
-      ],
-    };
-    component.answers = { q1: 'some answer', q2: 'A' };
-    expect(component.allAnswered).toBeTrue();
-  });
-
-  it('allAnswered returns false when a question is unanswered', () => {
-    component.worksheet = {
-      _id: 'w1', title: 'Test', questions: [
-        { _id: 'q1', text: 'Q1', type: 'open' },
-      ],
-    };
-    component.answers = {};
-    expect(component.allAnswered).toBeFalse();
-  });
-
-  it('goBackToClass navigates to /student/my-classes when classId is empty', () => {
+  it('goBack navigates to /student/my-classes when classId is empty', () => {
     const spy = spyOn((component as any).router, 'navigate');
-    component.classId = '';
-    component.goBackToClass();
+    component.classId = null;
+    component.goBack();
     expect(spy).toHaveBeenCalledWith(['/student/my-classes']);
+  });
+
+  it('goBack navigates to the current classroom when classId exists', () => {
+    const spy = spyOn((component as any).router, 'navigate');
+    component.classId = 'class-1';
+    component.goBack();
+    expect(spy).toHaveBeenCalledWith(['/student/classroom', 'class-1']);
   });
 });

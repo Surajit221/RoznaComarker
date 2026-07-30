@@ -148,7 +148,7 @@ describe('Integration Tests', () => {
     const extractedCode = qrGenerator.extractJoinCodeFromUrl(qrUrl);
     
     expect(extractedCode).toBe(joinCode);
-    expect(qrGenerator.validateJoinCode(extractedCode)).toBe(true);
+    expect(qrGenerator.validateJoinCode(extractedCode || '')).toBe(true);
   });
 
   it('should handle search with caching', () => {
@@ -164,6 +164,6 @@ describe('Integration Tests', () => {
     const cached = cache.get('search-math');
     
     expect(cached).toEqual(searchResults);
-    expect(cached).toHaveLength(2);
+    expect((cached as typeof searchResults).length).toBe(2);
   });
 });

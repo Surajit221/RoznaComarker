@@ -2742,9 +2742,8 @@ export class StudentSubmissionPages {
 
 
 
-        this.http.post<any>(
-          `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`,
-          this.activeFileId ? { fileId: this.activeFileId } : {}
+        this.http.get<any>(
+          `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections${this.activeFileId ? `?fileId=${encodeURIComponent(this.activeFileId)}` : ''}`
         )
 
 
@@ -5258,8 +5257,8 @@ export class StudentSubmissionPages {
     const seq = ++this.loadTranscriptPagesSeq;
     try {
       const apiBaseUrl = `${environment.apiUrl}/api`;
-      const resp = await firstValueFrom(this.http.post<any>(
-        `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, {}
+      const resp = await firstValueFrom(this.http.get<any>(
+        `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
       ));
       if (seq !== this.loadTranscriptPagesSeq || this.currentSubmission?._id !== submissionId) return;
       const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};

@@ -1127,8 +1127,8 @@ export class MySubmissionPage {
 
     try {
       const apiBaseUrl = `${environment.apiUrl}/api`;
-      const body = requestedFileId ? { fileId: requestedFileId } : {};
-      const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, body));
+      const query = requestedFileId ? `?fileId=${encodeURIComponent(requestedFileId)}` : '';
+      const resp = await firstValueFrom(this.http.get<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections${query}`));
 
       const success = Boolean(resp && (resp as any).success);
       const data = resp && typeof resp === 'object' ? (resp as any).data : null;
@@ -1267,7 +1267,7 @@ export class MySubmissionPage {
     const seq = ++this.loadTranscriptPagesSeq;
     try {
       const apiBaseUrl = `${environment.apiUrl}/api`;
-      const resp = await firstValueFrom(this.http.post<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`, {}));
+      const resp = await firstValueFrom(this.http.get<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`));
       if (seq !== this.loadTranscriptPagesSeq || this.submission?._id !== submissionId) return;
       const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};
       const pages = Array.isArray(data.ocr) && data.ocr.length ? data.ocr : (Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : []);
