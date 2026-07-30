@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { JoinClassForm } from './join-class-form';
+import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
 
 describe('JoinClassForm', () => {
   let component: JoinClassForm;
@@ -8,7 +9,8 @@ describe('JoinClassForm', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [JoinClassForm]
+      imports: [JoinClassForm],
+      providers: routedHttpTestProviders()
     })
     .compileComponents();
 

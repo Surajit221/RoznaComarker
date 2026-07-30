@@ -14,7 +14,7 @@ describe('dynamic-ai-feedback.util', () => {
 
       const result = rubricScoresToFeedbackItems(rubricScores);
 
-      expect(result).toHaveLength(6);
+      expect(result.length).toBe(6);
       expect(result[0].category).toBe('Grammar');
       expect(result[1].category).toBe('Vocabulary');
       expect(result[2].category).toBe('Organization & Structure');
@@ -70,7 +70,7 @@ describe('dynamic-ai-feedback.util', () => {
     it('should handle null rubricScores', () => {
       const result = rubricScoresToFeedbackItems(null);
 
-      expect(result).toHaveLength(6);
+      expect(result.length).toBe(6);
       result.forEach((item) => {
         expect(item.score).toBe(0);
         expect(item.description).toBe('');
@@ -80,7 +80,7 @@ describe('dynamic-ai-feedback.util', () => {
     it('should handle undefined rubricScores', () => {
       const result = rubricScoresToFeedbackItems(undefined);
 
-      expect(result).toHaveLength(6);
+      expect(result.length).toBe(6);
       result.forEach((item) => {
         expect(item.score).toBe(0);
         expect(item.description).toBe('');
@@ -94,7 +94,7 @@ describe('dynamic-ai-feedback.util', () => {
 
       const result = rubricScoresToFeedbackItems(rubricScores);
 
-      expect(result).toHaveLength(6);
+      expect(result.length).toBe(6);
       
       const vocabularyItem = result.find((item) => item.category === 'Vocabulary');
       expect(vocabularyItem?.maxScore).toBe(20); // Default for VOCABULARY
@@ -144,7 +144,7 @@ describe('dynamic-ai-feedback.util', () => {
 
       const result = rubricScoresToFeedbackItems(legacyRubricScores);
 
-      expect(result).toHaveLength(6);
+      expect(result.length).toBe(6);
       
       // Existing categories should preserve their values
       const grammarItem = result.find((item) => item.category === 'Grammar');

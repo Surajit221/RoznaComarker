@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MyClassesForm } from './my-classes-form';
+import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
 
 describe('MyClassesForm', () => {
   let component: MyClassesForm;
@@ -8,7 +9,8 @@ describe('MyClassesForm', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MyClassesForm]
+      imports: [MyClassesForm],
+      providers: routedHttpTestProviders()
     })
     .compileComponents();
 

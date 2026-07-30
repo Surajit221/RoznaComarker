@@ -41,15 +41,19 @@ describe('StudentFlashcardPlayer', () => {
     expect(routerSpy).toHaveBeenCalledWith(['/student/classroom', 'cls123']);
   });
 
-  it('grade() pushes card to knownCards on "know"', () => {
-    component.cards = [{ front: 'Q', back: 'A', order: 0 }];
-    component.grade('know');
-    expect(component.knownCards.length).toBe(1);
+  it('markKnown() records the current card as known', () => {
+    component.cards = [{ _id: 'card-1', front: 'Q', back: 'A', order: 0 }];
+    component.isFlipped = true;
+    spyOn<any>(component, 'advance');
+    component.markKnown();
+    expect(component.knownCount).toBe(1);
   });
 
-  it('grade() pushes card to learningCards on "learning"', () => {
-    component.cards = [{ front: 'Q', back: 'A', order: 0 }];
-    component.grade('learning');
-    expect(component.learningCards.length).toBe(1);
+  it('markLearning() records the current card for review', () => {
+    component.cards = [{ _id: 'card-1', front: 'Q', back: 'A', order: 0 }];
+    component.isFlipped = true;
+    spyOn<any>(component, 'advance');
+    component.markLearning();
+    expect(component.learningCount).toBe(1);
   });
 });

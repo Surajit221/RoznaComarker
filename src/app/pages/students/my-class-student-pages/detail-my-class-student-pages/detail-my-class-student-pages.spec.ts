@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { DetailMyClassStudentPages } from './detail-my-class-student-pages';
+import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
+import { AuthService } from '../../../../auth/auth.service';
 
 describe('DetailMyClassStudentPages', () => {
   let component: DetailMyClassStudentPages;
@@ -8,7 +10,11 @@ describe('DetailMyClassStudentPages', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DetailMyClassStudentPages]
+      imports: [DetailMyClassStudentPages],
+      providers: [
+        ...routedHttpTestProviders({ classId: 'class-1' }),
+        { provide: AuthService, useValue: { getBackendJwt: () => null } },
+      ]
     })
     .compileComponents();
 

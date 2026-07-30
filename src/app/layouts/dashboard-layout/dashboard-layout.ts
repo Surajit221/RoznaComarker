@@ -132,6 +132,10 @@ export class DashboardLayout {
 
   async ngOnInit() {
     const token = localStorage.getItem('backend_jwt');
+    if (!token) {
+      this.isSubscriptionLoading = false;
+      return;
+    }
     const payload = token ? decodeJwtPayload(token) : null;
     this.role = (payload && payload.role) || null;
 
