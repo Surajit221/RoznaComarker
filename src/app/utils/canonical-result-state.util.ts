@@ -52,7 +52,10 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
   const correctionStatus = status(value.correctionStatus, previous?.correctionStatus || 'pending');
   const semanticStatus = ['pending', 'processing', 'retry_wait', 'completed', 'failed'].includes(String(value.semanticStatus))
     ? value.semanticStatus as CanonicalResultViewState['semanticStatus']
-    : correctionStatus === 'completed' ? 'completed' : ['failed', 'stale'].includes(correctionStatus) ? 'failed' : 'pending';
+    : correctionStatus === 'completed' ? 'completed'
+      : ['failed', 'stale'].includes(correctionStatus)
+        || (correctionStatus === 'partial' && value.processingActive !== true
+          && value.automaticPollingAllowed !== true) ? 'failed' : 'pending';
   const completeness = value.statisticsCompleteness === 'canonical' || value.statisticsCompleteness === 'language_only' || value.statisticsCompleteness === 'semantic_only'
     ? value.statisticsCompleteness : correctionStatus === 'completed' ? 'canonical' : ['processing', 'partial'].includes(correctionStatus) ? 'language_only' : 'none';
   const rawAvailability = value.categoryAvailability || {};
@@ -66,10 +69,11 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     availability[category] = ['pending', 'available', 'failed'].includes(rawAvailability[category]) ? rawAvailability[category] : inferred;
     statistics[category] = availability[category] === 'available' ? finite(rawStats[category]) : null;
   }
-  const explicitLifecycleActive = value.processingActive === true || value.automaticPollingAllowed === true
-    || ['pending', 'processing', 'retry_wait'].includes(semanticStatus)
-    || ['pending', 'processing'].includes(String(value.evaluationStatus))
-    || ['pending', 'processing'].includes(String(value.detailedFeedbackStatus));
+  const explicitLifecycleActive = value.terminal === true ? false
+    : value.processingActive === true || value.automaticPollingAllowed === true
+      || ['pending', 'processing', 'retry_wait'].includes(semanticStatus)
+      || ['pending', 'processing'].includes(String(value.evaluationStatus))
+      || ['pending', 'processing'].includes(String(value.detailedFeedbackStatus));
   const prerequisiteFailed = ['failed', 'stale'].includes(correctionStatus)
     || (correctionStatus === 'partial' && semanticStatus === 'failed' && !explicitLifecycleActive);
   const evaluationStatus = prerequisiteFailed ? 'blocked' : status(value.evaluationStatus, previous?.evaluationStatus || 'pending');
@@ -122,7 +126,8 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
       ? String(value.evaluationVersion ?? value.evaluation?.evaluationVersion) : previous?.evaluationVersion || null,
     assessmentVersion: typeof (value.assessmentVersion ?? value.evaluation?.assessmentVersion) === 'string'
       ? String(value.assessmentVersion ?? value.evaluation?.assessmentVersion) : previous?.assessmentVersion || null,
-    evaluationErrorCode: typeof value.evaluationErrorCode === 'string' ? value.evaluationErrorCode : previous?.evaluationErrorCode || null,
+    evaluationErrorCode: evaluationStatus === 'completed' ? null
+      : typeof value.evaluationErrorCode === 'string' ? value.evaluationErrorCode : previous?.evaluationErrorCode || null,
     score,
     grade,
     scoreMessage,
