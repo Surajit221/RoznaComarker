@@ -3,8 +3,10 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import { FlashcardDetail } from './flashcard-detail';
+import { httpTestingProviders, verifyHttpRequestsAfterEach } from '../../../../testing/standalone-test-providers';
 
 describe('FlashcardDetail workspace', () => {
+  afterEach(verifyHttpRequestsAfterEach);
   let fixture: ComponentFixture<FlashcardDetail>;
   let component: FlashcardDetail;
   const set = {
@@ -19,6 +21,7 @@ describe('FlashcardDetail workspace', () => {
     await TestBed.configureTestingModule({
       imports: [FlashcardDetail],
       providers: [
+        ...httpTestingProviders,
         { provide: FlashcardApiService, useValue: { getSetById: () => of(set) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
         { provide: ActivatedRoute, useValue: {

@@ -1,16 +1,18 @@
+const backendOrigin = 'http://localhost:5000';
+
 export const environment = {
   production: false,
   adaptivePracticeFixtureEnabled: false,
 
-  apiUrl: 'http://localhost:5000',
+  apiUrl: backendOrigin,
 
-  API_URL: 'http://localhost:5000/api',
+  API_URL: `${backendOrigin}/api`,
 
-  UPLOADS_URL: 'http://localhost:5000/uploads',
+  UPLOADS_URL: `${backendOrigin}/uploads`,
 
   FRONTEND_URL: 'http://localhost:4200/',
 
-  apiBaseUrl: 'http://localhost:5000/api',
+  apiBaseUrl: `${backendOrigin}/api`,
 
   firebase: {
     apiKey: 'AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM',

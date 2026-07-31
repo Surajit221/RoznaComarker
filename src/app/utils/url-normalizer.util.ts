@@ -45,7 +45,7 @@ export function normalizeToHttps(url: string): string {
     const parsed = new URL(raw);
     const isUpload = parsed.pathname.startsWith('/uploads/');
     if (isUpload && environment.production
-      && (localOrPrivateHost(parsed.hostname) || parsed.hostname === 'comarkerback.roznahub.com')) {
+      && localOrPrivateHost(parsed.hostname)) {
       return `${apiOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
     }
   } catch {

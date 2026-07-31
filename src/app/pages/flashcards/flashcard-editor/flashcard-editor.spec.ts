@@ -3,8 +3,10 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import { FlashcardEditor } from './flashcard-editor';
+import { httpTestingProviders, verifyHttpRequestsAfterEach } from '../../../../testing/standalone-test-providers';
 
 describe('FlashcardEditor state safety', () => {
+  afterEach(verifyHttpRequestsAfterEach);
   let fixture: ComponentFixture<FlashcardEditor>;
   let component: FlashcardEditor;
   const updateSet = jasmine.createSpy('updateSet').and.returnValue(of({}));
@@ -14,6 +16,7 @@ describe('FlashcardEditor state safety', () => {
     await TestBed.configureTestingModule({
       imports: [FlashcardEditor],
       providers: [
+        ...httpTestingProviders,
         { provide: FlashcardApiService, useValue: {
           getSetById: () => of({
             _id: 'set-1', title: 'Set', description: '', visibility: 'public',

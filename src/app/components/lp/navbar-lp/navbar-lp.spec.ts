@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { NavbarLp } from './navbar-lp';
+import { routedComponentProviders } from '../../../../testing/standalone-test-providers';
 
 describe('NavbarLp', () => {
   let component: NavbarLp;
@@ -8,7 +9,7 @@ describe('NavbarLp', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [NavbarLp]
+      imports: [NavbarLp], providers: [...routedComponentProviders()]
     })
     .compileComponents();
 

@@ -15,4 +15,8 @@ describe('production URL configuration', () => {
     );
     expect(`${environment.API_URL}/assignments/my`).not.toContain('/api/api/');
   });
+
+  it('cannot resolve a production browser URL to localhost', () => {
+    expect(JSON.stringify(environment)).not.toContain('localhost');
+  });
 });
