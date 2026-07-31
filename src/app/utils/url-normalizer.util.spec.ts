@@ -10,7 +10,7 @@ describe('canonical asset URL normalization', () => {
     Object.assign(environment, { production: true, apiUrl: 'https://comarkerback.roznahub.com' });
     expect(normalizeToHttps('/uploads/submissions/page-1.jpg'))
       .toBe('https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg');
-    expect(normalizeToHttps('https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg'))
+    expect(normalizeToHttps('http://localhost:5000/uploads/submissions/page-1.jpg'))
       .toBe('https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg');
   });
 
@@ -29,7 +29,7 @@ describe('canonical asset URL normalization', () => {
     expect(normalizeToHttps('http://localhost:5000/uploads/submissions/page-1.jpg'))
       .toBe('http://localhost:5000/uploads/submissions/page-1.jpg');
     expect(normalizeToHttps('https://images.unsplash.com/photo-1')).toBe('https://images.unsplash.com/photo-1');
-    expect(normalizeToHttps('blob:https://comarkers.roznahub.com/id')).toBe('blob:https://comarkers.roznahub.com/id');
+    expect(normalizeToHttps('blob:http://localhost:4200/id')).toBe('blob:http://localhost:4200/id');
     expect(normalizeToHttps('data:image/png;base64,abc')).toBe('data:image/png;base64,abc');
   });
 
@@ -38,7 +38,7 @@ describe('canonical asset URL normalization', () => {
     expect(normalizeAssetUrls([
       'http://127.0.0.1:5000/uploads/submissions/page-1.jpg',
       '/uploads/submissions/page-2.jpg',
-      'https://comarkerback.roznahub.com/uploads/submissions/page-3.jpg'
+      'http://localhost:5000/uploads/submissions/page-3.jpg'
     ])).toEqual([
       'https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg',
       'https://comarkerback.roznahub.com/uploads/submissions/page-2.jpg',

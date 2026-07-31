@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { LandingPageLayout } from './landing-page-layout';
+import { routedComponentProviders } from '../../../testing/standalone-test-providers';
 
 describe('LandingPageLayout', () => {
   let component: LandingPageLayout;
@@ -8,7 +9,7 @@ describe('LandingPageLayout', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [LandingPageLayout]
+      imports: [LandingPageLayout], providers: [...routedComponentProviders()]
     })
     .compileComponents();
 

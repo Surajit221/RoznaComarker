@@ -1,14 +1,19 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MySubmissionPage } from './my-submission-page';
+import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 
 describe('MySubmissionPage', () => {
+  afterEach(verifyHttpRequestsAfterEach);
   let component: MySubmissionPage;
   let fixture: ComponentFixture<MySubmissionPage>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MySubmissionPage]
+      imports: [MySubmissionPage], providers: [
+        ...routedComponentProviders({ classId: 'class-1', assignmentId: 'assignment-1', submissionId: 'submission-1' }),
+        ...httpTestingProviders, ...authenticatedUserProviders('student')
+      ]
     })
     .compileComponents();
 

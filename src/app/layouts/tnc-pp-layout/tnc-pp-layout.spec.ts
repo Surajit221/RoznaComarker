@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { TncPpLayout } from './tnc-pp-layout';
+import { routedComponentProviders } from '../../../testing/standalone-test-providers';
 
 describe('TncPpLayout', () => {
   let component: TncPpLayout;
@@ -8,7 +9,7 @@ describe('TncPpLayout', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TncPpLayout]
+      imports: [TncPpLayout], providers: [...routedComponentProviders()]
     })
     .compileComponents();
 

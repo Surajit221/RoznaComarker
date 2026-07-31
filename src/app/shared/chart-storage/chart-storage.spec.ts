@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { ChartStorage } from './chart-storage';
+import { routedComponentProviders } from '../../../testing/standalone-test-providers';
 
 describe('ChartStorage', () => {
   let component: ChartStorage;
@@ -8,7 +9,7 @@ describe('ChartStorage', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ChartStorage]
+      imports: [ChartStorage], providers: [...routedComponentProviders()]
     })
     .compileComponents();
 

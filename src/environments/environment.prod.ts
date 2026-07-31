@@ -1,11 +1,13 @@
+const backendOrigin = 'https://comarkerback.roznahub.com';
+
 export const environment = {
   production: true,
   adaptivePracticeFixtureEnabled: false,
 
-  apiUrl: 'https://comarkerback.roznahub.com',
-  API_URL: 'https://comarkerback.roznahub.com/api',
-  UPLOADS_URL: 'https://comarkerback.roznahub.com/uploads',
-  apiBaseUrl: 'https://comarkerback.roznahub.com/api',
+  apiUrl: backendOrigin,
+  API_URL: `${backendOrigin}/api`,
+  UPLOADS_URL: `${backendOrigin}/uploads`,
+  apiBaseUrl: `${backendOrigin}/api`,
 
   FRONTEND_URL: 'https://comarkers.roznahub.com',
 
