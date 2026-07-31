@@ -19,12 +19,19 @@ export interface ResultPollingState {
 type Refresh = (submissionId: string, requestSequence: number) => Promise<ResultRefreshSnapshot>;
 
 const DELAYS = [0, 1200, 2000, 3000, 5000];
+const FAILED_REVALIDATION_DELAY_MS = 30000;
 
 export function shouldPollCanonicalResult(c: CanonicalResultViewState): boolean {
   const activeStage = ['pending', 'processing', 'retry_wait'].includes(c.semanticStatus)
     || ['pending', 'processing'].includes(c.evaluationStatus)
     || ['pending', 'processing'].includes(c.detailedFeedbackStatus);
   return activeStage || ((c.processingActive === true || c.automaticPollingAllowed === true) && c.terminal === false);
+}
+
+export function shouldRevalidateCanonicalResult(c: CanonicalResultViewState): boolean {
+  return c.processingActive !== true && c.automaticPollingAllowed !== true
+    && c.manualRetryAllowed === true
+    && (c.semanticStatus === 'failed' || ['failed', 'blocked', 'partial'].includes(c.evaluationStatus));
 }
 
 @Injectable({ providedIn: 'root' })
@@ -79,13 +86,16 @@ export class CanonicalSubmissionResultCoordinator {
         return;
       }
       const active = this.isActive(snapshot);
-      this.pollingState$.next({ submissionId, attempt, running: active, timedOut: false, lastHttpStatus: 200 });
-      if (!active) return;
+      const revalidate = shouldRevalidateCanonicalResult(snapshot.canonical);
+      const continueObserving = active || revalidate;
+      this.pollingState$.next({ submissionId, attempt, running: continueObserving, timedOut: false, lastHttpStatus: 200 });
+      if (!continueObserving) return;
       if (Date.now() - this.startedAt >= this.maxDurationMs) {
         this.pollingState$.next({ submissionId, attempt, running: false, timedOut: true, lastHttpStatus: 200 });
         return;
       }
-      const delay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
+      const delay = revalidate ? FAILED_REVALIDATION_DELAY_MS
+        : DELAYS[Math.min(attempt, DELAYS.length - 1)];
       this.diagnostic(submissionId, sequence, attempt, snapshot.canonical, 200, true, delay);
       this.schedule(delay, generation);
     } catch (error: any) {

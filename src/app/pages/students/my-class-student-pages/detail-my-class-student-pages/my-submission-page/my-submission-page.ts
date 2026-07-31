@@ -39,7 +39,8 @@ import { AdaptiveWritingStudio } from '../../../../../components/student/adaptiv
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
-import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
+import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult,
+  shouldRevalidateCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
@@ -1679,7 +1680,7 @@ export class MySubmissionPage {
     }
 
     const result = this.canonicalResultState;
-    if ((result && shouldPollCanonicalResult(result))
+    if ((result && (shouldPollCanonicalResult(result) || shouldRevalidateCanonicalResult(result)))
       || (!result && ['pending', 'processing'].includes(this.submission.ocrStatus || 'pending'))
       || (this.submission.ocrStatus === 'completed' && !this.hasLoadedOcrCorrections)) {
       this.startOcrPolling();

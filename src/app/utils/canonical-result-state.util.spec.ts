@@ -92,6 +92,24 @@ describe('canonical result normalization', () => {
     expect(categoryDisplay(state, 'content')).toBe('Unavailable');
   });
 
+  it('replaces a failed state with completed canonical data and clears stale errors', () => {
+    const failed = normalizeCanonicalResult({ submissionId: 'submission-1', correctionStatus: 'partial',
+      semanticStatus: 'failed', evaluationStatus: 'blocked', evaluationErrorCode: 'SEMANTIC_FAILED',
+      statisticsCompleteness: 'language_only', statistics: { grammar: 2, mechanics: 1 },
+      processingActive: false, automaticPollingAllowed: false, manualRetryAllowed: true, terminal: true });
+    const completed = normalizeCanonicalResult({ submissionId: 'submission-1', correctionStatus: 'completed',
+      semanticStatus: 'completed', evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
+      statisticsCompleteness: 'canonical', statistics: { content: 3, grammar: 2, organization: 1,
+        vocabulary: 4, mechanics: 1 }, overallScore: 87, processingActive: false,
+      automaticPollingAllowed: false, manualRetryAllowed: false, terminal: true }, failed);
+    expect(completed.evaluationErrorCode).toBeNull();
+    expect(completed.score).toBe(87);
+    expect(completed.categoryAvailability.content).toBe('available');
+    expect(completed.statistics.content).toBe(3);
+    expect(completed.semanticStatus).toBe('completed');
+    expect(completed.processingActive).toBeFalse();
+  });
+
   it('suppresses correction results built against a stale transcript layout', () => {
     const state = normalizeCanonicalResult({ correctionStatus: 'stale', correctionCurrent: false,
       statistics: { grammar: 99 }, evaluationStatus: 'completed', overallScore: 100,

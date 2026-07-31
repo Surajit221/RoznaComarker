@@ -1,5 +1,6 @@
 import { fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
-import { CanonicalSubmissionResultCoordinator, type ResultRefreshSnapshot } from './canonical-submission-result-coordinator.service';
+import { CanonicalSubmissionResultCoordinator, shouldRevalidateCanonicalResult,
+  type ResultRefreshSnapshot } from './canonical-submission-result-coordinator.service';
 import { normalizeCanonicalResult } from '../utils/canonical-result-state.util';
 
 describe('CanonicalSubmissionResultCoordinator', () => {
@@ -14,7 +15,50 @@ describe('CanonicalSubmissionResultCoordinator', () => {
     const state = snapshot({ correctionStatus: 'partial', processingActive: false, automaticPollingAllowed: false,
       manualRetryAllowed: true, terminal: true, evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked' });
     expect((service as any).isActive(state)).toBeFalse();
+    expect(shouldRevalidateCanonicalResult(state.canonical)).toBeTrue();
   });
+
+  it('detects an external retry and replaces failed state with completed state', fakeAsync(() => {
+    const service = new CanonicalSubmissionResultCoordinator();
+    const states = [
+      snapshot({ correctionStatus: 'partial', semanticStatus: 'failed', processingActive: false,
+        automaticPollingAllowed: false, manualRetryAllowed: true, terminal: true,
+        evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked' }),
+      snapshot({ correctionStatus: 'processing', semanticStatus: 'processing', processingActive: true,
+        automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' }),
+      snapshot({ correctionStatus: 'completed', semanticStatus: 'completed', processingActive: false,
+        automaticPollingAllowed: false, manualRetryAllowed: false, terminal: true,
+        statisticsCompleteness: 'canonical', evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
+        score: 88 })
+    ];
+    let applied = states[0];
+    let calls = 0;
+    service.start('submission-1', async () => applied = states[Math.min(calls++, states.length - 1)]);
+    tick(0); flushMicrotasks();
+    expect(calls).toBe(1);
+    tick(30000); flushMicrotasks();
+    expect(calls).toBe(2);
+    tick(2000); flushMicrotasks();
+    expect(calls).toBe(3);
+    expect(applied.canonical.score).toBe(88);
+    expect(service.pollingState$.value.running).toBeFalse();
+  }));
+
+  it('teardown stops failed-state revalidation timers', fakeAsync(() => {
+    const service = new CanonicalSubmissionResultCoordinator();
+    let calls = 0;
+    service.start('submission-1', async () => {
+      calls += 1;
+      return snapshot({ correctionStatus: 'partial', semanticStatus: 'failed', processingActive: false,
+        automaticPollingAllowed: false, manualRetryAllowed: true, terminal: true,
+        evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked' });
+    });
+    tick(0); flushMicrotasks();
+    service.stop();
+    tick(60000); flushMicrotasks();
+    expect(calls).toBe(1);
+  }));
 
   it('does not poll for a missing score or feedback without an active backend job', () => {
     const service = new CanonicalSubmissionResultCoordinator();
@@ -100,15 +144,16 @@ describe('CanonicalSubmissionResultCoordinator', () => {
     expect(service.pollingState$.value.running).toBeFalse();
   }));
 
-  it('stops on genuine terminal failure and reports a polling deadline without mutating result state', fakeAsync(() => {
+  it('slowly revalidates a retryable terminal failure and reports active polling deadlines', fakeAsync(() => {
     const failedService = new CanonicalSubmissionResultCoordinator();
     failedService.start('submission-1', async () => snapshot({ correctionStatus: 'failed',
       semanticStatus: 'failed', evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked',
       processingActive: false, automaticPollingAllowed: false, manualRetryAllowed: true, terminal: true }));
     tick(0);
     flushMicrotasks();
-    expect(failedService.pollingState$.value.running).toBeFalse();
+    expect(failedService.pollingState$.value.running).toBeTrue();
     expect(failedService.pollingState$.value.timedOut).toBeFalse();
+    failedService.stop();
 
     const deadlineService = new CanonicalSubmissionResultCoordinator();
     const persisted = snapshot({ correctionStatus: 'completed', semanticStatus: 'completed',
