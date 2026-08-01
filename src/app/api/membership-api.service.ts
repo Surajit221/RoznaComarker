@@ -40,7 +40,7 @@ export class MembershipApiService {
   ) {}
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   async getMyMemberships(): Promise<BackendMembership[]> {

@@ -24,7 +24,7 @@ export class NotificationRealtimeService {
 
     // Exchange the long-lived JWT for a one-time SSE token via Authorization
     // header so the JWT never appears in URLs, logs, or browser history.
-    fetch(`${environment.apiUrl}/api/auth/sse-token`, {
+    fetch(`${environment.apiUrl}/auth/sse-token`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -33,7 +33,7 @@ export class NotificationRealtimeService {
         if (this.source) return; // reconnect raced
         const sseToken = data && data.sseToken;
         if (!sseToken) return;
-        const url = `${environment.apiUrl}/api/notifications/stream?sseToken=${encodeURIComponent(sseToken)}`;
+        const url = `${environment.apiUrl}/notifications/stream?sseToken=${encodeURIComponent(sseToken)}`;
         this.openEventSource(url);
       })
       .catch(() => {

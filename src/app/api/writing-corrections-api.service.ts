@@ -39,7 +39,7 @@ export class WritingCorrectionsApiService {
   private legendPromise: Promise<CorrectionLegend> | null = null;
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   async getLegend(): Promise<CorrectionLegend> {

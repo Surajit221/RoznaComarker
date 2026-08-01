@@ -697,7 +697,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
       
       // Call backend directly - no overlayPdfService needed
       const response = await this.http.post(
-        `${environment.apiUrl}/api/worksheets/${worksheetId}/download-overlay`,
+        `${environment.apiUrl}/worksheets/${worksheetId}/download-overlay`,
         {
           answers,
           results,

@@ -77,7 +77,7 @@ export class FlashcardDetail implements OnInit, OnDestroy {
   getImageUrl(relativePath: string | null | undefined): string {
     if (!relativePath) return '';
     if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
-    return `${environment.apiUrl}${relativePath}`;
+    return `${environment.backendUrl}${relativePath}`;
   }
 
   get setId(): string {

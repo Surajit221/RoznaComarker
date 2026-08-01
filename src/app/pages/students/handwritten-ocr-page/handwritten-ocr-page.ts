@@ -247,7 +247,7 @@ export class HandwrittenOcrPage {
   }
 
   private async loadOcrCorrections(submissionId: string): Promise<boolean> {
-    const apiBaseUrl = `${environment.apiUrl}/api`;
+    const apiBaseUrl = environment.apiUrl;
     const resp = await firstValueFrom(
       this.http.get<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`)
     );

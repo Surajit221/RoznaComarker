@@ -32,9 +32,8 @@ export function normalizeToHttps(url: string): string {
   // Preserve Data URLs
   if (raw.startsWith('data:')) return raw;
 
-  const apiOrigin = String(environment.apiUrl || environment.API_URL || '')
-    .replace(/\/api\/?$/i, '')
-    .replace(/\/+$/, '');
+  const apiOrigin = String(environment.backendUrl || environment.apiUrl || environment.API_URL || '')
+    .replace(/\/api\/?$/i, '').replace(/\/+$/, '');
 
   // Repair only legacy/private backend upload URLs. Do not rewrite arbitrary
   // external assets (including Unsplash) or persist the repaired value.

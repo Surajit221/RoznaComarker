@@ -18,7 +18,7 @@ describe('FeedbackApiService teacher comments', () => {
 
   it('PATCHes only teacherComments to the environment-based endpoint', async () => {
     const pending = service.updateTeacherComments('submission 1', 'Line one\nLine two');
-    const request = http.expectOne(`${environment.apiUrl}/api/feedback/submission%201/teacher-comments`);
+    const request = http.expectOne(`${environment.apiUrl}/feedback/submission%201/teacher-comments`);
     expect(request.request.method).toBe('PATCH');
     expect(request.request.body).toEqual({ teacherComments: 'Line one\nLine two' });
     request.flush({ success: true, data: {

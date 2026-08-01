@@ -130,6 +130,18 @@ export class UploadEssayForm {
     this.cdr.detectChanges();
   }
 
+  moveFile(event: Event, index: number, direction: -1 | 1): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = index + direction;
+    if (target < 0 || target >= this.files.length) return;
+    const reordered = [...this.files];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    this.files = reordered;
+    this.filesSelected.emit(this.files.map((entry) => entry.file));
+    this.cdr.detectChanges();
+  }
+
   reset(): void {
     this.files = [];
     this.validationError = null;

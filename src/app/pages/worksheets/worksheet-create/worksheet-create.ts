@@ -158,7 +158,7 @@ export class WorksheetCreatePage implements OnDestroy {
     formData.append('subject', this.subject || 'General');
     formData.append('gradeLevel', this.gradeLevel || 'Not specified');
 
-    this.http.post<any>(`${environment.apiUrl}/api/worksheets/extract-structure`, formData)
+    this.http.post<any>(`${environment.apiUrl}/worksheets/extract-structure`, formData)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {

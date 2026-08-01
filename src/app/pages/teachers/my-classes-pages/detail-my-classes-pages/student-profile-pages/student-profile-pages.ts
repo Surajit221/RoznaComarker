@@ -35,7 +35,7 @@ export class StudentProfilePages {
     const url = this.student?.photoURL || '';
     if (!url) return 'img/default-img.png';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${environment.apiUrl}${url}`;
+    return `${environment.backendUrl}${url}`;
   }
 
   get studentName(): string {

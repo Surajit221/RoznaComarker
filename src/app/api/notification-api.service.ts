@@ -41,7 +41,7 @@ export class NotificationApiService {
   constructor(private http: HttpClient) {}
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   private logHttpError(context: string, err: unknown) {
