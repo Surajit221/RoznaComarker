@@ -19,7 +19,7 @@ type BackendResponse<T> = {
 
 @Injectable({ providedIn: 'root' })
 export class FlashcardApiService {
-  private readonly baseUrl = `${environment.apiUrl}/api/flashcards`;
+  private readonly baseUrl = `${environment.apiUrl}/flashcards`;
 
   constructor(private http: HttpClient) {}
 

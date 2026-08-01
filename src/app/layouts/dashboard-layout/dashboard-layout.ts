@@ -46,7 +46,7 @@ export class DashboardLayout {
     const url = this.mePhotoUrl;
     if (!url) return 'img/default-img.png';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${environment.apiUrl}${url}`;
+    return `${environment.backendUrl}${url}`;
   }
 
   showAppBar    = signal(false);

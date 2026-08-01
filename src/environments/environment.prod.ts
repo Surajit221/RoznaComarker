@@ -4,7 +4,8 @@ export const environment = {
   production: true,
   adaptivePracticeFixtureEnabled: false,
 
-  apiUrl: backendOrigin,
+  apiUrl: `${backendOrigin}/api`,
+  backendUrl: backendOrigin,
   API_URL: `${backendOrigin}/api`,
   UPLOADS_URL: `${backendOrigin}/uploads`,
   apiBaseUrl: `${backendOrigin}/api`,

@@ -9,7 +9,7 @@ export class PdfApiService {
   constructor(private http: HttpClient) {}
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   async downloadSubmissionPdf(submissionId: string): Promise<Blob> {

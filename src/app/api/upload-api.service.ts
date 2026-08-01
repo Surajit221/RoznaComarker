@@ -33,11 +33,11 @@ export class UploadApiService {
   constructor(private http: HttpClient) {}
 
   private getRootBaseUrl(): string {
-    return `${environment.apiUrl}`;
+    return environment.backendUrl;
   }
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   submitSubmissionFiles(files: File[], assignmentId: string): Observable<HttpEvent<BackendResponse<BackendSubmission>>> {

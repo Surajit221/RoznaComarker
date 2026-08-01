@@ -966,7 +966,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
       const worksheetId = this.worksheet()?._id;
 
       const response = await this.http.post<any>(
-        `${environment.apiUrl}/api/worksheets/${worksheetId}/evaluate-answers`,
+        `${environment.apiUrl}/worksheets/${worksheetId}/evaluate-answers`,
         { answers }
       ).toPromise();
 
@@ -1084,7 +1084,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
 
     try {
       await this.http.post(
-        `${environment.apiUrl}/api/worksheets/${worksheetId}/draft`,
+        `${environment.apiUrl}/worksheets/${worksheetId}/draft`,
         draftPayload
       ).toPromise();
       console.log('[DRAFT SAVE] Activity9 data saved to draft');

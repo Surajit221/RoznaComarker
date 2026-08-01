@@ -229,7 +229,7 @@ export class StudentWorksheetResultsPage implements OnInit {
             // If submission has no activity9 results, try fetching from draft
             if (Object.keys(results).length === 0 && assignmentId) {
               this.http.get<any>(
-                `${environment.apiUrl}/api/worksheets/${sub.worksheetId}/draft?assignmentId=${assignmentId}`
+                `${environment.apiUrl}/worksheets/${sub.worksheetId}/draft?assignmentId=${assignmentId}`
               ).subscribe({
                 next: (draft: any) => {
                   if (draft?.activity9Results) {
@@ -314,7 +314,7 @@ export class StudentWorksheetResultsPage implements OnInit {
             // If submission has no activity9 results, try fetching from draft
             if (Object.keys(results).length === 0 && this.assignmentId) {
               this.http.get<any>(
-                `${environment.apiUrl}/api/worksheets/${this.submission.worksheetId}/draft?assignmentId=${this.assignmentId}`
+                `${environment.apiUrl}/worksheets/${this.submission.worksheetId}/draft?assignmentId=${this.assignmentId}`
               ).subscribe({
                 next: (draft: any) => {
                   if (draft?.activity9Results) {
@@ -365,7 +365,7 @@ export class StudentWorksheetResultsPage implements OnInit {
                 // If submission has no activity9 results, try fetching from draft
                 if (Object.keys(results).length === 0 && this.assignmentId) {
                   this.http.get<any>(
-                    `${environment.apiUrl}/api/worksheets/${this.submission.worksheetId}/draft?assignmentId=${this.assignmentId}`
+                    `${environment.apiUrl}/worksheets/${this.submission.worksheetId}/draft?assignmentId=${this.assignmentId}`
                   ).subscribe({
                     next: (draft) => {
                       if (draft?.activity9Results) {

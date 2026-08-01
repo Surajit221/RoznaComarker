@@ -56,7 +56,7 @@ export class AssignmentApiService {
   constructor(private http: HttpClient) {}
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   async getClassAssignments(classId: string): Promise<BackendAssignment[]> {

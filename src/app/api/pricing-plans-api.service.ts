@@ -35,7 +35,7 @@ export class PricingPlansApiService {
   constructor(private http: HttpClient) {}
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   async getActivePlans(): Promise<PricingPlan[]> {

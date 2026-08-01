@@ -66,7 +66,7 @@ export class ClassApiService {
   ) {}
 
   private getApiBaseUrl(): string {
-    return `${environment.apiUrl}/api`;
+    return environment.apiUrl;
   }
 
   private resolvePublicUrl(raw?: string | null): string {
@@ -82,7 +82,7 @@ export class ClassApiService {
       return u;
     }
 
-    const base = String(environment.apiUrl || '').trim().replace(/\/+$/, '');
+    const base = String(environment.backendUrl || '').trim().replace(/\/+$/, '');
     if (!base) return u;
 
     if (u.startsWith('/')) return `${base}${u}`;

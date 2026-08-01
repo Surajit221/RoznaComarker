@@ -324,7 +324,7 @@ export interface SubmitWorksheetDto {
 @Injectable({ providedIn: 'root' })
 export class WorksheetApiService {
   private get base(): string {
-    return `${environment.apiUrl}/api/worksheets`;
+    return `${environment.apiUrl}/worksheets`;
   }
 
   constructor(private http: HttpClient) {}

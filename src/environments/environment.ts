@@ -4,13 +4,14 @@ export const environment = {
   production: false,
   adaptivePracticeFixtureEnabled: false,
 
-  apiUrl: backendOrigin,
+  apiUrl: `${backendOrigin}/api`,
+  backendUrl: backendOrigin,
 
   API_URL: `${backendOrigin}/api`,
 
   UPLOADS_URL: `${backendOrigin}/uploads`,
 
-  FRONTEND_URL: 'http://localhost:4200/',
+  FRONTEND_URL: 'http://localhost:4200',
 
   apiBaseUrl: `${backendOrigin}/api`,
 

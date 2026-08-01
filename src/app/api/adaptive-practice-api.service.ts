@@ -31,7 +31,7 @@ const isObject = (value: unknown): boolean => Boolean(value && typeof value === 
 @Injectable({ providedIn: 'root' })
 export class AdaptivePracticeApiService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/api/adaptive-practice`;
+  private readonly baseUrl = `${environment.apiUrl}/adaptive-practice`;
 
   getSession(submissionId: string): Observable<AdaptivePracticeSessionResponse> {
     return this.http.get<BackendResponse<AdaptivePracticeSessionResponse>>(

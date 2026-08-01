@@ -439,7 +439,7 @@ export class MySubmissionPage {
     }
 
     if (raw.startsWith('/')) {
-      const abs = `${String(environment.apiUrl || '').replace(/\/+$/, '')}${raw}`;
+      const abs = `${String(environment.backendUrl || '').replace(/\/+$/, '')}${raw}`;
       return raw.startsWith('/uploads/submissions/') ? appendCacheBust(abs) : abs;
     }
 
@@ -1127,7 +1127,7 @@ export class MySubmissionPage {
     }
 
     try {
-      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const apiBaseUrl = environment.apiUrl;
       const query = requestedFileId ? `?fileId=${encodeURIComponent(requestedFileId)}` : '';
       const resp = await firstValueFrom(this.http.get<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections${query}`));
 
@@ -1267,7 +1267,7 @@ export class MySubmissionPage {
     if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
     const seq = ++this.loadTranscriptPagesSeq;
     try {
-      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const apiBaseUrl = environment.apiUrl;
       const resp = await firstValueFrom(this.http.get<any>(`${apiBaseUrl}/submissions/${submissionId}/ocr-corrections`));
       if (seq !== this.loadTranscriptPagesSeq || this.submission?._id !== submissionId) return;
       const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};

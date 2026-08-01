@@ -229,7 +229,7 @@ export class FlashcardCreator implements OnChanges {
     if (!relativePath) return '';
     if (relativePath.startsWith('http://') || relativePath.startsWith('https://'))
       return relativePath;
-    return `${environment.apiUrl}${relativePath}`;
+    return `${environment.backendUrl}${relativePath}`;
   }
 
   onBackdropClick(event: MouseEvent) {

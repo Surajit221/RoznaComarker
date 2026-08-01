@@ -87,9 +87,11 @@ describe('CanonicalSubmissionResultCoordinator', () => {
       snapshot({ correctionStatus: 'completed', semanticStatus: 'completed',
         processingActive: false, automaticPollingAllowed: false, terminal: true,
         evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
-        evaluationCurrent: true, detailedFeedbackCurrent: true, score: 52, grade: 'C' })
+        evaluationCurrent: true, detailedFeedbackCurrent: true, score: 52, grade: 'C',
+        statistics: { content: 1, organization: 1, grammar: 1, vocabulary: 1, mechanics: 1, total: 5 } })
     ];
     let calls = 0;
+    let retryPostCalls = 0;
     let activeRequests = 0;
     let maxActiveRequests = 0;
     let applied = snapshots[0].canonical;
@@ -118,9 +120,34 @@ describe('CanonicalSubmissionResultCoordinator', () => {
     flushMicrotasks();
     expect(calls).toBe(3);
     expect(applied.score).toBe(52);
+    expect(Object.values(applied.statistics).reduce<number>((sum, value) => sum + Number(value || 0), 0)).toBe(5);
+    expect(applied.scoreMessage).not.toContain('unavailable');
+    expect(retryPostCalls).toBe(0);
     expect(applied.detailedFeedbackStatus).toBe('completed');
     expect(service.pollingState$.value.running).toBeFalse();
     expect(maxActiveRequests).toBe(1);
+  }));
+
+  it('rejects a stale failed refresh after a newer completed generation', fakeAsync(() => {
+    const service = new CanonicalSubmissionResultCoordinator();
+    let resolveOld!: (value: ResultRefreshSnapshot) => void;
+    const oldRequest = new Promise<ResultRefreshSnapshot>((resolve) => { resolveOld = resolve; });
+    service.start('submission-1', async () => oldRequest);
+    tick(0);
+
+    service.start('submission-1', async () => snapshot({ correctionStatus: 'completed', semanticStatus: 'completed',
+      processingActive: false, automaticPollingAllowed: false, terminal: true,
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', score: 52 }));
+    tick(0); flushMicrotasks();
+    expect(service.pollingState$.value.running).toBeFalse();
+    expect(service.pollingState$.value.lastHttpStatus).toBe(200);
+
+    resolveOld(snapshot({ correctionStatus: 'failed', semanticStatus: 'failed', processingActive: false,
+      automaticPollingAllowed: false, manualRetryAllowed: true, terminal: true,
+      evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked' }));
+    flushMicrotasks();
+    expect(service.pollingState$.value.running).toBeFalse();
+    expect(service.pollingState$.value.lastHttpStatus).toBe(200);
   }));
 
   it('stops on destruction and cancels the previous submission when the id changes', fakeAsync(() => {

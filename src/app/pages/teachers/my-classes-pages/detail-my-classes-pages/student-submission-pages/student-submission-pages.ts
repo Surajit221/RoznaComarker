@@ -2736,7 +2736,7 @@ export class StudentSubmissionPages {
 
     try {
 
-      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const apiBaseUrl = environment.apiUrl;
 
       const resp = await firstValueFrom(
 
@@ -5256,7 +5256,7 @@ export class StudentSubmissionPages {
     if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
     const seq = ++this.loadTranscriptPagesSeq;
     try {
-      const apiBaseUrl = `${environment.apiUrl}/api`;
+      const apiBaseUrl = environment.apiUrl;
       const resp = await firstValueFrom(this.http.get<any>(
         `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
       ));
@@ -5646,7 +5646,7 @@ export class StudentSubmissionPages {
 
 
 
-    return `${environment.apiUrl}/api/pdf/download/${encodeURIComponent(submissionId)}`;
+    return `${environment.apiUrl}/pdf/download/${encodeURIComponent(submissionId)}`;
 
 
 
