@@ -67,4 +67,19 @@ describe('detailed feedback display normalization', () => {
     expect(teacher.detailedFeedback).toEqual(student.detailedFeedback);
     expect(buildDetailedFeedbackDisplayModel(teacher).status).toBe('completed');
   });
+
+  it('accurately distinguishes evaluation failure from correction failure', () => {
+    const evaluationFailed = normalizeCanonicalResult({ correctionStatus: 'completed', semanticStatus: 'completed',
+      correctionSourceHash: 'h', statisticsCompleteness: 'canonical', evaluationStatus: 'failed',
+      detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
+    const evaluationDisplay = buildDetailedFeedbackDisplayModel(evaluationFailed);
+    expect(evaluationDisplay.message).toBe('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+    expect(evaluationDisplay.retryLabel).toBe('Retry scoring');
+
+    const correctionFailed = normalizeCanonicalResult({ correctionStatus: 'failed', semanticStatus: 'failed',
+      evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
+    const correctionDisplay = buildDetailedFeedbackDisplayModel(correctionFailed);
+    expect(correctionDisplay.message).toBe('Writing analysis did not complete.');
+    expect(correctionDisplay.retryLabel).toBe('Retry analysis');
+  });
 });

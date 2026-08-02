@@ -1,12 +1,38 @@
-import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
+import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
+  normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
+  it('produces the same canonical result for desktop and mobile consumers', () => {
+    const response = {
+      submissionId: 'submission-reference', correctionSourceHash: 'correction-hash',
+      evaluationSourceHash: 'evaluation-hash', semanticStatus: 'completed',
+      correctionStatus: 'completed', evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
+      statisticsCompleteness: 'canonical',
+      correctionStatistics: { content: 0, grammar: 4, organization: 0, vocabulary: 0, mechanics: 2 },
+      writingCorrections: [{ _id: 'correction-1', category: 'GRAMMAR' }],
+      overallScore: 36.5, grade: 'F',
+      rubricScores: { grammar: 23, vocabulary: 0, organization: 0, content: 0, mechanics: 9, presentation: 4.5 },
+      detailedFeedback: { strengths: [{ id: 'strength-1' }], areasForImprovement: [], actionSteps: ['Revise.'] },
+      teacherComments: 'Keep revising.', manualRetryAllowed: false, automaticPollingAllowed: false
+    };
+
+    const desktop = normalizeCanonicalResult(structuredClone(response));
+    const mobile = normalizeCanonicalResult(structuredClone(response));
+
+    expect(mobile).toEqual(desktop);
+    expect(mobile.statistics).toEqual({ content: 0, grammar: 4, organization: 0, vocabulary: 0, mechanics: 2 });
+    expect(mobile.score).toBe(36.5);
+    expect(mobile.grade).toBe('F');
+  });
+
   it('selects evaluation-only retry only when canonical corrections remain current', () => {
     const evaluationFailed = normalizeCanonicalResult({ correctionStatus: 'completed', semanticStatus: 'completed',
       evaluationStatus: 'failed', manualRetryAllowed: true });
     expect(shouldRetryEvaluationOnly(evaluationFailed)).toBeTrue();
     expect(shouldRetryEvaluationOnly(normalizeCanonicalResult({ correctionStatus: 'failed',
       semanticStatus: 'failed', evaluationStatus: 'blocked' }))).toBeFalse();
+    expect(canonicalFailureMessage(evaluationFailed)).toBe('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+    expect(canonicalRetryLabel(evaluationFailed)).toBe('Retry scoring');
   });
   it('keeps semantic categories pending while language results remain visible', () => {
     const state = normalizeCanonicalResult({ correctionStatus: 'processing', statisticsCompleteness: 'language_only',

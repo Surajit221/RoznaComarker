@@ -54,4 +54,26 @@ describe('CorrectionOverlay media loading', () => {
 
     expect(fixture.nativeElement.querySelector('.correction-overlay__marker')).toBeNull();
   });
+
+  it('opens and closes correction details by tap in compact view', () => {
+    (component as any).device.width.set(390);
+    fixture.detectChanges();
+    const target = document.createElement('button');
+    const marker = {
+      annotation: { _id: 'touch-correction', symbol: 'GR', category: 'GRAMMAR' },
+      code: 'GR', label: 'Grammar correction', left: 10, top: 10, offsetX: 0, offsetY: 0,
+      textColor: '#ffffff'
+    } as any;
+    const event = { currentTarget: target, stopPropagation: () => undefined } as unknown as MouseEvent;
+
+    component.onMarkerClick(marker, event);
+    fixture.detectChanges();
+    expect(component.activeMarker).toBe(marker);
+    expect(component.isPinned).toBeTrue();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
+
+    component.closeFromControl(event);
+    fixture.detectChanges();
+    expect(component.activeMarker).toBeNull();
+  });
 });

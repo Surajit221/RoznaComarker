@@ -82,7 +82,7 @@
               <!-- Score Card -->
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
                 @if (scoreState === 'loading') { <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container> }
-                @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>A final score is unavailable because semantic analysis did not complete. @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : "Retry analysis" }}</button> }</div> }
+                @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>{{ analysisFailureMessage }} @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : retryAnalysisLabel }}</button> }</div> }
                 @else {
                 <div class="flex items-center justify-between mb-4">
                   <h3 class="font-semibold text-gray-700">Overall Score</h3>
@@ -310,7 +310,7 @@
           @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
           <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
           } @else if (aiFeedbackState === 'error') {
-          <div class="section-load-error" role="status">Detailed feedback is unavailable because semantic analysis did not complete. Retry analysis from the Score section above.</div>
+          <div class="section-load-error" role="status">{{ analysisFailureMessage }} {{ retryAnalysisLabel }} from the Score section above.</div>
           } @else {
           @if (rubricCriteriaPreview.length) {
           <div class="w-full flex flex-col gap-3">
@@ -531,7 +531,7 @@
             <div class="space-y-6">
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
                 @if (scoreState === 'loading') { <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container> }
-                @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>A final score is unavailable because semantic analysis did not complete. @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : "Retry analysis" }}</button> }</div> }
+                @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>{{ analysisFailureMessage }} @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : retryAnalysisLabel }}</button> }</div> }
                 @else {
                 <div class="flex items-center justify-between mb-4">
                   <h3 class="font-semibold text-gray-700">Overall Score</h3>
@@ -644,7 +644,7 @@
             @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
-            <div class="section-load-error" role="status">Detailed feedback is unavailable because semantic analysis did not complete. @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : "Retry analysis" }}</button> }</div>
+            <div class="section-load-error" role="status">{{ analysisFailureMessage }} @if (canonicalResultState?.manualRetryAllowed) { <button type="button" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? "Retrying…" : retryAnalysisLabel }}</button> }</div>
             } @else {
             @if (rubricCriteriaPreview.length) {
             <div class="w-full flex flex-col gap-3">

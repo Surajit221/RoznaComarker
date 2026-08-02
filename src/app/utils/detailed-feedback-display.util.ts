@@ -2,13 +2,14 @@ import type {
   DetailedFeedbackActionStep, DetailedFeedbackArea, DetailedFeedbackExample,
   DetailedFeedbackStrength
 } from '../models/submission-feedback.model';
-import type { CanonicalResultViewState } from './canonical-result-state.util';
+import { canonicalFailureMessage, canonicalRetryLabel, type CanonicalResultViewState } from './canonical-result-state.util';
 
 export type DetailedFeedbackDisplayStatus = 'loading' | 'processing' | 'updating' | 'completed' | 'empty' | 'blocked' | 'failed' | 'legacy';
 
 export interface DetailedFeedbackDisplayModel {
   status: DetailedFeedbackDisplayStatus;
   message: string | null;
+  retryLabel: string;
   sourceHash: string | null;
   evaluationVersion: string | null;
   areasForImprovement: DetailedFeedbackArea[];
@@ -73,6 +74,7 @@ export function buildDetailedFeedbackDisplayModel(
   legacyFeedback?: any
 ): DetailedFeedbackDisplayModel {
   const empty = { sourceHash: state?.detailedFeedbackSourceHash || null, evaluationVersion: null,
+    retryLabel: canonicalRetryLabel(state),
     areasForImprovement: [], strengths: [], actionSteps: [], legacyAreas: [], legacyStrengths: [], legacyActionSteps: [] };
   if (!state) return { ...empty, status: 'loading', message: 'Loading detailed feedback…' };
   const status = state?.detailedFeedbackStatus || 'pending';
@@ -81,8 +83,8 @@ export function buildDetailedFeedbackDisplayModel(
     || ['pending', 'processing'].includes(status);
   if (state?.processingActive && status === 'stale') return { ...empty, status: 'updating', message: 'Updating detailed feedback…' };
   if (pending) return { ...empty, status: 'processing', message: 'Preparing detailed feedback…' };
-  if (status === 'blocked') return { ...empty, status: 'blocked', message: 'Detailed feedback is unavailable because the writing analysis did not complete.' };
-  if (status === 'failed') return { ...empty, status: 'failed', message: 'Detailed feedback could not be prepared from the current analysis.' };
+  if (status === 'blocked') return { ...empty, status: 'blocked', message: canonicalFailureMessage(state) };
+  if (status === 'failed') return { ...empty, status: 'failed', message: canonicalFailureMessage(state) };
   if (status === 'stale') return { ...empty, status: 'failed', message: 'Detailed feedback is unavailable because the saved feedback is out of date.' };
 
   const feedback = status === 'completed' ? state?.detailedFeedback : null;
@@ -92,6 +94,7 @@ export function buildDetailedFeedbackDisplayModel(
   if (feedback && (areas.length || strengths.length || actions.length || [feedback.areasForImprovement, feedback.strengths, feedback.actionSteps]
     .every((items) => Array.isArray(items) && items.length === 0))) {
     return { status: areas.length ? 'completed' : 'empty', message: areas.length ? null : 'No major improvement areas were identified.',
+      retryLabel: canonicalRetryLabel(state),
       sourceHash: state?.detailedFeedbackSourceHash || text(feedback.sourceHash) || null,
       evaluationVersion: text(feedback.evaluationVersion) || null,
       areasForImprovement: areas, strengths, actionSteps: actions, legacyAreas: [], legacyStrengths: [], legacyActionSteps: [] };

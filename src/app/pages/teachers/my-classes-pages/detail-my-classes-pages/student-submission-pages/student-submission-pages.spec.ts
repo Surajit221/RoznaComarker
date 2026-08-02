@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { StudentSubmissionPages } from './student-submission-pages';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
+import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 
 describe('StudentSubmissionPages', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -83,5 +84,50 @@ describe('StudentSubmissionPages', () => {
 
     expect(fixture.nativeElement.querySelector('.section-load-error')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.teacher-comments-editor textarea')).toBeTruthy();
+  });
+
+  it('uses one canonical state for teacher desktop and mobile templates', () => {
+    component.canonicalResultState = normalizeCanonicalResult({
+      submissionId: 'submission-1', correctionStatus: 'completed', semanticStatus: 'completed',
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', statisticsCompleteness: 'canonical',
+      correctionStatistics: { content: 0, grammar: 4, organization: 0, vocabulary: 0, mechanics: 2 },
+      overallScore: 36.5, grade: 'F', processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    component.scoreState = 'loaded';
+    component.statisticsState = 'loaded';
+    component.correctionsState = 'loaded';
+    component.feedbackForm.patchValue({ message: 'Canonical teacher comment' });
+    const state = component.canonicalResultState;
+
+    (component.device as any).width.set(1440);
+    fixture.detectChanges();
+    expect(component.canonicalResultState).toBe(state);
+    (component.device as any).width.set(390);
+    fixture.detectChanges();
+
+    expect(component.canonicalResultState).toBe(state);
+    expect([component.contentIssuesDisplay, component.grammarIssuesDisplay,
+      component.organizationIssuesDisplay, component.vocabularyIssuesDisplay,
+      component.mechanicsIssuesDisplay]).toEqual([0, 4, 0, 0, 2]);
+    expect(component.overallScoreText).toBe('36.5 / 100');
+    expect(component.gradeLabel).toBe('F');
+    expect(fixture.nativeElement.querySelector('.teacher-comments-editor textarea')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Download PDF');
+    expect(fixture.nativeElement.textContent).toContain('View / Edit Rubric');
+  });
+
+  it('shows the same evaluation-only failure and retry label at desktop and mobile widths', () => {
+    component.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'completed', semanticStatus: 'completed',
+      correctionSourceHash: 'fresh-hash', statisticsCompleteness: 'canonical',
+      correctionStatistics: { content: 0, grammar: 5, organization: 0, vocabulary: 0, mechanics: 3 },
+      evaluationStatus: 'failed', detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
+    component.scoreState = 'error'; component.feedbackState = 'error'; component.aiFeedbackState = 'error';
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      if (width === 390) component.onTabSelected('transcribed-text');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+      expect(fixture.nativeElement.textContent).toContain('Retry scoring');
+    }
   });
 });

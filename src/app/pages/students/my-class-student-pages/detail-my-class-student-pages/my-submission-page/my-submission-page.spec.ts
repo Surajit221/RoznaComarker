@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MySubmissionPage } from './my-submission-page';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
+import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 
 describe('MySubmissionPage', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -47,5 +48,67 @@ describe('MySubmissionPage', () => {
     component.feedbackState = 'loading';
     expect(component.transcriptState).toBe('loaded');
     expect(component.feedbackState).toBe('loading');
+  });
+
+  it('keeps canonical score, grade, statistics and comments identical across viewport branches', () => {
+    component.canonicalResultState = normalizeCanonicalResult({
+      submissionId: 'submission-1', correctionStatus: 'completed', semanticStatus: 'completed',
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', statisticsCompleteness: 'canonical',
+      correctionStatistics: { content: 0, grammar: 4, organization: 0, vocabulary: 0, mechanics: 2 },
+      overallScore: 36.5, grade: 'F', processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    component.scoreState = 'loaded';
+    component.statisticsState = 'loaded';
+    component.correctionsState = 'loaded';
+    component.teacherComment = 'Canonical teacher comment';
+    component.feedbackForm.patchValue({ message: component.teacherComment });
+
+    const snapshot = () => ({
+      state: component.canonicalResultState,
+      score: component.overallScoreText,
+      grade: component.gradeLabel,
+      counts: [component.contentIssuesDisplay, component.grammarIssuesDisplay,
+        component.organizationIssuesDisplay, component.vocabularyIssuesDisplay, component.mechanicsIssuesDisplay],
+      comment: component.feedbackForm.value.message
+    });
+    (component.device as any).width.set(1440);
+    fixture.detectChanges();
+    const desktop = snapshot();
+    (component.device as any).width.set(390);
+    fixture.detectChanges();
+    const mobile = snapshot();
+
+    expect(mobile).toEqual(desktop);
+    expect(mobile.counts).toEqual([0, 4, 0, 0, 2]);
+    expect(fixture.nativeElement.textContent).toContain('Download PDF');
+    expect(fixture.nativeElement.textContent).toContain('View Rubric');
+    expect(fixture.nativeElement.textContent).toContain('Teacher Comments');
+    expect(fixture.nativeElement.querySelector('app-adaptive-writing-studio')).toBeTruthy();
+
+    component.onTabSelected('transcribed-text');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Correction Statistics');
+    expect(fixture.nativeElement.textContent).toContain('Correction Legend');
+  });
+
+  it('shows evaluation-specific wording on desktop and mobile and retries scoring only', async () => {
+    component.submission = { _id: 'submission-1' } as any;
+    component.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'completed', semanticStatus: 'completed',
+      correctionSourceHash: 'fresh-hash', statisticsCompleteness: 'canonical',
+      correctionStatistics: { content: 0, grammar: 5, organization: 0, vocabulary: 0, mechanics: 3 },
+      evaluationStatus: 'failed', detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
+    component.scoreState = 'error'; component.feedbackState = 'error'; component.aiFeedbackState = 'error';
+    const api = (component as any).submissionApi;
+    spyOn(api, 'retryCanonicalEvaluation').and.resolveTo({});
+    spyOn(api, 'regenerateCanonicalCorrections').and.resolveTo({});
+
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width); fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+      expect(fixture.nativeElement.textContent).toContain('Retry scoring');
+    }
+    await component.retryCanonicalAnalysis();
+    expect(api.retryCanonicalEvaluation).toHaveBeenCalledOnceWith('submission-1');
+    expect(api.regenerateCanonicalCorrections).not.toHaveBeenCalled();
   });
 });

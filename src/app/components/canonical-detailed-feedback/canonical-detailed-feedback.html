@@ -13,7 +13,7 @@
       <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
       <div><p>{{ model.message }}</p>
         @if (manualRetryAllowed) {
-          <button type="button" [disabled]="retrying" (click)="retryRequested.emit()">{{ retrying ? 'Retrying…' : 'Retry analysis' }}</button>
+          <button type="button" [disabled]="retrying" (click)="retryRequested.emit()">{{ retrying ? 'Retrying…' : model.retryLabel }}</button>
         }
       </div>
     </div>
