@@ -37,7 +37,8 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
-import { applySubmissionLifecycleFallback, categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
+  normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult,
   shouldRevalidateCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
@@ -55,6 +56,8 @@ export class MySubmissionPage {
   canonicalResultState: CanonicalResultViewState | null = null;
   get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
   get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.feedback); }
+  get analysisFailureMessage() { return canonicalFailureMessage(this.canonicalResultState); }
+  get retryAnalysisLabel() { return canonicalRetryLabel(this.canonicalResultState); }
   adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
   device = inject(DeviceService);

@@ -170,6 +170,16 @@ export function shouldRetryEvaluationOnly(state: CanonicalResultViewState | null
     && ['failed', 'stale', 'blocked'].includes(state.evaluationStatus));
 }
 
+export function canonicalFailureMessage(state: CanonicalResultViewState | null | undefined): string {
+  return shouldRetryEvaluationOnly(state)
+    ? 'Correction analysis completed, but scoring and detailed feedback could not be generated.'
+    : 'Writing analysis did not complete.';
+}
+
+export function canonicalRetryLabel(state: CanonicalResultViewState | null | undefined): string {
+  return shouldRetryEvaluationOnly(state) ? 'Retry scoring' : 'Retry analysis';
+}
+
 export function applySubmissionLifecycleFallback(
   canonical: CanonicalResultViewState | null,
   submission: { ocrStatus?: unknown; correctionStatus?: unknown; evaluationStatus?: unknown },

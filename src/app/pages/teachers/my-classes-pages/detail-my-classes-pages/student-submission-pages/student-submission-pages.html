@@ -82,8 +82,8 @@
                     @if (scoreState === 'loading') {
                     <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
                     } @else if (scoreState === 'error') {
-                    <div class="section-load-error" role="status">A final score is unavailable because semantic analysis did not complete.
-                      @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? 'Retrying…' : 'Retry analysis' }}</button> }
+                    <div class="section-load-error" role="status">{{ analysisFailureMessage }}
+                      @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
                     </div>
                     } @else {
                     <div class="flex items-center justify-between mb-4">
@@ -340,7 +340,7 @@
             @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
-            <div class="section-load-error" role="status">Detailed feedback is unavailable because semantic analysis did not complete. Retry analysis from the Score section above.</div>
+            <div class="section-load-error" role="status">{{ analysisFailureMessage }} {{ retryAnalysisLabel }} from the Score section above.</div>
             } @else if (rubricFeedbackItems.length) {
             @for (item of rubricFeedbackItems; track item.category) {
             <div
@@ -599,8 +599,8 @@
                   @if (scoreState === 'loading') {
                   <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
                   } @else if (scoreState === 'error') {
-                  <div class="section-load-error" role="status">A final score is unavailable because semantic analysis did not complete.
-                    @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? 'Retrying…' : 'Retry analysis' }}</button> }
+                  <div class="section-load-error" role="status">{{ analysisFailureMessage }}
+                    @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
                   </div>
                   } @else {
                   <div class="flex items-center justify-between mb-4">
@@ -723,7 +723,7 @@
               @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
               <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
               } @else if (aiFeedbackState === 'error') {
-              <div class="section-load-error" role="status">Detailed feedback is unavailable because semantic analysis did not complete.</div>
+              <div class="section-load-error" role="status">{{ analysisFailureMessage }}</div>
               } @else if (rubricFeedbackItems.length) {
               @for (item of rubricFeedbackItems; track item.category) {
               <div

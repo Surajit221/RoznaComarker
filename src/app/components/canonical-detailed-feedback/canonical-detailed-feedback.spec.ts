@@ -3,7 +3,7 @@ import { CanonicalDetailedFeedbackComponent } from './canonical-detailed-feedbac
 import type { DetailedFeedbackDisplayModel } from '../../utils/detailed-feedback-display.util';
 
 const model = (overrides: Partial<DetailedFeedbackDisplayModel> = {}): DetailedFeedbackDisplayModel => ({
-  status: 'completed', message: null, sourceHash: 'h', evaluationVersion: 'v', legacyAreas: [], legacyStrengths: [], legacyActionSteps: [],
+  status: 'completed', message: null, retryLabel: 'Retry analysis', sourceHash: 'h', evaluationVersion: 'v', legacyAreas: [], legacyStrengths: [], legacyActionSteps: [],
   areasForImprovement: [{ id: 'a', category: 'GRAMMAR', title: 'Grammar', issueCount: 2, score: 20, maxScore: 25,
     explanation: 'Agreement is repeated.', dominantSymbols: ['AGR'], examples: [{ correctionId: 'c', symbol: 'AGR', symbolLabel: 'Agreement', quotedText: '<students learns>', message: 'Agreement', suggestedText: 'students learn' }] }],
   strengths: [{ id: 's', category: 'PRESENTATION', title: 'Presentation', score: 5, maxScore: 5, explanation: 'Readable.', evidence: ['OCR evidence'], provisional: true }],
@@ -36,6 +36,16 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     fixture.componentRef.setInput('manualRetryAllowed', true); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Detailed feedback is unavailable');
     expect(fixture.nativeElement.querySelector('button')?.textContent).toContain('Retry analysis');
+  });
+
+  it('renders the evaluation-only retry label supplied by canonical state', () => {
+    fixture.componentInstance.model = model({ status: 'failed',
+      message: 'Correction analysis completed, but scoring and detailed feedback could not be generated.',
+      retryLabel: 'Retry scoring', areasForImprovement: [], strengths: [], actionSteps: [] });
+    fixture.componentInstance.manualRetryAllowed = true;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Correction analysis completed');
+    expect(fixture.nativeElement.querySelector('button')?.textContent).toContain('Retry scoring');
   });
 
   it('renders exactly one heading and only the loading state while pending', () => {

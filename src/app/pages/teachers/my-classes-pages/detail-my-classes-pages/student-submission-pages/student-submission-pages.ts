@@ -133,7 +133,8 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
-import { categoryDisplay, normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normalizeCanonicalResult,
+  shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
@@ -212,6 +213,8 @@ export class StudentSubmissionPages {
   canonicalResultState: CanonicalResultViewState | null = null;
   get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
   get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.currentFeedback); }
+  get analysisFailureMessage() { return canonicalFailureMessage(this.canonicalResultState); }
+  get retryAnalysisLabel() { return canonicalRetryLabel(this.canonicalResultState); }
   isRetryingAnalysis = false;
 
   async retryCanonicalAnalysis(): Promise<void> {
