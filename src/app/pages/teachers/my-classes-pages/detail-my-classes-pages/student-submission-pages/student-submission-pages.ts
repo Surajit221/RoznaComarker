@@ -4555,6 +4555,8 @@ export class StudentSubmissionPages {
 
           title: String(c?.title || '').trim(),
 
+          weight: Number(c?.weight) || 0,
+
           cells
 
         };
@@ -4571,7 +4573,7 @@ export class StudentSubmissionPages {
 
 
 
-    return { title, levels, criteria };
+    return { title, totalPoints: Number(obj.totalPoints) || 100, levels, criteria };
 
   }
 

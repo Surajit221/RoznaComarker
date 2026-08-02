@@ -140,8 +140,10 @@ export class AssignmentForm {
       // Include rubric if it exists
       if (this.rubricDesignerForModal) {
         payload.rubrics = {
+          totalPoints: 100,
           criteria: this.rubricDesignerForModal.criteria.map(c => ({
             name: c.title,
+            weight: Number(c.weight) || 0,
             levels: this.rubricDesignerForModal!.levels.map((lvl, i) => ({
               title: lvl.title,
               score: lvl.maxPoints,
@@ -226,12 +228,14 @@ export class AssignmentForm {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
         title: typeof c?.name === 'string' ? String(c.name) : '',
+        weight: Number(c?.weight) || 0,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
       };
     });
 
     return {
       title: `Rubric: ${assignmentTitle}`,
+      totalPoints: Number(obj.totalPoints) || 100,
       levels,
       criteria
     };
@@ -258,12 +262,14 @@ export class AssignmentForm {
 
     return {
       title: typeof obj.title === 'string' ? obj.title : `Rubric: ${assignmentTitle}`,
+      totalPoints: Number(obj.totalPoints) || 100,
       levels: levels.map((l: any) => ({
         title: typeof l?.title === 'string' ? String(l.title) : '',
         maxPoints: Number(l?.maxPoints) || 0
       })),
       criteria: criteria.map((c: any) => ({
         title: typeof c?.title === 'string' ? String(c.title) : '',
+        weight: Number(c?.weight) || 0,
         cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
       }))
     };

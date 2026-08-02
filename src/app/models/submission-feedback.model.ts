@@ -39,11 +39,13 @@ export interface RubricDesignerLevel {
 
 export interface RubricDesignerCriteriaRow {
   title: string;
+  weight?: number;
   cells: string[];
 }
 
 export interface RubricDesigner {
   title: string;
+  totalPoints?: number;
   levels: RubricDesignerLevel[];
   criteria: RubricDesignerCriteriaRow[];
 }
