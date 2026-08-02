@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
 import type { OcrWord } from '../models/ocr-token.model';
+import { normalizeCorrectionBboxList } from './correction-bbox.util';
 
 export interface TranscriptPageView {
   key: string;
@@ -33,9 +34,10 @@ function annotation(correction: any, submissionId: string, wordIds: Set<string>)
   const correctionId = id(correction?.id ?? correction?._id);
   if (!correctionId) return null;
   const scopedWordIds = (Array.isArray(correction?.wordIds) ? correction.wordIds : []).map(id).filter((wordId: string) => wordIds.has(wordId));
-  const bboxList = Array.isArray(correction?.bboxList) ? correction.bboxList : [];
+  const bboxList = normalizeCorrectionBboxList(correction?.bboxList);
   if (!scopedWordIds.length && !bboxList.length) return null;
-  return { _id: correctionId, submissionId, page: pageNumber(correction?.pageNumber ?? correction?.page), wordIds: scopedWordIds,
+  return { _id: correctionId, submissionId, fileId: id(correction?.fileId) || undefined,
+    page: pageNumber(correction?.pageNumber ?? correction?.page), wordIds: scopedWordIds,
     bboxList, group: typeof correction?.category === 'string' ? correction.category : String(correction?.group || ''),
     symbol: String(correction?.symbol || ''), color: String(correction?.color || '#FF0000'), message: String(correction?.message || ''),
     suggestedText: String(correction?.suggestedText || ''), startChar: Number.isFinite(correction?.startChar) ? correction.startChar : undefined,
@@ -60,7 +62,7 @@ export function buildTranscriptPageViews(options: { submissionId: string; fileId
     const wordIds = new Set(words.map((word) => word.id)); const seen = new Set<string>();
     const annotations = options.corrections.map((correction) => {
       const correctionFileId = id(correction?.fileId); const correctionPage = pageNumber(correction?.pageNumber ?? correction?.page);
-      if (correctionFileId && correctionFileId !== fileId) return null;
+      if (correctionFileId ? correctionFileId !== fileId : options.fileIds.length > 1) return null;
       if (correctionPage !== number) return null;
       const next = annotation(correction, options.submissionId, wordIds);
       if (!next || seen.has(next._id)) return null;

@@ -43,6 +43,7 @@ import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult,
   shouldRevalidateCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
+import { annotationsForFileId, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
@@ -1191,12 +1192,13 @@ export class MySubmissionPage {
               .map((x: any) => (typeof x === 'string' && x.trim() ? x.trim() : (typeof x === 'number' && Number.isFinite(x) ? String(x) : '')))
               .filter((id: string) => Boolean(id) && knownWordIds.has(id));
 
-            const bboxList = Array.isArray(c?.bboxList) ? c.bboxList : [];
+            const bboxList = normalizeCorrectionBboxList(c?.bboxList);
             if (!wordIds.length && !bboxList.length) return null;
 
             return {
               _id: correctionId,
               submissionId,
+              fileId: typeof c?.fileId === 'string' && c.fileId.trim() ? c.fileId.trim() : undefined,
               page: typeof c?.page === 'number' && Number.isFinite(c.page) ? c.page : 1,
               wordIds,
               bboxList,
@@ -1376,7 +1378,7 @@ export class MySubmissionPage {
   }
 
   getAnnotationsForFileId(fileId: string): FeedbackAnnotation[] {
-    return this.annotations.filter(a => (a as any).fileId === fileId || !(a as any).fileId);
+    return annotationsForFileId(this.annotations, fileId, this.submissionFileIds);
   }
 
   get hasAnyTranscribedText(): boolean {
