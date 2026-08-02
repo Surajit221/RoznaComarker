@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, EventEmitter, Input, Output, SimpleChanges } from '@angular/core';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { ModalDialog } from '../../../shared/modal-dialog/modal-dialog';
 import type { RubricDesigner } from '../../../models/submission-feedback.model';
@@ -8,7 +8,7 @@ import type { RubricDesigner } from '../../../models/submission-feedback.model';
 @Component({
   selector: 'app-rubric-designer-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalDialog],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ModalDialog],
   templateUrl: './rubric-designer-modal.html',
   styleUrl: './rubric-designer-modal.css',
 })
@@ -31,12 +31,17 @@ export class RubricDesignerModal {
 
   rubricDesignerTitle = '';
   rubricLevels: Array<{ title: string; maxPoints: number | null }> = [];
-  rubricCriteriaRows: Array<{ title: string; cells: string[] }> = [];
+  rubricCriteriaRows: Array<{ title: string; weight: number | null; cells: string[] }> = [];
 
-  rubricPromptText = '';
+  readonly rubricPromptControl = new FormControl('', { nonNullable: true });
+  private generationAwaitingApplication = false;
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
     this.hydrateFromInput();
+    if (this.generationAwaitingApplication && changes['rubricDesigner'] && this.hasValidGeneratedRubric(this.rubricDesigner)) {
+      this.rubricPromptControl.reset('');
+      this.generationAwaitingApplication = false;
+    }
   }
 
   ngOnInit(): void {
@@ -71,15 +76,16 @@ export class RubricDesignerModal {
     this.rubricCriteriaRows = criteriaRaw.length
       ? criteriaRaw.map((c: any) => ({
           title: String(c?.title || ''),
+          weight: this.coerceWeightInput(c?.weight),
           cells: this.rubricLevels.map((_, i) => this.coerceCellText(Array.isArray(c?.cells) ? c.cells[i] : ''))
         }))
-      : [{ title: '', cells: this.rubricLevels.map(() => '') }];
+      : [{ title: '', weight: null, cells: this.rubricLevels.map(() => '') }];
   }
 
   private resetRubricDesigner() {
     this.rubricDesignerTitle = this.defaultTitle;
     this.rubricLevels = Array.from({ length: 4 }).map(() => ({ title: '', maxPoints: null }));
-    this.rubricCriteriaRows = [{ title: '', cells: this.rubricLevels.map(() => '') }];
+    this.rubricCriteriaRows = [{ title: '', weight: null, cells: this.rubricLevels.map(() => '') }];
   }
 
   addRubricLevelColumn() {
@@ -105,6 +111,7 @@ export class RubricDesignerModal {
       ...this.rubricCriteriaRows,
       {
         title: '',
+        weight: null,
         cells: this.rubricLevels.map(() => '')
       }
     ];
@@ -122,6 +129,21 @@ export class RubricDesignerModal {
     return Math.max(0, Math.floor(n));
   }
 
+  coerceWeightInput(value: any): number | null {
+    if (value === '' || value == null) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
+  }
+
+  get totalCriterionWeight(): number {
+    return this.rubricCriteriaRows.reduce((sum, row) => sum + (Number(row.weight) || 0), 0);
+  }
+
+  get isCriterionWeightTotalValid(): boolean {
+    return this.rubricCriteriaRows.length >= 3 && this.totalCriterionWeight === 100
+      && this.rubricCriteriaRows.every((row) => Number.isFinite(Number(row.weight)) && Number(row.weight) > 0);
+  }
+
   private isRubricDesignerStateEmpty(): boolean {
     const anyLevelTitle = (Array.isArray(this.rubricLevels) ? this.rubricLevels : []).some((l) => String(l?.title || '').trim().length);
     const anyCriteriaTitle = (Array.isArray(this.rubricCriteriaRows) ? this.rubricCriteriaRows : []).some((r) => String(r?.title || '').trim().length);
@@ -132,20 +154,29 @@ export class RubricDesignerModal {
   private get rubricDesignerFromState(): RubricDesigner {
     return {
       title: this.rubricDesignerTitle,
+      totalPoints: 100,
       levels: this.rubricLevels.map((l) => ({
         title: String(l.title || ''),
         maxPoints: Number(l.maxPoints) || 0
       })),
       criteria: this.rubricCriteriaRows.map((r) => ({
         title: String(r.title || ''),
+        weight: Number(r.weight) || 0,
         cells: Array.isArray(r.cells) ? r.cells.map((x) => String(x || '')) : []
       }))
     };
   }
 
   onGenerateRubricAi() {
-    const prompt = String(this.rubricPromptText || '').trim();
+    if (this.isGenerating) return;
+    const prompt = this.rubricPromptControl.value.trim();
+    this.generationAwaitingApplication = true;
     this.generateAi.emit(prompt);
+  }
+
+  private hasValidGeneratedRubric(value: RubricDesigner | null): boolean {
+    return Boolean(value && value.totalPoints === 100 && Array.isArray(value.criteria)
+      && value.criteria.reduce((sum, row) => sum + (Number(row.weight) || 0), 0) === 100);
   }
 
   private coerceCellText(value: any): string {
@@ -169,7 +200,7 @@ export class RubricDesignerModal {
   }
 
   onSaveRubric() {
-    if (this.isRubricDesignerStateEmpty()) return;
+    if (this.isRubricDesignerStateEmpty() || !this.isCriterionWeightTotalValid) return;
     this.save.emit(this.rubricDesignerFromState);
   }
 

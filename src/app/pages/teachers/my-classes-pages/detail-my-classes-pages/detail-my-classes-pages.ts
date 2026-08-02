@@ -670,12 +670,13 @@ export class DetailMyClassesPages {
         const padded = Array.from({ length: levels.length }).map((_, i) => String(cells[i] ?? ''));
         return {
           title: typeof c?.title === 'string' ? String(c.title) : String(c?.title || ''),
+          weight: Number(c?.weight) || 0,
           cells: padded
         };
       })
       .slice(0, 50);
 
-    return { title, levels, criteria };
+    return { title, totalPoints: Number(d.totalPoints) || 100, levels, criteria };
   }
 
   private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: string): RubricDesigner | null {
@@ -697,12 +698,14 @@ export class DetailMyClassesPages {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
         title: typeof c?.name === 'string' ? String(c.name) : '',
+        weight: Number(c?.weight) || 0,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
       };
     });
 
     return {
       title: assignmentTitle ? `Rubric: ${assignmentTitle}` : 'Rubric',
+      totalPoints: Number(obj.totalPoints) || 100,
       levels,
       criteria
     };
@@ -722,12 +725,14 @@ export class DetailMyClassesPages {
 
     return {
       title,
+      totalPoints: Number((obj as any).totalPoints) || 100,
       levels: levels.map((l: any) => ({
         title: typeof l?.title === 'string' ? String(l.title) : '',
         maxPoints: Number(l?.maxPoints) || 0
       })),
       criteria: criteria.map((c: any) => ({
         title: typeof c?.title === 'string' ? String(c.title) : '',
+        weight: Number(c?.weight) || 0,
         cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
       }))
     };
@@ -738,8 +743,10 @@ export class DetailMyClassesPages {
     const criteria = Array.isArray(designer?.criteria) ? designer.criteria : [];
 
     return {
+      totalPoints: 100,
       criteria: criteria.map((row: any) => ({
         name: typeof row?.title === 'string' ? row.title : '',
+        weight: Number(row?.weight) || 0,
         levels: levels.map((lvl: any, i: number) => ({
           title: typeof lvl?.title === 'string' ? lvl.title : '',
           score: Number(lvl?.maxPoints) || 0,
