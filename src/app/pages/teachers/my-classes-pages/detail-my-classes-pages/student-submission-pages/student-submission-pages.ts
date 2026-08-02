@@ -101,6 +101,7 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 
 
 import type { OcrWord } from '../../../../../models/ocr-token.model';
+import { annotationsForFileId, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
 
 
 
@@ -2668,6 +2669,11 @@ export class StudentSubmissionPages {
     return typeof id === 'string' && id.trim().length ? id.trim() : null;
   }
 
+  get activeAnnotations(): FeedbackAnnotation[] {
+    const fileId = this.activeFileId;
+    return fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : [];
+  }
+
   get activeFileUrlRaw(): string | null {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
     const url = urls[this.activeFileIndex];
@@ -2909,7 +2915,8 @@ export class StudentSubmissionPages {
 
 
 
-        bboxList: Array.isArray(c?.bboxList) ? c.bboxList : [],
+        fileId: typeof c?.fileId === 'string' && c.fileId.trim() ? c.fileId.trim() : undefined,
+        bboxList: normalizeCorrectionBboxList(c?.bboxList),
 
 
 

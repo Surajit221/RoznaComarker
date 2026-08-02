@@ -41,7 +41,7 @@
             </div>
             } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
-              [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
+              [annotations]="activeAnnotations" alt="Student submission image"></app-correction-overlay>
             <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
             }
           </div>
@@ -452,7 +452,7 @@
             </div>
             } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl || activeFileUrlRaw || currentSubmission?.fileUrl || null"
-              [annotations]="annotations" alt="Student submission image"></app-correction-overlay>
+              [annotations]="activeAnnotations" alt="Student submission image"></app-correction-overlay>
             <button type="button" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" (click)="openMobileLegend()">View correction legend</button>
             }
           </div>
