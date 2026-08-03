@@ -76,6 +76,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private readonly documentScrollHandler = (): void => this.schedulePosition();
   private previousScrollY = 0;
   private originalBodyStyle = '';
+  private suppressNextFocusReopen = false;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['imageUrl']) {
@@ -96,6 +97,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.resizeObserver.observe(this.overlayEl.nativeElement);
     }
   }
+
+  
 
   ngOnDestroy(): void {
     document.removeEventListener('scroll', this.documentScrollHandler, true);
@@ -150,9 +153,14 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) this.closeTooltip();
   }
 
-  onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
-    if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+ onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
+  if (this.suppressNextFocusReopen) {
+    this.suppressNextFocusReopen = false;
+    return;
   }
+  if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+}
+
 
   onMarkerBlur(): void {
     if (this.isPinned) return;
@@ -179,12 +187,13 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.openTooltip(marker, event.currentTarget as HTMLElement, true);
   }
 
-  closeFromControl(event?: Event): void {
-    event?.stopPropagation();
-    const target = this.tooltipTarget;
-    this.closeTooltip();
-    target?.focus();
-  }
+ closeFromControl(event?: Event): void {
+  event?.stopPropagation();
+  const target = this.tooltipTarget;
+  this.suppressNextFocusReopen = true;
+  this.closeTooltip();
+  target?.focus();
+}
 
   @HostListener('document:pointerdown', ['$event'])
   onDocumentPointerDown(event: PointerEvent): void {
@@ -315,7 +324,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     });
   }
 
-  private positionTooltip(): void {
+  private positionTooltip(attempt = 0): void {
     const target = this.tooltipTarget;
     const tooltip = this.tooltipEl?.nativeElement;
     if (!target || !tooltip || !this.activeMarker) return;
@@ -330,7 +339,14 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
     const markerRect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
-    if (!markerRect.width || !markerRect.height || !tooltipRect.width || !tooltipRect.height) return;
+    if (!markerRect.width || !markerRect.height || !tooltipRect.width || !tooltipRect.height) {
+      // Layout may not be ready on the very first open — retry a few times
+      // instead of leaving the tooltip stuck at visibility: hidden.
+      if (attempt < 5) {
+        this.positionFrame = requestAnimationFrame(() => this.positionTooltip(attempt + 1));
+      }
+      return;
+    }
 
     const viewportWidth = document.documentElement.clientWidth;
     const viewportHeight = document.documentElement.clientHeight;
