@@ -64,16 +64,166 @@ describe('CorrectionOverlay media loading', () => {
       code: 'GR', label: 'Grammar correction', left: 10, top: 10, offsetX: 0, offsetY: 0,
       textColor: '#ffffff'
     } as any;
-    const event = { currentTarget: target, stopPropagation: () => undefined } as unknown as MouseEvent;
+    const event = {
+      currentTarget: target,
+      preventDefault: jasmine.createSpy('preventDefault'),
+      stopPropagation: jasmine.createSpy('stopPropagation')
+    } as unknown as MouseEvent;
 
     component.onMarkerClick(marker, event);
     fixture.detectChanges();
     expect(component.activeMarker).toBe(marker);
     expect(component.isPinned).toBeTrue();
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(event.stopPropagation).toHaveBeenCalled();
 
     component.closeFromControl(event);
     fixture.detectChanges();
     expect(component.activeMarker).toBeNull();
+  });
+
+  describe('correction interactions', () => {
+    const marker = {
+      annotation: {
+        _id: 'interaction-correction',
+        symbol: 'GR',
+        group: 'Grammar',
+        message: 'Use the correct tense.',
+        suggestedText: 'She went home.'
+      },
+      code: 'GR',
+      label: 'Grammar correction',
+      left: 10,
+      top: 10,
+      offsetX: 0,
+      offsetY: 0,
+      textColor: '#ffffff'
+    } as any;
+
+    function mouseEvent(target: HTMLElement): MouseEvent {
+      return {
+        currentTarget: target,
+        preventDefault: jasmine.createSpy('preventDefault'),
+        stopPropagation: jasmine.createSpy('stopPropagation')
+      } as unknown as MouseEvent;
+    }
+
+    function pointerEvent(target: HTMLElement): PointerEvent {
+      return {
+        currentTarget: target,
+        target,
+        pointerType: 'mouse',
+        preventDefault: jasmine.createSpy('preventDefault'),
+        stopPropagation: jasmine.createSpy('stopPropagation')
+      } as unknown as PointerEvent;
+    }
+
+    it('does not open from focus in compact view', () => {
+      component.isMobile = true;
+      const target = document.createElement('button');
+
+      component.onMarkerFocus(marker, { currentTarget: target } as unknown as FocusEvent);
+
+      expect(component.activeMarker).toBeNull();
+    });
+
+    it('opens on the first mobile click and stays open on a second tap of the same marker', () => {
+      component.isMobile = true;
+      const target = document.createElement('button');
+
+      component.onMarkerClick(marker, mouseEvent(target));
+      expect(component.activeMarker).toBe(marker);
+      expect(component.isPinned).toBeTrue();
+
+      component.onMarkerClick(marker, mouseEvent(target));
+      expect(component.activeMarker).toBe(marker);
+      expect(component.isPinned).toBeTrue();
+    });
+
+    it('closes from the X control without focusing the marker on mobile', () => {
+      component.isMobile = true;
+      const target = document.createElement('button');
+      spyOn(target, 'focus');
+      component.onMarkerClick(marker, mouseEvent(target));
+      fixture.detectChanges();
+
+      const close = fixture.nativeElement.querySelector('.correction-overlay__close') as HTMLButtonElement;
+      close.click();
+      fixture.detectChanges();
+
+      expect(component.activeMarker).toBeNull();
+      expect(target.focus).not.toHaveBeenCalled();
+    });
+
+    it('closes from the backdrop on mobile', () => {
+      component.isMobile = true;
+      const target = document.createElement('button');
+      component.onMarkerClick(marker, mouseEvent(target));
+      fixture.detectChanges();
+
+      const backdrop = fixture.nativeElement.querySelector('.correction-overlay__backdrop') as HTMLButtonElement;
+      backdrop.click();
+      fixture.detectChanges();
+
+      expect(component.activeMarker).toBeNull();
+    });
+
+    it('opens on desktop mouse hover and closes on mouse leave when unpinned', () => {
+      component.isMobile = false;
+      const target = document.createElement('button');
+      const event = pointerEvent(target);
+
+      component.onMarkerEnter(marker, event);
+      expect(component.activeMarker).toBe(marker);
+      expect(component.isPinned).toBeFalse();
+
+      component.onMarkerLeave(marker, event);
+      expect(component.activeMarker).toBeNull();
+    });
+
+    it('pins on the first desktop click', () => {
+      component.isMobile = false;
+      const target = document.createElement('button');
+
+      component.onMarkerClick(marker, mouseEvent(target));
+
+      expect(component.activeMarker).toBe(marker);
+      expect(component.isPinned).toBeTrue();
+    });
+
+    it('handles pointer-induced focus and click as one opening interaction', () => {
+      component.isMobile = false;
+      const target = document.createElement('button');
+      const openTooltip = spyOn<any>(component, 'openTooltip').and.callThrough();
+
+      component.onMarkerPointerDown();
+      component.onMarkerFocus(marker, { currentTarget: target } as unknown as FocusEvent);
+      component.onMarkerClick(marker, mouseEvent(target));
+
+      expect(openTooltip).toHaveBeenCalledTimes(1);
+      expect(component.activeMarker).toBe(marker);
+      expect(component.isPinned).toBeTrue();
+    });
+
+    it('opens from desktop keyboard focus', () => {
+      component.isMobile = false;
+      const target = document.createElement('button');
+
+      component.onMarkerFocus(marker, { currentTarget: target } as unknown as FocusEvent);
+
+      expect(component.activeMarker).toBe(marker);
+      expect(component.isPinned).toBeFalse();
+    });
+
+    it('closes with Escape', () => {
+      component.isMobile = true;
+      const target = document.createElement('button');
+      component.onMarkerClick(marker, mouseEvent(target));
+
+      component.onEscape();
+
+      expect(component.activeMarker).toBeNull();
+    });
   });
 });

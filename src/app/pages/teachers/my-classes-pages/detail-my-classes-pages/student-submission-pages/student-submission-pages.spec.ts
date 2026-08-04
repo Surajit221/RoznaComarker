@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { StudentSubmissionPages } from './student-submission-pages';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
+import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 
 describe('StudentSubmissionPages', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -129,5 +130,35 @@ describe('StudentSubmissionPages', () => {
       expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
       expect(fixture.nativeElement.textContent).toContain('Retry scoring');
     }
+  });
+
+  it('keeps active annotations stable for the selected teacher image', () => {
+    component.submissionFileIds = ['file-1', 'file-2'];
+    component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    component.annotations = [
+      { _id: 'a-1', fileId: 'file-1' },
+      { _id: 'a-2', fileId: 'file-2' }
+    ] as FeedbackAnnotation[];
+
+    const firstRead = component.activeAnnotations;
+    fixture.detectChanges();
+    const secondRead = component.activeAnnotations;
+
+    expect(firstRead.map((annotation) => annotation._id)).toEqual(['a-1']);
+    expect(secondRead).toBe(firstRead);
+  });
+
+  it('updates active annotations when the selected teacher image changes', () => {
+    component.submissionFileIds = ['file-1', 'file-2'];
+    component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    component.annotations = [
+      { _id: 'a-1', fileId: 'file-1' },
+      { _id: 'a-2', fileId: 'file-2' }
+    ] as FeedbackAnnotation[];
+
+    expect(component.activeAnnotations.map((annotation) => annotation._id)).toEqual(['a-1']);
+    component.activeFileIndex = 1;
+
+    expect(component.activeAnnotations.map((annotation) => annotation._id)).toEqual(['a-2']);
   });
 });

@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 
 import { MySubmissionPage } from './my-submission-page';
+import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 
@@ -110,5 +112,40 @@ describe('MySubmissionPage', () => {
     await component.retryCanonicalAnalysis();
     expect(api.retryCanonicalEvaluation).toHaveBeenCalledOnceWith('submission-1');
     expect(api.regenerateCanonicalCorrections).not.toHaveBeenCalled();
+  });
+
+  it('passes the student annotations to the mobile correction overlay', () => {
+    (component.device as any).width.set(390);
+    component.submissionFileUrls = ['image-1.jpg'];
+    component.annotations = [{ _id: 'student-a-1', fileId: 'file-1' }] as any;
+    fixture.detectChanges();
+
+    const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay))
+      .componentInstance as CorrectionOverlay;
+    expect(overlay.annotations).toBe(component.annotations);
+  });
+
+  it('keeps mobile thumbnails after the uploaded image and before AI feedback', () => {
+    (component.device as any).width.set(390);
+    component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    fixture.detectChanges();
+
+    const overlay = fixture.nativeElement.querySelector('app-correction-overlay') as HTMLElement;
+    const thumbnails = fixture.nativeElement.querySelector('.mobile-submission-thumbs') as HTMLElement;
+    const aiFeedback = fixture.nativeElement.querySelector('#ai-feedback-section-mobile') as HTMLElement;
+
+    expect(overlay.compareDocumentPosition(thumbnails) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(thumbnails.compareDocumentPosition(aiFeedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(thumbnails.querySelectorAll('.submission-thumb').length).toBe(2);
+  });
+
+  it('keeps multiple-image selection working on the student page', () => {
+    component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    spyOn<any>(component, 'setUploadedFileUrl').and.resolveTo();
+    spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+
+    component.onSelectSubmissionImage(1);
+
+    expect(component.activeFileIndex).toBe(1);
   });
 });

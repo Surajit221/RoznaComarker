@@ -297,6 +297,7 @@
 }
 
 @media (max-width: 1024px) {
+  .correction-overlay.is-loaded { min-height: 0; }
   .document-skeleton { padding: 14px; }
   .document-skeleton__page { width: 100%; min-height: 88%; padding: 24px 20px; }
   .correction-overlay__marker {

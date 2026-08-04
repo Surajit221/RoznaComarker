@@ -407,13 +407,13 @@
 
           </div>
           @if (submissionFileUrls.length > 1) {
-          <div class="flex gap-2 overflow-x-auto pb-2">
+          <div class="submission-thumbs mobile-submission-thumbs" role="tablist" aria-label="Submission images">
             @for (url of submissionFileUrls; track $index) {
             <button type="button" (click)="onSelectSubmissionImage($index)"
-              class="flex-shrink-0 relative rounded-lg overflow-hidden border-2 transition-all" [ngClass]="{
+              class="submission-thumb relative transition-all" [ngClass]="{
                 'border-blue-500 ring-2 ring-blue-200': activeFileIndex === $index,
                 'border-gray-200 hover:border-gray-300': activeFileIndex !== $index
-              }" style="width: 80px; height: 80px;">
+              }" aria-label="View image {{ $index + 1 }}">
               <img [src]="url" class="w-full h-full object-cover" alt="Page {{ $index + 1 }}" />
             </button>
             }

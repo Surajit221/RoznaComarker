@@ -1,4 +1,5 @@
-<div class="correction-overlay" #overlayEl [attr.aria-busy]="mediaState === 'fetching' || mediaState === 'decoding'">
+<div class="correction-overlay" #overlayEl [class.is-loaded]="mediaState === 'loaded'"
+  [attr.aria-busy]="mediaState === 'fetching' || mediaState === 'decoding'">
   @if (mediaState === 'fetching' || mediaState === 'decoding') {
     <div class="document-skeleton" aria-hidden="true">
       <div class="document-skeleton__page">
@@ -40,6 +41,7 @@
       [attr.aria-label]="marker.label"
       [attr.aria-expanded]="activeMarker?.annotation?._id === marker.annotation._id"
       [attr.aria-describedby]="activeMarker?.annotation?._id === marker.annotation._id ? 'correction-detail-card' : null"
+      (pointerdown)="onMarkerPointerDown()"
       (pointerenter)="onMarkerEnter(marker, $event)"
       (pointerleave)="onMarkerLeave(marker, $event)"
       (focus)="onMarkerFocus(marker, $event)"
@@ -50,7 +52,8 @@
   }
 
   @if (activeMarker && isMobile) {
-    <button type="button" class="correction-overlay__backdrop" aria-label="Close correction details" (click)="closeFromControl($event)"></button>
+    <button type="button" class="correction-overlay__backdrop" aria-label="Close correction details"
+      (pointerdown)="preventControlPointerDown($event)" (click)="closeFromControl($event)"></button>
   }
 
   @if (activeMarker) {
@@ -75,7 +78,8 @@
           <strong>{{ categoryName }}</strong>
           <span>Correction guidance</span>
         </div>
-        <button type="button" class="correction-overlay__close" aria-label="Close correction details" (click)="closeFromControl($event)">&times;</button>
+        <button type="button" class="correction-overlay__close" aria-label="Close correction details"
+          (pointerdown)="preventControlPointerDown($event)" (click)="closeFromControl($event)">&times;</button>
       </header>
 
       @if (explanation) {

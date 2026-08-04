@@ -2657,6 +2657,10 @@ export class StudentSubmissionPages {
   activeFileIndex = 0;
 
   private applyCurrentSubmissionSeq = 0;
+  private activeAnnotationsSource: FeedbackAnnotation[] | null = null;
+  private activeAnnotationsFileIds: string[] | null = null;
+  private activeAnnotationsFileId: string | null = null;
+  private activeAnnotationsCache: FeedbackAnnotation[] = [];
 
   get hasMultipleImages(): boolean {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
@@ -2671,7 +2675,16 @@ export class StudentSubmissionPages {
 
   get activeAnnotations(): FeedbackAnnotation[] {
     const fileId = this.activeFileId;
-    return fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : [];
+    if (this.activeAnnotationsSource === this.annotations
+      && this.activeAnnotationsFileIds === this.submissionFileIds
+      && this.activeAnnotationsFileId === fileId) {
+      return this.activeAnnotationsCache;
+    }
+    this.activeAnnotationsSource = this.annotations;
+    this.activeAnnotationsFileIds = this.submissionFileIds;
+    this.activeAnnotationsFileId = fileId;
+    this.activeAnnotationsCache = fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : [];
+    return this.activeAnnotationsCache;
   }
 
   get activeFileUrlRaw(): string | null {
