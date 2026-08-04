@@ -83,7 +83,7 @@
                     <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
                     } @else if (scoreState === 'error') {
                     <div class="section-load-error" role="status">{{ analysisFailureMessage }}
-                      @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
+                      @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="reEvaluateCurrentSubmission()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
                     </div>
                     } @else {
                     <div class="flex items-center justify-between mb-4">
@@ -105,6 +105,7 @@
                     <div class="text-center text-sm text-gray-600">
                       <p>{{ scoreSummaryText }}</p>
                     </div>
+                    <ng-container *ngTemplateOutlet="evaluationStatusPanel"></ng-container>
                     }
                   </div>
 
@@ -239,7 +240,7 @@
 
                   <!-- Feedback and Suggestions -->
                   <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="feedbackState === 'loading'">
-                    <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [teacher]="true" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="retryCanonicalAnalysis()"></app-canonical-detailed-feedback>
+                    <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [teacher]="true" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="reEvaluateCurrentSubmission()"></app-canonical-detailed-feedback>
                     @if (false) {
                     <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container>
                     } @else if (false && feedbackState === 'error') {
@@ -319,7 +320,8 @@
         <div class="flex flex-row justify-between items-center">
           <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
           <div class="flex flex-row gap-2">
-            <button type="button" class="btn-info" (click)="generateAiForCurrentSubmission()">Generate AI Feedback</button>
+            <button type="button" class="btn-info" [disabled]="!canGenerateAiFeedback"
+              (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback' }}</button>
             <button type="button" class="btn-primary" [disabled]="isPdfDownloading"
               (click)="downloadPdfForCurrentSubmission()">
               @if (isPdfDownloading) {
@@ -341,7 +343,13 @@
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
             <div class="section-load-error" role="status">{{ analysisFailureMessage }} {{ retryAnalysisLabel }} from the Score section above.</div>
-            } @else if (rubricFeedbackItems.length) {
+            } @else {
+            @if (isCustomRubricResult) {
+            <div class="rounded-xl bg-blue-50 px-5 py-4 text-blue-900" role="note">
+              This overall score is calculated from the assignment’s custom rubric.
+            </div>
+            }
+            @if (rubricFeedbackItems.length) {
             @for (item of rubricFeedbackItems; track item.category) {
             <div
               class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
@@ -354,6 +362,9 @@
                   </div>
                 </div>
                 <p class="break-words">{{ item.description }}</p>
+                @if (item.selectedLevel) {
+                <p class="break-words">Selected level: {{ item.selectedLevel }}</p>
+                }
               </div>
             </div>
             }
@@ -362,6 +373,7 @@
               <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed text
                 to compute dynamic rubric.</p>
             </div>
+            }
             }
 
             <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
@@ -397,8 +409,8 @@
     <app-app-bar-back-button [title]="classTitle" (back)="toBack()"></app-app-bar-back-button>
 
     <div class="w-full grid grid-cols-2 gap-2 mb-3 items-start">
-      <button type="button" class="btn-info-sm w-full" (click)="generateAiForCurrentSubmission()">Generate AI
-        Feedback</button>
+      <button type="button" class="btn-info-sm w-full" [disabled]="!canGenerateAiFeedback"
+        (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback' }}</button>
       <div class="w-full flex flex-col gap-2">
         <button type="button" class="btn-primary-sm w-full" (click)="openSheetSubmission = true">View All
           Submission</button>
@@ -527,7 +539,7 @@
 
                 <!-- Feedback and Suggestions -->
                 <div class="gradient-card hover-lift fade-in" [attr.aria-busy]="feedbackState === 'loading'">
-                  <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [teacher]="true" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="retryCanonicalAnalysis()"></app-canonical-detailed-feedback>
+                  <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [teacher]="true" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="reEvaluateCurrentSubmission()"></app-canonical-detailed-feedback>
                   @if (false) {
                   <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container>
                       } @else if (false && feedbackState === 'error') {
@@ -600,7 +612,7 @@
                   <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
                   } @else if (scoreState === 'error') {
                   <div class="section-load-error" role="status">{{ analysisFailureMessage }}
-                    @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="retryCanonicalAnalysis()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
+                    @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="reEvaluateCurrentSubmission()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
                   </div>
                   } @else {
                   <div class="flex items-center justify-between mb-4">
@@ -622,6 +634,7 @@
                   <div class="text-center text-sm text-gray-600">
                     <p>{{ scoreSummaryText }}</p>
                   </div>
+                  <ng-container *ngTemplateOutlet="evaluationStatusPanel"></ng-container>
                   }
                 </div>
 
@@ -724,7 +737,13 @@
               <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
               } @else if (aiFeedbackState === 'error') {
               <div class="section-load-error" role="status">{{ analysisFailureMessage }}</div>
-              } @else if (rubricFeedbackItems.length) {
+              } @else {
+              @if (isCustomRubricResult) {
+              <div class="rounded-xl bg-blue-50 px-5 py-4 text-blue-900" role="note">
+                This overall score is calculated from the assignment’s custom rubric.
+              </div>
+              }
+              @if (rubricFeedbackItems.length) {
               @for (item of rubricFeedbackItems; track item.category) {
               <div
                 class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
@@ -737,6 +756,9 @@
                     </div>
                   </div>
                   <p class="break-words">{{ item.description }}</p>
+                  @if (item.selectedLevel) {
+                  <p class="break-words">Selected level: {{ item.selectedLevel }}</p>
+                  }
                 </div>
               </div>
               }
@@ -745,6 +767,7 @@
                 <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed
                   text to compute dynamic rubric.</p>
               </div>
+              }
               }
               <section class="teacher-comments-editor w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl"
                 [formGroup]="feedbackForm">
@@ -771,6 +794,29 @@
 
   </ng-template>
   <!-- END MOBILE -->
+
+  <ng-template #evaluationStatusPanel>
+    @if (evaluationStatusPresentation.showPanel) {
+    <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-gray-700"
+      [attr.role]="evaluationStatusPresentation.role"
+      [attr.aria-live]="evaluationStatusPresentation.state === 'processing' ? 'polite' : null">
+      <p class="font-bold text-gray-800">{{ evaluationStatusPresentation.title }}</p>
+      <p class="mt-1">{{ evaluationStatusPresentation.message }}</p>
+      @if (evaluationStatusPresentation.showPreviousScore) {
+      <p class="mt-2 font-semibold">Previous score: {{ previousEvaluationScoreText }} <span class="font-normal">(outdated)</span></p>
+      }
+      @if (evaluationStatusPresentation.showAction && evaluationStatusPresentation.actionLabel) {
+      <button type="button" class="btn-warning-sm mt-3 w-full"
+        [disabled]="!canGenerateAiFeedback"
+        [attr.aria-label]="evaluationStatusPresentation.actionLabel"
+        (click)="reEvaluateCurrentSubmission()">{{ evaluationStatusPresentation.actionLabel }}</button>
+      }
+      @if (evaluationStatusPresentation.state === 'processing') {
+      <span class="sr-only">Evaluation update in progress.</span>
+      }
+    </div>
+    }
+  </ng-template>
 
   <ng-template #scoreSkeleton>
     <div class="section-skeleton" aria-hidden="true">

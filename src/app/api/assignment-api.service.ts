@@ -51,6 +51,19 @@ export type BackendFlashcardAssignmentSubmission = {
   submittedAt?: string;
 };
 
+export interface StaleEvaluationSummary {
+  assignmentId: string;
+  eligibleCount: number;
+  skippedOverrideCount: number;
+  skippedProcessingCount: number;
+  skippedNotReadyCount: number;
+}
+
+export interface BulkEvaluationStartResult extends StaleEvaluationSummary {
+  startedCount: number;
+  submissionIds: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AssignmentApiService {
   constructor(private http: HttpClient) {}
@@ -184,6 +197,23 @@ export class AssignmentApiService {
         fd
       )
     );
+    return resp.data;
+  }
+
+  async getStaleEvaluationSummary(assignmentId: string): Promise<StaleEvaluationSummary> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(this.http.get<BackendResponse<StaleEvaluationSummary>>(
+      `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/evaluations/stale-summary`
+    ));
+    return resp.data;
+  }
+
+  async retryStaleEvaluations(assignmentId: string): Promise<BulkEvaluationStartResult> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(this.http.post<BackendResponse<BulkEvaluationStartResult>>(
+      `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/evaluations/retry-stale`,
+      {}
+    ));
     return resp.data;
   }
 

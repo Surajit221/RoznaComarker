@@ -34,6 +34,19 @@ describe('canonical result normalization', () => {
     expect(canonicalFailureMessage(evaluationFailed)).toBe('Correction analysis completed, but scoring and detailed feedback could not be generated.');
     expect(canonicalRetryLabel(evaluationFailed)).toBe('Retry scoring');
   });
+
+  it('uses evaluation-only retry when the score completed but detailed feedback failed', () => {
+    const detailedFeedbackFailed = normalizeCanonicalResult({
+      correctionStatus: 'completed',
+      semanticStatus: 'completed',
+      evaluationStatus: 'completed',
+      overallScore: 84,
+      detailedFeedbackStatus: 'failed',
+      manualRetryAllowed: true
+    });
+
+    expect(shouldRetryEvaluationOnly(detailedFeedbackFailed)).toBeTrue();
+  });
   it('keeps semantic categories pending while language results remain visible', () => {
     const state = normalizeCanonicalResult({ correctionStatus: 'processing', statisticsCompleteness: 'language_only',
       statistics: { content: 0, grammar: 9, organization: 0, vocabulary: 0, mechanics: 6 } });

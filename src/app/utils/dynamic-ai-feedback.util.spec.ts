@@ -1,7 +1,17 @@
-import { rubricScoresToFeedbackItems } from './dynamic-ai-feedback.util';
+import { customRubricScoresToFeedbackItems, rubricScoresToFeedbackItems } from './dynamic-ai-feedback.util';
 
 describe('dynamic-ai-feedback.util', () => {
   describe('rubricScoresToFeedbackItems', () => {
+    const complete = (overrides: Record<string, any> = {}) => ({
+      CONTENT: { score: 18, maxScore: 20, comment: 'Good content' },
+      ORGANIZATION: { score: 16, maxScore: 20, comment: 'Well structured' },
+      GRAMMAR: { score: 22, maxScore: 25, comment: 'Minor errors' },
+      VOCABULARY: { score: 15, maxScore: 20, comment: 'Varied vocabulary' },
+      MECHANICS: { score: 8, maxScore: 10, comment: 'Good spelling' },
+      PRESENTATION: { score: 4, maxScore: 5, comment: 'Neat handwriting' },
+      ...overrides
+    });
+
     it('should return six feedback cards for all categories', () => {
       const rubricScores = {
         CONTENT: { score: 18, maxScore: 20, comment: 'Good content' },
@@ -24,9 +34,7 @@ describe('dynamic-ai-feedback.util', () => {
     });
 
     it('should use backend maxScore when provided', () => {
-      const rubricScores = {
-        GRAMMAR: { score: 20, maxScore: 30, comment: 'Test' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: 20, maxScore: 30, comment: 'Test' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
       const grammarItem = result.find((item) => item.category === 'Grammar');
@@ -35,9 +43,7 @@ describe('dynamic-ai-feedback.util', () => {
     });
 
     it('should use category defaults when maxScore is invalid', () => {
-      const rubricScores = {
-        GRAMMAR: { score: 20, maxScore: -5, comment: 'Test' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: 20, maxScore: -5, comment: 'Test' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
       const grammarItem = result.find((item) => item.category === 'Grammar');
@@ -46,9 +52,7 @@ describe('dynamic-ai-feedback.util', () => {
     });
 
     it('should use category defaults when maxScore is missing', () => {
-      const rubricScores = {
-        GRAMMAR: { score: 20, comment: 'Test' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: 20, comment: 'Test' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
       const grammarItem = result.find((item) => item.category === 'Grammar');
@@ -57,9 +61,7 @@ describe('dynamic-ai-feedback.util', () => {
     });
 
     it('should clamp scores to maxScore', () => {
-      const rubricScores = {
-        GRAMMAR: { score: 30, maxScore: 25, comment: 'Test' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: 30, maxScore: 25, comment: 'Test' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
       const grammarItem = result.find((item) => item.category === 'Grammar');
@@ -70,41 +72,27 @@ describe('dynamic-ai-feedback.util', () => {
     it('should handle null rubricScores', () => {
       const result = rubricScoresToFeedbackItems(null);
 
-      expect(result.length).toBe(6);
-      result.forEach((item) => {
-        expect(item.score).toBe(0);
-        expect(item.description).toBe('');
-      });
+      expect(result).toEqual([]);
     });
 
     it('should handle undefined rubricScores', () => {
       const result = rubricScoresToFeedbackItems(undefined);
 
-      expect(result.length).toBe(6);
-      result.forEach((item) => {
-        expect(item.score).toBe(0);
-        expect(item.description).toBe('');
-      });
+      expect(result).toEqual([]);
     });
 
-    it('should handle missing categories with defaults', () => {
+    it('should hide partially persisted categories rather than synthesize zeros', () => {
       const rubricScores = {
         GRAMMAR: { score: 20, maxScore: 25, comment: 'Test' }
       };
 
       const result = rubricScoresToFeedbackItems(rubricScores);
 
-      expect(result.length).toBe(6);
-      
-      const vocabularyItem = result.find((item) => item.category === 'Vocabulary');
-      expect(vocabularyItem?.maxScore).toBe(20); // Default for VOCABULARY
-      expect(vocabularyItem?.score).toBe(0);
+      expect(result).toEqual([]);
     });
 
     it('should preserve comments from backend', () => {
-      const rubricScores = {
-        GRAMMAR: { score: 20, maxScore: 25, comment: 'Excellent grammar' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: 20, maxScore: 25, comment: 'Excellent grammar' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
       const grammarItem = result.find((item) => item.category === 'Grammar');
@@ -113,20 +101,14 @@ describe('dynamic-ai-feedback.util', () => {
     });
 
     it('should handle invalid scores', () => {
-      const rubricScores = {
-        GRAMMAR: { score: 'invalid' as any, maxScore: 25, comment: 'Test' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: 'invalid' as any, maxScore: 25, comment: 'Test' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
-      const grammarItem = result.find((item) => item.category === 'Grammar');
-
-      expect(grammarItem?.score).toBe(0);
+      expect(result).toEqual([]);
     });
 
     it('should ensure non-negative scores', () => {
-      const rubricScores = {
-        GRAMMAR: { score: -10, maxScore: 25, comment: 'Test' }
-      };
+      const rubricScores = complete({ GRAMMAR: { score: -10, maxScore: 25, comment: 'Test' } });
 
       const result = rubricScoresToFeedbackItems(rubricScores);
       const grammarItem = result.find((item) => item.category === 'Grammar');
@@ -134,7 +116,7 @@ describe('dynamic-ai-feedback.util', () => {
       expect(grammarItem?.score).toBe(0);
     });
 
-    it('should handle backward compatibility with 4-category legacy data', () => {
+    it('should not present missing legacy categories as scored zeros', () => {
       const legacyRubricScores = {
         CONTENT: { score: 4, maxScore: 5, comment: 'Good' },
         ORGANIZATION: { score: 4, maxScore: 5, comment: 'Good' },
@@ -144,21 +126,48 @@ describe('dynamic-ai-feedback.util', () => {
 
       const result = rubricScoresToFeedbackItems(legacyRubricScores);
 
-      expect(result.length).toBe(6);
-      
-      // Existing categories should preserve their values
-      const grammarItem = result.find((item) => item.category === 'Grammar');
-      expect(grammarItem?.score).toBe(4);
-      expect(grammarItem?.maxScore).toBe(5);
-      
-      // Missing categories should use defaults
-      const mechanicsItem = result.find((item) => item.category === 'Spelling & Punctuation');
-      expect(mechanicsItem?.maxScore).toBe(10); // Default for MECHANICS
-      expect(mechanicsItem?.score).toBe(0);
-      
-      const presentationItem = result.find((item) => item.category === 'Presentation & Handwriting');
-      expect(presentationItem?.maxScore).toBe(5); // Default for PRESENTATION
-      expect(presentationItem?.score).toBe(0);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('customRubricScoresToFeedbackItems', () => {
+    it('maps canonical custom-rubric fields without recalculating weighted points', () => {
+      const result = customRubricScoresToFeedbackItems({
+        criteria: [{
+          criterionId: 'criterion-1',
+          title: 'Evidence',
+          normalizedWeight: 30,
+          selectedLevel: 'Satisfactory',
+          configuredLevelPercentage: 60,
+          weightedPoints: 18,
+          comment: 'Supported judgment.'
+        }]
+      });
+
+      expect(result).toEqual([{
+        criterionId: 'criterion-1',
+        title: 'Evidence',
+        category: 'Evidence',
+        normalizedWeight: 30,
+        selectedLevel: 'Satisfactory',
+        configuredLevelPercentage: 60,
+        weightedPoints: 18,
+        comment: 'Supported judgment.',
+        score: 18,
+        maxScore: 30,
+        description: 'Supported judgment.'
+      }]);
+    });
+
+    it('supports compatibility aliases from previously persisted custom results', () => {
+      expect(customRubricScoresToFeedbackItems({
+        criteria: [{
+          criterionId: 'criterion-1', title: 'Evidence', weight: 30,
+          levelTitle: 'Satisfactory', percentage: 60, weightedPoints: 18, comment: ''
+        }]
+      })[0]).toEqual(jasmine.objectContaining({
+        normalizedWeight: 30, selectedLevel: 'Satisfactory', configuredLevelPercentage: 60
+      }));
     });
   });
 });

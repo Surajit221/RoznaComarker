@@ -167,7 +167,9 @@ export function shouldRetryEvaluationOnly(state: CanonicalResultViewState | null
   return Boolean(state
     && state.correctionStatus === 'completed'
     && state.semanticStatus === 'completed'
-    && ['failed', 'stale', 'blocked'].includes(state.evaluationStatus));
+    && (['failed', 'stale', 'blocked'].includes(state.evaluationStatus)
+      || (state.evaluationStatus === 'completed'
+        && ['failed', 'stale', 'blocked'].includes(state.detailedFeedbackStatus))));
 }
 
 export function canonicalFailureMessage(state: CanonicalResultViewState | null | undefined): string {

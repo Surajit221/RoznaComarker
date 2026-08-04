@@ -83,6 +83,10 @@ export function buildDetailedFeedbackDisplayModel(
     || ['pending', 'processing'].includes(status);
   if (state?.processingActive && status === 'stale') return { ...empty, status: 'updating', message: 'Updating detailed feedback…' };
   if (pending) return { ...empty, status: 'processing', message: 'Preparing detailed feedback…' };
+  if (state.evaluationStatus === 'completed' && ['blocked', 'failed', 'stale'].includes(status)) {
+    return { ...empty, status: 'failed', message: 'Detailed feedback could not be generated.',
+      retryLabel: 'Retry score and detailed feedback' };
+  }
   if (status === 'blocked') return { ...empty, status: 'blocked', message: canonicalFailureMessage(state) };
   if (status === 'failed') return { ...empty, status: 'failed', message: canonicalFailureMessage(state) };
   if (status === 'stale') return { ...empty, status: 'failed', message: 'Detailed feedback is unavailable because the saved feedback is out of date.' };

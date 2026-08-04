@@ -93,25 +93,19 @@ describe('MySubmissionPage', () => {
     expect(fixture.nativeElement.textContent).toContain('Correction Legend');
   });
 
-  it('shows evaluation-specific wording on desktop and mobile and retries scoring only', async () => {
+  it('shows evaluation-specific wording without exposing a student retry action', async () => {
     component.submission = { _id: 'submission-1' } as any;
     component.canonicalResultState = normalizeCanonicalResult({ correctionStatus: 'completed', semanticStatus: 'completed',
       correctionSourceHash: 'fresh-hash', statisticsCompleteness: 'canonical',
       correctionStatistics: { content: 0, grammar: 5, organization: 0, vocabulary: 0, mechanics: 3 },
       evaluationStatus: 'failed', detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
     component.scoreState = 'error'; component.feedbackState = 'error'; component.aiFeedbackState = 'error';
-    const api = (component as any).submissionApi;
-    spyOn(api, 'retryCanonicalEvaluation').and.resolveTo({});
-    spyOn(api, 'regenerateCanonicalCorrections').and.resolveTo({});
-
     for (const width of [1440, 390]) {
       (component.device as any).width.set(width); fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
-      expect(fixture.nativeElement.textContent).toContain('Retry scoring');
+      expect(fixture.nativeElement.textContent).not.toContain('Retry scoring');
     }
-    await component.retryCanonicalAnalysis();
-    expect(api.retryCanonicalEvaluation).toHaveBeenCalledOnceWith('submission-1');
-    expect(api.regenerateCanonicalCorrections).not.toHaveBeenCalled();
+    expect((component as any).retryCanonicalAnalysis).toBeUndefined();
   });
 
   it('passes the student annotations to the mobile correction overlay', () => {
@@ -147,5 +141,131 @@ describe('MySubmissionPage', () => {
     component.onSelectSubmissionImage(1);
 
     expect(component.activeFileIndex).toBe(1);
+  });
+
+  it('does not expose fake fixed-category zeros while evaluation is pending', () => {
+    component.canonicalResultState = normalizeCanonicalResult({
+      evaluationStatus: 'pending', detailedFeedbackStatus: 'pending',
+      processingActive: true, automaticPollingAllowed: true, terminal: false
+    });
+    component.feedback = { submissionId: 'submission-1', rubricScores: null } as any;
+    component.aiFeedbackState = 'processing';
+    fixture.detectChanges();
+
+    expect(component.feedbacks).toEqual([]);
+    expect(fixture.nativeElement.textContent).not.toContain('0.0 /');
+  });
+
+  it('shows a nontechnical stale-result message and never exposes an evaluation action', () => {
+    component.feedback = {
+      submissionId: 'submission-1',
+      previousEvaluation: { overallScore: 72 }
+    } as any;
+    component.canonicalResultState = normalizeCanonicalResult({
+      correctionStatus: 'completed',
+      semanticStatus: 'completed',
+      evaluationStatus: 'stale',
+      detailedFeedbackStatus: 'stale',
+      manualRetryAllowed: true
+    });
+    component.scoreState = 'loaded';
+    (component.device as any).width.set(390);
+    component.onTabSelected('transcribed-text');
+    fixture.detectChanges();
+
+    expect(component.evaluationStatusPresentation.state).toBe('stale');
+    expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Your teacher is updating this evaluation');
+    expect(fixture.nativeElement.textContent).toContain('Previous score: 72 / 100 (outdated)');
+    expect(fixture.nativeElement.textContent).not.toContain('Re-evaluate with current rubric');
+    expect(fixture.nativeElement.querySelector(
+      'button[aria-label="Re-evaluate with current rubric"]'
+    )).toBeNull();
+  });
+
+  it('shows student update progress without fake zero scores or retry controls', () => {
+    component.feedback = {
+      submissionId: 'submission-1',
+      previousEvaluation: { overallScore: 72 },
+      rubricScores: null
+    } as any;
+    component.canonicalResultState = normalizeCanonicalResult({
+      correctionStatus: 'completed',
+      semanticStatus: 'completed',
+      evaluationStatus: 'processing',
+      detailedFeedbackStatus: 'processing',
+      processingActive: true,
+      automaticPollingAllowed: true
+    });
+    component.scoreState = 'loaded';
+    component.aiFeedbackState = 'processing';
+    (component.device as any).width.set(390);
+    component.onTabSelected('transcribed-text');
+    fixture.detectChanges();
+
+    expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Your teacher is updating this evaluation');
+    expect(fixture.nativeElement.textContent).toContain('Previous score: 72 / 100 (outdated)');
+    expect(fixture.nativeElement.textContent).not.toContain('0.0 /');
+    expect(fixture.nativeElement.querySelector('button[aria-label*="evaluation"]')).toBeNull();
+  });
+
+  it('renders custom-rubric criteria through the original fixed-category row layout', () => {
+    component.canonicalResultState = normalizeCanonicalResult({
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
+      overallScore: 60, processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    component.feedback = {
+      submissionId: 'submission-1',
+      scoringAudit: { overallMethod: 'custom_rubric_weighted_total' },
+      customRubricScores: { overallScore: 60, criteria: [{
+        criterionId: 'criterion-1', title: 'Content Accuracy', normalizedWeight: 30,
+        selectedLevel: 'Satisfactory', configuredLevelPercentage: 60,
+        weightedPoints: 18, comment: 'Meets the criterion at a satisfactory level.', evidenceIds: []
+      }] }
+    } as any;
+    component.aiFeedbackState = 'loaded';
+    (component.device as any).width.set(1440);
+    fixture.detectChanges();
+
+    expect(component.isCustomRubricResult).toBeTrue();
+    expect(component.feedbacks).toEqual([
+      jasmine.objectContaining({
+        category: 'Content Accuracy',
+        score: 18,
+        maxScore: 30,
+        description: 'Meets the criterion at a satisfactory level.',
+        selectedLevel: 'Satisfactory'
+      })
+    ]);
+    expect(fixture.nativeElement.textContent).toContain('This overall score is calculated from the assignment’s custom rubric.');
+    expect(fixture.nativeElement.textContent).toContain('Content Accuracy');
+    expect(fixture.nativeElement.textContent).toContain('Selected level: Satisfactory');
+    expect(fixture.nativeElement.textContent).toContain('18.0 / 30');
+    expect(fixture.nativeElement.textContent).not.toContain('Normalized weight:');
+    expect(fixture.nativeElement.querySelector('.score-badge')).toBeTruthy();
+  });
+
+  it('keeps no-rubric completed results on the existing fixed six-category path', () => {
+    component.canonicalResultState = normalizeCanonicalResult({
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
+      overallScore: 75, processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    component.feedback = {
+      submissionId: 'submission-1',
+      scoringAudit: { overallMethod: 'fixed_six_category_sum' },
+      rubricScores: {
+        CONTENT: { score: 15, maxScore: 20, comment: '' },
+        ORGANIZATION: { score: 15, maxScore: 20, comment: '' },
+        GRAMMAR: { score: 20, maxScore: 25, comment: '' },
+        VOCABULARY: { score: 15, maxScore: 20, comment: '' },
+        MECHANICS: { score: 7, maxScore: 10, comment: '' },
+        PRESENTATION: { score: 3, maxScore: 5, comment: '' }
+      }
+    } as any;
+    component.aiFeedbackState = 'loaded';
+
+    expect(component.isCustomRubricResult).toBeFalse();
+    expect(component.feedbacks.length).toBe(6);
   });
 });

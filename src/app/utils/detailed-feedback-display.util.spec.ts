@@ -82,4 +82,21 @@ describe('detailed feedback display normalization', () => {
     expect(correctionDisplay.message).toBe('Writing analysis did not complete.');
     expect(correctionDisplay.retryLabel).toBe('Retry analysis');
   });
+
+  it('keeps a completed score valid when only detailed feedback failed', () => {
+    const state = normalizeCanonicalResult({
+      correctionStatus: 'completed',
+      semanticStatus: 'completed',
+      evaluationStatus: 'completed',
+      overallScore: 88,
+      detailedFeedbackStatus: 'failed',
+      manualRetryAllowed: true
+    });
+    const display = buildDetailedFeedbackDisplayModel(state);
+
+    expect(state.score).toBe(88);
+    expect(display.status).toBe('failed');
+    expect(display.message).toBe('Detailed feedback could not be generated.');
+    expect(display.retryLabel).toBe('Retry score and detailed feedback');
+  });
 });
