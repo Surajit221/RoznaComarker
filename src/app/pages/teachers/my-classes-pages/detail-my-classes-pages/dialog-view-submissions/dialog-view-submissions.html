@@ -21,6 +21,26 @@
   } @else if (modalState === 'empty') {
     <p class="modal-state" role="status">No submissions have been received yet.</p>
   } @else if (modalState === 'loaded') {
+    @if ((staleEvaluationSummary?.eligibleCount || 0) > 0 || isBulkRunActive || bulkFailedCount > 0) {
+      <div class="mb-4 p-3 bg-[#F3F3F3] rounded-xl" role="status">
+        @if ((staleEvaluationSummary?.eligibleCount || 0) > 0) {
+          <p class="font-semibold text-gray-900">{{ staleEvaluationSummary?.eligibleCount }} submission{{ staleEvaluationSummary?.eligibleCount === 1 ? '' : 's' }} require{{ staleEvaluationSummary?.eligibleCount === 1 ? 's' : '' }} re-evaluation</p>
+          <button type="button" class="view-action mt-2" [disabled]="isBulkStarting || isBulkRunActive"
+            (click)="startBulkReEvaluation()">{{ isBulkStarting || isBulkRunActive ? 'Re-evaluation in progress…' : 'Re-evaluate outdated submissions' }}</button>
+        }
+        @if (bulkStartResult) {
+          <p class="text-sm text-gray-600 mt-2">
+            {{ bulkStartResult.startedCount }} queued,
+            {{ bulkStartResult.skippedOverrideCount }} teacher overrides skipped,
+            {{ bulkStartResult.skippedProcessingCount }} already processing,
+            {{ bulkStartResult.skippedNotReadyCount }} not ready.
+          </p>
+        }
+        @if (bulkFailedCount > 0) {
+          <p class="text-sm text-red-700 mt-2">{{ bulkFailedCount }} queued submission{{ bulkFailedCount === 1 ? '' : 's' }} could not be completed.</p>
+        }
+      </div>
+    }
     <div class="max-h-[380px] overflow-y-auto">
       <div class="flex flex-col gap-3">
         @for (student of students; track student.submissionId) {

@@ -77,6 +77,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private previousScrollY = 0;
   private originalBodyStyle = '';
   private suppressNextFocusReopen = false;
+  private pointerFocusPending = false;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['imageUrl']) {
@@ -148,18 +149,30 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
+  onMarkerPointerDown(): void {
+    this.pointerFocusPending = true;
+    queueMicrotask(() => {
+      this.pointerFocusPending = false;
+    });
+  }
+
   onMarkerLeave(marker: CorrectionMarker, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
     if (!this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) this.closeTooltip();
   }
 
- onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
-  if (this.suppressNextFocusReopen) {
-    this.suppressNextFocusReopen = false;
-    return;
+  onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
+    if (this.isMobile) return;
+    if (this.pointerFocusPending) {
+      this.pointerFocusPending = false;
+      return;
+    }
+    if (this.suppressNextFocusReopen) {
+      this.suppressNextFocusReopen = false;
+      return;
+    }
+    if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
-  if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
-}
 
 
   onMarkerBlur(): void {
@@ -171,10 +184,17 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   onMarkerClick(marker: CorrectionMarker, event: MouseEvent): void {
+    event.preventDefault();
     event.stopPropagation();
     const target = event.currentTarget as HTMLElement;
-    if (this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) {
+    if (!this.isMobile && this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) {
       this.closeTooltip();
+      return;
+    }
+    if (!this.isMobile && !this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) {
+      this.isPinned = true;
+      this.tooltipTarget = target;
+      this.cdr.markForCheck();
       return;
     }
     this.openTooltip(marker, target, true);
@@ -187,13 +207,24 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.openTooltip(marker, event.currentTarget as HTMLElement, true);
   }
 
- closeFromControl(event?: Event): void {
-  event?.stopPropagation();
-  const target = this.tooltipTarget;
-  this.suppressNextFocusReopen = true;
-  this.closeTooltip();
-  target?.focus();
-}
+  preventControlPointerDown(event: PointerEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  closeFromControl(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const target = this.tooltipTarget;
+    const shouldRestoreFocus = !this.isMobile;
+    this.closeTooltip();
+    if (!shouldRestoreFocus || !target) return;
+    requestAnimationFrame(() => {
+      this.suppressNextFocusReopen = true;
+      target.focus({ preventScroll: true });
+      this.suppressNextFocusReopen = false;
+    });
+  }
 
   @HostListener('document:pointerdown', ['$event'])
   onDocumentPointerDown(event: PointerEvent): void {

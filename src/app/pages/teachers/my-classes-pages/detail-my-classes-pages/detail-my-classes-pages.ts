@@ -142,7 +142,7 @@ export class DetailMyClassesPages {
   private assignmentsById: Record<string, BackendAssignment> = {};
 
   get assignmentDialogTitle(): string {
-    return this.selectedAssignmentForEdit ? 'Edit Assignment' : 'Create New Assignment';
+    return this.selectedAssignmentForEdit ? 'Edit Assignment' : 'Create Writing Assignment';
   }
 
   assignments: Array<{

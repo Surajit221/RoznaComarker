@@ -117,7 +117,8 @@ import { RubricDesignerModal } from '../../../../../components/teacher/rubric-de
 
 
 
-import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
+import { customRubricScoresToFeedbackItems, rubricScoresToFeedbackItems,
+  type CustomRubricFeedbackItem, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 
 
 
@@ -135,8 +136,10 @@ import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/s
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normalizeCanonicalResult,
-  shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+  type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
+import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
+import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
@@ -217,31 +220,6 @@ export class StudentSubmissionPages {
   get analysisFailureMessage() { return canonicalFailureMessage(this.canonicalResultState); }
   get retryAnalysisLabel() { return canonicalRetryLabel(this.canonicalResultState); }
   isRetryingAnalysis = false;
-
-  async retryCanonicalAnalysis(): Promise<void> {
-    const submissionId = this.currentSubmission?._id;
-    if (!submissionId || this.isRetryingAnalysis || !this.canonicalResultState?.manualRetryAllowed) return;
-    this.isRetryingAnalysis = true;
-    try {
-      const evaluationOnly = shouldRetryEvaluationOnly(this.canonicalResultState);
-      if (evaluationOnly) await this.submissionApi.retryCanonicalEvaluation(submissionId);
-      else await this.submissionApi.regenerateCanonicalCorrections(submissionId);
-      this.canonicalResultState = normalizeCanonicalResult(evaluationOnly ? {
-        correctionStatus: 'completed', correctionStage: 'complete', semanticStatus: 'completed',
-        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
-        evaluationStatus: 'processing', detailedFeedbackStatus: 'processing'
-      } : { correctionStatus: 'processing', correctionStage: 'semantic',
-        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
-        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' },
-      this.canonicalResultState);
-      this.scoreState = 'processing';
-      this.aiFeedbackState = 'processing';
-      this.feedbackState = 'processing';
-      this.resultCoordinator.start(submissionId, (id) => this.refreshRetriedAnalysis(id));
-    } finally {
-      this.isRetryingAnalysis = false;
-    }
-  }
 
 
 
@@ -333,6 +311,8 @@ export class StudentSubmissionPages {
 
 
   private readonly defaultCorrectionLegend: any = DEFAULT_CORRECTION_LEGEND;
+  hasAssignmentRubric = false;
+  private assignmentRubricPresenceId: string | null = null;
 
 
 
@@ -358,6 +338,8 @@ export class StudentSubmissionPages {
     if (assignmentId && assignmentId.trim().length) {
       try {
         const a: BackendAssignment = await this.assignmentApi.getAssignmentByIdForTeacher(assignmentId.trim());
+        this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(a);
+        this.assignmentRubricPresenceId = assignmentId.trim();
         const d = this.parseRubricDesignerFromRubricsField((a as any)?.rubrics, (a as any)?.title)
           || this.parseLegacyRubricDesigner((a as any)?.rubric, (a as any)?.title);
         if (d) {
@@ -372,6 +354,30 @@ export class StudentSubmissionPages {
 
     // fallback for legacy submission-based rubric designer
     this.hydrateRubricDesignerFromFeedback();
+  }
+
+  private async loadAssignmentRubricPresence(submission: BackendSubmission | null): Promise<void> {
+    const assignmentRaw: any = submission?.assignment;
+    const assignmentId = typeof assignmentRaw === 'string'
+      ? assignmentRaw.trim()
+      : String(assignmentRaw?._id || assignmentRaw?.id || this.assignmentId || '').trim();
+    if (!assignmentId) {
+      this.hasAssignmentRubric = false;
+      this.assignmentRubricPresenceId = null;
+      return;
+    }
+    if (this.assignmentRubricPresenceId === assignmentId) return;
+
+    this.hasAssignmentRubric = false;
+    this.assignmentRubricPresenceId = assignmentId;
+    try {
+      const assignment = await this.assignmentApi.getAssignmentByIdForTeacher(assignmentId);
+      if (this.assignmentRubricPresenceId !== assignmentId) return;
+      this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(assignment);
+    } catch {
+      if (this.assignmentRubricPresenceId !== assignmentId) return;
+      this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(assignmentRaw);
+    }
   }
 
   private tryRevokeObjectUrl(url: string | null | undefined): void {
@@ -519,6 +525,8 @@ export class StudentSubmissionPages {
 
         const updated = await this.assignmentApi.updateAssignmentRubrics(assignmentId.trim(), rubricsPayload);
         if (updated && updated._id) {
+          this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(updated);
+          this.assignmentRubricPresenceId = updated._id;
           const state: any = this.teacherDashboardState as any;
           if (!state.assignmentsById || typeof state.assignmentsById !== 'object') {
             state.assignmentsById = {};
@@ -1268,12 +1276,6 @@ export class StudentSubmissionPages {
 
 
 
-      const regenerated = await this.feedbackApi.generateRubricDesignerAi(submissionId);
-
-      this.currentFeedback = regenerated;
-
-      this.hydrateRubricDesignerFromFeedback();
-
       // Keep rubric and evaluation state untouched by a comment-only save.
 
       
@@ -1847,6 +1849,38 @@ export class StudentSubmissionPages {
 
 
   rubricFeedbackItems: RubricFeedbackItem[] = [];
+
+  get isCanonicalEvaluationPending(): boolean {
+    return ['pending', 'processing'].includes(this.canonicalResultState?.evaluationStatus || '');
+  }
+
+  get isCustomRubricResult(): boolean {
+    return this.hasAssignmentRubric
+      && this.currentFeedback?.scoringAudit?.overallMethod === 'custom_rubric_weighted_total'
+      && this.customRubricFeedbackItems.length > 0;
+  }
+
+  get customRubricFeedbackItems(): CustomRubricFeedbackItem[] {
+    return customRubricScoresToFeedbackItems(this.currentFeedback?.customRubricScores);
+  }
+
+  get canGenerateAiFeedback(): boolean {
+    return !this.isLoading && !this.isRetryingAnalysis && !this.isCanonicalEvaluationPending
+      && !Boolean(this.currentFeedback?.overriddenByTeacher || this.canonicalResultState?.teacherOverride);
+  }
+
+  get evaluationStatusPresentation() {
+    return buildEvaluationStatusPresentation({
+      canonical: this.canonicalResultState,
+      previousEvaluation: this.currentFeedback?.previousEvaluation,
+      teacher: true
+    });
+  }
+
+  get previousEvaluationScoreText(): string {
+    const score = Number(this.currentFeedback?.previousEvaluation?.overallScore);
+    return Number.isFinite(score) ? formatGradingDisplay(score, this.classGradingScale).displayText : '';
+  }
 
 
 
@@ -2657,6 +2691,10 @@ export class StudentSubmissionPages {
   activeFileIndex = 0;
 
   private applyCurrentSubmissionSeq = 0;
+  private activeAnnotationsSource: FeedbackAnnotation[] | null = null;
+  private activeAnnotationsFileIds: string[] | null = null;
+  private activeAnnotationsFileId: string | null = null;
+  private activeAnnotationsCache: FeedbackAnnotation[] = [];
 
   get hasMultipleImages(): boolean {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
@@ -2671,7 +2709,16 @@ export class StudentSubmissionPages {
 
   get activeAnnotations(): FeedbackAnnotation[] {
     const fileId = this.activeFileId;
-    return fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : [];
+    if (this.activeAnnotationsSource === this.annotations
+      && this.activeAnnotationsFileIds === this.submissionFileIds
+      && this.activeAnnotationsFileId === fileId) {
+      return this.activeAnnotationsCache;
+    }
+    this.activeAnnotationsSource = this.annotations;
+    this.activeAnnotationsFileIds = this.submissionFileIds;
+    this.activeAnnotationsFileId = fileId;
+    this.activeAnnotationsCache = fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : [];
+    return this.activeAnnotationsCache;
   }
 
   get activeFileUrlRaw(): string | null {
@@ -3051,7 +3098,7 @@ export class StudentSubmissionPages {
 
 
 
-  async generateAiForCurrentSubmission() {
+  async reEvaluateCurrentSubmission(): Promise<void> {
 
 
 
@@ -3073,7 +3120,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (this.isLoading) return;
+    if (!this.canGenerateAiFeedback) return;
 
 
 
@@ -3081,15 +3128,42 @@ export class StudentSubmissionPages {
 
 
 
-    console.log('Generate AI clicked for', submission._id);
-    this.isLoading = true;
+    this.isRetryingAnalysis = true;
     try {
-      const updatedFeedback: SubmissionFeedback = await this.feedbackApi.generateAiSubmissionFeedback(submission._id);
-
-      this.currentFeedback = updatedFeedback;
-
-      this.ensureFixedRubricScoresAndComments();
+      const previousScore = Number(this.currentFeedback?.overallScore);
+      if (!this.currentFeedback?.previousEvaluation && Number.isFinite(previousScore)) {
+        this.currentFeedback = {
+          ...this.currentFeedback,
+          previousEvaluation: {
+            overallScore: previousScore,
+            grade: this.currentFeedback?.grade || null,
+            rubricScores: this.currentFeedback?.rubricScores || null,
+            customRubricScores: this.currentFeedback?.customRubricScores || null,
+            sourceRubric: this.currentFeedback?.sourceRubric || null,
+            scoringAudit: this.currentFeedback?.scoringAudit || null,
+            detailedFeedback: this.currentFeedback?.detailedFeedback || null
+          }
+        } as SubmissionFeedback;
+      }
+      const evaluationOnly = this.canonicalResultState?.correctionStatus === 'completed'
+        && this.canonicalResultState?.semanticStatus === 'completed';
+      if (evaluationOnly) await this.submissionApi.retryCanonicalEvaluation(submission._id);
+      else await this.submissionApi.regenerateCanonicalCorrections(submission._id);
+      this.canonicalResultState = normalizeCanonicalResult(evaluationOnly ? {
+        correctionStatus: 'completed', correctionStage: 'complete', semanticStatus: 'completed',
+        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        evaluationStatus: 'processing', detailedFeedbackStatus: 'processing'
+      } : {
+        correctionStatus: 'processing', correctionStage: 'semantic', semanticStatus: 'pending',
+        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
+        statisticsStatus: 'partial', statisticsCompleteness: 'language_only',
+        evaluationStatus: 'pending', detailedFeedbackStatus: 'pending'
+      }, this.canonicalResultState);
+      this.scoreState = 'processing';
+      this.aiFeedbackState = 'processing';
+      this.feedbackState = 'processing';
       this.recomputeRubricFeedbackItems();
+      this.resultCoordinator.start(submission._id, (id) => this.refreshRetriedAnalysis(id));
 
 
 
@@ -3097,11 +3171,11 @@ export class StudentSubmissionPages {
 
 
 
-      this.alert.showToast('AI feedback generated', 'success');
+      this.alert.showToast('Re-evaluation started', 'success');
     } catch (err: any) {
-      this.alert.showError('Generate AI Feedback failed', err?.error?.message || err?.message || 'Please try again');
+      this.alert.showError('Re-evaluation failed', err?.error?.message || err?.message || 'Please try again');
     } finally {
-      this.isLoading = false;
+      this.isRetryingAnalysis = false;
     }
   }
 
@@ -3640,7 +3714,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (!fb) {
+    if (!fb || this.isCanonicalEvaluationPending) {
 
 
 
@@ -3660,9 +3734,10 @@ export class StudentSubmissionPages {
 
 
 
-    this.ensureFixedRubricScoresAndComments();
-
-
+    if (this.isCustomRubricResult) {
+      this.rubricFeedbackItems = this.customRubricFeedbackItems;
+      return;
+    }
 
     this.rubricFeedbackItems = rubricScoresToFeedbackItems((fb as any).rubricScores);
 
@@ -3915,40 +3990,6 @@ export class StudentSubmissionPages {
 
   private validateAndNormalizeFeedback(fb: SubmissionFeedback): SubmissionFeedback {
     const normalized: any = { ...fb };
-
-    // Category defaults for weighted writing assessment
-    const categoryDefaults: Record<string, number> = {
-      GRAMMAR: 25,
-      VOCABULARY: 20,
-      ORGANIZATION: 20,
-      CONTENT: 20,
-      MECHANICS: 10,
-      PRESENTATION: 5
-    };
-
-    // Ensure rubricScores exists and has all six categories
-    if (!normalized.rubricScores || typeof normalized.rubricScores !== 'object') {
-      normalized.rubricScores = {};
-    }
-
-    const categories: Array<'CONTENT' | 'ORGANIZATION' | 'GRAMMAR' | 'VOCABULARY' | 'MECHANICS' | 'PRESENTATION'> = [
-      'CONTENT', 'ORGANIZATION', 'GRAMMAR', 'VOCABULARY', 'MECHANICS', 'PRESENTATION'
-    ];
-
-    categories.forEach((cat) => {
-      const item = normalized.rubricScores[cat] || { score: 0, maxScore: categoryDefaults[cat] || 5, comment: '' };
-      
-      // Validate and normalize score
-      const score = Number(item.score);
-      normalized.rubricScores[cat].score = Number.isFinite(score) ? Math.max(0, score) : 0;
-      
-      // Validate and normalize maxScore
-      const maxScore = Number(item.maxScore);
-      normalized.rubricScores[cat].maxScore = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : (categoryDefaults[cat] || 5);
-      
-      // Ensure comment is a string
-      normalized.rubricScores[cat].comment = typeof item.comment === 'string' ? item.comment : '';
-    });
 
     // Ensure maxOverallScore is valid
     const maxOverallScore = Number(normalized.maxOverallScore);
@@ -5249,10 +5290,6 @@ export class StudentSubmissionPages {
 
 
 
-    await this.loadFeedback();
-
-
-
     this.recomputeRubricFeedbackItems();
 
 
@@ -5299,11 +5336,39 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
     const state = this.canonicalResultState;
-    this.scoreState = state.evaluationStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(state.evaluationStatus) ? 'error' : 'processing';
-    this.aiFeedbackState = state.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(state.detailedFeedbackStatus) ? 'error' : 'processing';
-    this.feedbackState = this.aiFeedbackState;
-    if (state.evaluationStatus === 'completed') this.currentFeedback = this.validateAndNormalizeFeedback(feedback);
+    this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
+      : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
+    this.aiFeedbackState = state.evaluationStatus === 'completed' ? 'loaded'
+      : ['failed', 'blocked'].includes(state.evaluationStatus) ? 'error' : 'processing';
+    this.feedbackState = state.detailedFeedbackStatus === 'completed' ? 'loaded'
+      : ['failed', 'blocked'].includes(state.detailedFeedbackStatus) ? 'error' : 'processing';
+    if (state.evaluationStatus === 'completed') {
+      this.currentFeedback = this.validateAndNormalizeFeedback(feedback);
+      this.feedbackForm.patchValue({ message: feedback?.teacherComments ?? '' });
+      this.hydrateRubricEditFormFromFeedback();
+      this.hydrateRubricDesignerFromFeedback();
+      this.recomputeRubricFeedbackItems();
+      await this.refreshCompletedEvaluationState(submissionId);
+    }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
+  }
+
+  private async refreshCompletedEvaluationState(submissionId: string): Promise<void> {
+    const assignmentId = this.assignmentId;
+    if (!assignmentId || this.currentSubmission?._id !== submissionId) return;
+    try {
+      const submissions = await this.submissionApi.getSubmissionsByAssignment(assignmentId);
+      if (this.currentSubmission?._id !== submissionId || this.assignmentId !== assignmentId) return;
+      this.submissions = submissions || [];
+      const refreshedSubmission = this.submissions.find((item) => item._id === submissionId);
+      if (refreshedSubmission) this.currentSubmission = refreshedSubmission;
+    } catch {
+      // The completed feedback remains authoritative if the list refresh is transiently unavailable.
+    } finally {
+      if (this.currentSubmission?._id === submissionId && this.assignmentId === assignmentId) {
+        this.teacherDashboardState.invalidateEvaluationFreshness(assignmentId);
+      }
+    }
   }
 
 
@@ -5899,14 +5964,19 @@ export class StudentSubmissionPages {
 
 
     this.currentSubmission = submission;
-
-
-
     this.submissionId = submission?._id || null;
+    this.currentFeedback = null;
+    this.canonicalResultState = null;
+    this.feedbackForm.patchValue({ message: '' });
+    this.feedbackForm.disable({ emitEvent: false });
+    this.recomputeRubricFeedbackItems();
+    await this.loadAssignmentRubricPresence(submission);
+    if (seq !== this.applyCurrentSubmissionSeq || this.currentSubmission?._id !== submission?._id) return;
 
 
 
     await this.ensureClassSettingsLoadedFromSubmission(submission);
+    if (seq !== this.applyCurrentSubmissionSeq || this.currentSubmission?._id !== submission?._id) return;
 
 
 
@@ -6088,10 +6158,11 @@ export class StudentSubmissionPages {
 
     const feedbackLoaded = await this.loadFeedback(seq);
     if (seq !== this.applyCurrentSubmissionSeq) return;
+    const canonical = this.canonicalResultState as CanonicalResultViewState | null;
 
     this.feedbackState = !feedbackLoaded ? 'error'
-      : this.canonicalResultState?.detailedFeedbackStatus === 'completed' ? 'loaded'
-        : ['failed', 'blocked'].includes(this.canonicalResultState?.detailedFeedbackStatus || '') ? 'error' : 'processing';
+      : canonical?.detailedFeedbackStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(canonical?.detailedFeedbackStatus || '') ? 'error' : 'processing';
     this.teacherCommentState = feedbackLoaded ? 'loaded' : 'error';
     this.feedbackForm.enable({ emitEvent: false });
 
@@ -6104,9 +6175,11 @@ export class StudentSubmissionPages {
 
 
     this.aiFeedbackState = !feedbackLoaded ? 'error'
-      : this.canonicalResultState?.evaluationStatus === 'completed' ? 'loaded'
-        : ['failed', 'blocked'].includes(this.canonicalResultState?.evaluationStatus || '') ? 'error' : 'processing';
-    this.scoreState = !feedbackLoaded || ['failed', 'blocked'].includes(this.canonicalResultState?.evaluationStatus || '') ? 'error' : 'loaded';
+      : canonical?.evaluationStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(canonical?.evaluationStatus || '') ? 'error' : 'processing';
+    this.scoreState = !feedbackLoaded
+      || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
+        && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
 
 
 
@@ -6356,7 +6429,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.canonicalResultState = normalizeCanonicalResult(fb, this.canonicalResultState);
+      this.canonicalResultState = normalizeCanonicalResult(fb, null);
       this.feedbackForm.patchValue({ message: fb?.teacherComments ?? '' });
       const evaluationPending = this.canonicalResultState.evaluationStatus !== 'completed';
       if (evaluationPending) {
@@ -6386,11 +6459,8 @@ export class StudentSubmissionPages {
 
 
 
-      // Normalize rubric titles/comments so AI Feedback section + rubric modal are consistent.
-
-
-
-      this.ensureFixedRubricScoresAndComments();
+      // Persisted canonical rows are displayed as returned. Missing categories
+      // remain unavailable rather than being synthesized as zero scores.
 
 
 
@@ -6596,7 +6666,7 @@ export class StudentSubmissionPages {
 
 
 
-      await this.generateAiForCurrentSubmission();
+      await this.reEvaluateCurrentSubmission();
 
 
 
@@ -6888,6 +6958,11 @@ export class StudentSubmissionPages {
 
 
     this.showDialog = true;
+
+    if (!this.hasAssignmentRubric) {
+      this.resetRubricDesigner();
+      return;
+    }
 
 
 

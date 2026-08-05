@@ -50,6 +50,69 @@ export interface RubricDesigner {
   criteria: RubricDesignerCriteriaRow[];
 }
 
+export interface CustomRubricCriterionScore {
+  criterionId: string;
+  title: string;
+  normalizedWeight: number;
+  selectedLevel: string;
+  configuredLevelPercentage: number;
+  weightedPoints: number;
+  comment: string;
+  evidenceIds: string[];
+  weight?: number;
+  percentage?: number;
+  levelTitle?: string;
+}
+
+export interface CustomRubricScores {
+  overallScore: number;
+  criteria: CustomRubricCriterionScore[];
+}
+
+export interface SourceRubric {
+  version: string;
+  source: 'rubrics' | 'rubric';
+  title: string;
+  totalPoints: number;
+  criteria: Array<{
+    id: string;
+    title: string;
+    weight: number;
+    levels: Array<{ title: string; percentage: number; description: string }>;
+  }>;
+}
+
+export interface ScoringAudit {
+  overallMethod: 'custom_rubric_weighted_total' | 'fixed_six_category_sum';
+  rubricHash?: string;
+  policyHash?: string;
+  customRubric?: {
+    overallScore: number;
+    criteria: Array<{
+      criterionId: string;
+      normalizedWeight: number;
+      selectedLevel: string;
+      configuredLevelPercentage: number;
+      weightedPoints: number;
+    }>;
+  };
+}
+
+export interface PreviousEvaluation {
+  overallScore: number;
+  grade: string | null;
+  rubricScores: SubmissionFeedback['rubricScores'] | null;
+  customRubricScores: CustomRubricScores | null;
+  sourceRubric: SourceRubric | null;
+  scoringAudit: ScoringAudit | null;
+  detailedFeedback: DetailedFeedback | null;
+  evaluationSourceHash: string;
+  evaluationRubricSourceHash: string | null;
+  evaluationPolicyHash: string | null;
+  evaluationVersion: string | null;
+  assessmentVersion: string | null;
+}
+
 export interface SubmissionFeedback {
   submissionId: string;
   classId?: string;
@@ -82,6 +145,18 @@ export interface SubmissionFeedback {
   aiFeedback: AiFeedback;
 
   rubricDesigner?: RubricDesigner;
+  customRubricScores?: CustomRubricScores;
+  sourceRubric?: SourceRubric;
+  scoringAudit?: ScoringAudit;
+  previousEvaluation?: PreviousEvaluation | null;
+  evaluationStaleReason?: 'rubric' | 'policy' | 'settings' | 'other' | null;
+  rubricFresh?: boolean | null;
+  policyFresh?: boolean | null;
+  hasValidCustomRubric?: boolean;
+  currentRubricSourceHash?: string | null;
+  currentPolicyHash?: string | null;
+  evaluationRubricSourceHash?: string | null;
+  evaluationPolicyHash?: string | null;
 
   overriddenByTeacher: boolean;
   detailedFeedbackSourceHash?: string;

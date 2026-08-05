@@ -5,6 +5,7 @@ export type RubricFeedbackItem = {
   score: number;
   maxScore: number;
   description: string;
+  selectedLevel?: string;
 };
 
 export type PersistedRubricScores = Partial<
@@ -134,7 +135,8 @@ export function buildDynamicRubricFeedback(params: {
 }
 
 export function rubricScoresToFeedbackItems(rubricScores: PersistedRubricScores | null | undefined): RubricFeedbackItem[] {
-  const rs: any = rubricScores && typeof rubricScores === 'object' ? rubricScores : {};
+  if (!rubricScores || typeof rubricScores !== 'object') return [];
+  const rs: any = rubricScores;
 
   // Category defaults for weighted writing assessment
   const categoryDefaults: Record<string, number> = {
@@ -147,9 +149,9 @@ export function rubricScoresToFeedbackItems(rubricScores: PersistedRubricScores 
   };
 
   // Defensive validation: use backend maxScore when valid, otherwise use category default
-  const getSafeScore = (key: string): number => {
+  const getSafeScore = (key: string): number | null => {
     const score = Number(rs?.[key]?.score);
-    if (!Number.isFinite(score)) return 0;
+    if (!Number.isFinite(score)) return null;
     return Math.max(0, score);
   };
 
@@ -163,42 +165,82 @@ export function rubricScoresToFeedbackItems(rubricScores: PersistedRubricScores 
     return Math.min(Math.max(score, 0), max);
   };
 
+  const requiredKeys = ['GRAMMAR', 'VOCABULARY', 'ORGANIZATION', 'CONTENT', 'MECHANICS', 'PRESENTATION'];
+  const scores = Object.fromEntries(requiredKeys.map((key) => [key, getSafeScore(key)]));
+  // Canonical fixed-category results are all-or-nothing. Rendering a partially
+  // persisted record would turn missing values into convincing 0.0 scores.
+  if (requiredKeys.some((key) => scores[key] === null)) return [];
+
   return [
     {
       category: 'Grammar',
-      score: clampToMax(getSafeScore('GRAMMAR'), getSafeMaxScore('GRAMMAR')),
+      score: clampToMax(scores['GRAMMAR']!, getSafeMaxScore('GRAMMAR')),
       maxScore: getSafeMaxScore('GRAMMAR'),
       description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
     },
     {
       category: 'Vocabulary',
-      score: clampToMax(getSafeScore('VOCABULARY'), getSafeMaxScore('VOCABULARY')),
+      score: clampToMax(scores['VOCABULARY']!, getSafeMaxScore('VOCABULARY')),
       maxScore: getSafeMaxScore('VOCABULARY'),
       description: typeof rs?.VOCABULARY?.comment === 'string' ? rs.VOCABULARY.comment : ''
     },
     {
       category: 'Organization & Structure',
-      score: clampToMax(getSafeScore('ORGANIZATION'), getSafeMaxScore('ORGANIZATION')),
+      score: clampToMax(scores['ORGANIZATION']!, getSafeMaxScore('ORGANIZATION')),
       maxScore: getSafeMaxScore('ORGANIZATION'),
       description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
     },
     {
       category: 'Content & Task Achievement',
-      score: clampToMax(getSafeScore('CONTENT'), getSafeMaxScore('CONTENT')),
+      score: clampToMax(scores['CONTENT']!, getSafeMaxScore('CONTENT')),
       maxScore: getSafeMaxScore('CONTENT'),
       description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
     },
     {
       category: 'Spelling & Punctuation',
-      score: clampToMax(getSafeScore('MECHANICS'), getSafeMaxScore('MECHANICS')),
+      score: clampToMax(scores['MECHANICS']!, getSafeMaxScore('MECHANICS')),
       maxScore: getSafeMaxScore('MECHANICS'),
       description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
     },
     {
       category: 'Presentation & Handwriting',
-      score: clampToMax(getSafeScore('PRESENTATION'), getSafeMaxScore('PRESENTATION')),
+      score: clampToMax(scores['PRESENTATION']!, getSafeMaxScore('PRESENTATION')),
       maxScore: getSafeMaxScore('PRESENTATION'),
       description: typeof rs?.PRESENTATION?.comment === 'string' ? rs.PRESENTATION.comment : ''
     }
   ];
+}
+
+export interface CustomRubricFeedbackItem extends RubricFeedbackItem {
+  criterionId: string;
+  title: string;
+  normalizedWeight: number;
+  selectedLevel: string;
+  configuredLevelPercentage: number;
+  weightedPoints: number;
+  comment: string;
+}
+
+export function customRubricScoresToFeedbackItems(value: unknown): CustomRubricFeedbackItem[] {
+  const criteria = Array.isArray((value as any)?.criteria) ? (value as any).criteria : [];
+  return criteria.map((criterion: any) => {
+    const normalizedWeight = Number(criterion?.normalizedWeight ?? criterion?.weight);
+    const configuredLevelPercentage = Number(criterion?.configuredLevelPercentage ?? criterion?.percentage);
+    const weightedPoints = Number(criterion?.weightedPoints);
+    return {
+      criterionId: String(criterion?.criterionId || ''),
+      title: String(criterion?.title || ''),
+      category: String(criterion?.title || ''),
+      normalizedWeight,
+      selectedLevel: String(criterion?.selectedLevel ?? criterion?.levelTitle ?? ''),
+      configuredLevelPercentage,
+      weightedPoints,
+      comment: typeof criterion?.comment === 'string' ? criterion.comment : '',
+      score: weightedPoints,
+      maxScore: normalizedWeight,
+      description: typeof criterion?.comment === 'string' ? criterion.comment : ''
+    };
+  }).filter((criterion: CustomRubricFeedbackItem) =>
+    Boolean(criterion.criterionId && criterion.title && criterion.selectedLevel)
+    && [criterion.normalizedWeight, criterion.configuredLevelPercentage, criterion.weightedPoints].every(Number.isFinite));
 }

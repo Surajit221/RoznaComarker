@@ -297,14 +297,23 @@
 }
 
 @media (max-width: 1024px) {
+  .correction-overlay.is-loaded { min-height: 0; }
   .document-skeleton { padding: 14px; }
   .document-skeleton__page { width: 100%; min-height: 88%; padding: 24px 20px; }
   .correction-overlay__marker {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    margin: -17px 0 0 -17px;
-    font-size: 10px;
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    margin: -13px 0 0 -13px;
+    font-size: 9px;
+    box-shadow: 0 1px 5px rgba(15, 23, 42, .3);
+  }
+
+  .correction-overlay__marker::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
   }
 
   .correction-overlay__tooltip.is-mobile {

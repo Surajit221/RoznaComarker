@@ -25,7 +25,8 @@ import type { CorrectionLegend } from '../../../../../models/correction-legend.m
 import { buildWritingCorrectionsHtml } from '../../../../../utils/writing-corrections-highlight.util';
 import { buildCanonicalWritingIssues } from '../../../../../utils/canonical-writing-corrections-display.util';
 import { applyLegendToAnnotations, applyLegendToIssues } from '../../../../../utils/correction-legend-mapping.util';
-import { rubricScoresToFeedbackItems, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
+import { customRubricScoresToFeedbackItems, rubricScoresToFeedbackItems,
+  type CustomRubricFeedbackItem, type RubricFeedbackItem } from '../../../../../utils/dynamic-ai-feedback.util';
 import { buildLegendAlignedFeedback, type LegendAlignedFeedback } from '../../../../../utils/legend-aligned-feedback.util';
 import { triggerBlobDownload } from '../../../../../utils/file-download.util';
 import { submissionPdfErrorMessage } from '../../../../../utils/pdf-download-error.util';
@@ -38,8 +39,10 @@ import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-n
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
-  normalizeCanonicalResult, shouldRetryEvaluationOnly, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+  normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
+import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
+import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult,
   shouldRevalidateCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
@@ -337,6 +340,7 @@ export class MySubmissionPage {
   submission: BackendSubmission | null = null;
   feedback: SubmissionFeedback | null = null;
   assignment: BackendAssignment | null = null;
+  hasAssignmentRubric = false;
 
   get submissionTitle(): string {
     const a: any = this.submission && (this.submission as any).assignment;
@@ -1255,10 +1259,12 @@ export class MySubmissionPage {
       const loadedAssignment = await this.assignmentApi.getAssignmentById(persistedAssignmentId);
       if (this.destroyed || seq !== this.loadSeq || this.resolveAssignmentIdFromSubmission(this.submission) !== persistedAssignmentId) return;
       this.assignment = loadedAssignment;
+      this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(loadedAssignment);
       this.assignmentUnavailable = false;
     } catch {
       if (this.destroyed || seq !== this.loadSeq || this.resolveAssignmentIdFromSubmission(this.submission) !== persistedAssignmentId) return;
       this.assignment = null;
+      this.hasAssignmentRubric = false;
       this.assignmentUnavailable = true;
     }
   }
@@ -1334,9 +1340,37 @@ export class MySubmissionPage {
 
   get feedbacks(): RubricFeedbackItem[] {
     const fb = this.feedback;
-    if (!fb) return [];
+    if (!fb || this.isCanonicalEvaluationPending) return [];
+    if (this.isCustomRubricResult) return this.customRubricFeedbackItems;
     console.log('Dynamic AI rubric generated for submission', (this.submission as any)?._id);
     return rubricScoresToFeedbackItems((fb as any).rubricScores);
+  }
+
+  get isCanonicalEvaluationPending(): boolean {
+    return ['pending', 'processing'].includes(this.canonicalResultState?.evaluationStatus || '');
+  }
+
+  get isCustomRubricResult(): boolean {
+    return this.hasAssignmentRubric
+      && this.feedback?.scoringAudit?.overallMethod === 'custom_rubric_weighted_total'
+      && this.customRubricFeedbackItems.length > 0;
+  }
+
+  get customRubricFeedbackItems(): CustomRubricFeedbackItem[] {
+    return customRubricScoresToFeedbackItems(this.feedback?.customRubricScores);
+  }
+
+  get evaluationStatusPresentation() {
+    return buildEvaluationStatusPresentation({
+      canonical: this.canonicalResultState,
+      previousEvaluation: this.feedback?.previousEvaluation,
+      teacher: false
+    });
+  }
+
+  get previousEvaluationScoreText(): string {
+    const score = Number(this.feedback?.previousEvaluation?.overallScore);
+    return Number.isFinite(score) ? formatGradingDisplay(score, this.classGradingScale).displayText : '';
   }
 
   scrollToAiFeedback() {
@@ -1389,6 +1423,7 @@ export class MySubmissionPage {
   }
 
   openRubricDialog() {
+    if (!this.hasAssignmentRubric) return;
     // Do NOT call refreshAssignmentForRubric() here — it causes a race condition
     // where this.assignment updates async AFTER the dialog opens, triggering
     // buildRubricDesignerFromAssignment() to return data and override the
@@ -1496,6 +1531,7 @@ export class MySubmissionPage {
     this.submission = null;
     this.feedback = null;
     this.assignment = null;
+    this.hasAssignmentRubric = false;
     this.assignmentUnavailable = false;
     this.annotations = [];
     this.ocrWords = [];
@@ -1632,7 +1668,7 @@ export class MySubmissionPage {
           if (this.destroyed || seq !== this.loadSeq) return;
 
           this.canonicalResultState = normalizeCanonicalResult(fb, this.canonicalResultState);
-          const evaluationPending = this.canonicalResultState.processingActive && this.canonicalResultState.evaluationStatus !== 'completed';
+          const evaluationPending = ['pending', 'processing'].includes(this.canonicalResultState.evaluationStatus);
           this.feedback = fb;
           this.adaptiveSkillScores = this.buildAdaptiveSkillScores(fb);
           console.log('STUDENT FEEDBACK LOADED:', fb);
@@ -1644,8 +1680,9 @@ export class MySubmissionPage {
           this.feedbackState = this.canonicalResultState.detailedFeedbackStatus === 'completed' ? 'loaded'
             : ['failed', 'blocked'].includes(this.canonicalResultState.detailedFeedbackStatus) ? 'error' : 'processing';
           this.aiFeedbackState = ['failed', 'blocked'].includes(this.canonicalResultState.evaluationStatus) ? 'error' : evaluationPending ? 'processing' : 'loaded';
-          this.scoreState = this.canonicalResultState.evaluationStatus === 'processing' ? 'processing'
-            : ['failed', 'blocked'].includes(this.canonicalResultState.evaluationStatus) ? 'error' : 'loaded';
+          this.scoreState = ['pending', 'processing'].includes(this.canonicalResultState.evaluationStatus) ? 'processing'
+            : ['failed', 'blocked'].includes(this.canonicalResultState.evaluationStatus) && !this.feedback?.previousEvaluation
+              ? 'error' : 'loaded';
           this.syncOcrPolling();
         } catch (err: any) {
           if (this.destroyed || seq !== this.loadSeq) return;
@@ -1743,8 +1780,10 @@ export class MySubmissionPage {
     this.transcriptState = updated.ocrStatus === 'failed' ? 'error' : updated.ocrStatus === 'completed' ? 'loaded' : 'processing';
     this.correctionsState = canonical.correctionStatus === 'completed' ? 'loaded' : canonical.correctionStatus === 'failed' ? 'error' : canonical.correctionStatus === 'partial' ? 'partial' : 'processing';
     this.statisticsState = canonical.statisticsStatus === 'complete' ? 'loaded' : canonical.statisticsStatus === 'failed' ? 'error' : canonical.statisticsStatus === 'partial' ? 'partial' : 'processing';
-    this.scoreState = canonical.evaluationStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error' : 'processing';
-    this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error' : canonical.processingActive ? 'processing' : 'loaded';
+    this.scoreState = canonical.evaluationStatus === 'completed' ? 'loaded'
+      : ['failed', 'blocked'].includes(canonical.evaluationStatus) && !this.feedback?.previousEvaluation ? 'error' : 'processing';
+    this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
+      : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
     return { submissionId, ocrStatus: updated.ocrStatus as any, canonical };
   }
@@ -1886,33 +1925,4 @@ export class MySubmissionPage {
     if (!this.rawUploadedFileUrl) return;
     void this.setUploadedFileUrl(this.rawUploadedFileUrl);
   }
-  isRetryingAnalysis = false;
-
-  async retryCanonicalAnalysis(): Promise<void> {
-    const submissionId = this.submission?._id;
-    if (!submissionId || this.isRetryingAnalysis || !this.canonicalResultState?.manualRetryAllowed) return;
-    this.isRetryingAnalysis = true;
-    try {
-      const evaluationOnly = shouldRetryEvaluationOnly(this.canonicalResultState);
-      if (evaluationOnly) await this.submissionApi.retryCanonicalEvaluation(submissionId);
-      else await this.submissionApi.regenerateCanonicalCorrections(submissionId);
-      this.canonicalResultState = normalizeCanonicalResult(evaluationOnly ? {
-        correctionStatus: 'completed', correctionStage: 'complete', semanticStatus: 'completed',
-        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
-        evaluationStatus: 'processing', detailedFeedbackStatus: 'processing'
-      } : { correctionStatus: 'processing', correctionStage: 'semantic',
-        processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
-        statisticsStatus: 'partial', statisticsCompleteness: 'language_only', evaluationStatus: 'pending', detailedFeedbackStatus: 'pending' },
-      this.canonicalResultState);
-      this.scoreState = 'processing';
-      this.aiFeedbackState = 'processing';
-      this.feedbackState = 'processing';
-      this.resultCoordinator.start(submissionId, (id) => this.refreshCanonicalResult(id, 0));
-    } catch (err: any) {
-      this.alert.showError('Retry failed', err?.error?.message || err?.message || 'Please try again');
-    } finally {
-      this.isRetryingAnalysis = false;
-    }
-  }
-
 }

@@ -1,4 +1,4 @@
-const backendOrigin = 'http://localhost:5000';
+const backendOrigin = 'https://comarkerback.roznahub.com';
 
 export const environment = {
   production: false,
@@ -11,7 +11,7 @@ export const environment = {
 
   UPLOADS_URL: `${backendOrigin}/uploads`,
 
-  FRONTEND_URL: 'http://localhost:4200',
+  FRONTEND_URL: 'https://comarkers.roznahub.com',
 
   apiBaseUrl: `${backendOrigin}/api`,
 

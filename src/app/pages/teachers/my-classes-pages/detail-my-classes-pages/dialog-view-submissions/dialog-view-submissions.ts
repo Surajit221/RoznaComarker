@@ -4,7 +4,10 @@ import { Router } from '@angular/router';
 import { DeviceService } from '../../../../../services/device.service';
 import { SubmissionApiService, type BackendSubmission, type BackendUserLite } from '../../../../../api/submission-api.service';
 import { AlertService } from '../../../../../services/alert.service';
+import { AssignmentApiService, type BulkEvaluationStartResult,
+  type StaleEvaluationSummary } from '../../../../../api/assignment-api.service';
 import { environment } from '../../../../../../environments/environment';
+import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
 
 export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
@@ -17,19 +20,35 @@ export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'er
 })
 export class DialogViewSubmissions implements OnChanges, OnDestroy {
   @Input() assignmentId: string | null = null;
+  @Input() open = false;
   @Input() navigateOnSelect = true;
   @Output() closed = new EventEmitter<void>();
   @Output() selected = new EventEmitter<string>();
   device = inject(DeviceService);
   private submissionApi = inject(SubmissionApiService);
   private alert = inject(AlertService);
+  private assignmentApi = inject(AssignmentApiService);
   private router = inject(Router);
+  private teacherDashboardState = inject(TeacherDashboardStateService);
+  private freshnessInvalidationSub = this.teacherDashboardState.evaluationFreshnessInvalidated$
+    .subscribe((assignmentId) => {
+      if (assignmentId === this.assignmentId) void this.load(true);
+    });
 
   modalState: SubmissionModalState = 'idle';
   readonly skeletonRows = [0, 1, 2];
   private requestSequence = 0;
   private destroyed = false;
   private loadingAssignmentId: string | null = null;
+  private bulkRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  staleEvaluationSummary: StaleEvaluationSummary | null = null;
+  bulkStartResult: BulkEvaluationStartResult | null = null;
+  isBulkStarting = false;
+  bulkFailedCount = 0;
+
+  get isBulkRunActive(): boolean {
+    return this.submissions.some((submission) => submission.evaluationStatus === 'processing');
+  }
 
   submissions: BackendSubmission[] = [];
 
@@ -41,12 +60,14 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   }[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['assignmentId']) void this.load();
+    if (changes['assignmentId'] || (changes['open'] && this.open)) void this.load(Boolean(changes['open']));
   }
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.freshnessInvalidationSub.unsubscribe();
     ++this.requestSequence;
+    if (this.bulkRefreshTimer) clearTimeout(this.bulkRefreshTimer);
   }
 
   private avatarUrlFromPhoto(photo: unknown): string {
@@ -74,13 +95,13 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     };
   }
 
-  async load(): Promise<void> {
+  async load(force = false): Promise<void> {
     const assignmentId = this.assignmentId;
     if (!assignmentId) {
       this.modalState = 'idle';
       return;
     }
-    if (this.modalState === 'loading' && this.loadingAssignmentId === assignmentId) return;
+    if (!force && this.modalState === 'loading' && this.loadingAssignmentId === assignmentId) return;
     const requestSequence = ++this.requestSequence;
     this.loadingAssignmentId = assignmentId;
     this.modalState = 'loading';
@@ -88,9 +109,13 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     this.students = [];
 
     try {
-      const submissions = await this.submissionApi.getSubmissionsByAssignment(assignmentId);
+      const [submissions, staleSummary] = await Promise.all([
+        this.submissionApi.getSubmissionsByAssignment(assignmentId),
+        this.assignmentApi.getStaleEvaluationSummary(assignmentId).catch(() => null)
+      ]);
       if (this.destroyed || requestSequence !== this.requestSequence || assignmentId !== this.assignmentId) return;
       this.submissions = submissions || [];
+      this.staleEvaluationSummary = staleSummary;
       this.students = this.submissions.map((s) => this.mapSubmissionToRow(s));
       this.modalState = this.students.length ? 'loaded' : 'empty';
       this.loadingAssignmentId = null;
@@ -127,6 +152,53 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     });
   }
 
+  async startBulkReEvaluation(): Promise<void> {
+    const assignmentId = this.assignmentId;
+    const count = this.staleEvaluationSummary?.eligibleCount || 0;
+    if (!assignmentId || !count || this.isBulkStarting || this.isBulkRunActive) return;
+    const confirmed = await this.alert.showConfirm(
+      'Re-evaluate outdated submissions',
+      `Re-evaluate ${count} submissions using the current rubric and grading settings? This may use AI processing credits.`,
+      'Re-evaluate submissions',
+      'Cancel'
+    );
+    if (!confirmed || this.destroyed || assignmentId !== this.assignmentId) return;
+    this.isBulkStarting = true;
+    try {
+      this.bulkStartResult = await this.assignmentApi.retryStaleEvaluations(assignmentId);
+      this.alert.showToast(`${this.bulkStartResult.startedCount} submissions queued`, 'success');
+      await this.refreshBulkProgress();
+    } catch (error: any) {
+      this.alert.showError('Bulk re-evaluation failed', error?.error?.message || error?.message || 'Please try again');
+    } finally {
+      this.isBulkStarting = false;
+    }
+  }
+
+  private async refreshBulkProgress(): Promise<void> {
+    const assignmentId = this.assignmentId;
+    if (!assignmentId || this.destroyed) return;
+    try {
+      const [submissions, summary] = await Promise.all([
+        this.submissionApi.getSubmissionsByAssignment(assignmentId),
+        this.assignmentApi.getStaleEvaluationSummary(assignmentId)
+      ]);
+      if (this.destroyed || assignmentId !== this.assignmentId) return;
+      this.submissions = submissions || [];
+      this.students = this.submissions.map((submission) => this.mapSubmissionToRow(submission));
+      this.staleEvaluationSummary = summary;
+      this.bulkFailedCount = this.submissions.filter((submission) =>
+        submission.evaluationStatus === 'failed').length;
+      const processing = this.submissions.some((submission) => submission.evaluationStatus === 'processing');
+      if (processing) {
+        if (this.bulkRefreshTimer) clearTimeout(this.bulkRefreshTimer);
+        this.bulkRefreshTimer = setTimeout(() => void this.refreshBulkProgress(), 5000);
+      }
+    } catch {
+      // The queued jobs continue even if a status refresh fails.
+    }
+  }
+
   private relatedId(value: unknown): string | undefined {
     if (typeof value === 'string') return value;
     if (value && typeof value === 'object' && '_id' in value && typeof value._id === 'string') return value._id;
@@ -135,6 +207,8 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
 
   closeDialog() {
     ++this.requestSequence;
+    if (this.bulkRefreshTimer) clearTimeout(this.bulkRefreshTimer);
+    this.bulkRefreshTimer = null;
     this.closed.emit();
   }
 }
