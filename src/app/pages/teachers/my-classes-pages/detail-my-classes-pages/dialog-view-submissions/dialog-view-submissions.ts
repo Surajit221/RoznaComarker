@@ -7,6 +7,7 @@ import { AlertService } from '../../../../../services/alert.service';
 import { AssignmentApiService, type BulkEvaluationStartResult,
   type StaleEvaluationSummary } from '../../../../../api/assignment-api.service';
 import { environment } from '../../../../../../environments/environment';
+import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
 
 export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
@@ -19,6 +20,7 @@ export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'er
 })
 export class DialogViewSubmissions implements OnChanges, OnDestroy {
   @Input() assignmentId: string | null = null;
+  @Input() open = false;
   @Input() navigateOnSelect = true;
   @Output() closed = new EventEmitter<void>();
   @Output() selected = new EventEmitter<string>();
@@ -27,6 +29,11 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   private alert = inject(AlertService);
   private assignmentApi = inject(AssignmentApiService);
   private router = inject(Router);
+  private teacherDashboardState = inject(TeacherDashboardStateService);
+  private freshnessInvalidationSub = this.teacherDashboardState.evaluationFreshnessInvalidated$
+    .subscribe((assignmentId) => {
+      if (assignmentId === this.assignmentId) void this.load(true);
+    });
 
   modalState: SubmissionModalState = 'idle';
   readonly skeletonRows = [0, 1, 2];
@@ -53,11 +60,12 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   }[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['assignmentId']) void this.load();
+    if (changes['assignmentId'] || (changes['open'] && this.open)) void this.load(Boolean(changes['open']));
   }
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.freshnessInvalidationSub.unsubscribe();
     ++this.requestSequence;
     if (this.bulkRefreshTimer) clearTimeout(this.bulkRefreshTimer);
   }
@@ -87,13 +95,13 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     };
   }
 
-  async load(): Promise<void> {
+  async load(force = false): Promise<void> {
     const assignmentId = this.assignmentId;
     if (!assignmentId) {
       this.modalState = 'idle';
       return;
     }
-    if (this.modalState === 'loading' && this.loadingAssignmentId === assignmentId) return;
+    if (!force && this.modalState === 'loading' && this.loadingAssignmentId === assignmentId) return;
     const requestSequence = ++this.requestSequence;
     this.loadingAssignmentId = assignmentId;
     this.modalState = 'loading';

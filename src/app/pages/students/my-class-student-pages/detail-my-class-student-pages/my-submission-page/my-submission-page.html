@@ -305,7 +305,9 @@
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
         <div class="flex flex-row justify-between items-center">
           <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
+          @if (hasAssignmentRubric) {
           <button class="btn-warning w-fit" (click)="openRubricDialog()">View Rubric</button>
+          }
         </div>
         <div class="flex flex-col gap-3">
           @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
@@ -648,7 +650,9 @@
         <div class="w-full bg-white p-4 rounded-3xl flex flex-col gap-6">
           <div class="flex flex-row justify-between items-center">
             <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
+            @if (hasAssignmentRubric) {
             <button class="btn-warning-sm w-fit" (click)="openRubricDialog()">View Rubric</button>
+            }
           </div>
           <div class="flex flex-col gap-3">
             @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
@@ -712,7 +716,9 @@
     <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-gray-700"
       [attr.role]="evaluationStatusPresentation.role"
       [attr.aria-live]="evaluationStatusPresentation.state === 'processing' ? 'polite' : null">
+      @if (evaluationStatusPresentation.title) {
       <p class="font-bold text-gray-800">{{ evaluationStatusPresentation.title }}</p>
+      }
       <p class="mt-1">{{ evaluationStatusPresentation.message }}</p>
       @if (evaluationStatusPresentation.showPreviousScore) {
       <p class="mt-2 font-semibold">Previous score: {{ previousEvaluationScoreText }} <span class="font-normal">(outdated)</span></p>
@@ -739,7 +745,7 @@
   </div>
 
   <!-- Shared Modal Dialog (outside desktop/mobile conditionals) -->
-  <app-modal-dialog [open]="showRubricDialog" [maxWidthClass]="'max-w-none'" [panelClass]="'lg:w-[90vw]'"
+  <app-modal-dialog [open]="showRubricDialog && hasAssignmentRubric" [maxWidthClass]="'max-w-none'" [panelClass]="'lg:w-[90vw]'"
     (closed)="closeRubricDialog()">
     <div class="flex flex-col gap-4">
       <div class="flex flex-row justify-between items-center">

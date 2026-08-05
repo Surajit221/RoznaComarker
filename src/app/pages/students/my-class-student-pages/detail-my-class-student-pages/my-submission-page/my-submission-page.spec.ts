@@ -63,6 +63,7 @@ describe('MySubmissionPage', () => {
     component.statisticsState = 'loaded';
     component.correctionsState = 'loaded';
     component.teacherComment = 'Canonical teacher comment';
+    component.hasAssignmentRubric = true;
     component.feedbackForm.patchValue({ message: component.teacherComment });
 
     const snapshot = () => ({
@@ -199,18 +200,23 @@ describe('MySubmissionPage', () => {
     });
     component.scoreState = 'loaded';
     component.aiFeedbackState = 'processing';
-    (component.device as any).width.set(390);
-    component.onTabSelected('transcribed-text');
-    fixture.detectChanges();
+    component.isUploadedFile = false;
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      if (width === 390) component.onTabSelected('transcribed-text');
+      fixture.detectChanges();
 
-    expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
-    expect(fixture.nativeElement.textContent).toContain('Your teacher is updating this evaluation');
-    expect(fixture.nativeElement.textContent).toContain('Previous score: 72 / 100 (outdated)');
-    expect(fixture.nativeElement.textContent).not.toContain('0.0 /');
-    expect(fixture.nativeElement.querySelector('button[aria-label*="evaluation"]')).toBeNull();
+      expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
+      expect(fixture.nativeElement.textContent).not.toContain('Your teacher is updating this evaluation.');
+      expect(fixture.nativeElement.textContent).toContain('The updated score and feedback will appear when the evaluation is ready.');
+      expect(fixture.nativeElement.textContent).toContain('Previous score: 72 / 100 (outdated)');
+      expect(fixture.nativeElement.textContent).not.toContain('0.0 /');
+      expect(fixture.nativeElement.querySelector('button[aria-label*="evaluation"]')).toBeNull();
+    }
   });
 
   it('renders custom-rubric criteria through the original fixed-category row layout', () => {
+    component.hasAssignmentRubric = true;
     component.canonicalResultState = normalizeCanonicalResult({
       evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
       overallScore: 60, processingActive: false, automaticPollingAllowed: false, terminal: true
@@ -264,8 +270,30 @@ describe('MySubmissionPage', () => {
       }
     } as any;
     component.aiFeedbackState = 'loaded';
+    fixture.detectChanges();
 
     expect(component.isCustomRubricResult).toBeFalse();
     expect(component.feedbacks.length).toBe(6);
+    expect(fixture.nativeElement.textContent).not.toContain('View Rubric');
+    expect(fixture.nativeElement.textContent).not.toContain('custom rubric');
+  });
+
+  it('shows rubric details only when a meaningful assignment rubric exists', () => {
+    component.aiFeedbackState = 'loaded';
+    component.hasAssignmentRubric = false;
+    component.openRubricDialog();
+    expect(component.showRubricDialog).toBeFalse();
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).not.toContain('View Rubric');
+    }
+
+    component.hasAssignmentRubric = true;
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('View Rubric');
+    }
   });
 });

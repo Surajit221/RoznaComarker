@@ -40,6 +40,61 @@ describe('StudentSubmissionPages', () => {
     expect(component.scoreState).toBe('loading');
   });
 
+  it('stops previous polling and rebuilds submission-specific state on navigation', async () => {
+    component.currentSubmission = { _id: 'submission-1' } as any;
+    component.currentFeedback = { submissionId: 'submission-1', overallScore: 42 } as any;
+    component.canonicalResultState = normalizeCanonicalResult({
+      submissionId: 'submission-1', evaluationStatus: 'stale',
+      evaluationStaleReason: 'rubric', requiresCanonicalReevaluation: true
+    });
+    const stop = spyOn((component as any).resultCoordinator, 'stop');
+    spyOn<any>(component, 'loadAssignmentRubricPresence').and.resolveTo();
+    spyOn<any>(component, 'ensureClassSettingsLoadedFromSubmission').and.resolveTo();
+    spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
+    spyOn<any>(component, 'loadCompleteTranscript').and.resolveTo();
+    spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+    spyOn<any>(component, 'loadFeedback').and.callFake(async () => {
+      expect(component.currentFeedback).toBeNull();
+      expect(component.canonicalResultState).toBeNull();
+      component.currentFeedback = { submissionId: 'submission-2', overallScore: 84 } as any;
+      component.canonicalResultState = normalizeCanonicalResult({
+        submissionId: 'submission-2', evaluationStatus: 'completed',
+        detailedFeedbackStatus: 'completed', overallScore: 84
+      });
+      return true;
+    });
+
+    await (component as any).applyCurrentSubmission({ _id: 'submission-2' } as any, false);
+
+    expect(stop).toHaveBeenCalled();
+    expect(component.currentFeedback?.submissionId).toBe('submission-2');
+    expect(component.canonicalResultState?.submissionId).toBe('submission-2');
+    expect(component.canonicalResultState?.evaluationStatus).toBe('completed');
+  });
+
+  it('rejects an older feedback response after the active submission changes', async () => {
+    let resolveFeedback!: (value: any) => void;
+    const response = new Promise<any>((resolve) => { resolveFeedback = resolve; });
+    component.currentSubmission = { _id: 'submission-1' } as any;
+    (component as any).applyCurrentSubmissionSeq = 10;
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.returnValue(response);
+
+    const loading = (component as any).loadFeedback(10);
+    component.currentSubmission = { _id: 'submission-2' } as any;
+    component.canonicalResultState = normalizeCanonicalResult({
+      submissionId: 'submission-2', evaluationStatus: 'completed', overallScore: 84
+    });
+    (component as any).applyCurrentSubmissionSeq = 11;
+    resolveFeedback({
+      submissionId: 'submission-1', evaluationStatus: 'stale',
+      evaluationStaleReason: 'rubric', requiresCanonicalReevaluation: true
+    });
+
+    await expectAsync(loading).toBeResolvedTo(false);
+    expect(component.canonicalResultState?.submissionId).toBe('submission-2');
+    expect(component.canonicalResultState?.evaluationStatus).toBe('completed');
+  });
+
   it('keeps section loading states independent', () => {
     component.transcriptState = 'loaded';
     component.correctionsState = 'loaded';
@@ -99,6 +154,7 @@ describe('StudentSubmissionPages', () => {
     component.statisticsState = 'loaded';
     component.correctionsState = 'loaded';
     component.feedbackForm.patchValue({ message: 'Canonical teacher comment' });
+    component.hasAssignmentRubric = true;
     const state = component.canonicalResultState;
 
     (component.device as any).width.set(1440);
@@ -201,6 +257,7 @@ describe('StudentSubmissionPages', () => {
   });
 
   it('renders custom criteria through the original fixed-category row layout', () => {
+    component.hasAssignmentRubric = true;
     component.canonicalResultState = normalizeCanonicalResult({
       evaluationStatus: 'completed', detailedFeedbackStatus: 'completed',
       overallScore: 60, processingActive: false, automaticPollingAllowed: false, terminal: true
@@ -238,6 +295,8 @@ describe('StudentSubmissionPages', () => {
   });
 
   it('applies completed feedback and rebuilds custom rows in the same polling tick', async () => {
+    component.hasAssignmentRubric = true;
+    component.assignmentId = 'assignment-1';
     component.currentSubmission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
     component.currentFeedback = {
       submissionId: 'submission-1',
@@ -258,6 +317,9 @@ describe('StudentSubmissionPages', () => {
         weightedPoints: 18, comment: 'Current rubric explanation.'
       }] }
     } as any);
+    spyOn((component as any).submissionApi, 'getSubmissionsByAssignment')
+      .and.resolveTo([{ _id: 'submission-1', evaluationStatus: 'completed' } as any]);
+    const invalidate = spyOn((component as any).teacherDashboardState, 'invalidateEvaluationFreshness');
 
     await (component as any).refreshRetriedAnalysis('submission-1');
 
@@ -266,9 +328,11 @@ describe('StudentSubmissionPages', () => {
       jasmine.objectContaining({ category: 'Content Accuracy', score: 18, maxScore: 30 })
     ]);
     expect(component.aiFeedbackState).toBe('loaded');
+    expect(invalidate).toHaveBeenCalledOnceWith('assignment-1');
   });
 
   it('shows completed score rows while detailed feedback is still processing', async () => {
+    component.assignmentId = 'assignment-1';
     component.currentSubmission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
     spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
     spyOn<any>(component, 'loadCompleteTranscript').and.resolveTo();
@@ -285,6 +349,8 @@ describe('StudentSubmissionPages', () => {
         MECHANICS: { score: 7, maxScore: 10 }, PRESENTATION: { score: 3, maxScore: 5 }
       }
     } as any);
+    spyOn((component as any).submissionApi, 'getSubmissionsByAssignment')
+      .and.resolveTo([{ _id: 'submission-1', evaluationStatus: 'completed' } as any]);
 
     const snapshot = await (component as any).refreshRetriedAnalysis('submission-1');
 
@@ -329,6 +395,29 @@ describe('StudentSubmissionPages', () => {
     expect(component.rubricFeedbackItems.length).toBe(6);
   });
 
+  it('uses the existing rubric control as Create Rubric until a saved assignment rubric exists', async () => {
+    component.hasAssignmentRubric = false;
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Create Rubric');
+      expect(fixture.nativeElement.textContent).not.toContain('View / Edit Rubric');
+    }
+
+    const hydrate = spyOn<any>(component, 'hydrateRubricDesignerFromAssignmentThenFeedback');
+    await component.onEditRubric();
+    expect(component.showDialog).toBeTrue();
+    expect(component.rubricDesignerForModal).toBeNull();
+    expect(hydrate).not.toHaveBeenCalled();
+
+    component.closeRubricDesignerDialog();
+    component.hasAssignmentRubric = true;
+    (component.device as any).width.set(1440);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('View / Edit Rubric');
+    expect(fixture.nativeElement.textContent).not.toContain('Create Rubric');
+  });
+
   it('prevents duplicate Generate AI Feedback calls while evaluation is pending', async () => {
     component.currentSubmission = { _id: 'submission-1' } as any;
     component.canonicalResultState = normalizeCanonicalResult({
@@ -357,6 +446,7 @@ describe('StudentSubmissionPages', () => {
       evaluationStatus: 'stale',
       detailedFeedbackStatus: 'stale',
       manualRetryAllowed: true,
+      evaluationStaleReason: 'rubric',
       terminal: true
     });
     component.scoreState = 'loaded';
@@ -378,6 +468,23 @@ describe('StudentSubmissionPages', () => {
     expect(reEvaluate).toHaveBeenCalled();
     TestBed.inject(HttpTestingController).match(() => true)
       .forEach((request) => request.flush({ success: true, data: {} }));
+  });
+
+  it('uses the same explicit rubric-stale condition on desktop and mobile', () => {
+    component.canonicalResultState = normalizeCanonicalResult({
+      correctionStatus: 'completed',
+      semanticStatus: 'completed',
+      evaluationStatus: 'stale',
+      detailedFeedbackStatus: 'stale',
+      evaluationStaleReason: 'rubric',
+      manualRetryAllowed: true
+    });
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      expect(component.evaluationStatusPresentation.actionLabel)
+        .toBe('Re-evaluate with current rubric');
+      expect(component.evaluationStatusPresentation.showAction).toBeTrue();
+    }
   });
 
   it('shows re-evaluation progress without fake zeros or duplicate actions', () => {

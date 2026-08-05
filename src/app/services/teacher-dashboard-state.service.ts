@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, distinctUntilChanged, map, shareReplay, type Observable } from 'rxjs';
+import { BehaviorSubject, Subject, distinctUntilChanged, map, shareReplay, type Observable } from 'rxjs';
 
 import type { SubmissionFeedback } from '../models/submission-feedback.model';
 import type {
@@ -34,6 +34,8 @@ const initialState: TeacherDashboardState = {
 @Injectable({ providedIn: 'root' })
 export class TeacherDashboardStateService {
   private readonly stateSubject = new BehaviorSubject<TeacherDashboardState>(initialState);
+  private readonly evaluationFreshnessInvalidatedSubject = new Subject<string>();
+  readonly evaluationFreshnessInvalidated$ = this.evaluationFreshnessInvalidatedSubject.asObservable();
 
   readonly state$: Observable<TeacherDashboardState> = this.stateSubject.asObservable().pipe(shareReplay(1));
 
@@ -124,6 +126,10 @@ export class TeacherDashboardStateService {
     })();
 
     return this.inFlightRefresh;
+  }
+
+  invalidateEvaluationFreshness(assignmentId: string): void {
+    if (assignmentId) this.evaluationFreshnessInvalidatedSubject.next(assignmentId);
   }
 
   markReviewed(submissionId: string, feedback: SubmissionFeedback): void {

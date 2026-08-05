@@ -333,7 +333,7 @@
               Download PDF
               }
             </button>
-            <button type="button" class="btn-warning" (click)="onEditRubric()">View / Edit Rubric</button>
+            <button type="button" class="btn-warning" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
           </div>
         </div>
 
@@ -425,7 +425,7 @@
           Download PDF
           }
         </button>
-        <button type="button" class="btn-warning-sm w-full" (click)="onEditRubric()">View / Edit Rubric</button>
+        <button type="button" class="btn-warning-sm w-full" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
       </div>
     </div>
 
@@ -885,7 +885,7 @@
     (attachFile)="onRubricDesignerAttachFile($event)"></app-rubric-designer-modal>
 
   <app-modal-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
-    <app-dialog-view-submissions [assignmentId]="assignmentId" [navigateOnSelect]="false"
+    <app-dialog-view-submissions [assignmentId]="assignmentId" [open]="openSheetSubmission" [navigateOnSelect]="false"
       (selected)="onSubmissionSelected($event)" (closed)="onCloseSubmission()"></app-dialog-view-submissions>
   </app-modal-dialog>
 

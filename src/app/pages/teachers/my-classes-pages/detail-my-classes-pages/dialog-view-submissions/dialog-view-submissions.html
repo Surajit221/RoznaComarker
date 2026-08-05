@@ -21,10 +21,10 @@
   } @else if (modalState === 'empty') {
     <p class="modal-state" role="status">No submissions have been received yet.</p>
   } @else if (modalState === 'loaded') {
-    @if ((staleEvaluationSummary?.eligibleCount || 0) > 0 || bulkStartResult) {
+    @if ((staleEvaluationSummary?.eligibleCount || 0) > 0 || isBulkRunActive || bulkFailedCount > 0) {
       <div class="mb-4 p-3 bg-[#F3F3F3] rounded-xl" role="status">
         @if ((staleEvaluationSummary?.eligibleCount || 0) > 0) {
-          <p class="font-semibold text-gray-900">{{ staleEvaluationSummary?.eligibleCount }} submissions require re-evaluation</p>
+          <p class="font-semibold text-gray-900">{{ staleEvaluationSummary?.eligibleCount }} submission{{ staleEvaluationSummary?.eligibleCount === 1 ? '' : 's' }} require{{ staleEvaluationSummary?.eligibleCount === 1 ? 's' : '' }} re-evaluation</p>
           <button type="button" class="view-action mt-2" [disabled]="isBulkStarting || isBulkRunActive"
             (click)="startBulkReEvaluation()">{{ isBulkStarting || isBulkRunActive ? 'Re-evaluation in progress…' : 'Re-evaluate outdated submissions' }}</button>
         }

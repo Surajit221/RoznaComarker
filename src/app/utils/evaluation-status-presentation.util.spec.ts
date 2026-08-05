@@ -26,17 +26,52 @@ describe('evaluation status presentation', () => {
         semanticStatus: 'completed',
         evaluationStatus: 'stale',
         detailedFeedbackStatus: 'stale',
-        manualRetryAllowed: true
+        manualRetryAllowed: true,
+        evaluationStaleReason: 'rubric'
       }),
       previousEvaluation,
       teacher: true
     });
 
     expect(presentation.title).toBe('Re-evaluation required');
-    expect(presentation.message).toContain('previous rubric or grading policy');
+    expect(presentation.message).toContain('previous rubric');
     expect(presentation.actionLabel).toBe('Re-evaluate with current rubric');
     expect(presentation.showAction).toBeTrue();
     expect(presentation.showPreviousScore).toBeTrue();
+  });
+
+  it('uses the settings label only for an explicit policy mismatch', () => {
+    const presentation = buildEvaluationStatusPresentation({
+      canonical: normalizeCanonicalResult({
+        correctionStatus: 'completed',
+        semanticStatus: 'completed',
+        evaluationStatus: 'stale',
+        detailedFeedbackStatus: 'stale',
+        manualRetryAllowed: true,
+        evaluationStaleReason: 'policy'
+      }),
+      previousEvaluation,
+      teacher: true
+    });
+    expect(presentation.actionLabel).toBe('Re-evaluate with current settings');
+    expect(presentation.message).toContain('previous grading settings');
+    expect(presentation.showAction).toBeTrue();
+  });
+
+  it('does not infer a rubric action from a generic stale status', () => {
+    const presentation = buildEvaluationStatusPresentation({
+      canonical: normalizeCanonicalResult({
+        correctionStatus: 'completed',
+        semanticStatus: 'completed',
+        evaluationStatus: 'stale',
+        detailedFeedbackStatus: 'stale',
+        manualRetryAllowed: true
+      }),
+      previousEvaluation,
+      teacher: true
+    });
+    expect(presentation.actionLabel).toBeNull();
+    expect(presentation.showAction).toBeFalse();
   });
 
   it('shows processing and failure states while preserving the prior-score affordance', () => {
@@ -55,6 +90,18 @@ describe('evaluation status presentation', () => {
     expect(processing.showAction).toBeFalse();
     expect(processing.showPreviousScore).toBeTrue();
     expect(processing.role).toBe('status');
+
+    const studentProcessing = buildEvaluationStatusPresentation({
+      canonical: normalizeCanonicalResult({
+        evaluationStatus: 'processing',
+        detailedFeedbackStatus: 'processing',
+        processingActive: true
+      }),
+      previousEvaluation,
+      teacher: false
+    });
+    expect(studentProcessing.title).toBe('');
+    expect(studentProcessing.message).toBe('The updated score and feedback will appear when the evaluation is ready.');
 
     const failed = buildEvaluationStatusPresentation({
       canonical: normalizeCanonicalResult({
@@ -92,13 +139,31 @@ describe('evaluation status presentation', () => {
     expect(presentation.showPreviousScore).toBeFalse();
   });
 
+  it('gives processing precedence over stale and retry actions', () => {
+    const presentation = buildEvaluationStatusPresentation({
+      canonical: normalizeCanonicalResult({
+        correctionStatus: 'completed', semanticStatus: 'completed',
+        evaluationStatus: 'stale', detailedFeedbackStatus: 'stale',
+        processingActive: true, manualRetryAllowed: true,
+        evaluationStaleReason: 'rubric'
+      }),
+      previousEvaluation,
+      teacher: true
+    });
+
+    expect(presentation.state).toBe('processing');
+    expect(presentation.showAction).toBeFalse();
+    expect(presentation.actionLabel).toBeNull();
+  });
+
   it('never gives students or teacher overrides an evaluation action', () => {
     const stale = normalizeCanonicalResult({
       correctionStatus: 'completed',
       semanticStatus: 'completed',
       evaluationStatus: 'stale',
       detailedFeedbackStatus: 'stale',
-      manualRetryAllowed: true
+      manualRetryAllowed: true,
+      evaluationStaleReason: 'rubric'
     });
     const student = buildEvaluationStatusPresentation({
       canonical: stale,

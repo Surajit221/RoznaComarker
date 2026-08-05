@@ -139,6 +139,7 @@ import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normaliz
   type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
+import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 
@@ -310,6 +311,8 @@ export class StudentSubmissionPages {
 
 
   private readonly defaultCorrectionLegend: any = DEFAULT_CORRECTION_LEGEND;
+  hasAssignmentRubric = false;
+  private assignmentRubricPresenceId: string | null = null;
 
 
 
@@ -335,6 +338,8 @@ export class StudentSubmissionPages {
     if (assignmentId && assignmentId.trim().length) {
       try {
         const a: BackendAssignment = await this.assignmentApi.getAssignmentByIdForTeacher(assignmentId.trim());
+        this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(a);
+        this.assignmentRubricPresenceId = assignmentId.trim();
         const d = this.parseRubricDesignerFromRubricsField((a as any)?.rubrics, (a as any)?.title)
           || this.parseLegacyRubricDesigner((a as any)?.rubric, (a as any)?.title);
         if (d) {
@@ -349,6 +354,30 @@ export class StudentSubmissionPages {
 
     // fallback for legacy submission-based rubric designer
     this.hydrateRubricDesignerFromFeedback();
+  }
+
+  private async loadAssignmentRubricPresence(submission: BackendSubmission | null): Promise<void> {
+    const assignmentRaw: any = submission?.assignment;
+    const assignmentId = typeof assignmentRaw === 'string'
+      ? assignmentRaw.trim()
+      : String(assignmentRaw?._id || assignmentRaw?.id || this.assignmentId || '').trim();
+    if (!assignmentId) {
+      this.hasAssignmentRubric = false;
+      this.assignmentRubricPresenceId = null;
+      return;
+    }
+    if (this.assignmentRubricPresenceId === assignmentId) return;
+
+    this.hasAssignmentRubric = false;
+    this.assignmentRubricPresenceId = assignmentId;
+    try {
+      const assignment = await this.assignmentApi.getAssignmentByIdForTeacher(assignmentId);
+      if (this.assignmentRubricPresenceId !== assignmentId) return;
+      this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(assignment);
+    } catch {
+      if (this.assignmentRubricPresenceId !== assignmentId) return;
+      this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(assignmentRaw);
+    }
   }
 
   private tryRevokeObjectUrl(url: string | null | undefined): void {
@@ -496,6 +525,8 @@ export class StudentSubmissionPages {
 
         const updated = await this.assignmentApi.updateAssignmentRubrics(assignmentId.trim(), rubricsPayload);
         if (updated && updated._id) {
+          this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(updated);
+          this.assignmentRubricPresenceId = updated._id;
           const state: any = this.teacherDashboardState as any;
           if (!state.assignmentsById || typeof state.assignmentsById !== 'object') {
             state.assignmentsById = {};
@@ -1824,7 +1855,8 @@ export class StudentSubmissionPages {
   }
 
   get isCustomRubricResult(): boolean {
-    return this.currentFeedback?.scoringAudit?.overallMethod === 'custom_rubric_weighted_total'
+    return this.hasAssignmentRubric
+      && this.currentFeedback?.scoringAudit?.overallMethod === 'custom_rubric_weighted_total'
       && this.customRubricFeedbackItems.length > 0;
   }
 
@@ -5258,10 +5290,6 @@ export class StudentSubmissionPages {
 
 
 
-    await this.loadFeedback();
-
-
-
     this.recomputeRubricFeedbackItems();
 
 
@@ -5320,8 +5348,27 @@ export class StudentSubmissionPages {
       this.hydrateRubricEditFormFromFeedback();
       this.hydrateRubricDesignerFromFeedback();
       this.recomputeRubricFeedbackItems();
+      await this.refreshCompletedEvaluationState(submissionId);
     }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
+  }
+
+  private async refreshCompletedEvaluationState(submissionId: string): Promise<void> {
+    const assignmentId = this.assignmentId;
+    if (!assignmentId || this.currentSubmission?._id !== submissionId) return;
+    try {
+      const submissions = await this.submissionApi.getSubmissionsByAssignment(assignmentId);
+      if (this.currentSubmission?._id !== submissionId || this.assignmentId !== assignmentId) return;
+      this.submissions = submissions || [];
+      const refreshedSubmission = this.submissions.find((item) => item._id === submissionId);
+      if (refreshedSubmission) this.currentSubmission = refreshedSubmission;
+    } catch {
+      // The completed feedback remains authoritative if the list refresh is transiently unavailable.
+    } finally {
+      if (this.currentSubmission?._id === submissionId && this.assignmentId === assignmentId) {
+        this.teacherDashboardState.invalidateEvaluationFreshness(assignmentId);
+      }
+    }
   }
 
 
@@ -5917,14 +5964,19 @@ export class StudentSubmissionPages {
 
 
     this.currentSubmission = submission;
-
-
-
     this.submissionId = submission?._id || null;
+    this.currentFeedback = null;
+    this.canonicalResultState = null;
+    this.feedbackForm.patchValue({ message: '' });
+    this.feedbackForm.disable({ emitEvent: false });
+    this.recomputeRubricFeedbackItems();
+    await this.loadAssignmentRubricPresence(submission);
+    if (seq !== this.applyCurrentSubmissionSeq || this.currentSubmission?._id !== submission?._id) return;
 
 
 
     await this.ensureClassSettingsLoadedFromSubmission(submission);
+    if (seq !== this.applyCurrentSubmissionSeq || this.currentSubmission?._id !== submission?._id) return;
 
 
 
@@ -6106,10 +6158,11 @@ export class StudentSubmissionPages {
 
     const feedbackLoaded = await this.loadFeedback(seq);
     if (seq !== this.applyCurrentSubmissionSeq) return;
+    const canonical = this.canonicalResultState as CanonicalResultViewState | null;
 
     this.feedbackState = !feedbackLoaded ? 'error'
-      : this.canonicalResultState?.detailedFeedbackStatus === 'completed' ? 'loaded'
-        : ['failed', 'blocked'].includes(this.canonicalResultState?.detailedFeedbackStatus || '') ? 'error' : 'processing';
+      : canonical?.detailedFeedbackStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(canonical?.detailedFeedbackStatus || '') ? 'error' : 'processing';
     this.teacherCommentState = feedbackLoaded ? 'loaded' : 'error';
     this.feedbackForm.enable({ emitEvent: false });
 
@@ -6122,10 +6175,10 @@ export class StudentSubmissionPages {
 
 
     this.aiFeedbackState = !feedbackLoaded ? 'error'
-      : this.canonicalResultState?.evaluationStatus === 'completed' ? 'loaded'
-        : ['failed', 'blocked'].includes(this.canonicalResultState?.evaluationStatus || '') ? 'error' : 'processing';
+      : canonical?.evaluationStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(canonical?.evaluationStatus || '') ? 'error' : 'processing';
     this.scoreState = !feedbackLoaded
-      || (['failed', 'blocked'].includes(this.canonicalResultState?.evaluationStatus || '')
+      || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
         && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
 
 
@@ -6376,7 +6429,7 @@ export class StudentSubmissionPages {
 
 
 
-      this.canonicalResultState = normalizeCanonicalResult(fb, this.canonicalResultState);
+      this.canonicalResultState = normalizeCanonicalResult(fb, null);
       this.feedbackForm.patchValue({ message: fb?.teacherComments ?? '' });
       const evaluationPending = this.canonicalResultState.evaluationStatus !== 'completed';
       if (evaluationPending) {
@@ -6905,6 +6958,11 @@ export class StudentSubmissionPages {
 
 
     this.showDialog = true;
+
+    if (!this.hasAssignmentRubric) {
+      this.resetRubricDesigner();
+      return;
+    }
 
 
 

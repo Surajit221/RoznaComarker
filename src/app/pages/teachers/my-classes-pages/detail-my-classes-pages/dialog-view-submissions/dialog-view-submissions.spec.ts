@@ -5,6 +5,8 @@ import { AlertService } from '../../../../../services/alert.service';
 import { DeviceService } from '../../../../../services/device.service';
 import { DialogViewSubmissions } from './dialog-view-submissions';
 import { AssignmentApiService } from '../../../../../api/assignment-api.service';
+import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
+import { Subject } from 'rxjs';
 
 describe('DialogViewSubmissions loading states', () => {
   let component: DialogViewSubmissions;
@@ -28,6 +30,11 @@ describe('DialogViewSubmissions loading states', () => {
     showError: jasmine.createSpy(),
     showConfirm: jasmine.createSpy().and.resolveTo(true),
     showToast: jasmine.createSpy()
+  };
+  const freshnessInvalidated = new Subject<string>();
+  const dashboardState = {
+    evaluationFreshnessInvalidated$: freshnessInvalidated.asObservable(),
+    invalidateEvaluationFreshness: (assignmentId: string) => freshnessInvalidated.next(assignmentId)
   };
 
   beforeEach(async () => {
@@ -53,6 +60,7 @@ describe('DialogViewSubmissions loading states', () => {
         { provide: DeviceService, useValue: { isDesktop: () => true, isMobile: () => false, isTablet: () => false } },
         { provide: AlertService, useValue: alert },
         { provide: Router, useValue: { navigate: jasmine.createSpy() } },
+        { provide: TeacherDashboardStateService, useValue: dashboardState },
       ],
     }).compileComponents();
 
@@ -131,5 +139,48 @@ describe('DialogViewSubmissions loading states', () => {
     await component.startBulkReEvaluation();
 
     expect(assignmentApi.retryStaleEvaluations).not.toHaveBeenCalled();
+  });
+
+  it('uses singular wording and hides the notice when the canonical count reaches zero', async () => {
+    resolveRequest([{ _id: 'submission-1', student: { displayName: 'Student' } } as BackendSubmission]);
+    await fixture.whenStable();
+    component.staleEvaluationSummary = {
+      assignmentId: 'assignment-a', eligibleCount: 1, skippedOverrideCount: 0,
+      skippedProcessingCount: 0, skippedNotReadyCount: 0
+    };
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('1 submission requires re-evaluation');
+
+    component.staleEvaluationSummary = {
+      ...component.staleEvaluationSummary,
+      eligibleCount: 0
+    };
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('requires re-evaluation');
+    expect(fixture.nativeElement.textContent).not.toContain('Re-evaluate outdated submissions');
+  });
+
+  it('refetches the canonical count whenever the same modal is reopened', async () => {
+    resolveRequest([]);
+    await fixture.whenStable();
+    api.getSubmissionsByAssignment.and.resolveTo([]);
+
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(api.getSubmissionsByAssignment).toHaveBeenCalledTimes(2);
+    expect(assignmentApi.getStaleEvaluationSummary).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes the count after an individual evaluation invalidates assignment freshness', async () => {
+    resolveRequest([]);
+    await fixture.whenStable();
+    api.getSubmissionsByAssignment.and.resolveTo([]);
+
+    dashboardState.invalidateEvaluationFreshness('assignment-a');
+    await fixture.whenStable();
+
+    expect(assignmentApi.getStaleEvaluationSummary).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,6 +1,8 @@
 export type Availability = 'pending' | 'available' | 'failed';
 export type ResultStatus = 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale' | 'blocked';
 export type CanonicalCategory = 'content' | 'grammar' | 'organization' | 'vocabulary' | 'mechanics';
+export type EvaluationFreshness = 'current' | 'stale_rubric' | 'stale_policy' | 'stale_source'
+  | 'stale_version' | 'processing' | 'overridden' | 'failed' | 'not_ready';
 
 export interface CanonicalResultViewState {
   submissionId: string | null;
@@ -33,6 +35,17 @@ export interface CanonicalResultViewState {
   retryable: boolean;
   semanticStatus: 'pending' | 'processing' | 'retry_wait' | 'completed' | 'failed';
   semanticProgressMessage: string | null;
+  evaluationStaleReason: 'rubric' | 'policy' | 'settings' | 'other' | null;
+  rubricFresh: boolean | null;
+  policyFresh: boolean | null;
+  hasValidCustomRubric: boolean;
+  currentRubricSourceHash: string | null;
+  currentPolicyHash: string | null;
+  evaluationRubricSourceHash: string | null;
+  evaluationPolicyHash: string | null;
+  evaluationFreshness: EvaluationFreshness;
+  requiresCanonicalReevaluation: boolean;
+  reevaluationReason: 'rubric' | 'policy' | 'source' | 'version' | null;
 }
 
 const categories: CanonicalCategory[] = ['content', 'grammar', 'organization', 'vocabulary', 'mechanics'];
@@ -47,6 +60,11 @@ function finite(value: any): number | null {
 
 export function normalizeCanonicalResult(payload: any, previous?: CanonicalResultViewState | null): CanonicalResultViewState {
   const value = payload?.data ?? payload ?? {};
+  const incomingSubmissionId = typeof value.submissionId === 'string' && value.submissionId.trim()
+    ? value.submissionId.trim() : null;
+  if (incomingSubmissionId && previous?.submissionId && incomingSubmissionId !== previous.submissionId) {
+    previous = null;
+  }
   const submissionId = typeof value.submissionId === 'string' && value.submissionId.trim()
     ? value.submissionId.trim() : previous?.submissionId || null;
   const correctionStatus = status(value.correctionStatus, previous?.correctionStatus || 'pending');
@@ -149,7 +167,35 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     semanticProgressMessage: value.semanticStatus === 'retry_wait'
       ? 'Retrying content, organization, and vocabulary analysis…'
       : correctionStatus === 'processing'
-        ? 'Content, organization, and vocabulary are still being analyzed.' : null
+        ? 'Content, organization, and vocabulary are still being analyzed.' : null,
+    evaluationStaleReason: Object.prototype.hasOwnProperty.call(value, 'evaluationStaleReason')
+      ? ['rubric', 'policy', 'settings', 'other'].includes(String(value.evaluationStaleReason))
+        ? value.evaluationStaleReason : null
+      : previous?.evaluationStaleReason || null,
+    rubricFresh: typeof value.rubricFresh === 'boolean' ? value.rubricFresh : previous?.rubricFresh ?? null,
+    policyFresh: typeof value.policyFresh === 'boolean' ? value.policyFresh : previous?.policyFresh ?? null,
+    hasValidCustomRubric: typeof value.hasValidCustomRubric === 'boolean'
+      ? value.hasValidCustomRubric : Boolean(previous?.hasValidCustomRubric),
+    currentRubricSourceHash: typeof value.currentRubricSourceHash === 'string'
+      ? value.currentRubricSourceHash : previous?.currentRubricSourceHash || null,
+    currentPolicyHash: typeof value.currentPolicyHash === 'string'
+      ? value.currentPolicyHash : previous?.currentPolicyHash || null,
+    evaluationRubricSourceHash: typeof value.evaluationRubricSourceHash === 'string'
+      ? value.evaluationRubricSourceHash : previous?.evaluationRubricSourceHash || null,
+    evaluationPolicyHash: typeof value.evaluationPolicyHash === 'string'
+      ? value.evaluationPolicyHash : previous?.evaluationPolicyHash || null,
+    evaluationFreshness: ['current', 'stale_rubric', 'stale_policy', 'stale_source', 'stale_version',
+      'processing', 'overridden', 'failed', 'not_ready'].includes(String(value.evaluationFreshness))
+      ? value.evaluationFreshness : evaluationStatus === 'completed' ? 'current'
+        : evaluationStatus === 'stale' ? `stale_${value.reevaluationReason || 'version'}` as EvaluationFreshness
+          : evaluationStatus === 'processing' || processingActive ? 'processing'
+            : evaluationStatus === 'failed' ? 'failed' : 'not_ready',
+    requiresCanonicalReevaluation: typeof value.requiresCanonicalReevaluation === 'boolean'
+      ? value.requiresCanonicalReevaluation : evaluationStatus === 'stale',
+    reevaluationReason: Object.prototype.hasOwnProperty.call(value, 'reevaluationReason')
+      ? ['rubric', 'policy', 'source', 'version'].includes(String(value.reevaluationReason))
+        ? value.reevaluationReason : null
+      : previous?.reevaluationReason || null
   };
   if (value.__temporaryError && previous) return previous;
   return next;

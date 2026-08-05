@@ -149,6 +149,45 @@ describe('canonical result normalization', () => {
     expect(completed.processingActive).toBeFalse();
   });
 
+  it('never carries canonical state across submission ids', () => {
+    const studentOne = normalizeCanonicalResult({
+      submissionId: 'submission-1', correctionStatus: 'completed', semanticStatus: 'completed',
+      evaluationStatus: 'stale', detailedFeedbackStatus: 'stale',
+      evaluationStaleReason: 'rubric', reevaluationReason: 'rubric',
+      requiresCanonicalReevaluation: true
+    });
+    const studentTwo = normalizeCanonicalResult({
+      submissionId: 'submission-2', correctionStatus: 'completed', semanticStatus: 'completed',
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', overallScore: 84,
+      evaluationFreshness: 'current', requiresCanonicalReevaluation: false
+    }, studentOne);
+
+    expect(studentTwo.submissionId).toBe('submission-2');
+    expect(studentTwo.evaluationStatus).toBe('completed');
+    expect(studentTwo.evaluationStaleReason).toBeNull();
+    expect(studentTwo.reevaluationReason).toBeNull();
+    expect(studentTwo.requiresCanonicalReevaluation).toBeFalse();
+  });
+
+  it('clears stale reasons when re-evaluation completes for the same submission', () => {
+    const stale = normalizeCanonicalResult({
+      submissionId: 'submission-1', evaluationStatus: 'stale',
+      evaluationStaleReason: 'rubric', reevaluationReason: 'rubric',
+      evaluationFreshness: 'stale_rubric', requiresCanonicalReevaluation: true
+    });
+    const current = normalizeCanonicalResult({
+      submissionId: 'submission-1', evaluationStatus: 'completed',
+      detailedFeedbackStatus: 'completed', overallScore: 86,
+      evaluationStaleReason: null, reevaluationReason: null,
+      evaluationFreshness: 'current', requiresCanonicalReevaluation: false
+    }, stale);
+
+    expect(current.evaluationStaleReason).toBeNull();
+    expect(current.reevaluationReason).toBeNull();
+    expect(current.requiresCanonicalReevaluation).toBeFalse();
+    expect(current.evaluationFreshness).toBe('current');
+  });
+
   it('suppresses correction results built against a stale transcript layout', () => {
     const state = normalizeCanonicalResult({ correctionStatus: 'stale', correctionCurrent: false,
       statistics: { grammar: 99 }, evaluationStatus: 'completed', overallScore: 100,

@@ -42,6 +42,7 @@ import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRet
   normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
+import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult,
   shouldRevalidateCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
@@ -339,6 +340,7 @@ export class MySubmissionPage {
   submission: BackendSubmission | null = null;
   feedback: SubmissionFeedback | null = null;
   assignment: BackendAssignment | null = null;
+  hasAssignmentRubric = false;
 
   get submissionTitle(): string {
     const a: any = this.submission && (this.submission as any).assignment;
@@ -1257,10 +1259,12 @@ export class MySubmissionPage {
       const loadedAssignment = await this.assignmentApi.getAssignmentById(persistedAssignmentId);
       if (this.destroyed || seq !== this.loadSeq || this.resolveAssignmentIdFromSubmission(this.submission) !== persistedAssignmentId) return;
       this.assignment = loadedAssignment;
+      this.hasAssignmentRubric = hasMeaningfulAssignmentRubric(loadedAssignment);
       this.assignmentUnavailable = false;
     } catch {
       if (this.destroyed || seq !== this.loadSeq || this.resolveAssignmentIdFromSubmission(this.submission) !== persistedAssignmentId) return;
       this.assignment = null;
+      this.hasAssignmentRubric = false;
       this.assignmentUnavailable = true;
     }
   }
@@ -1347,7 +1351,8 @@ export class MySubmissionPage {
   }
 
   get isCustomRubricResult(): boolean {
-    return this.feedback?.scoringAudit?.overallMethod === 'custom_rubric_weighted_total'
+    return this.hasAssignmentRubric
+      && this.feedback?.scoringAudit?.overallMethod === 'custom_rubric_weighted_total'
       && this.customRubricFeedbackItems.length > 0;
   }
 
@@ -1418,6 +1423,7 @@ export class MySubmissionPage {
   }
 
   openRubricDialog() {
+    if (!this.hasAssignmentRubric) return;
     // Do NOT call refreshAssignmentForRubric() here — it causes a race condition
     // where this.assignment updates async AFTER the dialog opens, triggering
     // buildRubricDesignerFromAssignment() to return data and override the
@@ -1525,6 +1531,7 @@ export class MySubmissionPage {
     this.submission = null;
     this.feedback = null;
     this.assignment = null;
+    this.hasAssignmentRubric = false;
     this.assignmentUnavailable = false;
     this.annotations = [];
     this.ocrWords = [];

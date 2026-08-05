@@ -149,6 +149,14 @@ export interface SubmissionFeedback {
   sourceRubric?: SourceRubric;
   scoringAudit?: ScoringAudit;
   previousEvaluation?: PreviousEvaluation | null;
+  evaluationStaleReason?: 'rubric' | 'policy' | 'settings' | 'other' | null;
+  rubricFresh?: boolean | null;
+  policyFresh?: boolean | null;
+  hasValidCustomRubric?: boolean;
+  currentRubricSourceHash?: string | null;
+  currentPolicyHash?: string | null;
+  evaluationRubricSourceHash?: string | null;
+  evaluationPolicyHash?: string | null;
 
   overriddenByTeacher: boolean;
   detailedFeedbackSourceHash?: string;
