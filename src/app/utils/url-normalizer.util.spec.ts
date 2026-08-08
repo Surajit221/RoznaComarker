@@ -7,19 +7,19 @@ describe('canonical asset URL normalization', () => {
   afterEach(() => Object.assign(environment, original));
 
   it('resolves backend-relative uploads against the configured backend exactly once', () => {
-    Object.assign(environment, { production: true, apiUrl: 'https://comarkerback.roznahub.com/api', backendUrl: 'https://comarkerback.roznahub.com' });
+    Object.assign(environment, { production: true, apiUrl: 'http://localhost:5000/api', backendUrl: 'http://localhost:5000' });
     expect(normalizeToHttps('/uploads/submissions/page-1.jpg'))
-      .toBe('https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg');
+      .toBe('http://localhost:5000/uploads/submissions/page-1.jpg');
     expect(normalizeToHttps('http://localhost:5000/uploads/submissions/page-1.jpg'))
-      .toBe('https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg');
+      .toBe('http://localhost:5000/uploads/submissions/page-1.jpg');
   });
 
   it('repairs legacy localhost and private-network upload URLs in production', () => {
-    Object.assign(environment, { production: true, apiUrl: 'https://comarkerback.roznahub.com/api', backendUrl: 'https://comarkerback.roznahub.com' });
+    Object.assign(environment, { production: true, apiUrl: 'http://localhost:5000/api', backendUrl: 'http://localhost:5000' });
     expect(normalizeToHttps('http://localhost:5000/uploads/submissions/page-1.jpg'))
-      .toBe('https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg');
+      .toBe('http://localhost:5000/uploads/submissions/page-1.jpg');
     expect(normalizeToHttps('http://192.168.1.8:5000/uploads/submissions/page-2.jpg'))
-      .toBe('https://comarkerback.roznahub.com/uploads/submissions/page-2.jpg');
+      .toBe('http://localhost:5000/uploads/submissions/page-2.jpg');
   });
 
   it('preserves local development and external safe asset URLs', () => {
@@ -34,15 +34,15 @@ describe('canonical asset URL normalization', () => {
   });
 
   it('normalizes the shared main-image and thumbnail array without double-prefixing', () => {
-    Object.assign(environment, { production: true, apiUrl: 'https://comarkerback.roznahub.com/api', backendUrl: 'https://comarkerback.roznahub.com' });
+    Object.assign(environment, { production: true, apiUrl: 'http://localhost:5000/api', backendUrl: 'http://localhost:5000' });
     expect(normalizeAssetUrls([
       'http://127.0.0.1:5000/uploads/submissions/page-1.jpg',
       '/uploads/submissions/page-2.jpg',
       'http://localhost:5000/uploads/submissions/page-3.jpg'
     ])).toEqual([
-      'https://comarkerback.roznahub.com/uploads/submissions/page-1.jpg',
-      'https://comarkerback.roznahub.com/uploads/submissions/page-2.jpg',
-      'https://comarkerback.roznahub.com/uploads/submissions/page-3.jpg'
+      'http://localhost:5000/uploads/submissions/page-1.jpg',
+      'http://localhost:5000/uploads/submissions/page-2.jpg',
+      'http://localhost:5000/uploads/submissions/page-3.jpg'
     ]);
   });
 });

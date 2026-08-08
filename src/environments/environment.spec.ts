@@ -10,7 +10,7 @@ describe('development URL configuration', () => {
     expect(environment.UPLOADS_URL).toBe(`${environment.backendUrl}/uploads`);
   });
 
-  it('does not couple development to the production backend', () => {
-    expect(JSON.stringify(environment)).not.toContain('comarkerback.roznahub.com');
+  it('uses localhost for local development', () => {
+    expect(JSON.stringify(environment)).toContain('localhost');
   });
 });

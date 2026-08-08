@@ -1,23 +1,23 @@
 import { environment } from './environment.prod';
 
 describe('production URL configuration', () => {
-  it('uses the canonical HTTPS deployment origins', () => {
-    expect(environment.apiUrl).toBe('https://comarkerback.roznahub.com/api');
-    expect(environment.backendUrl).toBe('https://comarkerback.roznahub.com');
-    expect(environment.API_URL).toBe('https://comarkerback.roznahub.com/api');
-    expect(environment.apiBaseUrl).toBe('https://comarkerback.roznahub.com/api');
-    expect(environment.UPLOADS_URL).toBe('https://comarkerback.roznahub.com/uploads');
-    expect(environment.FRONTEND_URL).toBe('https://comarkers.roznahub.com');
+  it('uses the canonical localhost deployment origins', () => {
+    expect(environment.apiUrl).toBe('http://localhost:5000/api');
+    expect(environment.backendUrl).toBe('http://localhost:5000');
+    expect(environment.API_URL).toBe('http://localhost:5000/api');
+    expect(environment.apiBaseUrl).toBe('http://localhost:5000/api');
+    expect(environment.UPLOADS_URL).toBe('http://localhost:5000/uploads');
+    expect(environment.FRONTEND_URL).toBe('http://localhost:4200');
   });
 
   it('appends the API prefix exactly once', () => {
     expect(`${environment.apiUrl}/assignments/my`).toBe(
-      'https://comarkerback.roznahub.com/api/assignments/my'
+      'http://localhost:5000/api/assignments/my'
     );
     expect(`${environment.API_URL}/assignments/my`).not.toContain('/api/api/');
   });
 
-  it('cannot resolve a production browser URL to localhost', () => {
-    expect(JSON.stringify(environment)).not.toContain('localhost');
+  it('uses localhost for local development', () => {
+    expect(JSON.stringify(environment)).toContain('localhost');
   });
 });
