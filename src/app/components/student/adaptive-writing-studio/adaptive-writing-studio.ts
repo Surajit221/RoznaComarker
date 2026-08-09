@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, Even
 import { CommonModule } from '@angular/common';
 import type { Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { AdaptivePracticeApiService } from '../../../api/adaptive-practice-api.service';
+import { AdaptivePracticeApiService, type AdaptivePracticeLifecycleCode } from '../../../api/adaptive-practice-api.service';
 import { DEVELOPMENT_ADAPTIVE_PRACTICE_FIXTURE, DEVELOPMENT_GENERATION_DELAY_MS } from './adaptive-writing-studio.fixture';
 import {
   ADAPTIVE_PRACTICE_THRESHOLD,
@@ -40,6 +40,8 @@ export class AdaptiveWritingStudio {
   private readonly checkPollTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly checkPollCounts = new Map<string, number>();
   private readonly checkRequestVersions = new Map<string, number>();
+  private analysisRecoveryPending = false;
+  private canonicalUsableKey = '';
 
   @Input({ required: true }) set submissionId(value: string | null | undefined) {
     const next = typeof value === 'string' ? value.trim() : '';
@@ -63,8 +65,12 @@ export class AdaptiveWritingStudio {
 
   @Input() set canonicalResultState(value: CanonicalResultViewState | null) {
     this._canonicalResultState = value;
-    // If we were waiting for analysis and it just completed, reload the session
-    if (this.state === 'waiting_for_analysis' && value && !value.processingActive && value.evaluationStatus === 'completed' && value.semanticStatus === 'completed') {
+    const usableKey = this.getCanonicalUsableKey(value);
+    const becameUsable = Boolean(usableKey && usableKey !== this.canonicalUsableKey);
+    this.canonicalUsableKey = usableKey;
+    if (becameUsable && this.analysisRecoveryPending
+      && (this.state === 'waiting_for_analysis' || this.state === 'error')) {
+      this.analysisRecoveryPending = false;
       this.loadExistingSession();
     }
   }
@@ -106,7 +112,7 @@ export class AdaptiveWritingStudio {
     if (this.state === 'generated') return 'ALREADY_GENERATED';
     if (this.state === 'error') return this.retryableFailure ? 'RETRYABLE_FAILURE' : 'NON_RETRYABLE_FAILURE';
     if (!canonical || canonical.processingActive || ['pending', 'processing'].includes(canonical.evaluationStatus)
-      || ['pending', 'processing'].includes(canonical.semanticStatus)) return 'ANALYSIS_PROCESSING';
+      || ['pending', 'processing', 'retry_wait'].includes(canonical.semanticStatus)) return 'ANALYSIS_PROCESSING';
     if (canonical.semanticStatus === 'failed' || ['failed', 'blocked'].includes(canonical.evaluationStatus)) return 'SEMANTIC_FAILED';
     if (!canonical.correctionSourceHash || canonical.evaluationStatus !== 'completed'
       || canonical.evaluationSourceHash !== canonical.correctionSourceHash) return 'STALE_EVALUATION';
@@ -198,6 +204,7 @@ export class AdaptiveWritingStudio {
     const version = ++this.requestVersion;
     if (!this.canonicalResultState) {
       this.state = 'waiting_for_analysis';
+      this.analysisRecoveryPending = true;
       this.errorMessage = '';
       this.cdr.markForCheck();
       return;
@@ -210,8 +217,10 @@ export class AdaptiveWritingStudio {
       const semanticStatus = this.canonicalResultState.semanticStatus;
       
       // If analysis is still processing, show waiting state instead of calling API
-      if (isProcessing || evaluationStatus === 'processing' || evaluationStatus === 'pending' || semanticStatus === 'processing' || semanticStatus === 'pending') {
+      if (isProcessing || evaluationStatus === 'processing' || evaluationStatus === 'pending'
+        || semanticStatus === 'processing' || semanticStatus === 'pending' || semanticStatus === 'retry_wait') {
         this.state = 'waiting_for_analysis';
+        this.analysisRecoveryPending = true;
         this.errorMessage = '';
         this.cdr.markForCheck();
         return;
@@ -274,15 +283,17 @@ export class AdaptiveWritingStudio {
 
   private acceptError(version: number, error: unknown): void {
     if (version !== this.requestVersion) return;
-    const value = error as { status?: number; error?: { message?: string } };
-    if (value?.status === 202) {
-      this.state = 'generating';
+    const value = error as { status?: number; code?: string; error?: { code?: string; message?: string } };
+    const code = value?.code || value?.error?.code;
+    if (value?.status === 202 && this.isAnalysisLifecycleCode(code)) {
+      this.state = 'waiting_for_analysis';
+      this.analysisRecoveryPending = true;
       this.errorMessage = '';
-      this.schedulePoll(version);
     } else {
       this.state = 'error';
       this.errorMessage = value?.error?.message || 'Adaptive practice is temporarily unavailable.';
       this.retryableFailure = value?.status === 429 || !value?.status || value.status >= 500;
+      this.analysisRecoveryPending = this.retryableFailure && !this.isCanonicalUsable(this.canonicalResultState);
     }
     this.cdr.markForCheck();
   }
@@ -314,10 +325,27 @@ export class AdaptiveWritingStudio {
     this.progress = { improvedActivities: 0, totalActivities: 0, percentage: 0, activities: [] };
     this.errorMessage = '';
     this.retryableFailure = false;
+    this.analysisRecoveryPending = false;
+    this.canonicalUsableKey = this.getCanonicalUsableKey(this.canonicalResultState);
     this.state = this.skillSummaryState();
   }
   private cancelAsyncWork(): void { this.requestSubscription?.unsubscribe(); this.requestSubscription = null; this.checkSubscriptions.forEach((subscription) => subscription.unsubscribe()); this.checkSubscriptions.clear(); this.checkPollTimers.forEach((timer) => clearTimeout(timer)); this.checkPollTimers.clear(); this.checkPollCounts.clear(); this.checkRequestVersions.clear(); this.clearTimer(); }
   private clearTimer(): void { if (this.timer !== null) clearTimeout(this.timer); this.timer = null; }
+
+  private isCanonicalUsable(value: CanonicalResultViewState | null): boolean {
+    return Boolean(this.getCanonicalUsableKey(value));
+  }
+
+  private getCanonicalUsableKey(value: CanonicalResultViewState | null): string {
+    return value && !value.processingActive && value.semanticStatus === 'completed'
+      && value.evaluationStatus === 'completed' && value.correctionSourceHash
+      && value.evaluationSourceHash === value.correctionSourceHash
+      ? `${value.submissionId || this.submissionId}:${value.correctionSourceHash}` : '';
+  }
+
+  private isAnalysisLifecycleCode(code: unknown): code is AdaptivePracticeLifecycleCode {
+    return code === 'ANALYSIS_INCOMPLETE' || code === 'RUBRIC_NOT_AVAILABLE' || code === 'ANALYSIS_PROCESSING';
+  }
 
   private normalizeSkill(skill: AdaptiveSkillScore): NormalizedAdaptiveSkill {
     const earned = Number(skill.earnedPoints);

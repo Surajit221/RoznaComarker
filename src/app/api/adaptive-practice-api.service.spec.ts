@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { AdaptivePracticeApiService, AdaptivePracticeContractError } from './adaptive-practice-api.service';
+import { AdaptivePracticeApiService, AdaptivePracticeContractError, AdaptivePracticeLifecycleError } from './adaptive-practice-api.service';
 
 describe('AdaptivePracticeApiService response contract', () => {
   let service: AdaptivePracticeApiService;
@@ -45,5 +45,27 @@ describe('AdaptivePracticeApiService response contract', () => {
     http.expectOne((request) => request.url.endsWith('/adaptive-practice/submissions/submission-1'))
       .flush({ success: true, data: { state: 'generating', session: null } });
     expect(actual).toEqual({ state: 'generating', session: null });
+  });
+
+  for (const code of ['ANALYSIS_PROCESSING', 'ANALYSIS_INCOMPLETE', 'RUBRIC_NOT_AVAILABLE'] as const) {
+    it(`preserves the 202 ${code} lifecycle contract`, () => {
+      let actual: unknown;
+      service.getSession('submission-1').subscribe({ error: (error) => actual = error });
+      http.expectOne((request) => request.url.endsWith('/adaptive-practice/submissions/submission-1'))
+        .flush({ success: false, code, message: 'Writing analysis is still processing.' },
+          { status: 202, statusText: 'Accepted' });
+      expect(actual).toBeInstanceOf(AdaptivePracticeLifecycleError);
+      expect(actual).toEqual(jasmine.objectContaining({ status: 202, code }));
+      expect(actual).not.toBeInstanceOf(AdaptivePracticeContractError);
+    });
+  }
+
+  it('still rejects a malformed successful response as an invalid contract', () => {
+    let actual: unknown;
+    service.getSession('submission-1').subscribe({ error: (error) => actual = error });
+    http.expectOne((request) => request.url.endsWith('/adaptive-practice/submissions/submission-1'))
+      .flush({ success: true, data: { state: 202 } });
+    expect(actual).toBeInstanceOf(AdaptivePracticeContractError);
+    expect((actual as AdaptivePracticeContractError).code).toBe('ADAPTIVE_PRACTICE_INVALID_RESPONSE');
   });
 });

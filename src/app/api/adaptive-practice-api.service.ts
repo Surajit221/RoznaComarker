@@ -7,17 +7,39 @@ import type { TeacherAdaptiveAttemptsResponse, TeacherAdaptiveProgressResponse }
 
 interface BackendResponse<T> {
   success: boolean;
-  data: T;
+  data?: T;
   code?: string;
   message?: string;
 }
+
+export type AdaptivePracticeLifecycleCode = 'ANALYSIS_INCOMPLETE' | 'RUBRIC_NOT_AVAILABLE' | 'ANALYSIS_PROCESSING';
+
+const lifecycleCodes = new Set<AdaptivePracticeLifecycleCode>([
+  'ANALYSIS_INCOMPLETE',
+  'RUBRIC_NOT_AVAILABLE',
+  'ANALYSIS_PROCESSING'
+]);
 
 export class AdaptivePracticeContractError extends Error {
   readonly code = 'ADAPTIVE_PRACTICE_INVALID_RESPONSE';
   constructor(message = 'Adaptive practice returned an invalid response.') { super(message); }
 }
 
+export class AdaptivePracticeLifecycleError extends Error {
+  readonly status = 202;
+  readonly error: { code: AdaptivePracticeLifecycleCode; message: string };
+
+  constructor(readonly code: AdaptivePracticeLifecycleCode, message: string) {
+    super(message);
+    this.error = { code, message };
+  }
+}
+
 function unwrap<T>(response: BackendResponse<T>, validate: (data: T) => boolean): T {
+  if (response?.success === false && lifecycleCodes.has(response.code as AdaptivePracticeLifecycleCode)
+    && typeof response.message === 'string' && response.message.trim()) {
+    throw new AdaptivePracticeLifecycleError(response.code as AdaptivePracticeLifecycleCode, response.message);
+  }
   if (!response || response.success !== true || response.data == null || !validate(response.data)) {
     throw new AdaptivePracticeContractError();
   }
