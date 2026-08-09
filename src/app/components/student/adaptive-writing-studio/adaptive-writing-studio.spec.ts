@@ -98,6 +98,79 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.canGenerate).toBeFalse();
   });
 
+  it('treats semantic retry_wait as analysis processing', () => {
+    component.canonicalResultState = { ...currentCanonical, semanticStatus: 'retry_wait', processingActive: false };
+    expect(component.eligibilityReason).toBe('ANALYSIS_PROCESSING');
+    expect(component.canGenerate).toBeFalse();
+  });
+
+  it('reloads once when waiting analysis becomes completed and current', () => {
+    api.getSession.calls.reset();
+    component.canonicalResultState = { ...currentCanonical, semanticStatus: 'processing',
+      evaluationStatus: 'processing', processingActive: true };
+    component.submissionId = 'submission-2';
+    expect(component.state).toBe('waiting_for_analysis');
+    expect(api.getSession).not.toHaveBeenCalled();
+
+    component.canonicalResultState = { ...currentCanonical, submissionId: 'submission-2' };
+    component.canonicalResultState = { ...currentCanonical, submissionId: 'submission-2' };
+    expect(api.getSession).toHaveBeenCalledOnceWith('submission-2');
+  });
+
+  for (const code of ['ANALYSIS_INCOMPLETE', 'RUBRIC_NOT_AVAILABLE'] as const) {
+    it(`handles ${code} as a recoverable analysis wait`, () => {
+      api.getSession.calls.reset();
+      api.getSession.and.returnValues(
+        throwError(() => ({ status: 202, code, error: { code, message: 'Analysis is not ready.' } })),
+        of(idle)
+      );
+      component.canonicalResultState = { ...currentCanonical, semanticStatus: 'processing',
+        evaluationStatus: 'processing', processingActive: true };
+      component.submissionId = `submission-${code}`;
+      component.canonicalResultState = { ...currentCanonical, submissionId: `submission-${code}` };
+      expect(component.state).toBe('waiting_for_analysis');
+
+      component.canonicalResultState = { ...currentCanonical, submissionId: `submission-${code}`,
+        semanticStatus: 'processing', evaluationStatus: 'processing', processingActive: true };
+      component.canonicalResultState = { ...currentCanonical, submissionId: `submission-${code}` };
+      expect(api.getSession).toHaveBeenCalledTimes(2);
+      expect(component.state).toBe('idle');
+    });
+  }
+
+  it('recovers a temporary analysis-synchronization error when canonical analysis becomes current', () => {
+    api.getSession.calls.reset();
+    api.getSession.and.returnValues(
+      throwError(() => ({ status: 503, error: { message: 'Analysis synchronization unavailable.' } })),
+      of(idle)
+    );
+    component.canonicalResultState = { ...currentCanonical, evaluationSourceHash: 'older-hash' };
+    component.submissionId = 'submission-temporary';
+    expect(component.state).toBe('error');
+
+    component.canonicalResultState = { ...currentCanonical, submissionId: 'submission-temporary' };
+    component.canonicalResultState = { ...currentCanonical, submissionId: 'submission-temporary' };
+    expect(api.getSession).toHaveBeenCalledTimes(2);
+    expect(component.state).toBe('idle');
+  });
+
+  for (const status of [400, 403, 404]) {
+    it(`does not automatically retry a permanent ${status} error`, () => {
+      api.getSession.calls.reset();
+      api.getSession.and.returnValue(throwError(() => ({ status, error: { message: 'Permanent failure.' } })));
+      component.canonicalResultState = { ...currentCanonical, semanticStatus: 'processing',
+        evaluationStatus: 'processing', processingActive: true };
+      component.submissionId = `submission-${status}`;
+      component.canonicalResultState = { ...currentCanonical, submissionId: `submission-${status}` };
+      expect(component.state).toBe('error');
+
+      component.canonicalResultState = { ...currentCanonical, submissionId: `submission-${status}`,
+        semanticStatus: 'processing', evaluationStatus: 'processing', processingActive: true };
+      component.canonicalResultState = { ...currentCanonical, submissionId: `submission-${status}` };
+      expect(api.getSession).toHaveBeenCalledTimes(1);
+    });
+  }
+
   it('becomes eligible when the canonical input reconciles from evaluation processing to completed', () => {
     component.canonicalResultState = { ...currentCanonical, evaluationStatus: 'processing',
       detailedFeedbackStatus: 'processing', processingActive: true, automaticPollingAllowed: true, terminal: false };
