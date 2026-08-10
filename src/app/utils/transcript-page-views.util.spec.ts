@@ -40,4 +40,16 @@ describe('complete transcript page views', () => {
     expect(cached).toBe(cached);
     expect(cached).toHaveSize(1);
   });
+
+  it('maps only Draft 2 correction anchors after a same-id replacement', () => {
+    const views = buildTranscriptPageViews({ submissionId: 'same-submission', fileIds: ['draft-2-file'],
+      ocrPages: [page('draft-2-file', 'New draft', 1, 'draft-2-word')], corrections: [
+        { id: 'draft-1-correction', fileId: 'draft-1-file', page: 1, wordIds: ['draft-1-word'] },
+        { id: 'draft-2-correction', fileId: 'draft-2-file', page: 1, wordIds: ['draft-2-word'],
+          bboxList: [{ x: 10, y: 10, w: 20, h: 10 }] }
+      ] });
+    expect(views).toHaveSize(1);
+    expect(views[0].annotations.map((item) => item._id)).toEqual(['draft-2-correction']);
+    expect(views[0].annotations[0].wordIds).toEqual(['draft-2-word']);
+  });
 });

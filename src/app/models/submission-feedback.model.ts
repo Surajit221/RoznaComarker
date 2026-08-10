@@ -115,6 +115,7 @@ export interface PreviousEvaluation {
 
 export interface SubmissionFeedback {
   submissionId: string;
+  marksVisible?: boolean;
   classId?: string;
   studentId?: string;
   teacherId?: string;

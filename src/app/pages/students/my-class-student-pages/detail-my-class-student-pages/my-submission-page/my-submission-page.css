@@ -374,3 +374,55 @@
     display: none;
   }
 }
+.marks-hidden-notice { min-height: 9rem; display: flex; align-items: center; justify-content: center; gap: .75rem; padding: 1rem; text-align: left; color: #334155; }
+.marks-hidden-notice > i { flex: 0 0 auto; color: #008081; font-size: 1.75rem; }
+.marks-hidden-notice strong { display: block; color: #1f2937; }
+.marks-hidden-notice p { margin-top: .25rem; font-size: .82rem; line-height: 1.45; }
+
+.evaluation-marks-hidden-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: .875rem 1rem;
+  color: #1e3a5f;
+  background: #f0f7ff;
+  border: 1px solid #c7ddf7;
+  border-radius: .75rem;
+}
+
+.evaluation-marks-hidden-banner__icon {
+  display: inline-flex;
+  flex: 0 0 2rem;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  color: #2563eb;
+  background: #dbeafe;
+  border-radius: 50%;
+  font-size: 1.125rem;
+}
+
+.evaluation-marks-hidden-banner__content {
+  min-width: 0;
+}
+
+.evaluation-marks-hidden-banner strong {
+  display: block;
+  color: #1e3a5f;
+  line-height: 1.4;
+}
+
+.evaluation-marks-hidden-banner p {
+  margin-top: .125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 380px) {
+  .evaluation-marks-hidden-banner {
+    padding: .75rem;
+  }
+}

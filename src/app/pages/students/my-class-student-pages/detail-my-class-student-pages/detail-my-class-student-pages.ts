@@ -93,6 +93,15 @@ export class DetailMyClassStudentPages {
     return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.deadline || '';
   }
 
+  get selectedAssignmentIsResubmission(): boolean {
+    if (!this.selectedAssignmentId) return false;
+    return (this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.submitted || 0) > 0;
+  }
+
+  get uploadDialogTitle(): string {
+    return this.selectedAssignmentIsResubmission ? 'Submit Another Draft' : 'Upload Essay';
+  }
+
   assignments: Array<{
     id: string;
     title: string;
@@ -104,6 +113,8 @@ export class DetailMyClassStudentPages {
     resourceId?: string;
     instructions?: string;
     deadline?: string;
+    showMarksToStudent: boolean;
+    allowResubmission: boolean;
   }> = [];
 
   constructor(private router: Router) {}
@@ -254,6 +265,8 @@ export class DetailMyClassStudentPages {
       resourceId: a.resourceId,
       instructions: a.instructions?.trim() || undefined,
       deadline: a.deadline,
+      showMarksToStudent: a.showMarksToStudent !== false,
+      allowResubmission: a.allowResubmission === true,
     };
   }
 
@@ -317,7 +330,24 @@ export class DetailMyClassStudentPages {
     });
   }
 
-  openUpload(assignmentId: string) {
+  async openUpload(assignmentId: string) {
+    const assignment = this.assignments.find((item) => item.id === assignmentId);
+    if (!assignment) return;
+
+    if (assignment.submitted > 0) {
+      if (!assignment.allowResubmission) {
+        this.alert.showWarning('Another draft is unavailable', 'Your teacher has not enabled another draft for this assignment.');
+        return;
+      }
+      const confirmed = await this.alert.showConfirm(
+        'Submit another draft?',
+        'Your new draft will replace the current version used for grading and will be processed again.',
+        'Submit New Draft',
+        'Cancel'
+      );
+      if (!confirmed) return;
+    }
+
     this.selectedAssignmentId = assignmentId;
 
     if (this.device.isMobile() || this.device.isTablet()) {

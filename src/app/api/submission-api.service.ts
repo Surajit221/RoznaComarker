@@ -39,6 +39,7 @@ export type BackendSubmission = {
   fileUrl: string;
   files?: Array<BackendFile | string>;
   fileUrls?: string[];
+  ocrJobId?: string;
   ocrPages?: Array<{
     fileId?: string;
     pageNumber?: number;
@@ -133,12 +134,13 @@ export class SubmissionApiService {
     }
   }
 
-  async getMySubmissionByAssignmentId(assignmentId: string, _cacheBustToken?: string | number | null): Promise<BackendSubmission> {
+  async getMySubmissionByAssignmentId(assignmentId: string, cacheBustToken?: string | number | null): Promise<BackendSubmission> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission>>(
-          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}/my`
+          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}/my`,
+          { params: cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) } }
         )
       );
       return resp.data;

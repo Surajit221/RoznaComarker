@@ -93,3 +93,9 @@
 @media (prefers-reduced-motion: reduce) {
   .upload-info-button, .upload-info-button::after { animation: none; }
 }
+.student-assignment-actions { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; }
+.student-assignment-actions button { color: #374151; font-size: .875rem; text-decoration: underline; }
+.student-assignment-actions button:hover { color: #111827; }
+.student-assignment-actions .student-assignment-actions__resubmit { color: #008081; font-weight: 600; }
+.student-assignment-actions--mobile { align-items: flex-start; }
+.student-assignment-actions--mobile button { font-size: .75rem; }

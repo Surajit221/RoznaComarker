@@ -144,6 +144,27 @@ describe('MySubmissionPage', () => {
     expect(component.activeFileIndex).toBe(1);
   });
 
+  it('invalidates Draft 1 derived state when the same submission id receives Draft 2 files', () => {
+    const draft1 = { _id: 'same-submission', ocrJobId: 'job-1', submittedAt: '2026-08-10T00:00:00Z',
+      files: [{ _id: 'old-1', url: '/uploads/submissions/old-1.png' }, { _id: 'old-2', url: '/uploads/submissions/old-2.png' }] } as any;
+    const draft2 = { _id: 'same-submission', ocrJobId: 'job-2', submittedAt: '2026-08-11T00:00:00Z',
+      files: [{ _id: 'new-1', url: '/uploads/submissions/new-1.png' }] } as any;
+    (component as any).applyCanonicalDraft(draft1, false);
+    component.activeFileIndex = 1;
+    component.annotations = [{ _id: 'old-correction', fileId: 'old-2' }] as any;
+    (component as any).canonicalWritingCorrections = [{ id: 'old-correction', fileId: 'old-2' }];
+    component.transcriptPageViews = [{ key: 'old-2:1' }] as any;
+
+    expect((component as any).applyCanonicalDraft(draft2, true)).toBeTrue();
+    expect(component.submissionFileIds).toEqual(['new-1']);
+    expect(component.activeFileIndex).toBe(0);
+    expect(component.activeFileId).toBe('new-1');
+    expect(component.annotations).toEqual([]);
+    expect((component as any).canonicalWritingCorrections).toEqual([]);
+    expect(component.transcriptPageViews).toEqual([]);
+    expect((component as any).hasLoadedOcrCorrections).toBeFalse();
+  });
+
   it('does not expose fake fixed-category zeros while evaluation is pending', () => {
     component.canonicalResultState = normalizeCanonicalResult({
       evaluationStatus: 'pending', detailedFeedbackStatus: 'pending',
@@ -276,6 +297,80 @@ describe('MySubmissionPage', () => {
     expect(component.feedbacks.length).toBe(6);
     expect(fixture.nativeElement.textContent).not.toContain('View Rubric');
     expect(fixture.nativeElement.textContent).not.toContain('custom rubric');
+  });
+
+  it('hides evaluation marks at every viewport while preserving feedback and teacher comments', () => {
+    component.assignment = { _id: 'assignment-1', showMarksToStudent: false } as any;
+    component.canonicalResultState = normalizeCanonicalResult({
+      submissionId: 'submission-1', correctionStatus: 'completed', semanticStatus: 'completed',
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', evaluationSource: 'ai',
+      overallScore: 81.5, processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    component.feedback = {
+      submissionId: 'submission-1',
+      marksVisible: false,
+      teacherComments: 'Your structure is improving.',
+      rubricScores: {
+        CONTENT: { score: 16, maxScore: 20, comment: 'Your evidence supports the main idea.' },
+        ORGANIZATION: { score: 15, maxScore: 20, comment: 'Your structure is improving.' },
+        GRAMMAR: { score: 21.5, maxScore: 25, comment: 'Review sentence agreement.' },
+        VOCABULARY: { score: 16, maxScore: 20, comment: 'Word choices are generally precise.' },
+        MECHANICS: { score: 8, maxScore: 10, comment: 'Review comma placement.' },
+        PRESENTATION: { score: 5, maxScore: 5, comment: 'Handwriting is clear and readable.' }
+      }
+    } as any;
+    component.teacherComment = 'Your structure is improving.';
+    component.feedbackForm.patchValue({ message: component.teacherComment });
+    component.isUploadedFile = false;
+    component.scoreState = 'loaded';
+    component.feedbackState = 'loaded';
+    component.aiFeedbackState = 'loaded';
+
+    for (const width of [1440, 1280, 1024, 768, 430, 390, 375, 360, 320]) {
+      (component.device as any).width.set(width);
+      fixture.detectChanges();
+
+      const evaluation = fixture.nativeElement.querySelector(
+        width > 1024 ? '#ai-feedback-section' : '#ai-feedback-section-mobile'
+      ) as HTMLElement;
+      const banner = evaluation.querySelector('.evaluation-marks-hidden-banner') as HTMLElement;
+
+      expect(component.marksVisible).withContext(`marks visibility at ${width}px`).toBeFalse();
+      expect(banner).withContext(`hidden-marks banner at ${width}px`).toBeTruthy();
+      expect(banner.textContent).toContain('Marks hidden by teacher');
+      expect(banner.textContent).toContain(
+        'Your teacher has hidden the grading scores for this assignment. You can still review the available feedback and comments.'
+      );
+      expect(evaluation.textContent).toContain('Grammar');
+      expect(evaluation.textContent).toContain('Review sentence agreement.');
+      expect(evaluation.textContent).toContain('Presentation & Handwriting');
+      expect(evaluation.textContent).toContain('Handwriting is clear and readable.');
+      expect(evaluation.textContent).toContain('Teacher Comments');
+      expect(evaluation.querySelector('.score-badge')).toBeNull();
+      expect(evaluation.textContent).not.toContain('21.5 / 25');
+      expect(evaluation.textContent).not.toContain('5.0 / 5');
+      expect((evaluation.querySelector('textarea[formControlName="message"]') as HTMLTextAreaElement).value)
+        .toBe('Your structure is improving.');
+    }
+
+    expect(fixture.nativeElement.textContent).not.toContain('Download PDF');
+
+    // The same persisted evaluation is immediately revealed when the teacher turns marks back on.
+    (component.feedback as any).marksVisible = true;
+    (component.assignment as any).showMarksToStudent = true;
+    for (const width of [1440, 390]) {
+      (component.device as any).width.set(width);
+      fixture.detectChanges();
+      const evaluation = fixture.nativeElement.querySelector(
+        width > 1024 ? '#ai-feedback-section' : '#ai-feedback-section-mobile'
+      ) as HTMLElement;
+
+      expect(component.marksVisible).toBeTrue();
+      expect(evaluation.querySelector('.evaluation-marks-hidden-banner')).toBeNull();
+      expect(evaluation.querySelector('.score-badge')).toBeTruthy();
+      expect(evaluation.textContent).toContain('21.5 / 25');
+      expect(evaluation.textContent).toContain('5.0 / 5');
+    }
   });
 
   it('shows rubric details only when a meaningful assignment rubric exists', () => {

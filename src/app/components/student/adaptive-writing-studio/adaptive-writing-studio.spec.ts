@@ -84,6 +84,28 @@ describe('AdaptiveWritingStudio', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Great work');
   });
 
+  it('shows an explicit hidden-marks state without disabling eligible practice', () => {
+    component.skills = skills.map((skill) => ({ ...skill, earnedPoints: null, maximumPoints: null }));
+    component.marksVisible = false;
+    fixture.detectChanges();
+
+    expect(component.eligibilityReason).toBe('READY');
+    expect(component.canGenerate).toBeTrue();
+    expect(fixture.nativeElement.textContent).toContain('Marks hidden by teacher');
+    expect(fixture.nativeElement.textContent).toContain('Your writing analysis is ready for personalized practice.');
+    expect(fixture.nativeElement.textContent).not.toContain('Not assessed');
+    expect(fixture.nativeElement.textContent).not.toContain('No assessed skills available');
+    expect(Array.from(fixture.nativeElement.querySelectorAll('.skill-card__score'))
+      .every((node: any) => node.textContent.trim() === 'Hidden')).toBeTrue();
+  });
+
+  it('preserves percentage cards when marks are visible', () => {
+    component.marksVisible = true;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('75%');
+    expect(fixture.nativeElement.textContent).not.toContain('Marks hidden by teacher');
+  });
+
   it('shows no weaknesses only when at least one assessed skill is on track', () => {
     component.skills = [{ id: 'grammar', label: 'Grammar', earnedPoints: 24, maximumPoints: 25 }];
     fixture.detectChanges();

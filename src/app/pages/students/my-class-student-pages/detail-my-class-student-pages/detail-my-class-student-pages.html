@@ -104,12 +104,12 @@
                       Upload Essay
                     </p>
                   } @else {
-                    <p
-                      class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
-                      (click)="toViewSubmission(item.id)"
-                    >
-                      View Submissions
-                    </p>
+                    <div class="student-assignment-actions">
+                      <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
+                      @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission) {
+                        <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
+                      }
+                    </div>
                   }
                 </div>
               </div>
@@ -126,7 +126,7 @@
     <div class="upload-modal-header">
       <div>
         <p class="upload-modal-eyebrow">Writing assignment</p>
-        <h2>Upload Essay</h2>
+        <h2>{{ uploadDialogTitle }}</h2>
       </div>
       <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="closeDialog()">
         <i class="bx bx-x" aria-hidden="true"></i>
@@ -198,7 +198,7 @@
         [disabled]="isLoading"
         [class.opacity-50]="isLoading"
       >
-        <i class="bx bx-upload" aria-hidden="true"></i> Upload Essay
+        <i class="bx bx-upload" aria-hidden="true"></i> {{ selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
       </button>
       }
     </div>
@@ -316,12 +316,12 @@
                 Upload Essay
               </p>
             } @else {
-              <p
-                class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
-                (click)="toViewSubmission(item.id)"
-              >
-                View Submissions
-              </p>
+              <div class="student-assignment-actions student-assignment-actions--mobile">
+                <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
+                @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission) {
+                  <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
+                }
+              </div>
             }
           </div>
         </div>
@@ -334,7 +334,7 @@
   <app-bottomsheet-dialog [open]="openSheet" (closed)="onCLoseSheet()">
     <div class="student-sheet-content">
       <div class="upload-modal-header">
-        <div><p class="upload-modal-eyebrow">Writing assignment</p><h2>Upload Essay</h2></div>
+        <div><p class="upload-modal-eyebrow">Writing assignment</p><h2>{{ uploadDialogTitle }}</h2></div>
         <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="onCLoseSheet()"><i class="bx bx-x" aria-hidden="true"></i></button>
       </div>
       <div class="assignment-upload-details">
@@ -393,7 +393,7 @@
         [disabled]="isLoading"
         [class.opacity-50]="isLoading"
       >
-        <i class="bx bx-upload" aria-hidden="true"></i> Upload Essay
+        <i class="bx bx-upload" aria-hidden="true"></i> {{ selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
       </button>
       <button
         type="button"

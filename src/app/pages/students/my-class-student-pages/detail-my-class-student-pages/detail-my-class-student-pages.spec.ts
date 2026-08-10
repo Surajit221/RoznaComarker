@@ -26,4 +26,36 @@ describe('DetailMyClassStudentPages', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('requires confirmation before opening the existing uploader for another draft', async () => {
+    component.assignments = [{
+      id: 'assignment-1', title: 'Essay', dueDate: '', submitted: 1, total: 1,
+      status: 'completed', showMarksToStudent: true, allowResubmission: true
+    }];
+    const alert = (component as any).alert;
+    const confirm = spyOn(alert, 'showConfirm').and.resolveTo(false);
+
+    await component.openUpload('assignment-1');
+    expect(confirm).toHaveBeenCalledWith(
+      'Submit another draft?',
+      'Your new draft will replace the current version used for grading and will be processed again.',
+      'Submit New Draft',
+      'Cancel'
+    );
+    expect(component.showDialog).toBeFalse();
+    expect(component.openSheet).toBeFalse();
+  });
+
+  it('does not open the uploader when another draft is disabled', async () => {
+    component.assignments = [{
+      id: 'assignment-1', title: 'Essay', dueDate: '', submitted: 1, total: 1,
+      status: 'completed', showMarksToStudent: true, allowResubmission: false
+    }];
+    const warning = spyOn((component as any).alert, 'showWarning');
+
+    await component.openUpload('assignment-1');
+
+    expect(warning).toHaveBeenCalled();
+    expect(component.selectedAssignmentId).toBeNull();
+  });
 });

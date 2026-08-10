@@ -24,6 +24,8 @@ export type BackendAssignment = {
   teacher: any;
   qrToken: string;
   allowLateResubmission?: boolean;
+  showMarksToStudent?: boolean;
+  allowResubmission?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -91,6 +93,8 @@ export class AssignmentApiService {
     rubric?: any;
     rubrics?: any;
     allowLateResubmission?: boolean;
+    showMarksToStudent?: boolean;
+    allowResubmission?: boolean;
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
     resourceId?: string;
   }): Promise<BackendAssignment> {
@@ -137,6 +141,8 @@ export class AssignmentApiService {
       rubrics?: any;
       deadline?: string;
       allowLateResubmission?: boolean;
+      showMarksToStudent?: boolean;
+      allowResubmission?: boolean;
     }
   ): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();

@@ -7,6 +7,10 @@ h2, h3, h4, p { margin: 0; }
 h2 { color: var(--color-navy-dark); font-size: 1.55rem; font-weight: 700; }
 .studio__subtitle-row { flex-wrap: wrap; gap: 12px; margin-top: 5px; color: var(--color-text-muted); font-size: .9rem; }
 .safety-badge { padding: 4px 10px; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; font-size: .75rem; }
+.marks-hidden-banner { display: flex; align-items: flex-start; gap: 12px; margin-top: 20px; padding: 14px 16px; color: #1e3a5f; background: #f0f7ff; border: 1px solid #c7ddf7; border-radius: var(--radius-md); }
+.marks-hidden-banner__icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 auto; color: #2563eb; background: #dbeafe; border-radius: 50%; font-size: 1.1rem; }
+.marks-hidden-banner strong { display: block; font-size: .88rem; }
+.marks-hidden-banner p { margin-top: 3px; color: #49647f; font-size: .78rem; line-height: 1.45; }
 .studio__actions { gap: 24px; flex: 0 0 auto; }
 .progress { width: 230px; }
 .progress__label { justify-content: space-between; margin-bottom: 8px; font-size: .78rem; }
@@ -28,6 +32,7 @@ button:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 3
 .skill-card--needs-practice { background: #fffaf0; border-top-color: #ed8b00; }.skill-card--needs-practice .skill-card__status { color: #d97706; }
 .skill-card--on-track { background: #f2fbfa; border-top-color: var(--color-primary); }.skill-card--on-track .skill-card__status { color: var(--color-primary); }
 .skill-card--not-assessed .skill-card__status { color: var(--color-text-muted); }
+.skill-card--hidden { background: #f8fbff; border-top-color: #60a5fa; }.skill-card--hidden .skill-card__score { color: #315b85; font-size: 1.25rem; }.skill-card--hidden .skill-card__status { align-items: flex-start; color: #526d88; line-height: 1.35; }.skill-card--hidden .skill-card__status span { margin-top: 2px; background: #60a5fa; }
 .skill-card__practice { margin-top: 8px; color: var(--color-primary-dark); font-size: .72rem; font-weight: 600; }
 .status-region:empty { display: none; }
 .loading-panel, .error-panel, .success-message { margin-top: 22px; padding: 16px; border-radius: var(--radius-md); }
@@ -50,5 +55,6 @@ button:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 3
 .grade-note { margin-top: 20px; color: var(--color-text-muted); font-size: .72rem; text-align: center; }
 @keyframes spin { to { transform: rotate(360deg); } } @keyframes enter { from { opacity: 0; transform: translateY(8px); } }
 @media (max-width: 1100px) { .studio__header { align-items: flex-start; flex-direction: column; }.studio__actions { width: 100%; justify-content: space-between; }.skills { grid-template-columns: repeat(3, minmax(150px, 1fr)); } }
-@media (max-width: 700px) { .studio { padding: 18px; overflow: visible; }.studio__actions { align-items: stretch; flex-direction: column; gap: 14px; }.progress { width: 100%; }.generate-button { width: 100%; }.skills { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }.skill-card { flex: 0 0 72%; scroll-snap-align: start; }.practice-grid { grid-template-columns: minmax(0, 1fr); }.practice-card__buttons { flex-direction: column; }.practice-card__buttons button { width: 100%; }.error-panel { align-items: stretch; flex-direction: column; }.error-panel button { width: 100%; } }
+@media (max-width: 700px) { .studio { padding: 18px; overflow: visible; }.studio__actions { align-items: stretch; flex-direction: column; gap: 14px; }.progress { width: 100%; }.generate-button { width: 100%; }.marks-hidden-banner p { overflow-wrap: anywhere; }.skills { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }.skill-card { flex: 0 0 72%; scroll-snap-align: start; }.practice-grid { grid-template-columns: minmax(0, 1fr); }.practice-card__buttons { flex-direction: column; }.practice-card__buttons button { width: 100%; }.error-panel { align-items: stretch; flex-direction: column; }.error-panel button { width: 100%; } }
+@media (max-width: 380px) { .studio { padding: 14px; }.marks-hidden-banner { padding: 12px; }.skill-card { flex-basis: 84%; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

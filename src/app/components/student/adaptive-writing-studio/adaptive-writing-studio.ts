@@ -53,6 +53,15 @@ export class AdaptiveWritingStudio {
   get submissionId(): string { return this.submissionIdValue; }
 
   @Input() previewEnabled = environment.adaptivePracticeFixtureEnabled;
+  @Input() set marksVisible(value: boolean | null | undefined) {
+    this._marksVisible = value !== false;
+    if (!this._marksVisible && this.state === 'unassessed' && !this.activities.length) this.state = 'idle';
+    if (this._marksVisible && this.state === 'idle' && !this.activities.length) this.state = this.skillSummaryState();
+    this.cdr.markForCheck();
+  }
+  get marksVisible(): boolean { return this._marksVisible; }
+  private _marksVisible = true;
+
   @Input() set skills(value: readonly AdaptiveSkillScore[] | null | undefined) {
     const list = Array.isArray(value) ? value : [];
     this.normalizedSkills = list.map((skill) => this.normalizeSkill(skill));
@@ -116,6 +125,7 @@ export class AdaptiveWritingStudio {
     if (canonical.semanticStatus === 'failed' || ['failed', 'blocked'].includes(canonical.evaluationStatus)) return 'SEMANTIC_FAILED';
     if (!canonical.correctionSourceHash || canonical.evaluationStatus !== 'completed'
       || canonical.evaluationSourceHash !== canonical.correctionSourceHash) return 'STALE_EVALUATION';
+    if (!this.marksVisible) return 'READY';
     if (!this.weakSkills.length) return 'NO_WEAK_SKILLS';
     return 'READY';
   }
@@ -127,7 +137,9 @@ export class AdaptiveWritingStudio {
       SEMANTIC_FAILED: 'Practice is unavailable because semantic writing analysis failed.',
       STALE_EVALUATION: 'Practice is unavailable until the evaluation matches the latest corrections.',
       NO_WEAK_SKILLS: this.assessedSkillCount ? 'No weak skills currently require adaptive practice.' : 'No assessed skills are available yet.',
-      READY: 'Your current writing analysis is ready for personalized practice.',
+      READY: this.marksVisible
+        ? 'Your current writing analysis is ready for personalized practice.'
+        : 'Your writing analysis is ready for personalized practice.',
       GENERATING: 'A single practice generation job is in progress.',
       ALREADY_GENERATED: 'Your generated practice is ready below.',
       RETRYABLE_FAILURE: this.errorMessage || 'Generation failed temporarily. You can try again.',

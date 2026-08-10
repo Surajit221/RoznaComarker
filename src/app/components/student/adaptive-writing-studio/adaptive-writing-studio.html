@@ -23,12 +23,22 @@
     </div>
   </header>
 
+  @if (!marksVisible) {
+    <div class="marks-hidden-banner" role="status">
+      <span class="marks-hidden-banner__icon" aria-hidden="true"><i class="bx bx-hide"></i></span>
+      <div>
+        <strong>Marks hidden by teacher</strong>
+        <p>Your teacher has hidden grading scores for this assignment. You can still review your feedback and complete your personalized practice.</p>
+      </div>
+    </div>
+  }
+
   <div class="skills" aria-label="Writing skill scores">
     @for (skill of normalizedSkills; track skill.id) {
-      <article class="skill-card" [class]="'skill-card skill-card--' + skill.status">
+      <article class="skill-card" [class]="marksVisible ? 'skill-card skill-card--' + skill.status : 'skill-card skill-card--hidden'">
         <h3>{{ skill.label }}</h3>
-        <p class="skill-card__score">{{ skill.percentage === null ? '—' : skill.percentage + '%' }}</p>
-        <p class="skill-card__status"><span aria-hidden="true"></span>{{ skill.statusLabel }}</p>
+        <p class="skill-card__score">{{ marksVisible ? (skill.percentage === null ? '—' : skill.percentage + '%') : 'Hidden' }}</p>
+        <p class="skill-card__status"><span aria-hidden="true"></span>{{ marksVisible ? skill.statusLabel : 'Marks hidden by teacher' }}</p>
         @if (bestPracticeScore(skill.id) !== null) { <p class="skill-card__practice">Best practice: {{ bestPracticeScore(skill.id) }}%</p> }
       </article>
     }
@@ -50,7 +60,7 @@
     @if (state === 'no-weaknesses') {
       <p class="success-message">Great work — all assessed writing skills are currently on track.</p>
     }
-    @if (state === 'unassessed') {
+    @if (state === 'unassessed' && marksVisible) {
       <p class="success-message">No assessed skills available.</p>
     }
     @if (state === 'error') {
