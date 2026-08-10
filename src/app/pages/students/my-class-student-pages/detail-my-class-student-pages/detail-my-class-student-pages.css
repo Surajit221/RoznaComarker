@@ -1,0 +1,95 @@
+.assignment-section-heading {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+}
+
+.upload-info-button {
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid #99d5d5;
+  border-radius: 50%;
+  background: #ecfafa;
+  color: #008081;
+  animation: uploadInfoAttention 1.15s ease-in-out 3;
+  transition: background .2s ease, transform .2s ease, border-color .2s ease;
+}
+
+.upload-info-button::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid rgba(0, 128, 129, .22);
+  border-radius: 50%;
+  animation: uploadInfoRing 1.15s ease-out 3;
+}
+
+.upload-info-button i { font-size: 1.35rem; }
+.upload-info-button:hover { background: #d9f4f4; border-color: #008081; transform: translateY(-1px); }
+.upload-info-button:focus-visible, .upload-modal-close:focus-visible { outline: 3px solid rgba(0, 128, 129, .25); outline-offset: 2px; }
+
+@keyframes uploadInfoAttention {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.08); }
+}
+
+@keyframes uploadInfoRing {
+  0% { opacity: 0; transform: scale(.82); }
+  45% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.18); }
+}
+
+.student-assignment-card { min-width: 0; overflow: hidden; }
+.upload-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
+.upload-modal-eyebrow { color: #008081; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: .25rem; }
+.upload-modal-header h2 { color: #1f2937; font-size: 1.75rem; line-height: 1.2; font-weight: 700; }
+.upload-modal-close { width: 2.5rem; height: 2.5rem; flex: 0 0 2.5rem; display: grid; place-items: center; border-radius: .75rem; background: #f3f4f6; color: #4b5563; transition: background .2s ease, color .2s ease; }
+.upload-modal-close:hover { background: #e5e7eb; color: #111827; }
+.upload-modal-close i { font-size: 1.5rem; }
+.assignment-upload-details { display: grid; gap: .7rem; margin-bottom: 1.35rem; }
+.assignment-upload-detail { min-width: 0; display: grid; grid-template-columns: 2.35rem minmax(0,1fr); align-items: flex-start; gap: .75rem; padding: .8rem .9rem; border: 1px solid #e5e7eb; border-radius: 1rem; background: #f9fafb; }
+.assignment-upload-detail__icon { width: 2.35rem; height: 2.35rem; border-radius: .75rem; display: grid; place-items: center; background: #e6f5f5; color: #008081; }
+.assignment-upload-detail__icon i { font-size: 1.2rem; }
+.assignment-upload-detail__label { color: #6b7280; font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: .15rem; }
+.assignment-upload-detail__value { color: #1f2937; font-size: .95rem; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere; }
+.assignment-upload-detail__copy { color: #4b5563; font-size: .86rem; line-height: 1.5; overflow-wrap: anywhere; }
+.deadline-row { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem 1rem; color: #374151; font-size: .85rem; font-weight: 600; }
+.deadline-row span { display: inline-flex; align-items: center; gap: .3rem; }
+.deadline-row i { color: #008081; font-size: 1rem; }
+.upload-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: .65rem; }
+.upload-section-heading p { color: #1f2937; font-size: .95rem; font-weight: 700; }
+.upload-section-heading span { color: #6b7280; font-size: .75rem; }
+.upload-modal-actions { display: flex; justify-content: flex-end; align-items: center; gap: .75rem; margin-top: 1.5rem; }
+.upload-modal-actions .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; }
+.student-sheet-content { max-height: calc(100dvh - 2.5rem); overflow-x: hidden; overflow-y: auto; padding: 0 .15rem .25rem; overscroll-behavior: contain; }
+.student-sheet-content--guidelines { padding-bottom: .75rem; }
+
+@media (max-width: 768px) {
+  .student-assignment-card { padding: .9rem; }
+  .upload-modal-header { position: sticky; top: 0; z-index: 2; background: white; padding: .1rem 0 .65rem; margin-bottom: .75rem; }
+  .upload-modal-header h2 { font-size: 1.35rem; }
+  .assignment-upload-details { margin-bottom: 1rem; gap: .55rem; }
+  .assignment-upload-detail { padding: .7rem; grid-template-columns: 2.1rem minmax(0,1fr); gap: .65rem; }
+  .assignment-upload-detail__icon { width: 2.1rem; height: 2.1rem; }
+}
+
+@media (max-width: 430px) {
+  .upload-info-button { width: 2.1rem; height: 2.1rem; flex-basis: 2.1rem; }
+  .deadline-row { flex-direction: column; align-items: flex-start; gap: .25rem; }
+  .upload-modal-actions { flex-direction: column-reverse; align-items: stretch; }
+  .upload-modal-actions button { width: 100%; }
+}
+
+@media (max-width: 360px) {
+  .assignment-upload-detail { grid-template-columns: 1.9rem minmax(0,1fr); padding: .62rem; }
+  .assignment-upload-detail__icon { width: 1.9rem; height: 1.9rem; border-radius: .6rem; }
+  .upload-section-heading span { font-size: .7rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-info-button, .upload-info-button::after { animation: none; }
+}

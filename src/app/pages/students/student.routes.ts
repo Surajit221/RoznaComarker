@@ -15,6 +15,7 @@ import { StudentWorksheetViewer } from './student-worksheet-viewer/student-works
 import { StudentResultsPage } from './student-results-page/student-results-page';
 import { StudentWorksheetResultsPage } from './student-worksheet-results/student-worksheet-results';
 import { StudentWorksheetPageComponent } from './student-worksheet-page/student-worksheet-page';
+import { AssignmentQrRedirect } from './assignment-qr-redirect/assignment-qr-redirect';
 
 export const STUDENT_ROUTE: Routes = [
   {
@@ -31,6 +32,7 @@ export const STUDENT_ROUTE: Routes = [
       { path: 'join-class', component: JoinClassLinkPages },
       { path: 'classroom/:classId', component: DetailMyClassStudentPages },
       { path: 'handwritten-ocr', component: HandwrittenOcrPage },
+      { path: 'assignments/qr/:qrToken', component: AssignmentQrRedirect },
       /* ── Learning tool routes (Issue 3) ─────────────────── */
       { path: 'flashcard-player/:flashcardSetId', component: StudentFlashcardPlayer },
       { path: 'worksheet-viewer/:worksheetId',    component: StudentWorksheetViewer },

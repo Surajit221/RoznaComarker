@@ -1,0 +1,49 @@
+:host { display: block; }
+
+.guidelines { color: #1f2937; }
+.guidelines__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.guidelines__eyebrow { color: #008081; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: .3rem; }
+.guidelines__header h2 { font-size: 1.75rem; line-height: 1.2; font-weight: 700; color: #1f2937; }
+.guidelines__header p:last-child { color: #6b7280; font-size: .9rem; line-height: 1.55; margin-top: .55rem; max-width: 620px; }
+.guidelines__close { width: 2.5rem; height: 2.5rem; flex: 0 0 2.5rem; border-radius: .75rem; display: grid; place-items: center; color: #4b5563; background: #f3f4f6; transition: background .2s ease, color .2s ease; }
+.guidelines__close:hover { color: #111827; background: #e5e7eb; }
+.guidelines__close:focus-visible { outline: 3px solid rgba(0,128,129,.25); outline-offset: 2px; }
+.guidelines__close i { font-size: 1.5rem; }
+.guidelines__section + .guidelines__section { margin-top: 1.35rem; }
+.guidelines__section-title { display: flex; align-items: center; gap: .55rem; margin-bottom: .75rem; }
+.guidelines__section-title span { width: 1.55rem; height: 1.55rem; border-radius: 50%; display: grid; place-items: center; color: white; }
+.guidelines__section-title h3 { font-size: .9rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.guidelines__section--positive .guidelines__section-title span { background: #16a34a; }
+.guidelines__section--positive .guidelines__section-title h3 { color: #15803d; }
+.guidelines__section--negative .guidelines__section-title span { background: #dc2626; }
+.guidelines__section--negative .guidelines__section-title h3 { color: #b91c1c; }
+.guidelines__grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .75rem; }
+.guideline-card { min-width: 0; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 1rem; padding: .5rem; background: #fff; }
+.guideline-card__image { width: 100%; height: 132px; overflow: hidden; border-radius: .7rem; background: #fff; display: grid; place-items: center; }
+.guideline-card__image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.guideline-card__caption { min-width: 0; padding: .7rem .35rem .3rem; display: flex; align-items: flex-start; gap: .5rem; }
+.guideline-card__indicator { width: 1.35rem; height: 1.35rem; flex: 0 0 1.35rem; border-radius: 50%; display: grid; place-items: center; color: #fff; margin-top: .05rem; }
+.guideline-card__indicator i { font-size: 1rem; }
+.guideline-card p { font-size: .85rem; line-height: 1.4; font-weight: 600; }
+.guidelines__section--positive .guideline-card { background: #f0fdf4; border-color: #bbf7d0; }
+.guidelines__section--positive .guideline-card__indicator { background: #16a34a; }
+.guidelines__section--negative .guideline-card { background: #fef2f2; border-color: #fecaca; }
+.guidelines__section--negative .guideline-card__indicator { background: #dc2626; }
+.guidelines__notice { margin-top: 1.5rem; border-radius: 1rem; background: #eff6ff; color: #1e3a5f; padding: .9rem 1rem; display: flex; align-items: flex-start; gap: .65rem; }
+.guidelines__notice i { color: #2563eb; font-size: 1.25rem; margin-top: .05rem; }
+.guidelines__notice p { font-size: .85rem; line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .guidelines__grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .guidelines__header h2 { font-size: 1.4rem; }
+}
+
+@media (max-width: 480px) {
+  .guidelines__header { margin-bottom: 1.15rem; }
+  .guidelines__header h2 { font-size: 1.25rem; }
+  .guidelines__header p:last-child { font-size: .82rem; }
+  .guidelines__grid { grid-template-columns: 1fr; gap: .55rem; }
+  .guideline-card__image { height: clamp(150px, 48vw, 190px); }
+  .guidelines__section + .guidelines__section { margin-top: 1rem; }
+  .guidelines__notice { margin-top: 1rem; }
+}

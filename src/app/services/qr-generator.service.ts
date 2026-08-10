@@ -5,10 +5,18 @@ import { environment } from '../../environments/environment';
   providedIn: 'root'
 })
 export class QrGeneratorService {
+  private getFrontendBaseUrl(): string {
+    const configuredUrl = environment.FRONTEND_URL || '';
+    if (environment.production) return configuredUrl.replace(/\/+$/, '');
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin.replace(/\/+$/, '');
+    }
+    return configuredUrl.replace(/\/+$/, '');
+  }
   
   generateClassJoinUrl(joinCode: string): string {
     // Generate a proper URL format for QR codes
-    const baseUrl = (environment as any).FRONTEND_URL || '';
+    const baseUrl = this.getFrontendBaseUrl();
     
     return `${baseUrl}/student/join-class?joinCode=${encodeURIComponent(joinCode)}`;
   }
@@ -20,8 +28,13 @@ export class QrGeneratorService {
     return joinCode;
   }
 
+  generateAssignmentUrl(qrToken: string): string {
+    const baseUrl = this.getFrontendBaseUrl();
+    return `${baseUrl}/student/assignments/qr/${encodeURIComponent(qrToken)}`;
+  }
+
   generateFlashcardSetUrl(flashcardSetId: string): string {
-    const baseUrl = (environment as any).FRONTEND_URL || '';
+    const baseUrl = this.getFrontendBaseUrl();
     return `${baseUrl}/flashcards/${flashcardSetId}`;
   }
 

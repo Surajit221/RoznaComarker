@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, Input, Output } from '@angular/core';
 import { QrCodeComponent } from 'ng-qrcode';
 import { DeviceService } from '../../../../../services/device.service';
 import { AlertService } from '../../../../../services/alert.service';
@@ -12,9 +12,11 @@ import { AlertService } from '../../../../../services/alert.service';
 export class DialogQrClasses {
   @Input() qrValue: string = '';
   @Input() classTitle: string = '';
+  @Input() instructionText: string = '';
   @Output() closed = new EventEmitter<void>();
   device = inject(DeviceService);
   private alert = inject(AlertService);
+  private host = inject(ElementRef<HTMLElement>);
   dismissible: any;
 
   closeDialog() {
@@ -24,7 +26,7 @@ export class DialogQrClasses {
   downloadQRCode() {
     try {
       // Find the QR code element
-      const qrElement = document.querySelector('qr-code canvas') as HTMLCanvasElement;
+      const qrElement = this.host.nativeElement.querySelector('qr-code canvas') as HTMLCanvasElement;
       
       if (!qrElement) {
         this.alert.showError('Download Failed', 'QR code not found. Please try again.');

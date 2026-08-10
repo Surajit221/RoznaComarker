@@ -18,10 +18,11 @@ import { NotificationRealtimeService } from '../../../../services/notification-r
 import { AssignmentStateService } from '../../../../services/assignment-state.service';
 import { WorksheetApiService } from '../../../../api/worksheet-api.service';
 import { Subscription } from 'rxjs';
+import { UploadGuidelines } from './upload-guidelines/upload-guidelines';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
-  imports: [CommonModule, ModalDialog, UploadEssayForm, BottomsheetDialog, AppBarBackButton, ErrorModal],
+  imports: [CommonModule, ModalDialog, UploadEssayForm, UploadGuidelines, BottomsheetDialog, AppBarBackButton, ErrorModal],
   templateUrl: './detail-my-class-student-pages.html',
   styleUrl: './detail-my-class-student-pages.css',
 })
@@ -31,6 +32,8 @@ export class DetailMyClassStudentPages {
 
   showDialog = false;
   openSheet = false;
+  showGuidelinesDialog = false;
+  openGuidelinesSheet = false;
   device = inject(DeviceService);
 
   private route = inject(ActivatedRoute);
@@ -75,6 +78,21 @@ export class DetailMyClassStudentPages {
 
   selectedAssignmentId: string | null = null;
 
+  get selectedAssignmentInstructions(): string {
+    if (!this.selectedAssignmentId) return '';
+    return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.instructions || '';
+  }
+
+  get selectedAssignmentTitle(): string {
+    if (!this.selectedAssignmentId) return '';
+    return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.title || '';
+  }
+
+  get selectedAssignmentDeadline(): string {
+    if (!this.selectedAssignmentId) return '';
+    return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.deadline || '';
+  }
+
   assignments: Array<{
     id: string;
     title: string;
@@ -84,6 +102,8 @@ export class DetailMyClassStudentPages {
     status: 'waiting' | 'pending' | 'in-progress' | 'completed';
     resourceType?: string;
     resourceId?: string;
+    instructions?: string;
+    deadline?: string;
   }> = [];
 
   constructor(private router: Router) {}
@@ -92,6 +112,16 @@ export class DetailMyClassStudentPages {
     this.classId = this.route.snapshot.paramMap.get('slug') || this.route.snapshot.paramMap.get('classId');
     await this.loadClassSummary();
     await this.loadAssignments();
+
+    const linkedAssignmentId = this.route.snapshot.queryParamMap.get('assignmentId');
+    if (linkedAssignmentId && this.assignments.some((assignment) => assignment.id === linkedAssignmentId)) {
+      const linkedAssignment = this.assignments.find((assignment) => assignment.id === linkedAssignmentId)!;
+      if (linkedAssignment.status === 'completed') {
+        this.toViewSubmission(linkedAssignmentId);
+      } else {
+        this.openUpload(linkedAssignmentId);
+      }
+    }
 
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
@@ -222,7 +252,24 @@ export class DetailMyClassStudentPages {
       status,
       resourceType: a.resourceType,
       resourceId: a.resourceId,
+      instructions: a.instructions?.trim() || undefined,
+      deadline: a.deadline,
     };
+  }
+
+  openUploadGuidelines(): void {
+    if (this.device.isMobile() || this.device.isTablet()) {
+      document.body.classList.add('overflow-hidden');
+      this.openGuidelinesSheet = true;
+      return;
+    }
+    this.showGuidelinesDialog = true;
+  }
+
+  closeUploadGuidelines(): void {
+    document.body.classList.remove('overflow-hidden');
+    this.showGuidelinesDialog = false;
+    this.openGuidelinesSheet = false;
   }
 
   async loadAssignments() {

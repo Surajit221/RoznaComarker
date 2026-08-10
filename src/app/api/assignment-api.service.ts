@@ -200,6 +200,16 @@ export class AssignmentApiService {
     return resp.data;
   }
 
+  async getAssignmentByQrToken(qrToken: string): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/qr/${encodeURIComponent(qrToken)}`
+      )
+    );
+    return resp.data;
+  }
+
   async getStaleEvaluationSummary(assignmentId: string): Promise<StaleEvaluationSummary> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(this.http.get<BackendResponse<StaleEvaluationSummary>>(
