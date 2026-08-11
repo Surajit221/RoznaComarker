@@ -321,6 +321,7 @@
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
       (closed)="closeDialogSubmission()"
+      (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
   </app-modal-dialog>
 
@@ -693,6 +694,7 @@
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
       (closed)="onCloseSubmission()"
+      (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
   </app-bottomsheet-dialog>
 

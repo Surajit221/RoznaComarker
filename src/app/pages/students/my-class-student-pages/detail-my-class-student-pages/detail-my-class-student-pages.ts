@@ -125,12 +125,13 @@ export class DetailMyClassStudentPages {
     await this.loadAssignments();
 
     const linkedAssignmentId = this.route.snapshot.queryParamMap.get('assignmentId');
+    const openResubmission = this.route.snapshot.queryParamMap.get('resubmit') === 'true';
     if (linkedAssignmentId && this.assignments.some((assignment) => assignment.id === linkedAssignmentId)) {
       const linkedAssignment = this.assignments.find((assignment) => assignment.id === linkedAssignmentId)!;
-      if (linkedAssignment.status === 'completed') {
+      if (linkedAssignment.status === 'completed' && !openResubmission) {
         this.toViewSubmission(linkedAssignmentId);
       } else {
-        this.openUpload(linkedAssignmentId);
+        await this.openUpload(linkedAssignmentId);
       }
     }
 

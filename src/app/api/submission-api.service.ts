@@ -171,6 +171,13 @@ export class SubmissionApiService {
     }
   }
 
+  async removeSubmission(submissionId: string): Promise<void> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    await firstValueFrom(this.http.delete(
+      `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}`
+    ));
+  }
+
   async regenerateCanonicalCorrections(submissionId: string): Promise<void> {
     const apiBaseUrl = this.getApiBaseUrl();
     await firstValueFrom(this.http.post(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections/regenerate`, {}));

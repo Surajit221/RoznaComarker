@@ -29,8 +29,16 @@ export interface NormalizedAdaptiveSkill extends AdaptiveSkillScore {
   statusLabel: string;
 }
 
+export interface AdaptiveLearningSkill {
+  skillId: AdaptiveRubricSkillId;
+  skillLabel: string;
+  adaptivePercentage: number;
+  status: Exclude<AdaptiveSkillStatus, 'not-assessed'>;
+}
+
 export interface AdaptivePracticeActivity {
   id: string;
+  questionType?: 'open_response' | 'mcq' | 'fill_blank';
   skillId: AdaptiveRubricSkillId;
   category: string;
   title: string;
@@ -39,7 +47,8 @@ export interface AdaptivePracticeActivity {
   task: string;
   tip: string;
   checklist: readonly string[];
-  modelAnswer: string;
+  modelAnswer?: string;
+  options?: readonly { id: string; text: string }[];
   difficulty: 'foundational' | 'developing' | 'proficient';
   isDevelopmentPreview: boolean;
 }
@@ -50,6 +59,7 @@ export interface AdaptivePracticeSession {
   status: 'generating' | 'ready' | 'failed';
   activities: readonly {
     activityId: string;
+    questionType?: 'open_response' | 'mcq' | 'fill_blank';
     skillId: AdaptiveRubricSkillId;
     category: string;
     title: string;
@@ -58,7 +68,8 @@ export interface AdaptivePracticeSession {
     task: string;
     tip: string;
     checklist: readonly string[];
-    modelAnswer: string;
+    modelAnswer?: string;
+    options?: readonly { id: string; text: string }[];
     difficulty: 'foundational' | 'developing' | 'proficient';
   }[];
   generation?: { errorMessage?: string };
@@ -68,12 +79,14 @@ export interface AdaptivePracticeSessionResponse {
   state: 'idle' | 'generating' | 'ready' | 'failed' | 'no-weaknesses';
   session: AdaptivePracticeSession | null;
   progress?: AdaptivePracticeProgress;
+  adaptiveSkills?: readonly AdaptiveLearningSkill[];
 }
 
 export interface AdaptivePracticeAttemptResult {
   score: number; passed: boolean; summary: string; strength: string; nextImprovement: string;
   checklist: readonly { item: string; met: boolean; feedback: string }[];
   suggestedRevision: string;
+  modelAnswer?: string;
   scoring: { taskFulfillment: number; targetSkillApplication: number; checklistCompletion: number };
 }
 
@@ -90,6 +103,7 @@ export interface AdaptiveActivityProgress {
 
 export interface AdaptivePracticeProgress {
   improvedActivities: number; totalActivities: number; percentage: number;
+  completedActivities?: number; requiredActivityCount?: number; completed?: boolean;
   activities: readonly AdaptiveActivityProgress[];
 }
 

@@ -1,5 +1,13 @@
-<div class="mb-6 flex flex-row justify-start items-center">
-  <h1 class="text-4xl text-center font-bold text-gray-800">Reports</h1>
+<div class="report-heading mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+  <h1 class="text-4xl font-bold text-gray-800">Reports</h1>
+  <div class="report-class-filter">
+    <label for="report-class-filter" class="block text-sm font-semibold text-gray-700 mb-1">Class</label>
+    <select id="report-class-filter" class="input-text bg-white" [value]="selectedClassId"
+      [disabled]="isLoading" (change)="onClassChange(($any($event.target)).value)">
+      <option value="">All Classes</option>
+      <option *ngFor="let classItem of teacherClasses" [value]="classItem._id">{{ classItem.name }}</option>
+    </select>
+  </div>
 </div>
 <!-- Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -184,6 +192,11 @@
                 <i class="fas fa-trash"></i>
               </button>
             </div>
+          </td>
+        </tr>
+        <tr *ngIf="!isLoading && pagedRows.length === 0">
+          <td colspan="6" class="px-6 py-10 text-center text-sm text-gray-500">
+            {{ selectedClassId ? 'No students found for this class.' : 'No reportable students found.' }}
           </td>
         </tr>
       </tbody>

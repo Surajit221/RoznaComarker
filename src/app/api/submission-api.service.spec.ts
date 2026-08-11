@@ -42,4 +42,12 @@ describe('SubmissionApiService canonical reads', () => {
     retryRequest.flush({ success: true });
     await retry;
   });
+
+  it('uses the teacher submission removal endpoint with DELETE', async () => {
+    const removal = service.removeSubmission('submission/unsafe');
+    const req = http.expectOne(`${environment.apiUrl}/submissions/submission%2Funsafe`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ success: true, message: 'Submission removed successfully.' });
+    await removal;
+  });
 });

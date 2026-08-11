@@ -23,22 +23,12 @@
     </div>
   </header>
 
-  @if (!marksVisible) {
-    <div class="marks-hidden-banner" role="status">
-      <span class="marks-hidden-banner__icon" aria-hidden="true"><i class="bx bx-hide"></i></span>
-      <div>
-        <strong>Marks hidden by teacher</strong>
-        <p>Your teacher has hidden grading scores for this assignment. You can still review your feedback and complete your personalized practice.</p>
-      </div>
-    </div>
-  }
-
-  <div class="skills" aria-label="Writing skill scores">
+  <div class="skills" aria-label="Adaptive writing analysis">
     @for (skill of normalizedSkills; track skill.id) {
-      <article class="skill-card" [class]="marksVisible ? 'skill-card skill-card--' + skill.status : 'skill-card skill-card--hidden'">
+      <article [class]="'skill-card skill-card--' + skill.status">
         <h3>{{ skill.label }}</h3>
-        <p class="skill-card__score">{{ marksVisible ? (skill.percentage === null ? '—' : skill.percentage + '%') : 'Hidden' }}</p>
-        <p class="skill-card__status"><span aria-hidden="true"></span>{{ marksVisible ? skill.statusLabel : 'Marks hidden by teacher' }}</p>
+        <p class="skill-card__score">{{ skill.percentage === null ? '—' : skill.percentage + '%' }}</p>
+        <p class="skill-card__status"><span aria-hidden="true"></span>{{ skill.statusLabel }}</p>
         @if (bestPracticeScore(skill.id) !== null) { <p class="skill-card__practice">Best practice: {{ bestPracticeScore(skill.id) }}%</p> }
       </article>
     }
@@ -59,9 +49,6 @@
     }
     @if (state === 'no-weaknesses') {
       <p class="success-message">Great work — all assessed writing skills are currently on track.</p>
-    }
-    @if (state === 'unassessed' && marksVisible) {
-      <p class="success-message">No assessed skills available.</p>
     }
     @if (state === 'error') {
       <div class="error-panel" role="alert">
@@ -96,35 +83,72 @@
               <ul>@for (item of activity.checklist; track item) { <li>{{ item }}</li> }</ul>
             </details>
 
-            <label [for]="'practice-response-' + activity.id">Your improved version</label>
-            <textarea [id]="'practice-response-' + activity.id" rows="4" placeholder="Write your improved version here…" [value]="responses[activity.id] || ''" (input)="updateResponse(activity.id, $any($event.target).value)"></textarea>
+            @if (questionType(activity) === 'mcq') {
+              <fieldset class="mcq-options">
+                <legend>Select one answer</legend>
+                @for (option of activity.options || []; track option.id) {
+                  <label class="mcq-option" [class.mcq-option--selected]="responses[activity.id] === option.id">
+                    <input type="radio" [name]="'practice-response-' + activity.id" [value]="option.id"
+                      [checked]="responses[activity.id] === option.id"
+                      [disabled]="checkStates[activity.id] === 'checking'"
+                      (change)="updateResponse(activity.id, option.id)" />
+                    <span class="mcq-option__id">{{ option.id }}</span><span>{{ option.text }}</span>
+                  </label>
+                }
+              </fieldset>
+            } @else if (questionType(activity) === 'fill_blank') {
+              <label [for]="'practice-response-' + activity.id">Answer for the blank</label>
+              <input class="fill-blank-input" [id]="'practice-response-' + activity.id" type="text"
+                autocomplete="off" placeholder="Type the missing word or phrase"
+                [value]="responses[activity.id] || ''"
+                (input)="updateResponse(activity.id, $any($event.target).value)" />
+            } @else {
+              <label [for]="'practice-response-' + activity.id">Your improved version</label>
+              <textarea [id]="'practice-response-' + activity.id" rows="4" placeholder="Write your improved version here…" [value]="responses[activity.id] || ''" (input)="updateResponse(activity.id, $any($event.target).value)"></textarea>
+            }
 
             <div class="practice-card__buttons">
-              <button type="button" class="primary-button" (click)="check(activity)" [disabled]="(responses[activity.id] || '').trim().length < 10 || checkStates[activity.id] === 'checking'">
-                @if (checkStates[activity.id] === 'checking') { <span class="spinner spinner--teal" aria-hidden="true"></span> Checking… } @else { Check My Writing }
+              <button type="button" class="primary-button" (click)="check(activity)" [disabled]="!canCheck(activity)">
+                @if (checkStates[activity.id] === 'checking') { <span class="spinner spinner--teal" aria-hidden="true"></span> Checking… } @else { Check Answer }
               </button>
-              <button type="button" class="secondary-button" (click)="toggleModel(activity)" [attr.aria-expanded]="expandedModels.has(activity.id)">Show Model Answer</button>
+              @if (questionType(activity) === 'open_response' && (activity.modelAnswer || attempts[activity.id]?.result?.modelAnswer)) {
+                <button type="button" class="secondary-button" (click)="toggleModel(activity)" [attr.aria-expanded]="expandedModels.has(activity.id)">Show Model Answer</button>
+              }
             </div>
             @if (checkErrors[activity.id]) {
               <div class="attempt-error" role="alert"><p>{{ checkErrors[activity.id] }}</p><button type="button" class="secondary-button" (click)="retryCheck(activity)">Try Again</button></div>
             }
             @if (attempts[activity.id]?.result; as result) {
-              <section class="attempt-result" [class.attempt-result--passed]="result.passed" aria-live="polite">
-                <div class="attempt-result__score"><strong>{{ result.score }}%</strong><span>{{ result.passed ? 'Improved' : 'Keep practicing' }}</span></div>
-                <p>{{ result.summary }}</p>
-                <p><strong>Strength:</strong> {{ result.strength }}</p>
-                <p><strong>Next improvement:</strong> {{ result.nextImprovement }}</p>
-                <ul>@for (item of result.checklist; track item.item) { <li [class.met]="item.met">{{ item.met ? '✓' : '○' }} {{ item.item }} — {{ item.feedback }}</li> }</ul>
-                <details><summary>Suggested revision</summary><p>{{ result.suggestedRevision }}</p></details>
-                <p class="attempt-number">Attempt {{ attempts[activity.id].attemptNumber }} · Best {{ progress.activities[index]?.bestScore ?? result.score }}%</p>
+              <section class="attempt-result" [class.attempt-result--passed]="result.passed" role="status" aria-live="polite">
+                @if (questionType(activity) === 'open_response') {
+                  <div class="attempt-result__score"><strong>{{ result.score }}%</strong><span>{{ result.passed ? 'Improved' : 'Keep practicing' }}</span></div>
+                  <p>{{ result.summary }}</p>
+                  <p><strong>Strength:</strong> {{ result.strength }}</p>
+                  <p><strong>Next improvement:</strong> {{ result.nextImprovement }}</p>
+                  <ul>@for (item of result.checklist; track item.item) { <li [class.met]="item.met">{{ item.met ? '✓' : '○' }} {{ item.item }} — {{ item.feedback }}</li> }</ul>
+                  <details><summary>Suggested revision</summary><p>{{ result.suggestedRevision }}</p></details>
+                  <p class="attempt-number">Attempt {{ attempts[activity.id].attemptNumber }} · Best {{ progress.activities[index]?.bestScore ?? result.score }}%</p>
+                } @else {
+                  <div class="deterministic-result"><strong>{{ result.passed ? 'Correct' : 'Not quite' }}</strong><span>{{ result.nextImprovement }}</span></div>
+                }
               </section>
             }
             @if (expandedModels.has(activity.id)) {
-              <div class="model-answer"><strong>Example model answer</strong><p>{{ activity.modelAnswer }}</p></div>
+              <div class="model-answer"><strong>Example model answer</strong><p>{{ activity.modelAnswer || attempts[activity.id]?.result?.modelAnswer }}</p></div>
             }
           </article>
         }
       </div>
+      @if (practiceCompleted) {
+        <section class="completion-panel" role="status" aria-live="polite">
+          <div><h3>Adaptive Practice Completed</h3><p>You’ve completed your personalized activities.</p></div>
+          @if (allowResubmission) {
+            <button type="button" class="primary-button completion-panel__cta" (click)="requestNewDraft()">Submit Another Draft</button>
+          } @else {
+            <p class="completion-panel__waiting">Your teacher has not enabled another draft yet.</p>
+          }
+        </section>
+      }
       <p class="grade-note">Practice scores are saved separately and never change the original assignment grade.</p>
     </div>
   }

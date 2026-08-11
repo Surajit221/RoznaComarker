@@ -1091,6 +1091,11 @@ export class DetailMyClassesPages {
     this.selectedAssignmentId = null;
   }
 
+  async onSubmissionRemoved(): Promise<void> {
+    if (this.classId) this.classApi.clearClassCache(this.classId);
+    await Promise.all([this.loadAssignments(), this.loadClassSummary(true)]);
+  }
+
   closeDialogQRClasses() {
     this.showDialogQRClasses = false;
   }

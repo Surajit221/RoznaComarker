@@ -347,6 +347,23 @@ export class MySubmissionPage {
     return this.assignment?.showMarksToStudent !== false;
   }
 
+  get allowResubmission(): boolean {
+    return this.assignment?.allowResubmission === true;
+  }
+
+  submitNewDraft(): void {
+    if (!this.allowResubmission || !this.assignmentId) return;
+    if (this.classId) {
+      this.router.navigate(['/student/my-classes/detail', this.classId], {
+        queryParams: { assignmentId: this.assignmentId, resubmit: true }
+      });
+      return;
+    }
+    this.router.navigate(['/student/my-classes'], {
+      queryParams: { assignmentId: this.assignmentId, resubmit: true }
+    });
+  }
+
   get submissionTitle(): string {
     const a: any = this.submission && (this.submission as any).assignment;
     const title = a && typeof a === 'object' ? (a.title || a.name) : '';

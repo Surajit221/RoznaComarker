@@ -772,8 +772,9 @@
     <app-adaptive-writing-studio
       [submissionId]="submission?._id || ''"
       [skills]="adaptiveSkillScores"
-      [marksVisible]="marksVisible"
-      [canonicalResultState]="canonicalResultState">
+      [canonicalResultState]="canonicalResultState"
+      [allowResubmission]="allowResubmission"
+      (submitNewDraft)="submitNewDraft()">
     </app-adaptive-writing-studio>
   </div>
 

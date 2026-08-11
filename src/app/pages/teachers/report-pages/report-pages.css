@@ -1,0 +1,14 @@
+.report-class-filter {
+  width: min(100%, 20rem);
+}
+
+.report-class-filter select {
+  width: 100%;
+}
+
+@media (max-width: 639px) {
+  .report-heading,
+  .report-class-filter {
+    width: 100%;
+  }
+}
