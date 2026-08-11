@@ -24,6 +24,14 @@ export type BackendMySubscription = {
   planStartedAt: string | null;
   planExpiresAt: string | null;
   usage: BackendSubscriptionUsage;
+  billing: {
+    customerConfigured: boolean;
+    subscriptionId: string | null;
+    status: string | null;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    paymentIssue: boolean;
+  } | null;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -61,5 +69,30 @@ export class SubscriptionApiService {
       this.logHttpError('getMySubscription', err);
       throw err;
     }
+  }
+
+  async getCheckoutPlan(): Promise<BackendPlan> {
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<BackendPlan>>(`${this.getApiBaseUrl()}/subscription/checkout-plan`)
+    );
+    return resp.data;
+  }
+
+  async createCheckoutSession(planSlug: string, checkoutAttemptId: string): Promise<{ clientSecret: string }> {
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<{ clientSecret: string }>>(
+        `${this.getApiBaseUrl()}/subscription/checkout-session`, { planSlug, checkoutAttemptId }
+      )
+    );
+    return resp.data;
+  }
+
+  async createCustomerPortal(): Promise<{ url: string }> {
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<{ url: string }>>(
+        `${this.getApiBaseUrl()}/subscription/customer-portal`, {}
+      )
+    );
+    return resp.data;
   }
 }

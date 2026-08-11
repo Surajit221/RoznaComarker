@@ -1,0 +1,41 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.student-class-menu-wrap {
+  flex: 0 0 auto;
+}
+
+.student-class-menu-button {
+  touch-action: manipulation;
+}
+
+.student-class-menu {
+  max-width: min(11rem, calc(100vw - 2rem));
+}
+
+.student-class-menu > button {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: .5rem;
+  padding: .65rem 1rem;
+  color: #374151;
+  font-size: .875rem;
+  text-align: left;
+}
+
+.student-class-menu > button:hover,
+.student-class-menu > button:focus-visible {
+  background: #f3f4f6;
+  outline: none;
+}
+
+@media (max-width: 767px) {
+  .student-class-menu--mobile > button {
+    min-height: 3rem;
+    font-size: .9375rem;
+  }
+}

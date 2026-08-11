@@ -40,10 +40,24 @@
           <small class="text-xs">{{ formatLastEdited() }}</small>
         </div>
 
-        <div
-          class="h-9 w-9 bg-[#EBEBEB] rounded-lg flex justify-center items-center hover:bg-[#d6d6d6]"
-        >
-          <i class="bx bx-dots-vertical-rounded text-xl"></i>
+        <div class="student-class-menu-wrap relative">
+          <button type="button" class="student-class-menu-button h-9 w-9 bg-[#EBEBEB] rounded-lg flex justify-center items-center hover:bg-[#d6d6d6]"
+            aria-label="Class actions" aria-haspopup="menu" [attr.aria-expanded]="menuOpen" (click)="onMenuClick($event)">
+            <i class="bx bx-dots-vertical-rounded text-xl" aria-hidden="true"></i>
+          </button>
+          @if (menuOpen) {
+          <div class="student-class-menu absolute right-0 bottom-full mb-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+            role="menu" (click)="onMenuPanelClick($event)">
+            <button type="button" role="menuitem" (click)="onViewClass($event)">
+              <i class="bx bx-show text-lg text-[#136C6D]" aria-hidden="true"></i><span>View Class</span>
+            </button>
+            @if (joinCode) {
+            <button type="button" role="menuitem" (click)="onCopyClassCode($event)">
+              <i class="bx bx-copy text-lg text-[#136C6D]" aria-hidden="true"></i><span>Copy Class Code</span>
+            </button>
+            }
+          </div>
+          }
         </div>
       </div>
     </div>
@@ -58,8 +72,8 @@
     (click)="toDetailMyClasses()"
   >
     <img [src]="image || 'img/default-img.png'" class="w-20 h-20 rounded-xl object-cover" alt="class image" />
-    <div class="flex flex-col w-full">
-      <div class="flex flex-row justify-between w-full items-center">
+    <div class="flex flex-col flex-1 min-w-0">
+      <div class="flex flex-row justify-between gap-1 w-full items-center">
         <div class="flex flex-row gap-1 items-center">
           <i class="bx bx-clipboard text-sm"></i>
           <p class="text-xs">{{ assignments }} Assignments</p>
@@ -68,6 +82,26 @@
         <div class="flex flex-row gap-1 items-center">
           <i class="bx bxs-check-square text-sm text-teal-600"></i>
           <p class="text-xs">Joined</p>
+        </div>
+
+        <div class="student-class-menu-wrap relative">
+          <button type="button" class="student-class-menu-button h-10 w-10 bg-[#EBEBEB] rounded-lg flex justify-center items-center hover:bg-[#d6d6d6]"
+            aria-label="Class actions" aria-haspopup="menu" [attr.aria-expanded]="menuOpen" (click)="onMenuClick($event)">
+            <i class="bx bx-dots-vertical-rounded text-xl" aria-hidden="true"></i>
+          </button>
+          @if (menuOpen) {
+          <div class="student-class-menu student-class-menu--mobile absolute right-0 top-full mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+            role="menu" (click)="onMenuPanelClick($event)">
+            <button type="button" role="menuitem" (click)="onViewClass($event)">
+              <i class="bx bx-show text-lg text-[#136C6D]" aria-hidden="true"></i><span>View Class</span>
+            </button>
+            @if (joinCode) {
+            <button type="button" role="menuitem" (click)="onCopyClassCode($event)">
+              <i class="bx bx-copy text-lg text-[#136C6D]" aria-hidden="true"></i><span>Copy Class Code</span>
+            </button>
+            }
+          </div>
+          }
         </div>
       </div>
 

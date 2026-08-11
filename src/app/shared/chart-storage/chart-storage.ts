@@ -1,9 +1,8 @@
-import { Component, Input, SimpleChanges } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Component, EventEmitter, Input, Output, SimpleChanges } from '@angular/core';
 
 @Component({
   selector: 'app-chart-storage',
-  imports: [RouterModule],
+  imports: [],
   templateUrl: './chart-storage.html',
   styleUrl: './chart-storage.css',
 })
@@ -12,6 +11,8 @@ export class ChartStorage {
   @Input() total: number = 15; // Total GB
   @Input() strokeColor: string = '#3b82f6'; // Default blue color
   @Input() size: number = 200; // Size in pixels
+  @Input() planButtonLabel: string = 'Upgrade Plan';
+  @Output() planButtonClick = new EventEmitter<void>();
 
   percentage: number = 0;
   circumference: number = 0;

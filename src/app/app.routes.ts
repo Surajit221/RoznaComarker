@@ -1,6 +1,22 @@
 import { Routes } from '@angular/router';
+import { TeacherGuard } from './auth/teacher.guard';
 
 export const routes: Routes = [
+  {
+    path: 'checkout/starter',
+    canActivate: [TeacherGuard],
+    loadComponent: () => import('./pages/checkout/checkout').then((m) => m.CheckoutComponent),
+  },
+  {
+    path: 'checkout/success',
+    canActivate: [TeacherGuard],
+    loadComponent: () => import('./pages/checkout/checkout-success').then((m) => m.CheckoutSuccessComponent),
+  },
+  {
+    path: 'checkout/cancel',
+    canActivate: [TeacherGuard],
+    loadComponent: () => import('./pages/checkout/checkout-cancel').then((m) => m.CheckoutCancelComponent),
+  },
   {
     path: '',
     redirectTo: '',

@@ -46,6 +46,7 @@ export class MyClassStudentPages {
     submissions: number;
     description: string;
     lastEdited: string;
+    joinCode: string;
   }> = [];
 
   classes: Array<{
@@ -58,6 +59,7 @@ export class MyClassStudentPages {
     submissions: number;
     description: string;
     lastEdited: string;
+    joinCode: string;
   }> = [];
 
   async ngOnInit() {
@@ -132,7 +134,8 @@ export class MyClassStudentPages {
         assignments: summary.assignmentsCount || 0,
         submissions: summary.submissionsCount || 0,
         description: c?.description || '',
-        lastEdited: summary.lastEdited || ''
+        lastEdited: summary.lastEdited || '',
+        joinCode: summary.joinCode || c?.joinCode || ''
       };
     } catch (err) {
       // Fallback if summary fails
@@ -145,7 +148,8 @@ export class MyClassStudentPages {
         assignments: 0,
         submissions: 0,
         description: c?.description || '',
-        lastEdited: ''
+        lastEdited: '',
+        joinCode: c?.joinCode || ''
       };
     }
   }

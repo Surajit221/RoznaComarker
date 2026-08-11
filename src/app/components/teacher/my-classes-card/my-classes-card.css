@@ -1,0 +1,35 @@
+:host {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  :host {
+    height: 100%;
+  }
+
+  .teacher-class-card {
+    height: 100%;
+  }
+
+  .teacher-class-card__body {
+    flex: 1 1 auto;
+  }
+
+  .teacher-class-card__content {
+    min-width: 0;
+  }
+
+  .teacher-class-card__description {
+    display: -webkit-box;
+    min-height: 2.5rem;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+
+  .teacher-class-card__footer {
+    margin-top: auto;
+  }
+}

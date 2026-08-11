@@ -11,24 +11,41 @@ type BackendResponse<T> = {
 };
 
 export type BackendPlan = {
-  _id: string;
   name: string;
+  slug: 'free' | 'starter_monthly' | 'custom' | string;
   price: number | null;
-  durationDays: number | null;
-  limits: {
+  currency: string;
+  billingInterval: string | null;
+  popular: boolean;
+  features: {
+    maxClasses: number | null;
+    maxStudents: number | null;
+    essayAnalysesPerMonth: number | null;
+    storageMB: number | null;
+    aiFlashcards: boolean;
+    aiFlashcardsLimit: number | null;
+    aiWorksheets: boolean;
+    aiWorksheetsLimit: number | null;
+    adaptiveLearning: boolean;
+    adaptiveLearningLimit: number | null;
+    priorityAIProcessing: boolean;
+    analyticsAccess: boolean;
+    dedicatedSupport: boolean;
+  };
+  display: {
+    title: string;
+    description: string | null;
+    priceLabel: string | null;
+    cta: string | null;
+  };
+  // /subscription/me still returns the complete legacy Plan document.
+  limits?: {
     classes: number | null;
     assignments: number | null;
     students: number | null;
     submissions: number | null;
     storageMB: number | null;
   };
-  createdAt: string;
-  isActive: boolean;
-  isPopular: boolean;
-  billingType: 'monthly' | 'yearly' | 'custom';
-  stripePriceId: string | null;
-  badgeText?: string | null;
-  description?: string | null;
 };
 
 @Injectable({ providedIn: 'root' })

@@ -11,6 +11,7 @@ export const environment = {
   apiBaseUrl: `${backendOrigin}/api`,
 
   FRONTEND_URL: 'http://localhost:4200',
+  stripePublishableKey: 'pk_test_replace_me',
 
   firebase: {
     apiKey: 'AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM',

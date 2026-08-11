@@ -1,8 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 
-import { PricingPlan, PricingPlansApiService } from '../../api/pricing-plans-api.service';
+import { BackendPlan, PlansApiService } from '../../api/plans-api.service';
+import { AuthService } from '../../auth/auth.service';
+import { SubscriptionApiService } from '../../api/subscription-api.service';
+
+type PricingFeature = {
+  label: string;
+  value: string;
+};
 
 @Component({
   selector: 'app-pricing',
@@ -14,103 +21,134 @@ import { PricingPlan, PricingPlansApiService } from '../../api/pricing-plans-api
 export class PricingComponent {
   isLoading = true;
   errorMessage: string | null = null;
+  plans: BackendPlan[] = [];
+  readonly authenticatedRole: string | null;
+  starterActive = false;
 
-  allPlans: PricingPlan[] = [];
-
-  constructor(private plansApi: PricingPlansApiService) {}
+  constructor(
+    private plansApi: PlansApiService,
+    auth: AuthService,
+    private router: Router,
+    private subscriptionApi: SubscriptionApiService
+  ) {
+    this.authenticatedRole = auth.getBackendRole();
+  }
 
   async ngOnInit(): Promise<void> {
     await this.loadPlans();
+    if (this.authenticatedRole === 'teacher') {
+      try {
+        const subscription = await this.subscriptionApi.getMySubscription();
+        this.starterActive = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(subscription.billing?.status || '');
+      } catch { /* public pricing remains usable */ }
+    }
   }
 
   async loadPlans(): Promise<void> {
     try {
       this.isLoading = true;
       this.errorMessage = null;
-      this.allPlans = await this.plansApi.getActivePlans();
-    } catch (err) {
-      this.errorMessage = 'Failed to load plans';
-      this.allPlans = [];
+      const order = new Map([
+        ['free', 0],
+        ['starter_monthly', 1],
+        ['custom', 2]
+      ]);
+      this.plans = (await this.plansApi.getActivePlans()).sort(
+        (left, right) =>
+          (order.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
+            (order.get(right.slug) ?? Number.MAX_SAFE_INTEGER) ||
+          left.slug.localeCompare(right.slug)
+      );
+    } catch {
+      this.errorMessage = 'Plans are temporarily unavailable. Please try again later.';
+      this.plans = [];
     } finally {
       this.isLoading = false;
     }
   }
 
-  get freePlan(): PricingPlan | null {
-    return this.allPlans.find((p) => p.slug === 'free') || null;
-  }
-
-  get expertPlan(): PricingPlan | null {
-    return this.allPlans.find((p) => p.slug === 'expert') || null;
-  }
-
-  get researcherPlan(): PricingPlan | null {
-    return this.allPlans.find((p) => p.slug === 'researcher') || null;
-  }
-
-  formatPrice(plan: PricingPlan | null): string {
-    if (!plan) return '';
-    if (typeof plan.price !== 'number') return '';
-
+  formatPrice(plan: BackendPlan): string {
+    if (typeof plan.price !== 'number') return plan.display.priceLabel || 'Custom';
     if (plan.price === 0) return '$0';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: plan.currency || 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(plan.price);
   }
 
-  formatPeriod(plan: PricingPlan | null): string {
-    if (!plan) return '';
-    return '';
+  formatPeriod(plan: BackendPlan): string {
+    return typeof plan.price === 'number' && plan.price > 0 && plan.billingInterval
+      ? `/${plan.billingInterval}`
+      : '';
   }
 
-  limitsList(plan: PricingPlan | null): Array<{ label: string; value: any }> {
-    if (!plan) return [];
-    const f = plan.features || ({} as any);
-    return [
-      { label: 'Classes', value: f.classes ?? null },
-      { label: 'Students', value: f.maxStudentsPerClass ?? null },
-      { label: 'Essays/month', value: f.essaysPerMonth ?? null },
-      { label: 'Storage', value: { storageMB: f.storageMB ?? null, storageGB: f.storageGB ?? null } },
-      { label: 'AI tokens', value: f.aiTokens ?? null },
-      { label: 'Priority AI processing', value: !!f.priorityProcessing },
-      { label: 'Analytics access', value: !!f.analyticsAccess }
+  featuresFor(plan: BackendPlan): PricingFeature[] {
+    const features = plan.features;
+    const rows: PricingFeature[] = [
+      { label: 'Classes', value: this.formatCapacity(plan, features.maxClasses) },
+      { label: 'Students', value: this.formatCapacity(plan, features.maxStudents) },
+      {
+        label: 'Essay analyses/month',
+        value: features.essayAnalysesPerMonth === null
+          ? 'Custom'
+          : String(features.essayAnalysesPerMonth)
+      },
+      {
+        label: 'AI Flashcards',
+        value: this.formatAiFeature(features.aiFlashcards, features.aiFlashcardsLimit)
+      },
+      {
+        label: 'AI Worksheets',
+        value: this.formatAiFeature(features.aiWorksheets, features.aiWorksheetsLimit)
+      },
+      {
+        label: 'Adaptive Learning',
+        value: this.formatAiFeature(features.adaptiveLearning, features.adaptiveLearningLimit)
+      },
+      { label: 'Storage', value: this.formatStorage(features.storageMB) },
+      { label: 'Priority AI processing', value: features.priorityAIProcessing ? 'Yes' : 'No' },
+      { label: 'Analytics access', value: features.analyticsAccess ? 'Yes' : 'No' }
     ];
-  }
 
-  private isUnlimitedValue(value: unknown): boolean {
-    if (value === null || typeof value === 'undefined') return true;
-    if (typeof value === 'string' && value.toLowerCase() === 'unlimited') return true;
-    return false;
-  }
-
-  formatLimitValue(label: string, value: any): string {
-    if (label === 'Storage') {
-      const mb = value?.storageMB;
-      const gb = value?.storageGB;
-      if (typeof gb === 'number' && Number.isFinite(gb)) return `${gb} GB`;
-      if (typeof mb === 'number' && Number.isFinite(mb)) return `${mb} MB`;
-      return 'Unlimited';
+    if (features.dedicatedSupport) {
+      rows.push({ label: 'Dedicated support', value: 'Included' });
     }
 
-    if (label === 'Priority AI processing' || label === 'Analytics access') {
-      return value ? 'Yes' : 'No';
-    }
+    return rows;
+  }
 
-    if (label === 'AI tokens') {
-      if (this.isUnlimitedValue(value)) return 'Unlimited';
-      if (typeof value === 'string') {
-        const v = value.toLowerCase();
-        if (v === 'limited') return 'Limited';
-        if (v === 'unlimited') return 'Unlimited';
-        return value;
+  isUpgradeDisabled(plan: BackendPlan): boolean {
+    return plan.slug === 'starter_monthly' && this.authenticatedRole === 'student';
+  }
+
+  async onPlanAction(plan: BackendPlan): Promise<void> {
+    if (plan.slug === 'starter_monthly') {
+      if (this.authenticatedRole !== 'teacher') {
+        await this.router.navigate(this.authenticatedRole === 'student' ? ['/student/dashboard'] : ['/login']);
+      } else if (this.starterActive) {
+        const portal = await this.subscriptionApi.createCustomerPortal();
+        window.location.assign(portal.url);
+      } else {
+        await this.router.navigate(['/checkout/starter']);
       }
-      return String(value);
     }
+  }
 
-    if (this.isUnlimitedValue(value)) return 'Unlimited';
-    return String(value);
+  private formatCapacity(plan: BackendPlan, value: number | null): string {
+    if (value === null) return 'Unlimited';
+    return plan.slug === 'starter_monthly' ? `Up to ${value}` : String(value);
+  }
+
+  private formatAiFeature(enabled: boolean, limit: number | null): string {
+    if (!enabled) return 'No';
+    return typeof limit === 'number' ? 'Limited' : 'Included';
+  }
+
+  private formatStorage(storageMB: number | null): string {
+    if (storageMB === null) return 'Custom';
+    if (storageMB >= 1024 && storageMB % 1024 === 0) return `${storageMB / 1024} GB`;
+    return `${storageMB} MB`;
   }
 }

@@ -1,12 +1,12 @@
 <ng-container>
   @if(device.isDesktop()){
   <div
-    class="bg-white p-4 border-[3px] border-[#E7E7E7] rounded-3xl flex flex-col gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747]"
+    class="teacher-class-card bg-white p-4 border-[3px] border-[#E7E7E7] rounded-3xl flex flex-col gap-4 hover:border-[#136C6D] hover:shadow-[0px_6px_0_#136C6D] cursor-pointer text-[#474747]"
     (click)="toDetailMyClasses()"
   >
     <img [src]="image || 'img/default-img.png'" class="w-full h-32 rounded-xl object-cover" alt="class image" />
 
-    <div class="flex flex-col gap-3">
+    <div class="teacher-class-card__body flex flex-col gap-3">
       <div class="flex flex-row justify-between flex-wrap gap-4 items-center">
         <div class="flex flex-row gap-1 items-center">
           <i class="bx bxs-user text-xs"></i>
@@ -19,7 +19,7 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-1">
+      <div class="teacher-class-card__content flex flex-col gap-1">
         <div class="relative group w-full">
           <h1 class="block w-full text-lg font-bold truncate cursor-pointer">
             {{ title }}
@@ -30,11 +30,11 @@
             {{ title }}
           </div>
         </div>
-        <p class="text-sm line-clamp-2">
+        <p class="teacher-class-card__description text-sm line-clamp-2">
           {{ description }}
         </p>
       </div>
-      <div class="flex flex-row justify-between items-center">
+      <div class="teacher-class-card__footer flex flex-row justify-between items-center">
         <div class="flex flex-row gap-1 items-center">
           <i class="bx bx-history text-xs"></i>
           <small class="text-xs">{{ formatLastEdited() }}</small>
