@@ -17,8 +17,9 @@ import { TeacherDashboardStateService } from '../../../../services/teacher-dashb
 import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
 import { AssignmentStateService } from '../../../../services/assignment-state.service';
 import { WorksheetApiService } from '../../../../api/worksheet-api.service';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { UploadGuidelines } from './upload-guidelines/upload-guidelines';
+import { AdaptivePracticeApiService } from '../../../../api/adaptive-practice-api.service';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
@@ -51,6 +52,7 @@ export class DetailMyClassStudentPages {
   private pendingAssignmentsRefresh = false;
   private assignmentState = inject(AssignmentStateService);
   private worksheetApi    = inject(WorksheetApiService);
+  private adaptivePracticeApi = inject(AdaptivePracticeApiService);
 
   classId: string | null = null;
   isLoading = false;
@@ -115,6 +117,8 @@ export class DetailMyClassStudentPages {
     deadline?: string;
     showMarksToStudent: boolean;
     allowResubmission: boolean;
+    requireAdaptiveBeforeResubmission?: boolean;
+    adaptiveResubmissionSatisfied?: boolean;
   }> = [];
 
   constructor(private router: Router) {}
@@ -222,6 +226,7 @@ export class DetailMyClassStudentPages {
     // Check if student has submitted this assignment
     let status: 'waiting' | 'pending' | 'in-progress' | 'completed' = 'waiting';
     let submitted = 0;
+    let submissionId: string | null = null;
     let total = 1; // Each assignment has 1 total submission slot
 
     try {
@@ -244,6 +249,7 @@ export class DetailMyClassStudentPages {
         if (submission) {
           submitted = 1;
           status = 'completed';
+          submissionId = String(submission._id || '');
         }
       }
     } catch (err) {
@@ -253,6 +259,17 @@ export class DetailMyClassStudentPages {
     // Update status based on deadline
     if (deadline && deadline.getTime() < Date.now() && status === 'waiting') {
       status = 'pending'; // Overdue
+    }
+
+    const requireAdaptiveBeforeResubmission = a.requireAdaptiveBeforeResubmission === true;
+    let adaptiveResubmissionSatisfied = !requireAdaptiveBeforeResubmission;
+    if (submitted > 0 && a.allowResubmission === true && requireAdaptiveBeforeResubmission && submissionId) {
+      try {
+        const adaptive = await firstValueFrom(this.adaptivePracticeApi.getSession(submissionId));
+        adaptiveResubmissionSatisfied = adaptive.state === 'no-weaknesses' || adaptive.progress?.completed === true;
+      } catch {
+        adaptiveResubmissionSatisfied = false;
+      }
     }
 
     return {
@@ -268,6 +285,8 @@ export class DetailMyClassStudentPages {
       deadline: a.deadline,
       showMarksToStudent: a.showMarksToStudent !== false,
       allowResubmission: a.allowResubmission === true,
+      requireAdaptiveBeforeResubmission,
+      adaptiveResubmissionSatisfied,
     };
   }
 
@@ -338,6 +357,14 @@ export class DetailMyClassStudentPages {
     if (assignment.submitted > 0) {
       if (!assignment.allowResubmission) {
         this.alert.showWarning('Another draft is unavailable', 'Your teacher has not enabled another draft for this assignment.');
+        return;
+      }
+      if (assignment.requireAdaptiveBeforeResubmission && !assignment.adaptiveResubmissionSatisfied) {
+        this.alert.showWarning(
+          'Complete Adaptive Learning first',
+          'Complete Adaptive Learning for your current draft before submitting another draft.'
+        );
+        this.toViewSubmission(assignmentId);
         return;
       }
       const confirmed = await this.alert.showConfirm(

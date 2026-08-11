@@ -5,8 +5,10 @@
 .assignment-setting strong { color: #1f2937; font-size: .875rem; }
 .assignment-setting small { color: #6b7280; font-size: .75rem; line-height: 1.4; }
 .assignment-setting input { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; accent-color: #008081; }
+.assignment-setting--dependent { margin-left: 1.5rem; border-left: 3px solid #b7dede; }
 
 @media (max-width: 480px) {
   .assignment-settings { padding: .8rem; }
   .assignment-setting { align-items: flex-start; }
+  .assignment-setting--dependent { margin-left: 0; }
 }

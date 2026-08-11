@@ -26,12 +26,39 @@ describe('AssignmentForm', () => {
   it('uses safe defaults for new and historical assignments', () => {
     expect(component.classForm.value.showMarksToStudent).toBeTrue();
     expect(component.classForm.value.allowResubmission).toBeFalse();
+    expect(component.classForm.value.requireAdaptiveBeforeResubmission).toBeFalse();
 
     component.assignment = { _id: 'assignment-1', title: 'Historical assignment' } as any;
     (component as any).applyAssignmentToForm();
 
     expect(component.classForm.value.showMarksToStudent).toBeTrue();
     expect(component.classForm.value.allowResubmission).toBeFalse();
+    expect(component.classForm.value.requireAdaptiveBeforeResubmission).toBeFalse();
+  });
+
+  it('normalizes the dependent adaptive requirement when another draft is disabled', () => {
+    component.classForm.patchValue({ allowResubmission: true, requireAdaptiveBeforeResubmission: true });
+    component.classForm.patchValue({ allowResubmission: false });
+    component.onAllowResubmissionChange();
+    fixture.detectChanges();
+
+    expect(component.classForm.value.requireAdaptiveBeforeResubmission).toBeFalse();
+    expect(fixture.nativeElement.textContent).not.toContain('Require Adaptive Learning first');
+  });
+
+  it('persists the adaptive requirement only when another draft is enabled', async () => {
+    component.assignment = { _id: 'assignment-1', title: 'Essay' } as any;
+    component.classForm.patchValue({ className: 'Essay', writingType: 'essay', startDate: '2099-08-11',
+      message: 'Write clearly.', allowResubmission: true, requireAdaptiveBeforeResubmission: true });
+    const api = (component as any).assignmentApi;
+    spyOn(api, 'updateAssignment').and.resolveTo({ _id: 'assignment-1', title: 'Essay' });
+    spyOn((component as any).alert, 'showToast');
+
+    await (component as any).handleSubmit();
+
+    expect(api.updateAssignment).toHaveBeenCalledWith('assignment-1', jasmine.objectContaining({
+      allowResubmission: true, requireAdaptiveBeforeResubmission: true
+    }));
   });
 
   it('shows update success only after the API resolves successfully', async () => {

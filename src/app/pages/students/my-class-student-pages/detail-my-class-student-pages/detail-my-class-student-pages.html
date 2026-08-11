@@ -106,8 +106,10 @@
                   } @else {
                     <div class="student-assignment-actions">
                       <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
-                      @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission) {
+                      @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && (!item.requireAdaptiveBeforeResubmission || item.adaptiveResubmissionSatisfied)) {
                         <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
+                      } @else if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && item.requireAdaptiveBeforeResubmission) {
+                        <p class="student-assignment-actions__adaptive-required">Complete Adaptive Learning before another draft.</p>
                       }
                     </div>
                   }
@@ -318,8 +320,10 @@
             } @else {
               <div class="student-assignment-actions student-assignment-actions--mobile">
                 <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
-                @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission) {
+                @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && (!item.requireAdaptiveBeforeResubmission || item.adaptiveResubmissionSatisfied)) {
                   <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
+                } @else if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && item.requireAdaptiveBeforeResubmission) {
+                  <p class="student-assignment-actions__adaptive-required">Complete Adaptive Learning before another draft.</p>
                 }
               </div>
             }

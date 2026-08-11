@@ -97,5 +97,7 @@
 .student-assignment-actions button { color: #374151; font-size: .875rem; text-decoration: underline; }
 .student-assignment-actions button:hover { color: #111827; }
 .student-assignment-actions .student-assignment-actions__resubmit { color: #008081; font-weight: 600; }
+.student-assignment-actions__adaptive-required { max-width: 16rem; color: #6b7280; font-size: .75rem; line-height: 1.35; text-align: right; }
 .student-assignment-actions--mobile { align-items: flex-start; }
 .student-assignment-actions--mobile button { font-size: .75rem; }
+.student-assignment-actions--mobile .student-assignment-actions__adaptive-required { text-align: left; }

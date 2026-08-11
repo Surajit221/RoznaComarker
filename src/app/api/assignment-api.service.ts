@@ -26,6 +26,7 @@ export type BackendAssignment = {
   allowLateResubmission?: boolean;
   showMarksToStudent?: boolean;
   allowResubmission?: boolean;
+  requireAdaptiveBeforeResubmission?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -95,6 +96,7 @@ export class AssignmentApiService {
     allowLateResubmission?: boolean;
     showMarksToStudent?: boolean;
     allowResubmission?: boolean;
+    requireAdaptiveBeforeResubmission?: boolean;
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
     resourceId?: string;
   }): Promise<BackendAssignment> {
@@ -143,6 +145,7 @@ export class AssignmentApiService {
       allowLateResubmission?: boolean;
       showMarksToStudent?: boolean;
       allowResubmission?: boolean;
+      requireAdaptiveBeforeResubmission?: boolean;
     }
   ): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();
