@@ -140,38 +140,51 @@
   @if(device.isTablet() || device.isMobile()){
   <div class="min-h-screen bg-[#F3F3F3] flex flex-col">
     @if (showBottomNav() && !isFullScreen()) {
-    <div
-      class="w-full py-4 flex flex-row justify-between items-center px-4 fixed bg-[#F3F3F3] top-0 left-0 right-0 z-40">
-      <div class="flex items-center gap-2">
-        <img src="./img/logo.png" class="w-8" alt="" />
-        <h1 class="font-bold text-xl text-gray-800">RoznaHub</h1>
-      </div>
-
-      <div id="user-menu" class="relative">
-        <button class="flex items-center" (click)="toggleUserDropdown()">
-          <img class="h-10 w-10 rounded-full" [src]="avatarUrl" alt="User profile" />
-        </button>
-
-        @if (isUserDropdownOpen()) {
-        <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
-
-          <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
-            [routerLink]="['/', roleService.currentRole(), 'my-profile']" (click)="closeAllDropdowns()">
-            <i class="bx bx-user mr-2"></i>Profile
-          </div>
-
-          <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer" (click)="toLogin()">
-            <i class="bx bx-log-out mr-2"></i>Sign out
-          </div>
-
+    <header class="mobile-dashboard-header fixed bg-[#F3F3F3] top-0 left-0 right-0 z-40">
+      <div class="w-full py-4 flex flex-row justify-between items-center px-4">
+        <div class="flex items-center gap-2">
+          <img src="./img/logo.png" class="w-8" alt="" />
+          <h1 class="font-bold text-xl text-gray-800">RoznaHub</h1>
         </div>
-        }
+
+        <div id="user-menu" class="relative">
+          <button class="flex items-center" (click)="toggleUserDropdown()">
+            <img class="h-10 w-10 rounded-full" [src]="avatarUrl" alt="User profile" />
+          </button>
+
+          @if (isUserDropdownOpen()) {
+          <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+
+            <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+              [routerLink]="['/', roleService.currentRole(), 'my-profile']" (click)="closeAllDropdowns()">
+              <i class="bx bx-user mr-2"></i>Profile
+            </div>
+
+            <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer" (click)="toLogin()">
+              <i class="bx bx-log-out mr-2"></i>Sign out
+            </div>
+
+          </div>
+          }
+        </div>
       </div>
-    </div>
+
+      @if (role === 'teacher') {
+      <div class="mobile-account-row" data-testid="mobile-teacher-account-row">
+        <div class="mobile-storage-summary">
+          <span class="mobile-storage-ring" [style.--storage-progress]="mobileStoragePercent + '%'" aria-hidden="true"></span>
+          <span class="mobile-storage-text">{{ mobileStorageUsedLabel }} / {{ mobileStorageTotalLabel }} used</span>
+        </div>
+        <button type="button" class="mobile-plan-button" data-testid="subscription-cta" (click)="onPlanButton()">
+          {{ planButtonLabel }}
+        </button>
+      </div>
+      }
+    </header>
     }
 
     <main class="flex-1 overflow-auto">
-      <div [ngClass]="{ 'mt-20 px-4': !isFullScreen(), 'pb-20': showBottomNav() && !isFullScreen() }">
+      <div [ngClass]="{ 'mt-20 px-4': !isFullScreen(), 'mobile-teacher-content': !isFullScreen() && showBottomNav() && role === 'teacher', 'pb-20': showBottomNav() && !isFullScreen() }">
         <router-outlet></router-outlet>
       </div>
     </main>

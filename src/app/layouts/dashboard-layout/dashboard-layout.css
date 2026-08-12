@@ -1,0 +1,75 @@
+.mobile-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 1rem 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.8rem;
+  background: #fff;
+  box-shadow: 0 2px 10px rgb(15 23 42 / 7%);
+}
+
+.mobile-storage-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-storage-ring {
+  --storage-progress: 0%;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(#ffc300 var(--storage-progress), #526a96 0);
+  position: relative;
+}
+
+.mobile-storage-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0.35rem;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.mobile-storage-text {
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mobile-plan-button {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #526a96;
+  color: #fff;
+  padding: 0.48rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mobile-teacher-content {
+  margin-top: 8.75rem;
+}
+
+@media (max-width: 359px) {
+  .mobile-account-row {
+    gap: 0.4rem;
+    margin-inline: 0.65rem;
+    padding-inline: 0.55rem;
+  }
+
+  .mobile-storage-text,
+  .mobile-plan-button {
+    font-size: 0.68rem;
+  }
+
+  .mobile-plan-button {
+    padding-inline: 0.6rem;
+  }
+}
