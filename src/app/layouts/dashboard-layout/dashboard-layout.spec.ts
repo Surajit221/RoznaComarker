@@ -164,10 +164,29 @@ describe('DashboardLayout subscription ownership', () => {
     expect(subscriptionCtas[0].textContent.trim()).toBe('Manage Billing');
   });
 
-  it('keeps the mobile header structurally valid without duplicating the desktop subscription CTA', async () => {
+  it('shows one compact mobile teacher storage row and reuses the subscription CTA', async () => {
     await render('teacher', null, 'mobile');
-    expect(fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]').length).toBe(0);
+    const row = fixture.nativeElement.querySelector('[data-testid="mobile-teacher-account-row"]');
+    const ctas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
+    expect(row).not.toBeNull();
+    expect(row.textContent).toContain('0 MB / 500 MB used');
+    expect(ctas.length).toBe(1);
+    expect(ctas[0].textContent.trim()).toBe('Upgrade Plan');
     expect(fixture.nativeElement.querySelector('#user-menu')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-chart-storage')).toBeNull();
+  });
+
+  it('uses Manage Plan and Manage Billing labels in the mobile teacher row', async () => {
+    await render('teacher', { status: 'active', paymentIssue: false }, 'mobile');
+    expect(fixture.nativeElement.querySelector('[data-testid="subscription-cta"]').textContent.trim()).toBe('Manage Plan');
+    TestBed.resetTestingModule();
+    await render('teacher', { status: 'past_due', paymentIssue: true }, 'mobile');
+    expect(fixture.nativeElement.querySelector('[data-testid="subscription-cta"]').textContent.trim()).toBe('Manage Billing');
+  });
+
+  it('does not render the mobile account row for students', async () => {
+    await render('student', null, 'mobile');
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-teacher-account-row"]')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]').length).toBe(0);
   });
 });

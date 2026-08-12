@@ -82,6 +82,24 @@ export class DashboardLayout {
     return Math.max(0, Number(totalGb.toFixed(2)));
   }
 
+  get mobileStorageUsedLabel(): string {
+    const usedMB = Math.max(0, Number(this.mySubscription?.usage?.storageMB) || 0);
+    return usedMB >= 1024 ? `${Number((usedMB / 1024).toFixed(2))} GB` : `${Number(usedMB.toFixed(2))} MB`;
+  }
+
+  get mobileStorageTotalLabel(): string {
+    const raw = this.mySubscription?.plan?.features?.storageMB ?? this.mySubscription?.plan?.limits?.storageMB;
+    const totalMB = Math.max(0, Number(raw) || 0);
+    return totalMB >= 1024 ? `${Number((totalMB / 1024).toFixed(2))} GB` : `${Number(totalMB.toFixed(2))} MB`;
+  }
+
+  get mobileStoragePercent(): number {
+    const used = Math.max(0, Number(this.mySubscription?.usage?.storageMB) || 0);
+    const rawTotal = this.mySubscription?.plan?.features?.storageMB ?? this.mySubscription?.plan?.limits?.storageMB;
+    const total = Math.max(0, Number(rawTotal) || 0);
+    return total > 0 ? Math.min(100, (used / total) * 100) : 0;
+  }
+
   get hasStripeSubscription(): boolean {
     return ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(this.mySubscription?.billing?.status || '');
   }
