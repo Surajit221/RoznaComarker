@@ -49,7 +49,6 @@ import { ClassApiService } from '../../../../../api/class-api.service';
 
 
 
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 
 
 
@@ -294,7 +293,6 @@ export class StudentSubmissionPages {
 
 
 
-  private sanitizer = inject(DomSanitizer);
 
 
 
@@ -1897,7 +1895,7 @@ export class StudentSubmissionPages {
 
 
 
-  writingCorrectionsHtml: SafeHtml | null = null;
+  writingCorrectionsHtml: string | null = null;
 
 
 
@@ -2685,6 +2683,7 @@ export class StudentSubmissionPages {
   uploadData: any = null;
 
   submissionFileUrls: string[] = [];
+  submissionPreviewUrls: string[] = [];
 
   submissionFileIds: string[] = [];
 
@@ -2762,6 +2761,31 @@ export class StudentSubmissionPages {
 
 
   private objectUrls: string[] = [];
+  private previewObjectUrls: string[] = [];
+  private previewSourceSignature = '';
+
+  private async refreshSubmissionPreviewUrls(urls: string[]): Promise<void> {
+    const signature = JSON.stringify(urls);
+    if (signature === this.previewSourceSignature) return;
+    this.previewSourceSignature = signature;
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
+    this.submissionPreviewUrls = urls.map(() => '');
+    const previews = await Promise.all(urls.map(async (url) => {
+      try {
+        const blob = await firstValueFrom(this.http.get(normalizeToHttps(url), { responseType: 'blob' }));
+        return URL.createObjectURL(blob);
+      } catch {
+        return '';
+      }
+    }));
+    if (signature !== this.previewSourceSignature) {
+      for (const url of previews) if (url) URL.revokeObjectURL(url);
+      return;
+    }
+    this.previewObjectUrls = previews.filter(Boolean);
+    this.submissionPreviewUrls = previews;
+  }
 
 
 
@@ -3475,7 +3499,8 @@ export class StudentSubmissionPages {
 
 
 
-      this.writingCorrectionsHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+      // Keep this as an ordinary string so Angular sanitizes the [innerHTML] binding.
+      this.writingCorrectionsHtml = html;
 
 
 
@@ -5630,6 +5655,9 @@ export class StudentSubmissionPages {
 
 
     this.revokeObjectUrls();
+    this.previewSourceSignature = 'destroyed';
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
     this.resultCoordinator.stop();
 
 
@@ -6010,6 +6038,7 @@ export class StudentSubmissionPages {
     this.submissionFileUrls = normalizeAssetUrls(Array.isArray((submission as any)?.fileUrls)
       ? (submission as any).fileUrls
       : (submission?.fileUrl ? [submission.fileUrl] : []));
+    void this.refreshSubmissionPreviewUrls(this.submissionFileUrls);
 
     const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
     const idsFromFiles = rawFiles
@@ -6035,6 +6064,7 @@ export class StudentSubmissionPages {
 
     if (!Array.isArray(this.submissionFileUrls) || !this.submissionFileUrls.length) {
       this.submissionFileUrls = normalizeAssetUrls(submission?.fileUrl ? [submission.fileUrl] : []);
+      void this.refreshSubmissionPreviewUrls(this.submissionFileUrls);
     }
 
     if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) {

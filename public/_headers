@@ -1,0 +1,8 @@
+# Staged browser policy for static hosts that support a _headers file.
+# Keep report-only until production telemetry confirms Stripe and Firebase flows.
+/*
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; img-src 'self' data: blob: https://images.unsplash.com; font-src 'self' data: https://fonts.gstatic.com https://unpkg.com; connect-src 'self' https://comarkerback.roznahub.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.stripe.com https://r.stripe.com https://errors.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://rozna-comaker.firebaseapp.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; trusted-types angular angular#bundler; require-trusted-types-for 'script'
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(self "https://js.stripe.com")

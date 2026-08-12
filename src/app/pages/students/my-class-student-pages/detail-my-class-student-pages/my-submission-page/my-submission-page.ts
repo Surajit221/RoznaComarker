@@ -11,7 +11,6 @@ import { PdfApiService } from '../../../../../api/pdf-api.service';
 import { AlertService } from '../../../../../services/alert.service';
 import { ClassApiService } from '../../../../../api/class-api.service';
 import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
@@ -76,7 +75,6 @@ export class MySubmissionPage {
   private pdfApi = inject(PdfApiService);
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
-  private sanitizer = inject(DomSanitizer);
   private http = inject(HttpClient);
   private writingCorrectionsApi = inject(WritingCorrectionsApiService);
   private resultCoordinator = inject(CanonicalSubmissionResultCoordinator);
@@ -432,10 +430,36 @@ export class MySubmissionPage {
   uploadedFileUrl: string | null = null;
   private rawUploadedFileUrl: string | null = null;
   submissionFileUrls: string[] = [];
+  submissionPreviewUrls: string[] = [];
   submissionFileIds: string[] = [];
   activeFileIndex = 0;
   private uploadedFileIsPdf = false;
   private objectUrls: string[] = [];
+  private previewObjectUrls: string[] = [];
+  private previewSourceSignature = '';
+
+  private async refreshSubmissionPreviewUrls(urls: string[]): Promise<void> {
+    const signature = JSON.stringify(urls);
+    if (signature === this.previewSourceSignature) return;
+    this.previewSourceSignature = signature;
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
+    this.submissionPreviewUrls = urls.map(() => '');
+    const previews = await Promise.all(urls.map(async (url) => {
+      try {
+        const blob = await firstValueFrom(this.http.get(normalizeToHttps(url), { responseType: 'blob' }));
+        return URL.createObjectURL(blob);
+      } catch {
+        return '';
+      }
+    }));
+    if (signature !== this.previewSourceSignature) {
+      for (const url of previews) if (url) URL.revokeObjectURL(url);
+      return;
+    }
+    this.previewObjectUrls = previews.filter(Boolean);
+    this.submissionPreviewUrls = previews;
+  }
 
   private resetSectionStates(): void {
     this.submissionState = 'loading';
@@ -607,11 +631,11 @@ export class MySubmissionPage {
   teacherComment: string | null = null;
   showRubricDialog = false;
 
-  highlightedTranscriptHtml: SafeHtml | null = null;
+  highlightedTranscriptHtml: string | null = null;
   writingCorrectionsLegend: CorrectionLegend | null = DEFAULT_CORRECTION_LEGEND;
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
   private canonicalWritingCorrections: any[] = [];
-  writingCorrectionsHtml: SafeHtml | null = null;
+  writingCorrectionsHtml: string | null = null;
   writingCorrectionsError: string | null = null;
   isWritingCorrectionsLoading = false;
   private lastWritingCorrectionsText: string | null = null;
@@ -1003,7 +1027,7 @@ export class MySubmissionPage {
       : [];
 
     if (!annotated.length) {
-      this.highlightedTranscriptHtml = this.sanitizer.bypassSecurityTrustHtml(this.escapeHtml(text));
+      this.highlightedTranscriptHtml = this.escapeHtml(text);
       return;
     }
 
@@ -1049,7 +1073,8 @@ export class MySubmissionPage {
       html += this.escapeHtml(text.slice(cursor));
     }
 
-    this.highlightedTranscriptHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+    // Keep generated markup untrusted; Angular sanitizes it at the [innerHTML] sink.
+    this.highlightedTranscriptHtml = html;
   }
 
   private async ensureWritingCorrectionsLegendLoaded() {
@@ -1076,7 +1101,7 @@ export class MySubmissionPage {
       this.writingCorrectionsIssues = applyLegendToIssues(rawIssues, this.writingCorrectionsLegend);
       this.recomputeLegendAligned();
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
-      this.writingCorrectionsHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+      this.writingCorrectionsHtml = html;
       this.lastWritingCorrectionsText = text;
     } catch (err: any) {
       this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to display persisted writing corrections';
@@ -1433,6 +1458,7 @@ export class MySubmissionPage {
     const assets = this.filesFromSubmission(submission);
     this.submissionFileIds = assets.ids;
     this.submissionFileUrls = assets.urls;
+    void this.refreshSubmissionPreviewUrls(assets.urls);
     if (changed) {
       ++this.loadOcrCorrectionsSeq;
       ++this.loadTranscriptPagesSeq;
@@ -1554,6 +1580,9 @@ export class MySubmissionPage {
     this.refreshParamSub = null;
     this.stopOcrPolling();
     this.revokeObjectUrls();
+    this.previewSourceSignature = 'destroyed';
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
   }
 
   get extractedText(): string | null {

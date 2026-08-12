@@ -15,7 +15,6 @@ export interface GenerateFromTextDto {
   gradeLevel: string;
   gradeCategory?: string;
   cefrLevel?: string;
-  teacherId: string;
   questionTypes?: string[];
   activityTypes?: string[];
   questionCount?: number;
@@ -52,13 +51,11 @@ export class WorksheetDocumentApiService {
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   list(
-    teacherId: string,
     subject?: string,
     page = 1,
     limit = 20,
   ): Promise<WorksheetDocumentListResponse> {
     let params = new HttpParams()
-      .set('teacherId', teacherId)
       .set('page', page.toString())
       .set('limit', limit.toString());
     if (subject) params = params.set('subject', subject);

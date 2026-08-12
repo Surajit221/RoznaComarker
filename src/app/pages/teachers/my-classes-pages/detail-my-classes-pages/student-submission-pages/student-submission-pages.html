@@ -48,7 +48,7 @@
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
             <div class="submission-thumbs" role="tablist" aria-label="Submission images">
-              @for (url of submissionFileUrls; track $index) {
+              @for (url of submissionPreviewUrls; track $index) {
               <button type="button" class="submission-thumb" [class.active]="$index === activeFileIndex"
                 (click)="onSelectSubmissionImage($index)" aria-label="View image {{ $index + 1 }}">
                 <img [src]="url" alt="Submission image {{ $index + 1 }}" loading="lazy" />
@@ -471,7 +471,7 @@
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
           <div class="w-full mt-3">
             <div class="submission-thumbs" role="tablist" aria-label="Submission images">
-              @for (url of submissionFileUrls; track $index) {
+              @for (url of submissionPreviewUrls; track $index) {
               <button type="button" class="submission-thumb" [class.active]="$index === activeFileIndex"
                 (click)="onSelectSubmissionImage($index)" aria-label="View image {{ $index + 1 }}">
                 <img [src]="url" alt="Submission image {{ $index + 1 }}" loading="lazy" />

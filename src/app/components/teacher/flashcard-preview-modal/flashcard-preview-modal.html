@@ -66,7 +66,7 @@
           <!-- Front of card -->
           <div class="fpm-card-face fpm-card-front">
             <div class="fpm-card-content">
-              <div class="fpm-card-text" [innerHTML]="currentFilteredCard.front"></div>
+              <div class="fpm-card-text">{{ currentFilteredCard.front }}</div>
               @if (currentFilteredCard.frontImage) {
                 <img [src]="getImageUrl(currentFilteredCard.frontImage)"
                      alt="Front image"
@@ -80,7 +80,7 @@
           <!-- Back of card -->
           <div class="fpm-card-face fpm-card-back">
             <div class="fpm-card-content">
-              <div class="fpm-card-text" [innerHTML]="currentFilteredCard.back"></div>
+              <div class="fpm-card-text">{{ currentFilteredCard.back }}</div>
               @if (currentFilteredCard.backImage) {
                 <img [src]="getImageUrl(currentFilteredCard.backImage)"
                      alt="Back image"

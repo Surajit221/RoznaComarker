@@ -5,6 +5,7 @@ import { Router, RouterModule } from '@angular/router';
 import { BackendPlan, PlansApiService } from '../../api/plans-api.service';
 import { AuthService } from '../../auth/auth.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
+import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
 
 type PricingFeature = {
   label: string;
@@ -129,7 +130,9 @@ export class PricingComponent {
         await this.router.navigate(this.authenticatedRole === 'student' ? ['/student/dashboard'] : ['/login']);
       } else if (this.starterActive) {
         const portal = await this.subscriptionApi.createCustomerPortal();
-        window.location.assign(portal.url);
+        const portalUrl = trustedStripePortalUrl(portal.url);
+        if (portalUrl) window.location.assign(portalUrl);
+        else this.errorMessage = 'Billing portal is temporarily unavailable.';
       } else {
         await this.router.navigate(['/checkout/starter']);
       }

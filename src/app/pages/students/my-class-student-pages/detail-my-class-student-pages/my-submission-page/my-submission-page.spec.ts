@@ -123,6 +123,7 @@ describe('MySubmissionPage', () => {
   it('keeps mobile thumbnails after the uploaded image and before AI feedback', () => {
     (component.device as any).width.set(390);
     component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    component.submissionPreviewUrls = ['blob:image-1', 'blob:image-2'];
     fixture.detectChanges();
 
     const overlay = fixture.nativeElement.querySelector('app-correction-overlay') as HTMLElement;
@@ -145,6 +146,7 @@ describe('MySubmissionPage', () => {
   });
 
   it('invalidates Draft 1 derived state when the same submission id receives Draft 2 files', () => {
+    spyOn<any>(component, 'refreshSubmissionPreviewUrls').and.resolveTo();
     const draft1 = { _id: 'same-submission', ocrJobId: 'job-1', submittedAt: '2026-08-10T00:00:00Z',
       files: [{ _id: 'old-1', url: '/uploads/submissions/old-1.png' }, { _id: 'old-2', url: '/uploads/submissions/old-2.png' }] } as any;
     const draft2 = { _id: 'same-submission', ocrJobId: 'job-2', submittedAt: '2026-08-11T00:00:00Z',

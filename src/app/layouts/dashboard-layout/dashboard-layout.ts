@@ -9,6 +9,7 @@ import { SubscriptionApiService, type BackendMySubscription } from '../../api/su
 import { environment } from '../../../environments/environment';
 import { NotificationApiService, type BackendNotification } from '../../api/notification-api.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
+import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -95,8 +96,11 @@ export class DashboardLayout {
     if (this.hasStripeSubscription) {
       try {
         const portal = await this.subscriptionApi.createCustomerPortal();
-        window.location.assign(portal.url);
-        return;
+        const portalUrl = trustedStripePortalUrl(portal.url);
+        if (portalUrl) {
+          window.location.assign(portalUrl);
+          return;
+        }
       } catch { /* pricing page provides a recoverable fallback */ }
     }
     await this.router.navigate(['/pricing']);

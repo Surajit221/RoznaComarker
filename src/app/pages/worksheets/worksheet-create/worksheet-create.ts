@@ -897,9 +897,28 @@ export class WorksheetCreatePage implements OnDestroy {
       import('jspdf'),
     ]);
 
-    // Build a hidden, off-screen container with the raw HTML
-    const container = document.createElement('div');
-    Object.assign(container.style, {
+    // Parse into an inert document, then copy only the already server-sanitized
+    // worksheet into an isolated shadow root. This avoids inserting AI HTML
+    // through innerHTML in the application document.
+    const parsed = new DOMParser().parseFromString(this.htmlWorksheet, 'text/html');
+    parsed.querySelectorAll('script,iframe,object,embed,form,base,link,meta,svg,math').forEach((node) => node.remove());
+    parsed.querySelectorAll('*').forEach((element) => {
+      for (const attribute of Array.from(element.attributes)) {
+        if (/^on/i.test(attribute.name)
+          || ['srcdoc', 'formaction', 'action', 'href', 'xlink:href'].includes(attribute.name.toLowerCase())) {
+          element.removeAttribute(attribute.name);
+        }
+      }
+    });
+    const worksheet = parsed.querySelector<HTMLElement>('.worksheet-container');
+    if (!worksheet) {
+      this.isDownloadingPdf = false;
+      this.cdr.markForCheck();
+      throw new Error('Generated worksheet content is unavailable. Please regenerate it.');
+    }
+
+    const host = document.createElement('div');
+    Object.assign(host.style, {
       position: 'fixed',
       top: '0',
       left: '-9999px',
@@ -907,8 +926,15 @@ export class WorksheetCreatePage implements OnDestroy {
       backgroundColor: '#ffffff',
       zIndex: '-9999',
     });
-    container.innerHTML = this.htmlWorksheet;
-    document.body.appendChild(container);
+    const shadow = host.attachShadow({ mode: 'closed' });
+    for (const sourceStyle of Array.from(parsed.head.querySelectorAll('style'))) {
+      const style = document.createElement('style');
+      style.textContent = sourceStyle.textContent;
+      shadow.appendChild(style);
+    }
+    const container = worksheet.cloneNode(true) as HTMLElement;
+    shadow.appendChild(container);
+    document.body.appendChild(host);
 
     // Brief pause so browser can apply styles / load fonts
     await new Promise<void>((r) => setTimeout(r, 600));
@@ -948,7 +974,7 @@ export class WorksheetCreatePage implements OnDestroy {
         .slice(0, 30);
       pdf.save(`worksheet_${titleSlug}_${date}.pdf`);
     } finally {
-      document.body.removeChild(container);
+      host.remove();
       this.isDownloadingPdf = false;
       this.cdr.markForCheck();
     }

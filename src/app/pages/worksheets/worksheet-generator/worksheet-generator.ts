@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@
 import { FormsModule } from '@angular/forms';
 import { WorksheetDocumentApiService } from '../../../api/worksheet-document-api.service';
 import { WorksheetRendererComponent } from '../../../components/worksheet/worksheet-renderer';
-import { AuthService } from '../../../auth/auth.service';
 import { exportWorksheetToPdf, printWorksheet } from '../../../utils/worksheet-export.util';
 import type { WorksheetDocument, ActivityType } from '../../../models/worksheet-document.model';
 import { ACTIVITY_TYPE_META, MAX_ACTIVITY_TYPES } from '../../../models/worksheet-document.model';
@@ -404,7 +403,6 @@ const ALL_ACTIVITY_TYPES = Object.keys(ACTIVITY_TYPE_META) as ActivityType[];
 })
 export class WorksheetGeneratorComponent implements OnDestroy {
   private readonly api = inject(WorksheetDocumentApiService);
-  private readonly auth = inject(AuthService);
 
   // ── Static data ────────────────────────────────────────────────────────────
   readonly cefrLevels = CEFR_LEVELS;
@@ -569,7 +567,6 @@ export class WorksheetGeneratorComponent implements OnDestroy {
         cefrLevel: this.cefrLevel || undefined,
         gradeCategory: this.gradeCategory,
         gradeLevel: this.gradeLevel,
-        teacherId: this.teacherId,
         questionTypes: this.selectedTypes() as string[],
         questionCount: 10,
         difficulty: this.difficulty as 'easy' | 'medium' | 'hard',
@@ -604,7 +601,6 @@ export class WorksheetGeneratorComponent implements OnDestroy {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('gradeLevel', this.fileGradeLevel);
-      formData.append('teacherId', this.teacherId);
       if (!this.keepOriginalTopic() && this.newTopic.trim())
         formData.append('topic', this.newTopic.trim());
       if (this.fileSubject.trim()) formData.append('subject', this.fileSubject.trim());
@@ -668,13 +664,6 @@ export class WorksheetGeneratorComponent implements OnDestroy {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  private get teacherId(): string {
-    return (
-      (this.auth as unknown as { currentUser?: { uid?: string } })?.currentUser?.uid ??
-      'teacher_demo'
-    );
-  }
-
   private updateStep(id: string, status: ProgressStep['status']): void {
     this.progressSteps.update((steps) => steps.map((s) => (s.id === id ? { ...s, status } : s)));
   }

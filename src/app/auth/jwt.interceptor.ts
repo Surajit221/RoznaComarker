@@ -1,14 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { readUsableBackendJwt } from './backend-token.util';
 
 @Injectable()
 export class JwtInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    const token = localStorage.getItem('backend_jwt');
+    const token = readUsableBackendJwt();
     
-    // Do not attach authorization to public static file requests (uploads)
-    // These are publicly accessible and don't require authentication
+    // Presentation uploads are public. Private files use authenticated /files
+    // endpoints and continue receiving the bearer header.
     const url = req.url.toLowerCase();
     if (url.includes('/uploads/') || url.startsWith('/uploads/')) {
       return next.handle(req);
