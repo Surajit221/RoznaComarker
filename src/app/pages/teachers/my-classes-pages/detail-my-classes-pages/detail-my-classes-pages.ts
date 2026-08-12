@@ -66,6 +66,7 @@ export class DetailMyClassesPages {
   showDialog = false;
   showDialogSubmission = false;
   showDialogQRClasses = false;
+  showDialogQRAssignment = false;
   showInviteDialog = false;
   device = inject(DeviceService);
   private route = inject(ActivatedRoute);
@@ -85,6 +86,7 @@ export class DetailMyClassesPages {
   isButtonFabOpen = false;
   openSheetAssignment = false;
   openSheetQr = false;
+  openSheetAssignmentQr = false;
   openSheetSubmission = false;
 
   showRubricDialog = false;
@@ -135,7 +137,21 @@ export class DetailMyClassesPages {
     return found?.title || '';
   }
 
+  get selectedAssignmentQrValue(): string {
+    const assignment = this.selectedQrAssignmentId
+      ? this.assignmentsById[this.selectedQrAssignmentId]
+      : null;
+    return assignment?.qrToken ? this.qrGenerator.generateAssignmentUrl(assignment.qrToken) : '';
+  }
+
+  get selectedQrAssignmentTitle(): string {
+    return this.selectedQrAssignmentId
+      ? this.assignmentsById[this.selectedQrAssignmentId]?.title || ''
+      : '';
+  }
+
   selectedAssignmentId: string | null = null;
+  selectedQrAssignmentId: string | null = null;
 
   selectedAssignmentForEdit: BackendAssignment | null = null;
 
@@ -154,6 +170,7 @@ export class DetailMyClassesPages {
     status: 'pending' | 'in-progress' | 'completed';
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
     resourceId?: string;
+    instructions?: string;
   }> = [];
 
   private studentSubmissionStatsById: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
@@ -433,7 +450,31 @@ export class DetailMyClassesPages {
       status,
       resourceType: a.resourceType,
       resourceId: a.resourceId,
+      instructions: a.instructions?.trim() || undefined,
     };
+  }
+
+  openAssignmentQr(assignmentId: string): void {
+    const assignment = this.assignmentsById[assignmentId];
+    if (!assignment?.qrToken) {
+      this.alert.showWarning('QR unavailable', 'Please refresh the assignment list and try again.');
+      return;
+    }
+
+    this.selectedQrAssignmentId = assignmentId;
+    if (this.device.isMobile() || this.device.isTablet()) {
+      document.body.classList.add('overflow-hidden');
+      this.openSheetAssignmentQr = true;
+      return;
+    }
+    this.showDialogQRAssignment = true;
+  }
+
+  closeAssignmentQr(): void {
+    document.body.classList.remove('overflow-hidden');
+    this.showDialogQRAssignment = false;
+    this.openSheetAssignmentQr = false;
+    this.selectedQrAssignmentId = null;
   }
 
   async loadAssignments() {
@@ -1048,6 +1089,11 @@ export class DetailMyClassesPages {
   closeDialogSubmission() {
     this.showDialogSubmission = false;
     this.selectedAssignmentId = null;
+  }
+
+  async onSubmissionRemoved(): Promise<void> {
+    if (this.classId) this.classApi.clearClassCache(this.classId);
+    await Promise.all([this.loadAssignments(), this.loadClassSummary(true)]);
   }
 
   closeDialogQRClasses() {

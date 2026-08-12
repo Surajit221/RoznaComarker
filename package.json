@@ -73,5 +73,16 @@
     "serve": "^14.2.4",
     "typescript": "~5.9.2",
     "typescript-eslint": "8.46.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "@angular/common": "20.3.18",
+      "@angular/compiler": "20.3.18",
+      "@angular/core": "20.3.18",
+      "@angular/forms": "20.3.18",
+      "@angular/platform-browser": "20.3.18",
+      "@angular/platform-browser-dynamic": "20.3.18",
+      "@angular/router": "20.3.18"
+    }
   }
 }

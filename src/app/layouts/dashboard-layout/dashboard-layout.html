@@ -24,8 +24,11 @@
       @if(!isFullScreen()) {
       <header class="flex items-center justify-end px-6 py-2">
         <div class="flex flex-row gap-10">
-          <app-chart-storage [used]="storageUsedGb" [total]="storageTotalGb" [strokeColor]="'#FFC300'" [size]="150">
-          </app-chart-storage>
+          @if (role === 'teacher') {
+            <app-chart-storage [used]="storageUsedGb" [total]="storageTotalGb" [strokeColor]="'#FFC300'" [size]="150"
+              [planButtonLabel]="planButtonLabel" (planButtonClick)="onPlanButton()">
+            </app-chart-storage>
+          }
 
           <div class="flex items-center gap-4">
             <div id="notif-menu" class="relative">

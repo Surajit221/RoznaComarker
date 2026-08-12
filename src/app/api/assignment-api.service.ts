@@ -24,6 +24,9 @@ export type BackendAssignment = {
   teacher: any;
   qrToken: string;
   allowLateResubmission?: boolean;
+  showMarksToStudent?: boolean;
+  allowResubmission?: boolean;
+  requireAdaptiveBeforeResubmission?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -91,6 +94,9 @@ export class AssignmentApiService {
     rubric?: any;
     rubrics?: any;
     allowLateResubmission?: boolean;
+    showMarksToStudent?: boolean;
+    allowResubmission?: boolean;
+    requireAdaptiveBeforeResubmission?: boolean;
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
     resourceId?: string;
   }): Promise<BackendAssignment> {
@@ -137,6 +143,9 @@ export class AssignmentApiService {
       rubrics?: any;
       deadline?: string;
       allowLateResubmission?: boolean;
+      showMarksToStudent?: boolean;
+      allowResubmission?: boolean;
+      requireAdaptiveBeforeResubmission?: boolean;
     }
   ): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();
@@ -195,6 +204,16 @@ export class AssignmentApiService {
       this.http.post<BackendResponse<BackendAssignment>>(
         `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/rubric-file`,
         fd
+      )
+    );
+    return resp.data;
+  }
+
+  async getAssignmentByQrToken(qrToken: string): Promise<BackendAssignment> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.get<BackendResponse<BackendAssignment>>(
+        `${apiBaseUrl}/assignments/qr/${encodeURIComponent(qrToken)}`
       )
     );
     return resp.data;

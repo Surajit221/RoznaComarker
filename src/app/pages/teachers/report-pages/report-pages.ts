@@ -3,7 +3,7 @@ import { Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
 import { AssignmentApiService } from '../../../api/assignment-api.service';
-import { ClassApiService } from '../../../api/class-api.service';
+import { ClassApiService, type BackendClass } from '../../../api/class-api.service';
 import { FeedbackApiService } from '../../../api/feedback-api.service';
 import { SubmissionApiService, type BackendSubmission } from '../../../api/submission-api.service';
 
@@ -21,7 +21,9 @@ export class ReportPages {
   private feedbackApi = inject(FeedbackApiService);
 
   isLoading = false;
-  classId: string | null = null;
+  selectedClassId = '';
+  teacherClasses: BackendClass[] = [];
+  private loadSequence = 0;
 
   totalEssays = 0;
   completedCount = 0;
@@ -110,7 +112,7 @@ export class ReportPages {
   }> = [];
 
   async ngOnInit() {
-    this.classId = this.route.snapshot.queryParamMap.get('classId');
+    this.selectedClassId = this.route.snapshot.queryParamMap.get('classId') || '';
     await this.load();
   }
 
@@ -134,11 +136,17 @@ export class ReportPages {
   }
 
   private async load(): Promise<void> {
+    const sequence = ++this.loadSequence;
     this.isLoading = true;
     try {
-      const classes = await this.classApi.getMyTeacherClasses();
+      const classes = this.teacherClasses.length
+        ? this.teacherClasses
+        : await this.classApi.getMyTeacherClasses();
+      if (sequence !== this.loadSequence) return;
+      this.teacherClasses = classes || [];
       const classIdsAll = (classes || []).map((c: any) => c?._id).filter(Boolean);
-      const classIds = this.classId ? classIdsAll.filter((id: string) => id === this.classId) : classIdsAll;
+      if (this.selectedClassId && !classIdsAll.includes(this.selectedClassId)) this.selectedClassId = '';
+      const classIds = this.selectedClassId ? [this.selectedClassId] : classIdsAll;
 
       const assignmentsByClass = await Promise.all(
         classIds.map(async (classId: string) => {
@@ -205,6 +213,7 @@ export class ReportPages {
           }
         })
       );
+      if (sequence !== this.loadSequence) return;
 
       const computed = submissionRows
         .map((r, idx) => {
@@ -351,8 +360,18 @@ export class ReportPages {
         `Revision rate: ${Math.round(revisionRate)}%`
       ];
     } finally {
-      this.isLoading = false;
+      if (sequence === this.loadSequence) this.isLoading = false;
     }
+  }
+
+  async onClassChange(classId: string): Promise<void> {
+    const requested = String(classId || '');
+    this.selectedClassId = requested && this.teacherClasses.some((item) => item._id === requested)
+      ? requested
+      : '';
+    this.searchTerm = '';
+    this.currentPage = 1;
+    await this.load();
   }
 
   onSearchInput(value: string): void {

@@ -18,6 +18,7 @@ describe('DialogViewSubmissions loading states', () => {
       resolveRequest = resolve;
       rejectRequest = reject;
     })),
+    removeSubmission: jasmine.createSpy()
   };
   const assignmentApi = {
     getStaleEvaluationSummary: jasmine.createSpy().and.resolveTo({
@@ -43,6 +44,8 @@ describe('DialogViewSubmissions loading states', () => {
       resolveRequest = resolve;
       rejectRequest = reject;
     }));
+    api.removeSubmission.calls.reset();
+    api.removeSubmission.and.resolveTo(undefined);
     assignmentApi.getStaleEvaluationSummary.calls.reset();
     assignmentApi.getStaleEvaluationSummary.and.resolveTo({
       assignmentId: 'assignment-a', eligibleCount: 0, skippedOverrideCount: 0,
@@ -139,6 +142,35 @@ describe('DialogViewSubmissions loading states', () => {
     await component.startBulkReEvaluation();
 
     expect(assignmentApi.retryStaleEvaluations).not.toHaveBeenCalled();
+  });
+
+  it('confirms removal, calls the teacher endpoint, refreshes the list, and emits the removed id', async () => {
+    resolveRequest([{ _id: 'submission-1', student: { displayName: 'Student' } } as BackendSubmission]);
+    await fixture.whenStable();
+    api.getSubmissionsByAssignment.and.resolveTo([]);
+    const removed = jasmine.createSpy();
+    component.removed.subscribe(removed);
+
+    await component.removeSubmission({ submissionId: 'submission-1', name: 'Student' });
+
+    expect(alert.showConfirm).toHaveBeenCalledWith(
+      'Remove this submission?',
+      "This will remove the student's current submission and related current analysis for this assignment. The student will be able to submit again according to the assignment's submission rules.",
+      'Remove Submission',
+      'Cancel'
+    );
+    expect(api.removeSubmission).toHaveBeenCalledOnceWith('submission-1');
+    expect(alert.showToast).toHaveBeenCalledWith('Submission removed successfully', 'success');
+    expect(removed).toHaveBeenCalledOnceWith('submission-1');
+    expect(component.modalState).toBe('empty');
+  });
+
+  it('does not remove a submission when confirmation is cancelled', async () => {
+    resolveRequest([]);
+    await fixture.whenStable();
+    alert.showConfirm.and.resolveTo(false);
+    await component.removeSubmission({ submissionId: 'submission-1', name: 'Student' });
+    expect(api.removeSubmission).not.toHaveBeenCalled();
   });
 
   it('uses singular wording and hides the notice when the canonical count reaches zero', async () => {

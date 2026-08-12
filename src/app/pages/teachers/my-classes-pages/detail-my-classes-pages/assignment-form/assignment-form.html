@@ -18,6 +18,24 @@
     </div>
   </div>
 
+  <fieldset class="assignment-settings">
+    <legend>Student access</legend>
+    <label class="assignment-setting">
+      <span><strong>Show marks to students</strong><small>All students in this assignment can see their overall and rubric marks.</small></span>
+      <input type="checkbox" formControlName="showMarksToStudent" />
+    </label>
+    <label class="assignment-setting">
+      <span><strong>Allow another draft</strong><small>All students in this assignment may replace their current draft.</small></span>
+      <input type="checkbox" formControlName="allowResubmission" (change)="onAllowResubmissionChange()" />
+    </label>
+    @if (classForm.get('allowResubmission')?.value === true) {
+      <label class="assignment-setting assignment-setting--dependent">
+        <span><strong>Require Adaptive Learning first</strong><small>Students must complete Adaptive Learning for their current draft before submitting another one.</small></span>
+        <input type="checkbox" formControlName="requireAdaptiveBeforeResubmission" />
+      </label>
+    }
+  </fieldset>
+
   <div class="grid grid-cols-2 gap-4 w-full">
     <div class="w-full">
       <div class="flex flex-col gap-1">

@@ -8,139 +8,90 @@
     </div>
 
     @if (isLoading) {
-    <div class="mt-10 text-center text-gray-500">Loading plans...</div>
+      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[32rem]" aria-label="Loading plans">
+        @for (placeholder of [1, 2, 3]; track placeholder) {
+          <div class="bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm animate-pulse min-h-[30rem]">
+            <div class="h-8 w-2/3 rounded bg-gray-200"></div>
+            <div class="h-5 w-full rounded bg-gray-100 mt-4"></div>
+            <div class="h-10 w-1/2 rounded bg-gray-200 mt-6"></div>
+            <div class="space-y-4 mt-8">
+              @for (row of [1, 2, 3, 4, 5, 6, 7]; track row) {
+                <div class="h-5 rounded bg-gray-100"></div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    } @else if (errorMessage) {
+      <div class="mt-10 min-h-64 flex items-start justify-center text-center text-red-600" role="alert">
+        {{ errorMessage }}
+      </div>
+    } @else if (plans.length === 0) {
+      <div class="mt-10 min-h-64 flex items-start justify-center text-center text-gray-500">
+        No plans are currently available.
+      </div>
     } @else {
-      @if (errorMessage) {
-      <div class="mt-10 text-center text-red-600">{{ errorMessage }}</div>
-      }
-
-      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Free -->
-        <article
-          class="relative bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300"
-        >
-          @if (freePlan?.isPopular) {
-          <div class="absolute -top-3 left-6">
-            <span
-              class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
-            >
-              {{ freePlan?.badgeText || 'Popular' }}
-            </span>
-          </div>
-          }
-
-          <div class="flex flex-col gap-3">
-            <h2 class="text-2xl font-bold text-gray-800">{{ freePlan?.name || 'Free' }}</h2>
-            <p class="text-gray-500">{{ freePlan?.description || 'Perfect to try the workflow.' }}</p>
-
-            <div class="flex items-end gap-2 mt-2">
-              <span class="text-4xl font-extrabold text-gray-800">{{ formatPrice(freePlan) }}</span>
-              <span class="text-gray-500 font-semibold">{{ formatPeriod(freePlan) }}</span>
-            </div>
-          </div>
-
-          <div class="mt-6 flex flex-col gap-3">
-            <ul class="flex flex-col gap-2">
-              @for (lim of limitsList(freePlan); track lim.label) {
-              <li class="flex items-start gap-2 text-gray-600">
+      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+        @for (plan of plans; track plan.slug) {
+          <article
+            class="relative bg-white border-2 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col min-w-0"
+            [class.border-[#FFC300]]="plan.popular"
+            [class.border-[#E7E7E7]]="!plan.popular"
+            [ngClass]="plan.slug === 'custom' ? 'md:col-span-2 lg:col-span-1' : ''"
+            [attr.data-plan-slug]="plan.slug"
+          >
+            @if (plan.popular) {
+              <div class="absolute -top-3 left-6">
                 <span
-                  class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
                 >
-                  <i class="bx bx-check text-[#008081]"></i>
+                  Popular
                 </span>
-                <span>{{ lim.label }}: {{ formatLimitValue(lim.label, lim.value) }}</span>
-              </li>
-              }
-            </ul>
+              </div>
+            }
 
-            <button type="button" class="btn-info w-full justify-center inline-flex">Get Started</button>
-          </div>
-        </article>
+            <div class="flex flex-col gap-3">
+              <h2 class="text-2xl font-bold text-gray-800 break-words">{{ plan.display.title }}</h2>
+              <p class="text-gray-500 min-h-12">{{ plan.display.description }}</p>
 
-        <!-- Expert -->
-        <article
-          class="relative bg-white border-2 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300"
-          [ngClass]="expertPlan?.isPopular ? 'border-[#FFC300]' : 'border-[#E7E7E7]'"
-        >
-          @if (expertPlan?.isPopular) {
-          <div class="absolute -top-3 left-6">
-            <span
-              class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
-            >
-              {{ expertPlan?.badgeText || 'Popular' }}
-            </span>
-          </div>
-          }
-
-          <div class="flex flex-col gap-3">
-            <h2 class="text-2xl font-bold text-gray-800">{{ expertPlan?.name || 'Expert' }}</h2>
-            <p class="text-gray-500">{{ expertPlan?.description || 'Best for active teachers.' }}</p>
-
-            <div class="flex items-end gap-2 mt-2">
-              <span class="text-4xl font-extrabold text-gray-800">{{ formatPrice(expertPlan) }}</span>
-              <span class="text-gray-500 font-semibold">{{ formatPeriod(expertPlan) }}</span>
+              <div class="flex items-end gap-2 mt-2 flex-wrap">
+                <span class="text-3xl md:text-4xl font-extrabold text-gray-800">{{ formatPrice(plan) }}</span>
+                <span class="text-gray-500 font-semibold">{{ formatPeriod(plan) }}</span>
+              </div>
             </div>
-          </div>
 
-          <div class="mt-6 flex flex-col gap-3">
-            <ul class="flex flex-col gap-2">
-              @for (lim of limitsList(expertPlan); track lim.label) {
-              <li class="flex items-start gap-2 text-gray-600">
-                <span
-                  class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
-                >
-                  <i class="bx bx-check text-[#008081]"></i>
-                </span>
-                <span>{{ lim.label }}: {{ formatLimitValue(lim.label, lim.value) }}</span>
-              </li>
-              }
-            </ul>
+            <div class="mt-6 flex flex-col gap-3 flex-1">
+              <ul class="flex flex-col gap-2">
+                @for (feature of featuresFor(plan); track feature.label) {
+                  <li class="flex items-start gap-2 text-gray-600 min-w-0">
+                    <span
+                      class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
+                    >
+                      <i class="bx bx-check text-[#008081]"></i>
+                    </span>
+                    <span class="break-words">{{ feature.label }}: {{ feature.value }}</span>
+                  </li>
+                }
+              </ul>
 
-            <button type="button" class="btn-primary w-full justify-center inline-flex">Upgrade Now</button>
-          </div>
-        </article>
-
-        <!-- Researcher -->
-        <article
-          class="relative bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 md:col-span-2 lg:col-span-1"
-        >
-          @if (researcherPlan?.isPopular) {
-          <div class="absolute -top-3 left-6">
-            <span
-              class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
-            >
-              {{ researcherPlan?.badgeText || 'Popular' }}
-            </span>
-          </div>
-          }
-
-          <div class="flex flex-col gap-3">
-            <h2 class="text-2xl font-bold text-gray-800">{{ researcherPlan?.name || 'Researcher' }}</h2>
-            <p class="text-gray-500">{{ researcherPlan?.description || 'Advanced features for research.' }}</p>
-
-            <div class="flex items-end gap-2 mt-2">
-              <span class="text-3xl md:text-4xl font-extrabold text-gray-800">{{ formatPrice(researcherPlan) }}</span>
-              <span class="text-gray-500 font-semibold">{{ formatPeriod(researcherPlan) }}</span>
+              <button
+                type="button"
+                class="w-full justify-center inline-flex mt-auto"
+                [ngClass]="{
+                  'btn-info': plan.slug === 'free',
+                  'btn-primary': plan.slug === 'starter_monthly',
+                  'btn-warning': plan.slug === 'custom'
+                }"
+                [disabled]="isUpgradeDisabled(plan)"
+                [attr.aria-disabled]="isUpgradeDisabled(plan)"
+                [title]="isUpgradeDisabled(plan) ? 'Subscriptions are managed by teachers.' : null"
+                (click)="onPlanAction(plan)"
+              >
+                {{ plan.slug === 'starter_monthly' && starterActive ? 'Manage Plan' : plan.display.cta }}
+              </button>
             </div>
-          </div>
-
-          <div class="mt-6 flex flex-col gap-3">
-            <ul class="flex flex-col gap-2">
-              @for (lim of limitsList(researcherPlan); track lim.label) {
-              <li class="flex items-start gap-2 text-gray-600">
-                <span
-                  class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
-                >
-                  <i class="bx bx-check text-[#008081]"></i>
-                </span>
-                <span>{{ lim.label }}: {{ formatLimitValue(lim.label, lim.value) }}</span>
-              </li>
-              }
-            </ul>
-
-            <button type="button" class="btn-warning w-full justify-center inline-flex">Contact Us</button>
-          </div>
-        </article>
+          </article>
+        }
       </div>
     }
   </div>

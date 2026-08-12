@@ -24,6 +24,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   @Input() navigateOnSelect = true;
   @Output() closed = new EventEmitter<void>();
   @Output() selected = new EventEmitter<string>();
+  @Output() removed = new EventEmitter<string>();
   device = inject(DeviceService);
   private submissionApi = inject(SubmissionApiService);
   private alert = inject(AlertService);
@@ -45,6 +46,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   bulkStartResult: BulkEvaluationStartResult | null = null;
   isBulkStarting = false;
   bulkFailedCount = 0;
+  removingSubmissionId: string | null = null;
 
   get isBulkRunActive(): boolean {
     return this.submissions.some((submission) => submission.evaluationStatus === 'processing');
@@ -150,6 +152,30 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
         submissionId: student.submissionId
       }
     });
+  }
+
+  async removeSubmission(student: { submissionId: string; name: string }): Promise<void> {
+    if (!student.submissionId || this.removingSubmissionId) return;
+    const confirmed = await this.alert.showConfirm(
+      'Remove this submission?',
+      "This will remove the student's current submission and related current analysis for this assignment. The student will be able to submit again according to the assignment's submission rules.",
+      'Remove Submission',
+      'Cancel'
+    );
+    if (!confirmed || this.destroyed) return;
+
+    this.removingSubmissionId = student.submissionId;
+    try {
+      await this.submissionApi.removeSubmission(student.submissionId);
+      this.alert.showToast('Submission removed successfully', 'success');
+      this.removed.emit(student.submissionId);
+      await this.load(true);
+    } catch (error: any) {
+      this.alert.showError('Unable to remove submission',
+        error?.error?.message || 'The submission could not be removed. Please try again.');
+    } finally {
+      this.removingSubmissionId = null;
+    }
   }
 
   async startBulkReEvaluation(): Promise<void> {

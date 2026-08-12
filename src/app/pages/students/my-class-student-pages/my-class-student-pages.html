@@ -47,7 +47,7 @@
     @for (item of filteredClasses; track item.title) {
     <app-my-classes-card-student [id]="item.id" [image]="item.image" [title]="item.title" [students]="item.students"
       [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description"
-      [teacher]="item.teacher" [lastEdited]="item.lastEdited" />
+      [teacher]="item.teacher" [lastEdited]="item.lastEdited" [joinCode]="item.joinCode" />
     }
     }
   </div>
@@ -106,7 +106,7 @@
     @for (item of filteredClasses; track item.title) {
     <app-my-classes-card-student [id]="item.id" [image]="item.image" [title]="item.title" [students]="item.students"
       [assignments]="item.assignments" [submissions]="item.submissions" [description]="item.description"
-      [teacher]="item.teacher" [lastEdited]="item.lastEdited" />
+      [teacher]="item.teacher" [lastEdited]="item.lastEdited" [joinCode]="item.joinCode" />
     }
     }
     </div>

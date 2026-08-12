@@ -120,9 +120,9 @@
             <div class="flex flex-col gap-3">
               @for (item of assignments; track item.id) {
               <div 
-                class="w-full grid grid-cols-7 items-center py-4 px-6 bg-[#F3F3F3] rounded-xl cursor-pointer hover:bg-[#e8e8e8] transition-colors"
+                class="teacher-assignment-card"
                 (click)="onOpenSubmission(item.id)">
-                <div class="col-span-5">
+                <div class="teacher-assignment-card__content">
                   <div class="flex items-center gap-2 mb-1">
                     <p class="text-xl font-bold mb-0">
                       {{ item.title }}
@@ -134,7 +134,13 @@
                       <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
                     }
                   </div>
-                  <div class="flex flex-row items-center gap-4">
+                  @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+                    <div class="mb-2">
+                      <p class="text-xs font-semibold text-gray-700">Description</p>
+                      <p class="text-sm text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
+                    </div>
+                  }
+                  <div class="teacher-assignment-card__meta">
                     <p class="text-gray-500 text-sm">Due: {{ item.dueDate }}</p>
                     <div class="flex flex-row items-center gap-1">
                       <i
@@ -163,55 +169,60 @@
                     }
                   </div>
                 </div>
-                <div class="col-span-2 text-right" (click)="$event.stopPropagation()">
-                  <div class="flex flex-col items-end gap-1">
-                    <p class="text-sm underline cursor-pointer text-teal-600 hover:text-teal-700" (click)="onOpenSubmission(item.id)">
-                      View Submissions
-                    </p>
-                    <div class="flex flex-row gap-2">
+                <div class="teacher-assignment-actions" (click)="$event.stopPropagation()">
+                    <button type="button" class="teacher-assignment-primary" (click)="onOpenSubmission(item.id)">
+                      <i class="bx bx-show" aria-hidden="true"></i> View Submissions
+                    </button>
+                    <div class="teacher-assignment-actions__grid">
                       <button
                         type="button"
-                        class="px-3 py-1 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
+                        class="assignment-utility assignment-utility--qr"
+                        (click)="openAssignmentQr(item.id)"
+                      >
+                        <i class="bx bx-qr" aria-hidden="true"></i> QR Code
+                      </button>
+                      <button
+                        type="button"
+                        class="assignment-utility assignment-utility--edit"
                         (click)="onEditAssignment(item.id)"
                       >
-                        Edit
+                        <i class="bx bx-edit-alt" aria-hidden="true"></i> Edit
                       </button>
                       @if (!item.resourceType || item.resourceType === 'essay') {
                         <button
                           type="button"
-                          class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
+                          class="assignment-utility assignment-utility--rubric"
                           (click)="onOpenRubric(item.id)"
                         >
-                          Rubric
+                          <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
                         </button>
                       }
                       <button
                         type="button"
-                        class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
+                        class="assignment-utility assignment-utility--delete"
                         (click)="onDeleteAssignment(item.id)"
                       >
-                        Delete
+                        <i class="bx bx-trash" aria-hidden="true"></i> Delete
                       </button>
                       @if (item.resourceType === 'worksheet' && item.resourceId) {
                         <button
                           type="button"
-                          class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                          class="assignment-utility assignment-utility--preview"
                           (click)="openWorksheetPreview(item.resourceId)"
                         >
-                          Preview
+                          <i class="bx bx-show" aria-hidden="true"></i> Preview
                         </button>
                       }
                       @if (item.resourceType === 'flashcard' && item.resourceId) {
                         <button
                           type="button"
-                          class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                          class="assignment-utility assignment-utility--preview"
                           (click)="onPreviewFlashcard(item.resourceId)"
                         >
-                          Preview
+                          <i class="bx bx-show" aria-hidden="true"></i> Preview
                         </button>
                       }
                     </div>
-                  </div>
                 </div>
               </div>
               }
@@ -310,6 +321,7 @@
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
       (closed)="closeDialogSubmission()"
+      (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
   </app-modal-dialog>
 
@@ -319,6 +331,16 @@
       [qrValue]="qrValue"
       [classTitle]="classTitle"
       (closed)="closeDialogQRClasses()"
+    ></app-dialog-qr-classes>
+  </app-modal-dialog>
+
+  <app-modal-dialog [open]="showDialogQRAssignment">
+    <h2 class="text-3xl font-bold text-center">Assignment QR Code</h2>
+    <app-dialog-qr-classes
+      [qrValue]="selectedAssignmentQrValue"
+      [classTitle]="selectedQrAssignmentTitle"
+      instructionText="Students can scan this QR code to open the assignment."
+      (closed)="closeAssignmentQr()"
     ></app-dialog-qr-classes>
   </app-modal-dialog>
 
@@ -472,7 +494,7 @@
       <div class="overflow-y-auto">
         @for (item of assignments; track item.id) {
         <div 
-          class="bg-[#F3F3F3] w-full rounded-xl my-2 py-4 px-4 cursor-pointer hover:bg-[#e8e8e8] transition-colors"
+          class="teacher-assignment-card teacher-assignment-card--mobile"
           (click)="onOpenSheetSubmission(item.id)">
           <div class="flex flex-row justify-between items-center gap-4 w-full">
             <p class="text-gray-500 text-xs">Due: {{ item.dueDate }}</p>
@@ -514,51 +536,64 @@
                 <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
               }
             </div>
-            <div class="flex flex-row flex-wrap items-center gap-2 mt-1" (click)="$event.stopPropagation()">
-              <p class="text-xs underline cursor-pointer text-teal-600 hover:text-teal-700 mr-1" (click)="onOpenSheetSubmission(item.id)">
-                View Submissions
-              </p>
+            @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+              <div class="mt-1 mb-2">
+                <p class="text-xs font-semibold text-gray-700">Description</p>
+                <p class="text-xs text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
+              </div>
+            }
+            <div class="teacher-assignment-actions teacher-assignment-actions--mobile" (click)="$event.stopPropagation()">
+              <button type="button" class="teacher-assignment-primary" (click)="onOpenSheetSubmission(item.id)"><i class="bx bx-show" aria-hidden="true"></i> View Submissions</button>
+              <div class="teacher-assignment-actions__grid">
               <button
                 type="button"
-                class="px-3 py-1 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
+                class="assignment-utility assignment-utility--qr"
+                (click)="openAssignmentQr(item.id)"
+              >
+                <i class="bx bx-qr" aria-hidden="true"></i> QR Code
+              </button>
+              <button
+                type="button"
+                class="assignment-utility assignment-utility--edit"
                 (click)="onOpenEditAssignmentSheet(item.id)"
               >
-                Edit
+                <i class="bx bx-edit-alt" aria-hidden="true"></i> Edit
               </button>
               @if (!item.resourceType || item.resourceType === 'essay') {
                 <button
                   type="button"
-                  class="px-3 py-1 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700 text-xs font-semibold hover:bg-yellow-100"
+                  class="assignment-utility assignment-utility--rubric"
                   (click)="onOpenRubric(item.id)"
                 >
-                  Rubric
+                  <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
                 </button>
               }
               @if (item.resourceType === 'worksheet' && item.resourceId) {
                 <button
                   type="button"
-                  class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                  class="assignment-utility assignment-utility--preview"
                   (click)="openWorksheetPreview(item.resourceId)"
                 >
-                  Preview
+                  <i class="bx bx-show" aria-hidden="true"></i> Preview
                 </button>
               }
               @if (item.resourceType === 'flashcard' && item.resourceId) {
                 <button
                   type="button"
-                  class="px-3 py-1 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100"
+                  class="assignment-utility assignment-utility--preview"
                   (click)="onPreviewFlashcard(item.resourceId)"
                 >
-                  Preview
+                  <i class="bx bx-show" aria-hidden="true"></i> Preview
                 </button>
               }
               <button
                 type="button"
-                class="px-3 py-1 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100"
+                class="assignment-utility assignment-utility--delete"
                 (click)="onDeleteAssignment(item.id)"
               >
-                Delete
+                <i class="bx bx-trash" aria-hidden="true"></i> Delete
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -644,11 +679,22 @@
     ></app-dialog-qr-classes>
   </app-bottomsheet-dialog>
 
+  <app-bottomsheet-dialog [open]="openSheetAssignmentQr" (closed)="closeAssignmentQr()">
+    <h2 class="text-2xl font-bold mb-5">Assignment QR Code</h2>
+    <app-dialog-qr-classes
+      [qrValue]="selectedAssignmentQrValue"
+      [classTitle]="selectedQrAssignmentTitle"
+      instructionText="Students can scan this QR code to open the assignment."
+      (closed)="closeAssignmentQr()"
+    ></app-dialog-qr-classes>
+  </app-bottomsheet-dialog>
+
   <app-bottomsheet-dialog [open]="openSheetSubmission" (closed)="onCloseSubmission()">
     <h2 class="text-2xl font-bold mb-5">{{ selectedAssignmentTitle }}</h2>
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
       (closed)="onCloseSubmission()"
+      (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
   </app-bottomsheet-dialog>
 

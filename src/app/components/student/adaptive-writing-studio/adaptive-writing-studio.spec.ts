@@ -17,10 +17,17 @@ describe('AdaptiveWritingStudio', () => {
     { id: 'grammar', label: 'Grammar', earnedPoints: 17.5, maximumPoints: 25 },
     { id: 'mechanics', label: 'Mechanics', earnedPoints: null, maximumPoints: null }
   ];
-  const idle = { state: 'idle', session: null } as AdaptivePracticeSessionResponse;
+  const adaptiveAnalysis = [
+    { skillId: 'CONTENT' as const, skillLabel: 'Task Achievement', adaptivePercentage: 18, status: 'priority' as const },
+    { skillId: 'ORGANIZATION' as const, skillLabel: 'Coherence & Flow', adaptivePercentage: 13, status: 'priority' as const },
+    { skillId: 'VOCABULARY' as const, skillLabel: 'Lexical Resource', adaptivePercentage: 5, status: 'priority' as const },
+    { skillId: 'GRAMMAR' as const, skillLabel: 'Grammar', adaptivePercentage: 100, status: 'on-track' as const },
+    { skillId: 'MECHANICS' as const, skillLabel: 'Mechanics', adaptivePercentage: 100, status: 'on-track' as const }
+  ];
+  const idle = { state: 'idle', session: null, adaptiveSkills: adaptiveAnalysis } as AdaptivePracticeSessionResponse;
   const ready: AdaptivePracticeSessionResponse = { state: 'ready', session: {
     _id: 'session-1', submissionId: 'submission-1', status: 'ready', activities: [{ activityId: 'activity-1', skillId: 'ORGANIZATION', category: 'Coherence & Flow', title: 'Improve flow', description: 'Practice flow.', evidence: 'Student text.', task: 'Revise it.', tip: 'Use transitions.', checklist: ['Clear links', 'Smooth flow'], modelAnswer: 'Improved text.', difficulty: 'developing' }]
-  }, progress: { improvedActivities: 0, totalActivities: 1, percentage: 0, activities: [{ activityId: 'activity-1', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null }] } };
+  }, progress: { improvedActivities: 0, totalActivities: 1, percentage: 0, activities: [{ activityId: 'activity-1', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null }] }, adaptiveSkills: adaptiveAnalysis };
   const currentCanonical = { submissionId: 'submission-1', correctionStatus: 'completed', evaluationStatus: 'completed',
     detailedFeedbackStatus: 'completed', semanticStatus: 'completed', processingActive: false,
     correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash' } as CanonicalResultViewState;
@@ -75,17 +82,100 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.activities.length).toBe(0);
   });
 
-  it('does not treat zero assessed skills as all skills on track', () => {
+  it('uses the approved adaptive projection when redacted rubric points are unavailable', () => {
+    api.getSession.and.returnValue(of(idle));
     component.skills = skills.map((skill) => ({ ...skill, earnedPoints: null, maximumPoints: null }));
+    component.submissionId = 'submission-redacted';
     fixture.detectChanges();
-    expect(component.state).toBe('unassessed');
-    expect(component.canGenerate).toBeFalse();
-    expect(fixture.nativeElement.textContent).toContain('No assessed skills available');
-    expect(fixture.nativeElement.textContent).not.toContain('Great work');
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([18, 13, 5, 100, 100]);
+    expect(fixture.nativeElement.textContent).not.toContain('Not assessed');
   });
 
-  it('shows no weaknesses only when at least one assessed skill is on track', () => {
-    component.skills = [{ id: 'grammar', label: 'Grammar', earnedPoints: 24, maximumPoints: 25 }];
+  it('shows adaptive learning percentages when official assignment marks are hidden', () => {
+    api.getSession.and.returnValue(of(ready));
+    component.skills = skills.map((skill) => ({ ...skill, earnedPoints: null, maximumPoints: null }));
+    component.submissionId = 'submission-hidden';
+    fixture.detectChanges();
+
+    expect(component.eligibilityReason).toBe('ALREADY_GENERATED');
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([18, 13, 5, 100, 100]);
+    expect(fixture.nativeElement.textContent).toContain('13%');
+    expect(fixture.nativeElement.textContent).toContain('Priority practice');
+    expect(fixture.nativeElement.textContent).not.toContain('Marks hidden by teacher');
+    expect(fixture.nativeElement.textContent).not.toContain('Hidden');
+    expect(fixture.nativeElement.textContent).not.toContain('Not assessed');
+    expect(fixture.nativeElement.querySelectorAll('.skill-card').length).toBe(5);
+  });
+
+  it('does not let a later all-null parent input overwrite authoritative adaptive percentages', () => {
+    const request = new Subject<AdaptivePracticeSessionResponse>();
+    const redactedSkills = skills.map((skill) => ({ ...skill, earnedPoints: null, maximumPoints: null }));
+    api.getSession.and.returnValue(request.asObservable());
+    component.submissionId = 'submission-race';
+    component.skills = redactedSkills;
+    fixture.detectChanges();
+    expect(component.normalizedSkills.every((skill) => skill.percentage === null)).toBeTrue();
+
+    request.next({ state: 'idle', session: null, adaptiveSkills: adaptiveAnalysis });
+    component.skills = redactedSkills;
+    fixture.detectChanges();
+
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([18, 13, 5, 100, 100]);
+    expect(fixture.nativeElement.textContent).not.toContain('Not assessed');
+  });
+
+  it('keeps the same adaptive meaning when official rubric points are present', () => {
+    api.getSession.and.returnValue(of(ready));
+    component.skills = skills;
+    component.submissionId = 'submission-visible';
+    fixture.detectChanges();
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([18, 13, 5, 100, 100]);
+    expect(fixture.nativeElement.textContent).not.toContain('75%');
+    expect(fixture.nativeElement.textContent).toContain('13%');
+  });
+
+  it('clears Draft 1 authority and accepts only Draft 2 adaptive percentages', () => {
+    const draft1 = new Subject<AdaptivePracticeSessionResponse>();
+    const draft2 = new Subject<AdaptivePracticeSessionResponse>();
+    const draft2Analysis = [
+      { skillId: 'CONTENT' as const, skillLabel: 'Task Achievement', adaptivePercentage: 40, status: 'priority' as const },
+      { skillId: 'ORGANIZATION' as const, skillLabel: 'Coherence & Flow', adaptivePercentage: 35, status: 'priority' as const },
+      { skillId: 'VOCABULARY' as const, skillLabel: 'Lexical Resource', adaptivePercentage: 25, status: 'priority' as const },
+      { skillId: 'GRAMMAR' as const, skillLabel: 'Grammar', adaptivePercentage: 80, status: 'on-track' as const },
+      { skillId: 'MECHANICS' as const, skillLabel: 'Mechanics', adaptivePercentage: 90, status: 'on-track' as const }
+    ];
+    const redactedSkills = skills.map((skill) => ({ ...skill, earnedPoints: null, maximumPoints: null }));
+    api.getSession.and.returnValues(draft1.asObservable(), draft2.asObservable());
+
+    component.submissionId = 'draft-1';
+    component.skills = redactedSkills;
+    draft1.next({ state: 'idle', session: null, adaptiveSkills: adaptiveAnalysis });
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([18, 13, 5, 100, 100]);
+
+    component.submissionId = 'draft-2';
+    expect(component.normalizedSkills).toEqual([]);
+    component.skills = redactedSkills;
+    draft2.next({ state: 'idle', session: null, adaptiveSkills: draft2Analysis });
+    component.skills = redactedSkills;
+    draft1.next({ state: 'idle', session: null, adaptiveSkills: adaptiveAnalysis });
+
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([40, 35, 25, 80, 90]);
+  });
+
+  it('keeps adaptive analysis percentages readable across supported widths', () => {
+    component.startGeneration();
+    fixture.detectChanges();
+    const studio = fixture.nativeElement.querySelector('.studio') as HTMLElement;
+    for (const width of [1440, 1280, 1024, 768, 430, 390, 375, 360, 320]) {
+      studio.style.width = `${width}px`;
+      expect(Array.from(studio.querySelectorAll('.skill-card__score')).map((node: any) => node.textContent.trim()))
+        .withContext(`${width}px analysis`).toEqual(['18%', '13%', '5%', '100%', '100%']);
+    }
+  });
+
+  it('honors the backend no-weaknesses eligibility without reading rubric percentages', () => {
+    api.getSession.and.returnValue(of({ state: 'no-weaknesses', session: null }));
+    component.submissionId = 'submission-no-weaknesses';
     fixture.detectChanges();
     expect(component.state).toBe('no-weaknesses');
     expect(fixture.nativeElement.textContent).toContain('Great work');
@@ -183,11 +273,11 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.canGenerate).toBeTrue();
   });
 
-  it('does not mutate score inputs and marks missing scores not assessed', () => {
+  it('does not mutate score inputs and retains the adaptive analysis projection', () => {
     const snapshot = JSON.stringify(skills);
     component.startGeneration();
     expect(JSON.stringify(skills)).toBe(snapshot);
-    expect(component.normalizedSkills.find((skill) => skill.id === 'mechanics')?.statusLabel).toBe('Not assessed');
+    expect(component.normalizedSkills.find((skill) => skill.id === 'mechanics')?.statusLabel).toBe('On track');
   });
 
   it('uses staged text-only generation messages', () => {
@@ -206,6 +296,11 @@ describe('AdaptiveWritingStudio', () => {
     expect(api.checkResponse).toHaveBeenCalledWith('session-1', 'activity-1', 'However, the ideas connect.', false);
     expect(component.progressPercentage).toBe(100);
     expect(fixture.nativeElement.textContent).toContain('78%');
+    expect(component.normalizedSkills.find((skill) => skill.id === 'coherence')).toEqual(jasmine.objectContaining({
+      percentage: 13, statusLabel: 'Priority practice'
+    }));
+    expect(component.bestPracticeScore('coherence')).toBe(78);
+    expect(fixture.nativeElement.textContent).toContain('Best practice: 78%');
     expect(fixture.nativeElement.textContent).toContain('Improved');
   });
 
@@ -238,5 +333,57 @@ describe('AdaptiveWritingStudio', () => {
     expect(api.checkResponse).toHaveBeenCalledTimes(1);
     component.retryCheck(component.activities[0]);
     expect(api.checkResponse).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders accessible single-select MCQ options and submits the selected option id', () => {
+    component.activities = [{ id: 'mcq-1', questionType: 'mcq', skillId: 'GRAMMAR', category: 'Grammar',
+      title: 'Agreement', description: 'Choose the correct form.', evidence: 'The students is preparing.',
+      task: 'Which verb is correct?', tip: 'Match the plural subject.', checklist: ['Plural subject', 'Correct verb'],
+      options: [{ id: 'A', text: 'is' }, { id: 'B', text: 'are' }], difficulty: 'foundational', isDevelopmentPreview: false }];
+    component.state = 'generated';
+    (component as unknown as { sessionId: string }).sessionId = 'session-1';
+    (component as any).cdr.markForCheck();
+    fixture.detectChanges();
+    const radios = fixture.nativeElement.querySelectorAll('input[type="radio"]');
+    expect(radios.length).toBe(2);
+    radios[1].click();
+    fixture.detectChanges();
+    expect(component.responses['mcq-1']).toBe('B');
+    expect(fixture.nativeElement.querySelector('.mcq-option--selected')).toBeTruthy();
+  });
+
+  it('renders a full-width fill-blank input and keeps historical activities open response', () => {
+    component.activities = [{ id: 'blank-1', questionType: 'fill_blank', skillId: 'GRAMMAR', category: 'Grammar',
+      title: 'Complete the sentence', description: 'Enter the missing form.', evidence: 'The students is preparing.',
+      task: 'The students ___ preparing.', tip: 'Match the plural subject.', checklist: ['Correct form', 'One answer'],
+      difficulty: 'foundational', isDevelopmentPreview: false },
+    { id: 'legacy-1', skillId: 'ORGANIZATION', category: 'Coherence & Flow', title: 'Legacy response',
+      description: 'Revise the text.', evidence: 'Ideas.', task: 'Connect the ideas.', tip: 'Use a transition.',
+      checklist: ['Clear', 'Connected'], difficulty: 'developing', isDevelopmentPreview: false }];
+    component.state = 'generated';
+    (component as any).cdr.markForCheck();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('input.fill-blank-input')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('textarea')).toBeTruthy();
+  });
+
+  it('shows the existing-draft CTA only when practice is complete and teacher permission is enabled', () => {
+    component.startGeneration();
+    component.progress = { improvedActivities: 1, completedActivities: 1, totalActivities: 1,
+      requiredActivityCount: 1, completed: true, percentage: 100, activities: [] };
+    component.allowResubmission = false;
+    (component as any).cdr.markForCheck();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Adaptive Practice Completed');
+    expect(fixture.nativeElement.textContent).toContain('teacher has not enabled another draft yet');
+    expect(fixture.nativeElement.querySelector('.completion-panel__cta')).toBeFalsy();
+
+    const emitted = jasmine.createSpy('submitNewDraft');
+    component.submitNewDraft.subscribe(emitted);
+    component.allowResubmission = true;
+    (component as any).cdr.markForCheck();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.completion-panel__cta').click();
+    expect(emitted).toHaveBeenCalledTimes(1);
   });
 });

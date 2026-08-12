@@ -28,6 +28,8 @@ export class WorksheetPrintService {
       alert('Pop-ups are blocked. Please allow pop-ups for this site, then try again.');
       return;
     }
+    // The print document does not need a handle back to the application window.
+    win.opener = null;
     win.onload = () => {
       win.focus();
       win.print();

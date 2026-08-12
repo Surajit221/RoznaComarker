@@ -33,6 +33,7 @@ export function triggerBlobDownload(blob: Blob, options: DownloadOptions): void 
     if (isIos()) {
       // iOS Safari: open in new tab (user can then use Share > Save to Files)
       const newWindow = window.open(objectUrl, '_blank');
+      if (newWindow) newWindow.opener = null;
       if (!newWindow) {
         // If popup blocked, try the fallback approach
         fallbackDownload(objectUrl, filename);
@@ -69,7 +70,8 @@ export function triggerBlobDownload(blob: Blob, options: DownloadOptions): void 
   } catch (err) {
     // Final fallback: try opening in new tab instead of navigation
     try {
-      window.open(objectUrl, '_blank');
+      const newWindow = window.open(objectUrl, '_blank');
+      if (newWindow) newWindow.opener = null;
     } catch {
       // ignore final fallback failure
     }

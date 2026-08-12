@@ -10,11 +10,13 @@
       <h1 class="text-4xl text-center font-bold text-gray-800">Your Submissions</h1>
       <div class="flex flex-row gap-2">
         <button type="button" class="btn-info" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
+        @if (marksVisible) {
         <button type="button" class="btn-primary" [disabled]="isPdfDownloading" (click)="downloadPdf()">
           @if (isPdfDownloading) {
           <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
           } @else { Download PDF }
         </button>
+        }
         <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button>
       </div>
     </div>
@@ -43,14 +45,14 @@
         </div>
         } @else {
         <div class="w-full rounded-2xl overflow-visible">
-          <app-correction-overlay [imageUrl]="submissionFileUrls[activeFileIndex] || uploadedFileUrl || null"
+          <app-correction-overlay [imageUrl]="uploadedFileUrl || null"
             [annotations]="annotations" alt="Submission image"></app-correction-overlay>
           <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
         </div>
         @if (submissionFileUrls.length > 1) {
         <div class="w-full mt-3">
           <div class="submission-thumbs" role="tablist" aria-label="Submission images">
-            @for (url of submissionFileUrls; track $index) {
+          @for (url of submissionPreviewUrls; track $index) {
             <button type="button" class="submission-thumb" [class.active]="$index === activeFileIndex"
               (click)="onSelectSubmissionImage($index)" aria-label="View image {{ $index + 1 }}">
               <img [src]="url" alt="Submission image {{ $index + 1 }}" loading="lazy" />
@@ -81,6 +83,9 @@
             <div class="lg:col-span-1 space-y-4">
               <!-- Score Card -->
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
+                @if (!marksVisible) {
+                <div class="marks-hidden-notice" role="status"><i class="bx bx-hide" aria-hidden="true"></i><div><strong>Marks hidden by teacher</strong><p>Your teacher has not released the marks for this assignment yet.</p></div></div>
+                } @else {
                 @if (scoreState === 'loading') { <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container> }
                 @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>{{ analysisFailureMessage }}</div> }
                 @else {
@@ -104,6 +109,7 @@
                   <p>{{ scoreSummaryText }}</p>
                 </div>
                 <ng-container *ngTemplateOutlet="evaluationStatusPanel"></ng-container>
+                }
                 }
               </div>
 
@@ -309,18 +315,21 @@
           <button class="btn-warning w-fit" (click)="openRubricDialog()">View Rubric</button>
           }
         </div>
+        @if (!marksVisible) {
+        <ng-container *ngTemplateOutlet="evaluationMarksHiddenBanner"></ng-container>
+        }
         <div class="flex flex-col gap-3">
           @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
           <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
           } @else if (aiFeedbackState === 'error') {
           <div class="section-load-error" role="status">{{ analysisFailureMessage }}</div>
           } @else {
-          @if (isCustomRubricResult) {
+          @if (marksVisible && isCustomRubricResult) {
           <div class="rounded-xl bg-blue-50 px-5 py-4 text-blue-900" role="note">
             This overall score is calculated from the assignment’s custom rubric.
           </div>
           }
-          @if (!isCustomRubricResult && rubricCriteriaPreview.length) {
+          @if (marksVisible && !isCustomRubricResult && rubricCriteriaPreview.length) {
           <div class="w-full flex flex-col gap-3">
             @for (r of rubricCriteriaPreview; track r.title) {
             <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
@@ -341,13 +350,15 @@
             <div class="min-w-0 flex-1">
               <div class="flex flex-row gap-2 items-center flex-wrap">
                 <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
+                @if (marksVisible) {
                 <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
                   <span class="score-earned text-white">{{ item.score | number:'1.1-1' }}</span>
                   <span class="score-maximum text-white"> / {{ item.maxScore }}</span>
                 </div>
+                }
               </div>
               <p class="break-words">{{ item.description }}</p>
-              @if (item.selectedLevel) {
+              @if (marksVisible && item.selectedLevel) {
               <p class="break-words">Selected level: {{ item.selectedLevel }}</p>
               }
             </div>
@@ -375,11 +386,13 @@
 
     <div class="w-full flex justify-between gap-2 mb-5">
       <button type="button" class="btn-info-sm" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
+      @if (marksVisible) {
       <button type="button" class="btn-primary-sm" [disabled]="isPdfDownloading" (click)="downloadPdf()">
         @if (isPdfDownloading) {
         <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
         } @else { Download PDF }
       </button>
+      }
     </div>
 
     <div class="w-full flex flex-col gap-4 mb-24">
@@ -411,7 +424,7 @@
             max-h-[85vh] flex items-center justify-center">
 
             <div class="compact-uploaded-image w-full h-full flex flex-col items-center justify-center p-2">
-              <app-correction-overlay class="w-full max-w-full max-h-full" [imageUrl]="submissionFileUrls[activeFileIndex] || null"
+              <app-correction-overlay class="w-full max-w-full max-h-full" [imageUrl]="uploadedFileUrl || null"
                 [annotations]="annotations" alt="Submission image"></app-correction-overlay>
               <button type="button" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" (click)="openMobileLegend()">View correction legend</button>
             </div>
@@ -419,7 +432,7 @@
           </div>
           @if (submissionFileUrls.length > 1) {
           <div class="submission-thumbs mobile-submission-thumbs" role="tablist" aria-label="Submission images">
-            @for (url of submissionFileUrls; track $index) {
+            @for (url of submissionPreviewUrls; track $index) {
             <button type="button" (click)="onSelectSubmissionImage($index)"
               class="submission-thumb relative transition-all" [ngClass]="{
                 'border-blue-500 ring-2 ring-blue-200': activeFileIndex === $index,
@@ -541,6 +554,9 @@
             <!-- Score + Stats -->
             <div class="space-y-6">
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
+                @if (!marksVisible) {
+                <div class="marks-hidden-notice" role="status"><i class="bx bx-hide" aria-hidden="true"></i><div><strong>Marks hidden by teacher</strong><p>Your teacher has not released the marks for this assignment yet.</p></div></div>
+                } @else {
                 @if (scoreState === 'loading') { <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container> }
                 @else if (scoreState === 'error') { <div class="section-load-error" role="status"><strong>Score unavailable</strong><br>{{ analysisFailureMessage }}</div> }
                 @else {
@@ -564,6 +580,7 @@
                   <p>{{ scoreSummaryText }}</p>
                 </div>
                 <ng-container *ngTemplateOutlet="evaluationStatusPanel"></ng-container>
+                }
                 }
               </div>
 
@@ -654,18 +671,21 @@
             <button class="btn-warning-sm w-fit" (click)="openRubricDialog()">View Rubric</button>
             }
           </div>
+          @if (!marksVisible) {
+          <ng-container *ngTemplateOutlet="evaluationMarksHiddenBanner"></ng-container>
+          }
           <div class="flex flex-col gap-3">
             @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
             <div class="section-load-error" role="status">{{ analysisFailureMessage }}</div>
             } @else {
-            @if (isCustomRubricResult) {
+            @if (marksVisible && isCustomRubricResult) {
             <div class="rounded-xl bg-blue-50 px-5 py-4 text-blue-900" role="note">
               This overall score is calculated from the assignment’s custom rubric.
             </div>
             }
-            @if (!isCustomRubricResult && rubricCriteriaPreview.length) {
+            @if (marksVisible && !isCustomRubricResult && rubricCriteriaPreview.length) {
             <div class="w-full flex flex-col gap-3">
               @for (r of rubricCriteriaPreview; track r.title) {
               <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
@@ -685,13 +705,15 @@
               <div class="min-w-0 flex-1">
                 <div class="flex flex-row gap-2 items-center flex-wrap">
                   <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
+                  @if (marksVisible) {
                   <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
                     <span class="score-earned text-white">{{ item.score | number:'1.1-1' }}</span>
                     <span class="score-maximum text-white"> / {{ item.maxScore }}</span>
                   </div>
+                  }
                 </div>
                 <p class="break-words">{{ item.description }}</p>
-                @if (item.selectedLevel) {
+                @if (marksVisible && item.selectedLevel) {
                 <p class="break-words">Selected level: {{ item.selectedLevel }}</p>
                 }
               </div>
@@ -710,6 +732,16 @@
 
   </ng-template>
   <!-- END MOBILE -->
+
+  <ng-template #evaluationMarksHiddenBanner>
+    <div class="evaluation-marks-hidden-banner" role="status">
+      <span class="evaluation-marks-hidden-banner__icon" aria-hidden="true"><i class="bx bx-hide"></i></span>
+      <div class="evaluation-marks-hidden-banner__content">
+        <strong>Marks hidden by teacher</strong>
+        <p>Your teacher has hidden the grading scores for this assignment. You can still review the available feedback and comments.</p>
+      </div>
+    </div>
+  </ng-template>
 
   <ng-template #evaluationStatusPanel>
     @if (evaluationStatusPresentation.showPanel) {
@@ -740,7 +772,9 @@
     <app-adaptive-writing-studio
       [submissionId]="submission?._id || ''"
       [skills]="adaptiveSkillScores"
-      [canonicalResultState]="canonicalResultState">
+      [canonicalResultState]="canonicalResultState"
+      [allowResubmission]="allowResubmission"
+      (submitNewDraft)="submitNewDraft()">
     </app-adaptive-writing-studio>
   </div>
 
@@ -790,12 +824,14 @@
           <div class="min-w-0 flex-1">
             <div class="flex flex-row gap-2 items-center flex-wrap">
               <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
+              @if (marksVisible) {
               <div class="rounded-full bg-[#008081] flex items-center justify-center shrink-0"
                 [ngClass]="item.maxScore === 100 ? 'h-12 w-16' : 'h-10 w-10'">
                 <p class="font-bold text-white" [ngClass]="item.maxScore === 100 ? 'text-xs' : 'text-sm'">
                   {{ item.score | number:'1.1-1' }}/{{ item.maxScore }}
                 </p>
               </div>
+              }
             </div>
             <p class="break-words">{{ item.description }}</p>
           </div>

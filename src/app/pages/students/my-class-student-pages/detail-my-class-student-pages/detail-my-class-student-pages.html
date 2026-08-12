@@ -35,14 +35,17 @@
     <div class="col-span-3">
       <div class="flex flex-col gap-4">
         <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
-          <div class="flex flex-row justify-start items-center">
+          <div class="assignment-section-heading">
             <p class="text-2xl font-bold">{{ assignments.length }} Assignments</p>
+            <button type="button" class="upload-info-button" aria-label="View essay upload guidelines" (click)="openUploadGuidelines()">
+              <i class="bx bx-info-circle" aria-hidden="true"></i>
+            </button>
           </div>
           <div class="">
             <div class="flex flex-col gap-3">
               @for (item of assignments; track item.title) {
               <div
-                class="w-full grid grid-cols-7 items-center py-4 px-6 rounded-xl"
+                class="student-assignment-card student-assignment-card--desktop w-full grid grid-cols-7 items-center py-4 px-6 rounded-xl"
                 [ngClass]="{ 'bg-[#F3F3F3]': item.status == 'waiting', 'bg-[#B0F8D5]': item.status == 'completed', 'bg-[#F5E1A3]': item.status == 'pending',  'bg-[#D7DBFF]': item.status == 'in-progress', }"
               >
                 <div class="col-span-5">
@@ -57,6 +60,12 @@
                       <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
                     }
                   </div>
+                  @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+                    <div class="mb-2">
+                      <p class="text-xs font-semibold text-gray-700">Description</p>
+                      <p class="text-sm text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
+                    </div>
+                  }
                   <div class="flex flex-row items-center gap-4">
                     <p class="text-gray-500 text-sm">{{ item.dueDate }}</p>
                     <p class="text-gray-500 text-sm">{{ item.status }}</p>
@@ -95,12 +104,14 @@
                       Upload Essay
                     </p>
                   } @else {
-                    <p
-                      class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
-                      (click)="toViewSubmission(item.id)"
-                    >
-                      View Submissions
-                    </p>
+                    <div class="student-assignment-actions">
+                      <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
+                      @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && (!item.requireAdaptiveBeforeResubmission || item.adaptiveResubmissionSatisfied)) {
+                        <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
+                      } @else if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && item.requireAdaptiveBeforeResubmission) {
+                        <p class="student-assignment-actions__adaptive-required">Complete Adaptive Learning before another draft.</p>
+                      }
+                    </div>
                   }
                 </div>
               </div>
@@ -113,8 +124,35 @@
   </div>
 
   <!-- dialog -->
-  <app-modal-dialog [open]="showDialog">
-    <h2 class="text-3xl font-bold text-center mb-8">Upload Essay</h2>
+  <app-modal-dialog [open]="showDialog" maxWidthClass="max-w-[760px]" panelClass="student-upload-panel" (closed)="closeDialog()">
+    <div class="upload-modal-header">
+      <div>
+        <p class="upload-modal-eyebrow">Writing assignment</p>
+        <h2>{{ uploadDialogTitle }}</h2>
+      </div>
+      <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="closeDialog()">
+        <i class="bx bx-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="assignment-upload-details">
+      <section class="assignment-upload-detail">
+        <span class="assignment-upload-detail__icon"><i class="bx bx-book-open" aria-hidden="true"></i></span>
+        <div><p class="assignment-upload-detail__label">Title</p><p class="assignment-upload-detail__value">{{ selectedAssignmentTitle }}</p></div>
+      </section>
+      @if (selectedAssignmentInstructions) {
+        <section class="assignment-upload-detail">
+          <span class="assignment-upload-detail__icon"><i class="bx bx-file" aria-hidden="true"></i></span>
+          <div><p class="assignment-upload-detail__label">Description</p><p class="assignment-upload-detail__copy whitespace-pre-line">{{ selectedAssignmentInstructions }}</p></div>
+        </section>
+      }
+      @if (selectedAssignmentDeadline) {
+        <section class="assignment-upload-detail">
+          <span class="assignment-upload-detail__icon"><i class="bx bx-calendar" aria-hidden="true"></i></span>
+          <div class="min-w-0"><p class="assignment-upload-detail__label">Deadline</p><div class="deadline-row"><span><i class="bx bx-calendar-event" aria-hidden="true"></i>{{ selectedAssignmentDeadline | date:'MMM d, y' }}</span><span><i class="bx bx-time-five" aria-hidden="true"></i>{{ selectedAssignmentDeadline | date:'h:mm a' }}</span></div></div>
+        </section>
+      }
+    </div>
+    <div class="upload-section-heading"><div><p>Upload Image or PDF</p><span>JPG, PNG or PDF · Maximum 10 MB per file</span></div></div>
     <app-upload-essay-form #uploadFormDialog (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
 
     @if (uploadProgressPercent !== null) {
@@ -144,7 +182,7 @@
     </div>
     }
 
-    <div class="flex justify-center items-center gap-3 mt-8">
+    <div class="upload-modal-actions">
       <button
         type="button"
         class="btn-danger"
@@ -162,7 +200,7 @@
         [disabled]="isLoading"
         [class.opacity-50]="isLoading"
       >
-        Upload {{ selectedFiles.length }} File Now
+        <i class="bx bx-upload" aria-hidden="true"></i> {{ selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
       </button>
       }
     </div>
@@ -212,13 +250,16 @@
     </div>
 
     <div class="w-full bg-white p-3 rounded-2xl flex flex-col gap-4">
-      <div class="flex flex-row justify-start items-center">
+      <div class="assignment-section-heading">
         <p class="text-lg font-bold">{{ assignments.length }} Assignments</p>
+        <button type="button" class="upload-info-button" aria-label="View essay upload guidelines" (click)="openUploadGuidelines()">
+          <i class="bx bx-info-circle" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="flex flex-col gap-3">
         @for (item of assignments; track item.title) {
         <div
-          class="w-full grid grid-cols-1 items-center p-3 rounded-xl"
+          class="student-assignment-card w-full grid grid-cols-1 items-center p-3 rounded-xl"
           [ngClass]="{ 'bg-[#F3F3F3]': item.status == 'waiting', 'bg-[#B0F8D5]': item.status == 'completed', 'bg-[#F5E1A3]': item.status == 'pending',  'bg-[#D7DBFF]': item.status == 'in-progress', }"
         >
           <div class="flex flex-col w-full">
@@ -237,6 +278,12 @@
                 <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
               }
             </div>
+            @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+              <div class="mt-1">
+                <p class="text-xs font-semibold text-gray-700">Description</p>
+                <p class="text-xs text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
+              </div>
+            }
           </div>
           <div class="text-start mt-2">
             @if(item.resourceType === 'flashcard' && item.resourceId && item.status !== 'completed') {
@@ -271,12 +318,14 @@
                 Upload Essay
               </p>
             } @else {
-              <p
-                class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
-                (click)="toViewSubmission(item.id)"
-              >
-                View Submissions
-              </p>
+              <div class="student-assignment-actions student-assignment-actions--mobile">
+                <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
+                @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && (!item.requireAdaptiveBeforeResubmission || item.adaptiveResubmissionSatisfied)) {
+                  <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
+                } @else if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && item.requireAdaptiveBeforeResubmission) {
+                  <p class="student-assignment-actions__adaptive-required">Complete Adaptive Learning before another draft.</p>
+                }
+              </div>
             }
           </div>
         </div>
@@ -287,8 +336,31 @@
 
   <!-- bottomsheet -->
   <app-bottomsheet-dialog [open]="openSheet" (closed)="onCLoseSheet()">
-    <h2 class="text-2xl font-bold mb-3">Upload Essay</h2>
-    <app-upload-essay-form #uploadFormSheet (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
+    <div class="student-sheet-content">
+      <div class="upload-modal-header">
+        <div><p class="upload-modal-eyebrow">Writing assignment</p><h2>{{ uploadDialogTitle }}</h2></div>
+        <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="onCLoseSheet()"><i class="bx bx-x" aria-hidden="true"></i></button>
+      </div>
+      <div class="assignment-upload-details">
+        <section class="assignment-upload-detail">
+          <span class="assignment-upload-detail__icon"><i class="bx bx-book-open" aria-hidden="true"></i></span>
+          <div><p class="assignment-upload-detail__label">Title</p><p class="assignment-upload-detail__value">{{ selectedAssignmentTitle }}</p></div>
+        </section>
+        @if (selectedAssignmentInstructions) {
+          <section class="assignment-upload-detail">
+            <span class="assignment-upload-detail__icon"><i class="bx bx-file" aria-hidden="true"></i></span>
+            <div><p class="assignment-upload-detail__label">Description</p><p class="assignment-upload-detail__copy whitespace-pre-line">{{ selectedAssignmentInstructions }}</p></div>
+          </section>
+        }
+        @if (selectedAssignmentDeadline) {
+          <section class="assignment-upload-detail">
+            <span class="assignment-upload-detail__icon"><i class="bx bx-calendar" aria-hidden="true"></i></span>
+            <div class="min-w-0"><p class="assignment-upload-detail__label">Deadline</p><div class="deadline-row"><span><i class="bx bx-calendar-event" aria-hidden="true"></i>{{ selectedAssignmentDeadline | date:'MMM d, y' }}</span><span><i class="bx bx-time-five" aria-hidden="true"></i>{{ selectedAssignmentDeadline | date:'h:mm a' }}</span></div></div>
+          </section>
+        }
+      </div>
+      <div class="upload-section-heading"><div><p>Upload Image or PDF</p><span>JPG, PNG or PDF · Maximum 10 MB per file</span></div></div>
+      <app-upload-essay-form #uploadFormSheet (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
 
     @if (uploadProgressPercent !== null) {
     <div class="w-full mt-6">
@@ -325,7 +397,7 @@
         [disabled]="isLoading"
         [class.opacity-50]="isLoading"
       >
-        Upload {{ selectedFiles.length }} File Now
+        <i class="bx bx-upload" aria-hidden="true"></i> {{ selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
       </button>
       <button
         type="button"
@@ -338,10 +410,21 @@
       </button>
       @if (selectedFiles.length > 0) { }
     </div>
+    </div>
   </app-bottomsheet-dialog>
   }
 
 </ng-container>
+
+<app-modal-dialog [open]="showGuidelinesDialog" maxWidthClass="max-w-[780px]" panelClass="guidelines-panel" (closed)="closeUploadGuidelines()">
+  <app-upload-guidelines (closed)="closeUploadGuidelines()"></app-upload-guidelines>
+</app-modal-dialog>
+
+<app-bottomsheet-dialog [open]="openGuidelinesSheet" (closed)="closeUploadGuidelines()">
+  <div class="student-sheet-content student-sheet-content--guidelines">
+    <app-upload-guidelines (closed)="closeUploadGuidelines()"></app-upload-guidelines>
+  </div>
+</app-bottomsheet-dialog>
 
 <app-error-modal
   [show]="errorModal.open"

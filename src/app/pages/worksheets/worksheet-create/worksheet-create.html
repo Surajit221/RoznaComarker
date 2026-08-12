@@ -352,6 +352,27 @@
   }
 
   <!-- ── DRAFT PREVIEW (SHARED) ───────────────────────────── -->
+  @if (htmlPreviewUrl && htmlWorksheet && !isGeneratingHtml) {
+  <section class="wcp-card wcp-html-preview-card" aria-labelledby="generated-preview-title">
+    <div class="wcp-html-preview-header">
+      <div class="wcp-html-preview-meta">
+        <span class="wcp-html-preview-badge">Generated preview</span>
+        <h2 id="generated-preview-title" class="wcp-html-preview-title">{{ htmlWorksheetTitle }}</h2>
+      </div>
+      <div class="wcp-html-preview-actions">
+        <button class="wcp-btn-regenerate" type="button" (click)="regenerateHtmlWorksheet()">Regenerate</button>
+        <button class="wcp-btn-download-pdf" type="button" [disabled]="isDownloadingPdf" (click)="downloadHtmlAsPdf()">
+          {{ isDownloadingPdf ? 'Preparing PDF…' : 'Download PDF' }}
+        </button>
+      </div>
+    </div>
+    <div class="wcp-html-preview-scroll">
+      <iframe class="wcp-html-preview-iframe" [src]="htmlPreviewUrl" sandbox=""
+        referrerpolicy="no-referrer" title="Generated worksheet preview"></iframe>
+    </div>
+  </section>
+  }
+
   @if (draft && !isGenerating) {
   <div class="wcp-card wcp-draft-card">
     <div class="wcp-draft-header">

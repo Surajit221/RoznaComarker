@@ -9,6 +9,15 @@ import type { WorksheetDocument } from '../models/worksheet-document.model';
 /** Root element ID stamped on the renderer — must match WorksheetRendererComponent. */
 const RENDER_ROOT_ID = 'worksheet-render-root';
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Captures the rendered WorksheetDocument as an A4 PDF and triggers download.
  * Requires the WorksheetRendererComponent to be mounted in the DOM.
@@ -57,11 +66,12 @@ export function exportWorksheetToHtml(worksheet: WorksheetDocument): string {
     .join('\n');
 
   return `<!DOCTYPE html>
-<html lang="${worksheet.meta.language ?? 'en'}">
+<html lang="${escapeHtml(worksheet.meta.language ?? 'en')}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${worksheet.meta.title}</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https://images.unsplash.com; font-src 'none'; script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'" />
+  <title>${escapeHtml(worksheet.meta.title)}</title>
   <style>
     body { margin: 0; padding: 24px; background: #f0f0f0; }
     ${allStyles}

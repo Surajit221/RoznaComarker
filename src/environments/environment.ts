@@ -1,4 +1,4 @@
-const backendOrigin = 'https://comarkerback.roznahub.com';
+const backendOrigin = 'http://localhost:5000';
 
 export const environment = {
   production: false,
@@ -11,7 +11,8 @@ export const environment = {
 
   UPLOADS_URL: `${backendOrigin}/uploads`,
 
-  FRONTEND_URL: 'https://comarkers.roznahub.com',
+  FRONTEND_URL: 'http://localhost:4200',
+  stripePublishableKey: 'pk_test_51S66M5CASwM322wGxv3xd7JSih56mVkbEEsQ2MRBzpXBi9EUFDo2uR6rLxFzlQgXj4bSRIf1fq5aQHZ4b7e3gBeh00L6EKmwKe',
 
   apiBaseUrl: `${backendOrigin}/api`,
 

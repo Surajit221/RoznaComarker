@@ -9,6 +9,7 @@ import { SubscriptionApiService, type BackendMySubscription } from '../../api/su
 import { environment } from '../../../environments/environment';
 import { NotificationApiService, type BackendNotification } from '../../api/notification-api.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
+import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -74,9 +75,35 @@ export class DashboardLayout {
   }
 
   get storageTotalGb(): number {
-    const limitMB = this.mySubscription?.plan?.limits?.storageMB;
+    const limitMB =
+      this.mySubscription?.plan?.features?.storageMB ??
+      this.mySubscription?.plan?.limits?.storageMB;
     const totalGb = typeof limitMB === 'number' && Number.isFinite(limitMB) ? limitMB / 1024 : 0;
     return Math.max(0, Number(totalGb.toFixed(2)));
+  }
+
+  get hasStripeSubscription(): boolean {
+    return ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(this.mySubscription?.billing?.status || '');
+  }
+
+  get planButtonLabel(): string {
+    if (this.mySubscription?.billing?.paymentIssue) return 'Manage Billing';
+    return this.hasStripeSubscription ? 'Manage Plan' : 'Upgrade Plan';
+  }
+
+  async onPlanButton(): Promise<void> {
+    if (this.role !== 'teacher') return;
+    if (this.hasStripeSubscription) {
+      try {
+        const portal = await this.subscriptionApi.createCustomerPortal();
+        const portalUrl = trustedStripePortalUrl(portal.url);
+        if (portalUrl) {
+          window.location.assign(portalUrl);
+          return;
+        }
+      } catch { /* pricing page provides a recoverable fallback */ }
+    }
+    await this.router.navigate(['/pricing']);
   }
 
   teacherMenuMobile = [
@@ -142,10 +169,15 @@ export class DashboardLayout {
     this.mainMenu = this.role === 'student' ? this.studentMenu : this.teacherMenu;
     this.mainMenuMobile = this.role === 'student' ? this.studentMenuMobile : this.teacherMenuMobile;
 
-    this.isSubscriptionLoading = true;
+    const subscriptionRequest =
+      this.role === 'teacher'
+        ? this.subscriptionApi.getMySubscription()
+        : Promise.resolve(null);
+
+    this.isSubscriptionLoading = this.role === 'teacher';
     const [meResult, subResult, , ] = await Promise.allSettled([
       this.auth.getMeProfile(),
-      this.subscriptionApi.getMySubscription(),
+      subscriptionRequest,
       this.refreshNotificationsPreview(),
       this.refreshUnreadCount(),
     ]);
@@ -157,7 +189,7 @@ export class DashboardLayout {
       this.mePhotoUrl = me.photoURL || '';
     }
 
-    if (subResult.status === 'fulfilled') {
+    if (subResult.status === 'fulfilled' && subResult.value) {
       this.mySubscription = subResult.value;
     } else {
       this.mySubscription = null;

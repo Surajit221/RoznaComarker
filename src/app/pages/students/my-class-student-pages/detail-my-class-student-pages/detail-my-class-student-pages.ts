@@ -17,11 +17,13 @@ import { TeacherDashboardStateService } from '../../../../services/teacher-dashb
 import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
 import { AssignmentStateService } from '../../../../services/assignment-state.service';
 import { WorksheetApiService } from '../../../../api/worksheet-api.service';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { UploadGuidelines } from './upload-guidelines/upload-guidelines';
+import { AdaptivePracticeApiService } from '../../../../api/adaptive-practice-api.service';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
-  imports: [CommonModule, ModalDialog, UploadEssayForm, BottomsheetDialog, AppBarBackButton, ErrorModal],
+  imports: [CommonModule, ModalDialog, UploadEssayForm, UploadGuidelines, BottomsheetDialog, AppBarBackButton, ErrorModal],
   templateUrl: './detail-my-class-student-pages.html',
   styleUrl: './detail-my-class-student-pages.css',
 })
@@ -31,6 +33,8 @@ export class DetailMyClassStudentPages {
 
   showDialog = false;
   openSheet = false;
+  showGuidelinesDialog = false;
+  openGuidelinesSheet = false;
   device = inject(DeviceService);
 
   private route = inject(ActivatedRoute);
@@ -48,6 +52,7 @@ export class DetailMyClassStudentPages {
   private pendingAssignmentsRefresh = false;
   private assignmentState = inject(AssignmentStateService);
   private worksheetApi    = inject(WorksheetApiService);
+  private adaptivePracticeApi = inject(AdaptivePracticeApiService);
 
   classId: string | null = null;
   isLoading = false;
@@ -75,6 +80,30 @@ export class DetailMyClassStudentPages {
 
   selectedAssignmentId: string | null = null;
 
+  get selectedAssignmentInstructions(): string {
+    if (!this.selectedAssignmentId) return '';
+    return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.instructions || '';
+  }
+
+  get selectedAssignmentTitle(): string {
+    if (!this.selectedAssignmentId) return '';
+    return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.title || '';
+  }
+
+  get selectedAssignmentDeadline(): string {
+    if (!this.selectedAssignmentId) return '';
+    return this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.deadline || '';
+  }
+
+  get selectedAssignmentIsResubmission(): boolean {
+    if (!this.selectedAssignmentId) return false;
+    return (this.assignments.find((assignment) => assignment.id === this.selectedAssignmentId)?.submitted || 0) > 0;
+  }
+
+  get uploadDialogTitle(): string {
+    return this.selectedAssignmentIsResubmission ? 'Submit Another Draft' : 'Upload Essay';
+  }
+
   assignments: Array<{
     id: string;
     title: string;
@@ -84,6 +113,12 @@ export class DetailMyClassStudentPages {
     status: 'waiting' | 'pending' | 'in-progress' | 'completed';
     resourceType?: string;
     resourceId?: string;
+    instructions?: string;
+    deadline?: string;
+    showMarksToStudent: boolean;
+    allowResubmission: boolean;
+    requireAdaptiveBeforeResubmission?: boolean;
+    adaptiveResubmissionSatisfied?: boolean;
   }> = [];
 
   constructor(private router: Router) {}
@@ -92,6 +127,17 @@ export class DetailMyClassStudentPages {
     this.classId = this.route.snapshot.paramMap.get('slug') || this.route.snapshot.paramMap.get('classId');
     await this.loadClassSummary();
     await this.loadAssignments();
+
+    const linkedAssignmentId = this.route.snapshot.queryParamMap.get('assignmentId');
+    const openResubmission = this.route.snapshot.queryParamMap.get('resubmit') === 'true';
+    if (linkedAssignmentId && this.assignments.some((assignment) => assignment.id === linkedAssignmentId)) {
+      const linkedAssignment = this.assignments.find((assignment) => assignment.id === linkedAssignmentId)!;
+      if (linkedAssignment.status === 'completed' && !openResubmission) {
+        this.toViewSubmission(linkedAssignmentId);
+      } else {
+        await this.openUpload(linkedAssignmentId);
+      }
+    }
 
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = this.realtime.notifications$.subscribe((n: any) => {
@@ -180,6 +226,7 @@ export class DetailMyClassStudentPages {
     // Check if student has submitted this assignment
     let status: 'waiting' | 'pending' | 'in-progress' | 'completed' = 'waiting';
     let submitted = 0;
+    let submissionId: string | null = null;
     let total = 1; // Each assignment has 1 total submission slot
 
     try {
@@ -202,6 +249,7 @@ export class DetailMyClassStudentPages {
         if (submission) {
           submitted = 1;
           status = 'completed';
+          submissionId = String(submission._id || '');
         }
       }
     } catch (err) {
@@ -213,6 +261,17 @@ export class DetailMyClassStudentPages {
       status = 'pending'; // Overdue
     }
 
+    const requireAdaptiveBeforeResubmission = a.requireAdaptiveBeforeResubmission === true;
+    let adaptiveResubmissionSatisfied = !requireAdaptiveBeforeResubmission;
+    if (submitted > 0 && a.allowResubmission === true && requireAdaptiveBeforeResubmission && submissionId) {
+      try {
+        const adaptive = await firstValueFrom(this.adaptivePracticeApi.getSession(submissionId));
+        adaptiveResubmissionSatisfied = adaptive.state === 'no-weaknesses' || adaptive.progress?.completed === true;
+      } catch {
+        adaptiveResubmissionSatisfied = false;
+      }
+    }
+
     return {
       id: a._id,
       title: a.title,
@@ -222,7 +281,28 @@ export class DetailMyClassStudentPages {
       status,
       resourceType: a.resourceType,
       resourceId: a.resourceId,
+      instructions: a.instructions?.trim() || undefined,
+      deadline: a.deadline,
+      showMarksToStudent: a.showMarksToStudent !== false,
+      allowResubmission: a.allowResubmission === true,
+      requireAdaptiveBeforeResubmission,
+      adaptiveResubmissionSatisfied,
     };
+  }
+
+  openUploadGuidelines(): void {
+    if (this.device.isMobile() || this.device.isTablet()) {
+      document.body.classList.add('overflow-hidden');
+      this.openGuidelinesSheet = true;
+      return;
+    }
+    this.showGuidelinesDialog = true;
+  }
+
+  closeUploadGuidelines(): void {
+    document.body.classList.remove('overflow-hidden');
+    this.showGuidelinesDialog = false;
+    this.openGuidelinesSheet = false;
   }
 
   async loadAssignments() {
@@ -270,7 +350,32 @@ export class DetailMyClassStudentPages {
     });
   }
 
-  openUpload(assignmentId: string) {
+  async openUpload(assignmentId: string) {
+    const assignment = this.assignments.find((item) => item.id === assignmentId);
+    if (!assignment) return;
+
+    if (assignment.submitted > 0) {
+      if (!assignment.allowResubmission) {
+        this.alert.showWarning('Another draft is unavailable', 'Your teacher has not enabled another draft for this assignment.');
+        return;
+      }
+      if (assignment.requireAdaptiveBeforeResubmission && !assignment.adaptiveResubmissionSatisfied) {
+        this.alert.showWarning(
+          'Complete Adaptive Learning first',
+          'Complete Adaptive Learning for your current draft before submitting another draft.'
+        );
+        this.toViewSubmission(assignmentId);
+        return;
+      }
+      const confirmed = await this.alert.showConfirm(
+        'Submit another draft?',
+        'Your new draft will replace the current version used for grading and will be processed again.',
+        'Submit New Draft',
+        'Cancel'
+      );
+      if (!confirmed) return;
+    }
+
     this.selectedAssignmentId = assignmentId;
 
     if (this.device.isMobile() || this.device.isTablet()) {

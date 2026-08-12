@@ -1,0 +1,21 @@
+<main class="checkout-page">
+  <header class="brand"><img src="img/logo.png" alt="Rozna Co-Marker logo"><span>Rozna Co-Marker</span></header>
+  <section class="heading"><h1>Complete your upgrade</h1><p>Upgrade to Starter Monthly</p></section>
+  <div class="checkout-grid">
+    <article class="card summary">
+      <p class="eyebrow">PLAN SUMMARY</p>
+      <h2>{{ plan?.display?.title || plan?.name || 'Starter Monthly' }}</h2>
+      <p class="price">{{ plan?.price | currency:(plan?.currency || 'USD') }} <span>/ month</span></p>
+      <ul>@for (feature of features(); track feature) { <li><span>✓</span>{{ feature }}</li> }</ul>
+      <div class="billing"><strong>Billing</strong><span>Monthly subscription</span></div>
+    </article>
+    <article class="card payment">
+      <h2>Secure Checkout</h2>
+      @if (loading) { <div class="state" aria-live="polite"><span class="spinner"></span>Preparing secure checkout…</div> }
+      @if (errorMessage) { <div class="error" role="alert">{{ errorMessage }}<button type="button" (click)="retry()">Try Again</button><a routerLink="/pricing">Return to Pricing</a></div> }
+      <div id="embedded-checkout" [class.hidden]="loading || errorMessage"></div>
+      <p class="secure">🔒 Secure payment powered by Stripe</p>
+      <a class="cancel-link" routerLink="/checkout/cancel">Cancel checkout</a>
+    </article>
+  </div>
+</main>

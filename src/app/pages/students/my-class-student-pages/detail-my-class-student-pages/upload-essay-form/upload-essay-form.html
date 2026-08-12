@@ -10,7 +10,7 @@
 
 <!-- Drop zone -->
 <div
-  class="relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition-colors duration-200 cursor-pointer select-none"
+  class="essay-dropzone relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition-colors duration-200 cursor-pointer select-none"
   [ngClass]="{
     'border-blue-500 bg-blue-50': isDragging,
     'border-gray-300 hover:border-blue-400': !isDragging
@@ -20,24 +20,31 @@
   (drop)="onDrop($event)"
   (click)="openFilePicker($event)"
   (touchend)="openFilePicker($event)"
+  (keydown.enter)="openFilePicker($event)"
+  (keydown.space)="openFilePicker($event)"
+  role="button"
+  tabindex="0"
+  aria-label="Choose essay images or PDF files"
 >
   @if (files.length === 0) {
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 mb-3" viewBox="0 0 24 24" fill="none">
+    <div class="essay-dropzone__icon">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" viewBox="0 0 24 24" fill="none">
       <path
         d="M7 10V9C7 6.23858 9.23858 4 12 4C14.7614 4 17 6.23858 17 9V10C19.2091 10 21 11.7909 21 14C21 15.4806 20.1956 16.8084 19 17.5M7 10C4.79086 10 3 11.7909 3 14C3 15.4806 3.8044 16.8084 5 17.5M7 10C7.43285 10 7.84965 10.0688 8.24006 10.1959M12 12V21M12 12L15 15M12 12L9 15"
-        stroke="#D1D5DB"
+        stroke="currentColor"
         stroke-width="1.5"
         stroke-linecap="round"
         stroke-linejoin="round"
       />
     </svg>
+    </div>
 
     @if (device.isDesktop()) {
-      <p class="text-center text-xl font-bold text-gray-300">Upload Image or PDF</p>
-      <p class="text-center text-base text-gray-300 mt-1">Drop files or click here to browse</p>
+      <p class="text-center text-lg font-bold text-gray-700">Upload Image or PDF</p>
+      <p class="text-center text-sm text-gray-500 mt-1">Drop files here or click to browse</p>
     } @else {
-      <p class="text-center text-lg font-semibold text-gray-300">Upload Image or PDF</p>
-      <p class="text-center text-sm text-gray-300 mt-1">Tap here to choose files</p>
+      <p class="text-center text-base font-semibold text-gray-700">Upload Image or PDF</p>
+      <p class="text-center text-sm text-gray-500 mt-1">Tap here to choose files</p>
     }
   } @else {
     <div class="flex flex-col items-center gap-1">
@@ -48,6 +55,9 @@
         <p class="text-center text-sm font-semibold text-gray-400">Tap to add more files</p>
       }
     </div>
+  }
+  @if (files.length === 0) {
+    <p class="essay-dropzone__formats">JPG, PNG, PDF · Up to 10 MB per file</p>
   }
 </div>
 

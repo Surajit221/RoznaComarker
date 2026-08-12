@@ -60,7 +60,11 @@ export class AssignmentForm {
         className: a.title || '',
         writingType: a.writingType || '',
         startDate: dateOnly,
-        message: a.instructions || ''
+        message: a.instructions || '',
+        showMarksToStudent: a.showMarksToStudent !== false,
+        allowResubmission: a.allowResubmission === true,
+        requireAdaptiveBeforeResubmission:
+          a.allowResubmission === true && a.requireAdaptiveBeforeResubmission === true
       });
       
       // Load existing rubric if present
@@ -71,6 +75,11 @@ export class AssignmentForm {
     this.classForm.reset();
     const today = new Date().toISOString().split('T')[0];
     this.classForm.get('startDate')?.setValue(today);
+    this.classForm.patchValue({
+      showMarksToStudent: true,
+      allowResubmission: false,
+      requireAdaptiveBeforeResubmission: false
+    });
     
     // Reset rubric for new assignment
     this.rubricDesignerForModal = null;
@@ -83,6 +92,9 @@ export class AssignmentForm {
         writingType: ['', Validators.required],
         startDate: ['', Validators.required],
         message: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
+        showMarksToStudent: [true],
+        allowResubmission: [false],
+        requireAdaptiveBeforeResubmission: [false],
       }
     );
   }
@@ -90,6 +102,12 @@ export class AssignmentForm {
   isFieldInvalid(fieldName: string): boolean {
     const field = this.classForm.get(fieldName);
     return !!(field && field.invalid && (field.dirty || field.touched));
+  }
+
+  onAllowResubmissionChange(): void {
+    if (this.classForm.value.allowResubmission !== true) {
+      this.classForm.get('requireAdaptiveBeforeResubmission')?.setValue(false);
+    }
   }
 
   onSubmit(): void {
@@ -134,7 +152,12 @@ export class AssignmentForm {
         title,
         deadline,
         instructions,
-        writingType
+        writingType,
+        showMarksToStudent: this.classForm.value.showMarksToStudent === true,
+        allowResubmission: this.classForm.value.allowResubmission === true,
+        requireAdaptiveBeforeResubmission:
+          this.classForm.value.allowResubmission === true
+          && this.classForm.value.requireAdaptiveBeforeResubmission === true
       };
       
       // Include rubric if it exists
@@ -155,6 +178,7 @@ export class AssignmentForm {
 
       if (this.assignment?._id) {
         const updated = await this.assignmentApi.updateAssignment(this.assignment._id, payload);
+        this.alert.showToast('Assignment updated successfully', 'success');
         this.updated.emit(updated);
         this.closeDialog();
         return;
@@ -169,6 +193,7 @@ export class AssignmentForm {
       payload.classId = classId;
       const created = await this.assignmentApi.createAssignment(payload);
 
+      this.alert.showToast('Assignment created successfully', 'success');
       this.created.emit(created);
       this.closeDialog();
     } catch (err: any) {

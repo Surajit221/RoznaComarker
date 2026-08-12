@@ -18,11 +18,13 @@ describe('SubmissionApiService canonical reads', () => {
 
   it('uses the same canonical assignment URL for desktop and mobile consumers', async () => {
     const desktop = service.getMySubmissionByAssignmentId('assignment-1', 'desktop-token');
-    const desktopRequest = http.expectOne(`${environment.apiUrl}/submissions/assignment/assignment-1/my`);
+    const desktopRequest = http.expectOne((request) => request.url === `${environment.apiUrl}/submissions/assignment/assignment-1/my`
+      && request.params.get('_refresh') === 'desktop-token');
     expect(desktopRequest.request.method).toBe('GET');
     desktopRequest.flush({ success: true, data: { _id: 'submission-1' } });
     const mobile = service.getMySubmissionByAssignmentId('assignment-1', 'mobile-token');
-    const mobileRequest = http.expectOne(`${environment.apiUrl}/submissions/assignment/assignment-1/my`);
+    const mobileRequest = http.expectOne((request) => request.url === `${environment.apiUrl}/submissions/assignment/assignment-1/my`
+      && request.params.get('_refresh') === 'mobile-token');
     expect(mobileRequest.request.method).toBe('GET');
     mobileRequest.flush({ success: true, data: { _id: 'submission-1' } });
     expect((await desktop)._id).toBe((await mobile)._id);
@@ -39,5 +41,13 @@ describe('SubmissionApiService canonical reads', () => {
     expect(retryRequest.request.method).toBe('POST');
     retryRequest.flush({ success: true });
     await retry;
+  });
+
+  it('uses the teacher submission removal endpoint with DELETE', async () => {
+    const removal = service.removeSubmission('submission/unsafe');
+    const req = http.expectOne(`${environment.apiUrl}/submissions/submission%2Funsafe`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ success: true, message: 'Submission removed successfully.' });
+    await removal;
   });
 });

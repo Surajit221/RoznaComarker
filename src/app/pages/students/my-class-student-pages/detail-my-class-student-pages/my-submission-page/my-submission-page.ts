@@ -11,7 +11,6 @@ import { PdfApiService } from '../../../../../api/pdf-api.service';
 import { AlertService } from '../../../../../services/alert.service';
 import { ClassApiService } from '../../../../../api/class-api.service';
 import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { TokenizedTranscript } from '../../../../../components/submission-details/tokenized-transcript/tokenized-transcript';
@@ -76,7 +75,6 @@ export class MySubmissionPage {
   private pdfApi = inject(PdfApiService);
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
-  private sanitizer = inject(DomSanitizer);
   private http = inject(HttpClient);
   private writingCorrectionsApi = inject(WritingCorrectionsApiService);
   private resultCoordinator = inject(CanonicalSubmissionResultCoordinator);
@@ -342,6 +340,28 @@ export class MySubmissionPage {
   assignment: BackendAssignment | null = null;
   hasAssignmentRubric = false;
 
+  get marksVisible(): boolean {
+    if (this.feedback?.marksVisible === false) return false;
+    return this.assignment?.showMarksToStudent !== false;
+  }
+
+  get allowResubmission(): boolean {
+    return this.assignment?.allowResubmission === true;
+  }
+
+  submitNewDraft(): void {
+    if (!this.allowResubmission || !this.assignmentId) return;
+    if (this.classId) {
+      this.router.navigate(['/student/my-classes/detail', this.classId], {
+        queryParams: { assignmentId: this.assignmentId, resubmit: true }
+      });
+      return;
+    }
+    this.router.navigate(['/student/my-classes'], {
+      queryParams: { assignmentId: this.assignmentId, resubmit: true }
+    });
+  }
+
   get submissionTitle(): string {
     const a: any = this.submission && (this.submission as any).assignment;
     const title = a && typeof a === 'object' ? (a.title || a.name) : '';
@@ -403,15 +423,43 @@ export class MySubmissionPage {
   private loadOcrCorrectionsSeq = 0;
   private loadTranscriptPagesSeq = 0;
   private transcriptPagesSignature: string | null = null;
+  private canonicalDraftIdentity: string | null = null;
+  private assetRevisionToken: string | null = null;
   private setUploadedFileUrlSeq = 0;
 
   uploadedFileUrl: string | null = null;
   private rawUploadedFileUrl: string | null = null;
   submissionFileUrls: string[] = [];
+  submissionPreviewUrls: string[] = [];
   submissionFileIds: string[] = [];
   activeFileIndex = 0;
   private uploadedFileIsPdf = false;
   private objectUrls: string[] = [];
+  private previewObjectUrls: string[] = [];
+  private previewSourceSignature = '';
+
+  private async refreshSubmissionPreviewUrls(urls: string[]): Promise<void> {
+    const signature = JSON.stringify(urls);
+    if (signature === this.previewSourceSignature) return;
+    this.previewSourceSignature = signature;
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
+    this.submissionPreviewUrls = urls.map(() => '');
+    const previews = await Promise.all(urls.map(async (url) => {
+      try {
+        const blob = await firstValueFrom(this.http.get(normalizeToHttps(url), { responseType: 'blob' }));
+        return URL.createObjectURL(blob);
+      } catch {
+        return '';
+      }
+    }));
+    if (signature !== this.previewSourceSignature) {
+      for (const url of previews) if (url) URL.revokeObjectURL(url);
+      return;
+    }
+    this.previewObjectUrls = previews.filter(Boolean);
+    this.submissionPreviewUrls = previews;
+  }
 
   private resetSectionStates(): void {
     this.submissionState = 'loading';
@@ -427,7 +475,7 @@ export class MySubmissionPage {
     const raw = normalizeToHttps(url);
     if (!raw) return '';
 
-    const cacheBustToken = this.lastRefreshToken;
+    const cacheBustToken = this.assetRevisionToken || this.lastRefreshToken;
     const appendCacheBust = (input: string): string => {
       const token = cacheBustToken ? String(cacheBustToken).trim() : '';
       if (!token) return input;
@@ -583,11 +631,11 @@ export class MySubmissionPage {
   teacherComment: string | null = null;
   showRubricDialog = false;
 
-  highlightedTranscriptHtml: SafeHtml | null = null;
+  highlightedTranscriptHtml: string | null = null;
   writingCorrectionsLegend: CorrectionLegend | null = DEFAULT_CORRECTION_LEGEND;
   writingCorrectionsIssues: WritingCorrectionIssue[] = [];
   private canonicalWritingCorrections: any[] = [];
-  writingCorrectionsHtml: SafeHtml | null = null;
+  writingCorrectionsHtml: string | null = null;
   writingCorrectionsError: string | null = null;
   isWritingCorrectionsLoading = false;
   private lastWritingCorrectionsText: string | null = null;
@@ -979,7 +1027,7 @@ export class MySubmissionPage {
       : [];
 
     if (!annotated.length) {
-      this.highlightedTranscriptHtml = this.sanitizer.bypassSecurityTrustHtml(this.escapeHtml(text));
+      this.highlightedTranscriptHtml = this.escapeHtml(text);
       return;
     }
 
@@ -1025,7 +1073,8 @@ export class MySubmissionPage {
       html += this.escapeHtml(text.slice(cursor));
     }
 
-    this.highlightedTranscriptHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+    // Keep generated markup untrusted; Angular sanitizes it at the [innerHTML] sink.
+    this.highlightedTranscriptHtml = html;
   }
 
   private async ensureWritingCorrectionsLegendLoaded() {
@@ -1052,7 +1101,7 @@ export class MySubmissionPage {
       this.writingCorrectionsIssues = applyLegendToIssues(rawIssues, this.writingCorrectionsLegend);
       this.recomputeLegendAligned();
       const html = buildWritingCorrectionsHtml(text, this.writingCorrectionsIssues);
-      this.writingCorrectionsHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+      this.writingCorrectionsHtml = html;
       this.lastWritingCorrectionsText = text;
     } catch (err: any) {
       this.writingCorrectionsError = err?.error?.message || err?.message || 'Failed to display persisted writing corrections';
@@ -1324,6 +1373,10 @@ export class MySubmissionPage {
       this.alert.showWarning('No submission', 'Please upload a submission first.');
       return;
     }
+    if (!this.marksVisible) {
+      this.alert.showWarning('Marks not released', 'Your teacher has not released the marks for this assignment yet.');
+      return;
+    }
     if (this.isPdfDownloading) return;
     this.isPdfDownloading = true;
     try {
@@ -1344,6 +1397,86 @@ export class MySubmissionPage {
     if (this.isCustomRubricResult) return this.customRubricFeedbackItems;
     console.log('Dynamic AI rubric generated for submission', (this.submission as any)?._id);
     return rubricScoresToFeedbackItems((fb as any).rubricScores);
+  }
+
+  private draftIdentity(submission: BackendSubmission | null): string {
+    if (!submission) return '';
+    const files = Array.isArray(submission.files) ? submission.files : [];
+    const fileIds = files.map((file: any) => String(file?._id || file?.id || file || '').trim()).filter(Boolean);
+    const legacyFile = (submission as any).file;
+    if (!fileIds.length && legacyFile) fileIds.push(String(legacyFile?._id || legacyFile?.id || legacyFile).trim());
+    return JSON.stringify({
+      submissionId: submission._id,
+      ocrJobId: submission.ocrJobId || '',
+      submittedAt: submission.submittedAt || '',
+      fileIds
+    });
+  }
+
+  private filesFromSubmission(submission: BackendSubmission | null): { ids: string[]; urls: string[] } {
+    if (!submission) return { ids: [], urls: [] };
+    const rawFiles: any[] = Array.isArray(submission.files) ? submission.files : [];
+    const objectPairs = rawFiles.map((file: any) => {
+      if (!file || typeof file !== 'object') return null;
+      const id = String(file._id || file.id || '').trim();
+      const url = typeof file.url === 'string' ? file.url.trim() : '';
+      return id && url ? { id, url } : null;
+    }).filter(Boolean) as Array<{ id: string; url: string }>;
+    if (objectPairs.length) return {
+      ids: objectPairs.map((pair) => pair.id),
+      urls: normalizeAssetUrls(objectPairs.map((pair) => pair.url))
+    };
+
+    const ids = rawFiles.map((file: any) => String(file?._id || file?.id || file || '').trim());
+    const rawUrls = Array.isArray(submission.fileUrls) ? submission.fileUrls : [];
+    let urls = normalizeAssetUrls(rawUrls.length ? rawUrls : (submission.fileUrl ? [submission.fileUrl] : []));
+    let normalizedIds = rawUrls.length && rawUrls.length === ids.length ? ids : ids.filter(Boolean);
+    if (!normalizedIds.length) {
+      const seen = new Set<string>();
+      normalizedIds = (Array.isArray(submission.ocrPages) ? submission.ocrPages : [])
+        .map((page: any) => String(page?.fileId || '').trim())
+        .filter((id) => {
+          if (!id || seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
+    }
+    if (!normalizedIds.length && submission.file) {
+      const file: any = submission.file;
+      const id = String(file?._id || file?.id || file || '').trim();
+      if (id) normalizedIds = [id];
+    }
+    if (!urls.length && submission.fileUrl) urls = normalizeAssetUrls([submission.fileUrl]);
+    return { ids: normalizedIds, urls };
+  }
+
+  private applyCanonicalDraft(submission: BackendSubmission | null, invalidateChangedDraft: boolean): boolean {
+    const nextIdentity = this.draftIdentity(submission);
+    const changed = Boolean(invalidateChangedDraft && this.canonicalDraftIdentity && nextIdentity
+      && this.canonicalDraftIdentity !== nextIdentity);
+    this.canonicalDraftIdentity = nextIdentity || null;
+    const assets = this.filesFromSubmission(submission);
+    this.submissionFileIds = assets.ids;
+    this.submissionFileUrls = assets.urls;
+    void this.refreshSubmissionPreviewUrls(assets.urls);
+    if (changed) {
+      ++this.loadOcrCorrectionsSeq;
+      ++this.loadTranscriptPagesSeq;
+      this.activeFileIndex = 0;
+      this.annotations = [];
+      this.canonicalWritingCorrections = [];
+      this.ocrWords = [];
+      this.highlightedTranscriptHtml = null;
+      this.writingCorrectionsIssues = [];
+      this.writingCorrectionsHtml = null;
+      this.transcriptPageViews = [];
+      this.transcriptPagesSignature = null;
+      this.hasLoadedOcrCorrections = false;
+      this.assetRevisionToken = submission?.ocrJobId || submission?.submittedAt || String(Date.now());
+      this.recomputeLegendAligned();
+    }
+    if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) this.activeFileIndex = 0;
+    return changed;
   }
 
   get isCanonicalEvaluationPending(): boolean {
@@ -1447,6 +1580,9 @@ export class MySubmissionPage {
     this.refreshParamSub = null;
     this.stopOcrPolling();
     this.revokeObjectUrls();
+    this.previewSourceSignature = 'destroyed';
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
   }
 
   get extractedText(): string | null {
@@ -1539,6 +1675,8 @@ export class MySubmissionPage {
     this.transcriptPagesSignature = null;
     this.submissionFileUrls = [];
     this.submissionFileIds = [];
+    this.activeFileIndex = 0;
+    this.canonicalDraftIdentity = null;
     this.uploadedFileUrl = null;
     this.pdfMediaState = 'idle';
     this.hasLoadedOcrCorrections = false;
@@ -1563,71 +1701,7 @@ export class MySubmissionPage {
       await this.loadAssignmentMetadata(submission, seq);
       if (this.destroyed || seq !== this.loadSeq) return;
 
-      const rawFiles: any[] = Array.isArray((submission as any)?.files) ? (submission as any).files : [];
-      const filePairsFromObjects = rawFiles
-        .map((f: any) => {
-          if (!f || typeof f !== 'object') return null;
-          const id = typeof (f._id || f.id) === 'string' ? String(f._id || f.id).trim() : '';
-          const url = typeof f.url === 'string' ? f.url.trim() : '';
-          if (!id || !url) return null;
-          return { id, url };
-        })
-        .filter(Boolean) as Array<{ id: string; url: string }>;
-
-      if (filePairsFromObjects.length) {
-        this.submissionFileIds = filePairsFromObjects.map((p) => p.id);
-        this.submissionFileUrls = normalizeAssetUrls(filePairsFromObjects.map((p) => p.url));
-      } else {
-        const urlsRaw = Array.isArray((submission as any)?.fileUrls) ? (submission as any).fileUrls : [];
-        const urls = urlsRaw
-          .map((u: any) => (typeof u === 'string' ? u.trim() : ''))
-          .filter((u: string) => Boolean(u));
-
-        const idsRaw = rawFiles
-          .map((f: any) => (typeof f === 'string' ? f : (f && typeof f === 'object' ? (f._id || f.id) : null)))
-          .map((id: any) => (typeof id === 'string' ? id.trim() : ''));
-
-        const urlsCount = Array.isArray(urlsRaw) ? urlsRaw.length : 0;
-        const idsCount = Array.isArray(idsRaw) ? idsRaw.length : 0;
-
-        if (urlsCount > 0 && urlsCount === idsCount) {
-          this.submissionFileUrls = normalizeAssetUrls(urlsRaw);
-          this.submissionFileIds = idsRaw.map((id: any) => (typeof id === 'string' ? id : ''));
-        } else {
-          this.submissionFileUrls = normalizeAssetUrls(urls.length ? urls : (submission?.fileUrl ? [submission.fileUrl] : []));
-          this.submissionFileIds = idsRaw.filter((id: string) => Boolean(id));
-        }
-      }
-
-      if (!this.submissionFileIds.length) {
-        const pages: any[] = Array.isArray((submission as any)?.ocrPages) ? (submission as any).ocrPages : [];
-        const seen = new Set<string>();
-        const idsFromPages: string[] = [];
-        for (const p of pages) {
-          const fid = p && p.fileId ? String(p.fileId).trim() : '';
-          if (!fid || seen.has(fid)) continue;
-          seen.add(fid);
-          idsFromPages.push(fid);
-        }
-        if (idsFromPages.length) {
-          this.submissionFileIds = idsFromPages;
-        }
-      }
-
-      if (!this.submissionFileIds.length && (submission as any)?.file) {
-        const fid = typeof (submission as any).file === 'string' ? (submission as any).file : ((submission as any).file?._id || (submission as any).file?.id);
-        if (typeof fid === 'string' && fid.trim()) {
-          this.submissionFileIds = [fid.trim()];
-        }
-      }
-
-      if (!Array.isArray(this.submissionFileUrls) || !this.submissionFileUrls.length) {
-        this.submissionFileUrls = normalizeAssetUrls(submission?.fileUrl ? [submission.fileUrl] : []);
-      }
-
-      if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) {
-        this.activeFileIndex = 0;
-      }
+      this.applyCanonicalDraft(submission, false);
 
       await this.ensureClassSettingsLoadedFromSubmission(submission);
 
@@ -1754,7 +1828,12 @@ export class MySubmissionPage {
     const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId, Date.now());
     if (this.destroyed || !updated || updated._id !== submissionId) throw { status: 409 };
 
+    const draftChanged = this.applyCanonicalDraft(updated, true);
     this.submission = updated;
+    if (draftChanged) {
+      this.revokeObjectUrls();
+      await this.setUploadedFileUrl(this.activeFileUrlRaw || updated.fileUrl || null);
+    }
     this.rebuildOcrWords();
     await this.loadOcrCorrections(submissionId);
     await this.loadCompleteTranscript(submissionId);
@@ -1823,8 +1902,10 @@ export class MySubmissionPage {
       const updated = await this.submissionApi.getMySubmissionByAssignmentId(assignmentId, this.lastRefreshToken);
       if (this.destroyed) return;
 
+      const draftChanged = this.applyCanonicalDraft(updated, true);
       this.submission = updated;
-      await this.setUploadedFileUrl(updated?.fileUrl || this.rawUploadedFileUrl);
+      if (draftChanged) this.revokeObjectUrls();
+      await this.setUploadedFileUrl(this.activeFileUrlRaw || updated?.fileUrl || this.rawUploadedFileUrl);
       this.rebuildOcrWords();
 
       if (updated?._id && (!this.hasLoadedOcrCorrections || updated.ocrStatus === 'completed')) {

@@ -1,21 +1,7 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { JoinIntentService } from '../services/join-intent.service';
-
-function decodeJwtPayload(token: string): any | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const payload = parts[1];
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-    const json = atob(padded);
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
+import { decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
 
 @Injectable({ providedIn: 'root' })
 export class StudentGuard implements CanActivate {
@@ -25,13 +11,13 @@ export class StudentGuard implements CanActivate {
   ) {}
 
   canActivate(_route: unknown, state: RouterStateSnapshot): boolean | UrlTree {
-    const token = localStorage.getItem('backend_jwt');
+    const token = readUsableBackendJwt();
     if (!token) {
       this.captureJoinIntentIfPresent(state.url);
       return this.buildLoginRedirectTree(state.url);
     }
 
-    const payload = decodeJwtPayload(token);
+    const payload = decodeBackendJwt(token);
     const role = payload && payload.role;
 
     if (role !== 'student') {

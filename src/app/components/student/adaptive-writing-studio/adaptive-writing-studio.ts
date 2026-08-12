@@ -11,6 +11,7 @@ import {
   type AdaptivePracticeAttempt,
   type AdaptivePracticeProgress,
   type AdaptivePracticeSessionResponse,
+  type AdaptiveLearningSkill,
   type AdaptiveEligibilityReason,
   type AdaptiveSkillScore,
   type AdaptiveSkillStatus,
@@ -42,6 +43,7 @@ export class AdaptiveWritingStudio {
   private readonly checkRequestVersions = new Map<string, number>();
   private analysisRecoveryPending = false;
   private canonicalUsableKey = '';
+  private hasAuthoritativeAdaptiveSkills = false;
 
   @Input({ required: true }) set submissionId(value: string | null | undefined) {
     const next = typeof value === 'string' ? value.trim() : '';
@@ -53,13 +55,14 @@ export class AdaptiveWritingStudio {
   get submissionId(): string { return this.submissionIdValue; }
 
   @Input() previewEnabled = environment.adaptivePracticeFixtureEnabled;
+  @Input() allowResubmission = false;
+
   @Input() set skills(value: readonly AdaptiveSkillScore[] | null | undefined) {
+    if (this.hasAuthoritativeAdaptiveSkills) return;
     const list = Array.isArray(value) ? value : [];
     this.normalizedSkills = list.map((skill) => this.normalizeSkill(skill));
     this.weakSkills = this.normalizedSkills.filter((skill) => skill.percentage !== null && skill.percentage < ADAPTIVE_PRACTICE_THRESHOLD);
-    if ((this.state === 'idle' || this.state === 'no-weaknesses' || this.state === 'unassessed') && !this.activities.length) {
-      this.state = this.skillSummaryState();
-    }
+    if ((this.state === 'idle' || this.state === 'unassessed') && !this.activities.length) this.state = this.skillSummaryState();
     this.cdr.markForCheck();
   }
 
@@ -81,6 +84,7 @@ export class AdaptiveWritingStudio {
   @Output() readonly checkPractice = new EventEmitter<AdaptivePracticeAction>();
   @Output() readonly retryPractice = new EventEmitter<string>();
   @Output() readonly showModelAnswer = new EventEmitter<AdaptivePracticeAction>();
+  @Output() readonly submitNewDraft = new EventEmitter<void>();
 
   normalizedSkills: readonly NormalizedAdaptiveSkill[] = [];
   weakSkills: readonly NormalizedAdaptiveSkill[] = [];
@@ -104,6 +108,11 @@ export class AdaptiveWritingStudio {
     return this.progress.percentage;
   }
 
+  get practiceCompleted(): boolean {
+    return this.progress.completed === true
+      || (this.progress.totalActivities > 0 && this.progress.improvedActivities >= this.progress.totalActivities);
+  }
+
   get assessedSkillCount(): number { return this.normalizedSkills.filter((skill) => skill.percentage !== null).length; }
   get eligibilityReason(): AdaptiveEligibilityReason {
     const canonical = this.canonicalResultState;
@@ -111,6 +120,7 @@ export class AdaptiveWritingStudio {
     if (this.state === 'generating') return 'GENERATING';
     if (this.state === 'generated') return 'ALREADY_GENERATED';
     if (this.state === 'error') return this.retryableFailure ? 'RETRYABLE_FAILURE' : 'NON_RETRYABLE_FAILURE';
+    if (this.state === 'no-weaknesses') return 'NO_WEAK_SKILLS';
     if (!canonical || canonical.processingActive || ['pending', 'processing'].includes(canonical.evaluationStatus)
       || ['pending', 'processing', 'retry_wait'].includes(canonical.semanticStatus)) return 'ANALYSIS_PROCESSING';
     if (canonical.semanticStatus === 'failed' || ['failed', 'blocked'].includes(canonical.evaluationStatus)) return 'SEMANTIC_FAILED';
@@ -183,6 +193,14 @@ export class AdaptiveWritingStudio {
   }
 
   updateResponse(activityId: string, value: string): void { this.responses = { ...this.responses, [activityId]: value }; }
+  questionType(activity: AdaptivePracticeActivity): 'open_response' | 'mcq' | 'fill_blank' {
+    return activity.questionType || 'open_response';
+  }
+  canCheck(activity: AdaptivePracticeActivity): boolean {
+    const response = (this.responses[activity.id] || '').trim();
+    return response.length >= (this.questionType(activity) === 'open_response' ? 10 : 1)
+      && this.checkStates[activity.id] !== 'checking';
+  }
   check(activity: AdaptivePracticeActivity): void {
     this.checkPractice.emit({ submissionId: this.submissionId, activityId: activity.id, response: this.responses[activity.id] || '' });
     this.runCheck(activity, false);
@@ -198,6 +216,9 @@ export class AdaptiveWritingStudio {
     if (next.has(activity.id)) next.delete(activity.id); else next.add(activity.id);
     this.expandedModels = next;
     this.showModelAnswer.emit({ submissionId: this.submissionId, activityId: activity.id });
+  }
+  requestNewDraft(): void {
+    if (this.practiceCompleted && this.allowResubmission) this.submitNewDraft.emit();
   }
 
   private loadExistingSession(): void {
@@ -244,9 +265,11 @@ export class AdaptiveWritingStudio {
 
   private acceptResponse(version: number, response: AdaptivePracticeSessionResponse): void {
     if (version !== this.requestVersion) return;
+    this.applyAdaptiveSkills(response.adaptiveSkills);
     if (response.state === 'ready' && response.session) {
       this.sessionId = response.session._id;
-      this.activities = response.session.activities.map((activity) => ({ ...activity, id: activity.activityId, isDevelopmentPreview: false }));
+      this.activities = response.session.activities.map((activity) => ({ ...activity,
+        questionType: activity.questionType || 'open_response', id: activity.activityId, isDevelopmentPreview: false }));
       this.applyProgress(response.progress);
       this.state = 'generated';
       this.retryableFailure = false;
@@ -258,7 +281,7 @@ export class AdaptiveWritingStudio {
       this.retryableFailure = true;
       this.errorMessage = response.session?.generation?.errorMessage || 'Adaptive practice could not be generated. Please try again.';
     } else if (response.state === 'no-weaknesses') {
-      this.state = this.skillSummaryState();
+      this.state = 'no-weaknesses';
     } else {
       this.state = this.skillSummaryState();
     }
@@ -315,6 +338,9 @@ export class AdaptiveWritingStudio {
     this.requestVersion++;
     this.pollAttempts = 0;
     this.activities = [];
+    this.hasAuthoritativeAdaptiveSkills = false;
+    this.normalizedSkills = [];
+    this.weakSkills = [];
     this.sessionId = '';
     this.responses = {};
     this.expandedModels = new Set<string>();
@@ -322,7 +348,7 @@ export class AdaptiveWritingStudio {
     this.checkStates = {};
     this.attempts = {};
     this.checkErrors = {};
-    this.progress = { improvedActivities: 0, totalActivities: 0, percentage: 0, activities: [] };
+    this.progress = { improvedActivities: 0, totalActivities: 0, completed: false, percentage: 0, activities: [] };
     this.errorMessage = '';
     this.retryableFailure = false;
     this.analysisRecoveryPending = false;
@@ -357,6 +383,28 @@ export class AdaptiveWritingStudio {
     return { ...skill, percentage, status, statusLabel: labels[status] };
   }
 
+  private applyAdaptiveSkills(skills: readonly AdaptiveLearningSkill[] | undefined): void {
+    if (!Array.isArray(skills)) return;
+    const safeSkills = skills as readonly AdaptiveLearningSkill[];
+    const ids: Record<string, AdaptiveSkillScore['id']> = {
+      CONTENT: 'task', ORGANIZATION: 'coherence', VOCABULARY: 'lexical', GRAMMAR: 'grammar', MECHANICS: 'mechanics'
+    };
+    const labels: Record<AdaptiveSkillStatus, string> = { priority: 'Priority practice', 'needs-practice': 'Needs practice', 'on-track': 'On track', 'not-assessed': 'Not assessed' };
+    const normalizedSkills = safeSkills.flatMap((skill) => {
+      const id = ids[skill.skillId];
+      const percentage = Number(skill.adaptivePercentage);
+      if (!id || !Number.isFinite(percentage) || percentage < 0 || percentage > 100
+        || !['priority', 'needs-practice', 'on-track'].includes(skill.status)) return [];
+      return [{ id, label: skill.skillLabel, earnedPoints: null, maximumPoints: null, percentage,
+        status: skill.status, statusLabel: labels[skill.status] }];
+    });
+    if (normalizedSkills.length !== safeSkills.length) return;
+    this.hasAuthoritativeAdaptiveSkills = true;
+    this.normalizedSkills = normalizedSkills;
+    this.weakSkills = normalizedSkills.filter((skill) => skill.percentage !== null
+      && skill.percentage < ADAPTIVE_PRACTICE_THRESHOLD);
+  }
+
   private skillSummaryState(): 'idle' | 'no-weaknesses' | 'unassessed' {
     if (this.weakSkills.length) return 'idle';
     return this.assessedSkillCount > 0 ? 'no-weaknesses' : 'unassessed';
@@ -364,7 +412,7 @@ export class AdaptiveWritingStudio {
 
   private runCheck(activity: AdaptivePracticeActivity, retry: boolean): void {
     const response = (this.responses[activity.id] || '').trim();
-    if (!this.sessionId || response.length < 10 || this.checkStates[activity.id] === 'checking') return;
+    if (!this.sessionId || !this.canCheck(activity)) return;
     const requestVersion = (this.checkRequestVersions.get(activity.id) || 0) + 1;
     this.checkRequestVersions.set(activity.id, requestVersion);
     this.checkStates = { ...this.checkStates, [activity.id]: 'checking' };

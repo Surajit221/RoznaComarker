@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from '@angular/fire/auth';
 
 import { environment } from '../../environments/environment';
+import { clearPrivateAuthStorage, decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
 
 type BackendLoginResponse = {
   success: boolean;
@@ -53,21 +54,6 @@ export type BackendUser = {
   bio?: string;
   role?: string;
 };
-
-function decodeJwtPayload(token: string): any | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const payload = parts[1];
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-    const json = atob(padded);
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -171,12 +157,16 @@ export class AuthService {
   }
 
   async logout() {
-    localStorage.removeItem(this.backendJwtKey);
-    await runInInjectionContext(this.injector, () => signOut(this.auth));
+    clearPrivateAuthStorage();
+    try {
+      await runInInjectionContext(this.injector, () => signOut(this.auth));
+    } finally {
+      clearPrivateAuthStorage();
+    }
   }
 
   getBackendJwt(): string | null {
-    return localStorage.getItem(this.backendJwtKey);
+    return readUsableBackendJwt();
   }
 
   private buildBackendAuthHeaders(): { Authorization: string } | undefined {
@@ -190,7 +180,7 @@ export class AuthService {
   getBackendRole(): string | null {
     const token = this.getBackendJwt();
     if (!token) return null;
-    const payload = decodeJwtPayload(token);
+    const payload = decodeBackendJwt(token);
     const role = payload && payload.role;
     return typeof role === 'string' ? role : null;
   }

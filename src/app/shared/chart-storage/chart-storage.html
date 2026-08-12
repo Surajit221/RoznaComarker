@@ -25,5 +25,7 @@
       <span class="text-[#FFC300]">{{ used }}GB</span>/{{ total }}GB used</span
     >
   </div>
-  <a routerLink="/pricing" class="btn-info-sm">Upgrade Plan</a>
+  <button type="button" class="btn-info-sm" data-testid="subscription-cta" (click)="planButtonClick.emit()">
+    {{ planButtonLabel }}
+  </button>
 </div>
