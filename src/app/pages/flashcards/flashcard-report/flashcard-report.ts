@@ -25,7 +25,15 @@ import { triggerBlobDownload } from '../../../utils/file-download.util';
 import { FlashcardPdfRenderService } from '../../../components/flashcard-pdf-template/flashcard-pdf-render.service';
 import { ComprehensiveReport, type ReportEntry } from '../../../components/comprehensive-report/comprehensive-report';
 
-type ReportTab = 'participants' | 'cards';
+type ReportTab = 'participants' | 'cards' | 'analytics';
+type AssignmentProgress = Awaited<ReturnType<AssignmentApiService['getAssignmentProgress']>>;
+type ParticipantRow = Omit<ParticipantResult, 'score' | 'timeTaken' | 'submittedAt'> & {
+  score: number | null;
+  timeTaken: number | null;
+  submittedAt: Date | string | null;
+  completedCards?: number;
+  totalCards?: number;
+};
 
 @Component({
   selector: 'app-flashcard-report',
@@ -53,7 +61,7 @@ export class FlashcardReport implements OnInit, OnDestroy {
   searchTerm                     = '';
   filterStatus: 'all' | 'completed' | 'in_progress' | 'not_started' = 'all';
   isPdfDownloading = false;
-  showComprehensive = false;
+  isRefreshing = false;
   /** userId currently being downloaded (for per-row spinner). */
   participantDownloadingId: string | null = null;
 
@@ -63,7 +71,7 @@ export class FlashcardReport implements OnInit, OnDestroy {
   isPolling = false;
 
   /** Assignment progress data (for real-time tracking) */
-  assignmentProgress: any = null;
+  assignmentProgress: AssignmentProgress | null = null;
   useAssignmentProgress = false;
 
   /** Cached cards for the set (lazy on first per-student PDF). */
@@ -77,22 +85,38 @@ export class FlashcardReport implements OnInit, OnDestroy {
     return this.route.snapshot.paramMap.get('id') ?? '';
   }
 
-  private get assignmentId(): string {
+  get assignmentId(): string {
     return this.route.snapshot.queryParamMap.get('assignmentId') ?? '';
   }
 
   get reportEntries(): ReportEntry[] {
-    return (this.report?.participants ?? []).map((p) => ({
+    return this.participantRows.filter((participant) => participant.score !== null).map((p) => ({
       name:        p.userName,
-      score:       p.score,
+      score:       p.score ?? 0,
       timeTaken:   p.timeTaken ?? 0,
-      submittedAt: p.submittedAt,
+      submittedAt: p.submittedAt ?? undefined,
     }));
   }
 
+  get participantRows(): ParticipantRow[] {
+    if (this.useAssignmentProgress && this.assignmentProgress) {
+      return this.assignmentProgress.students.map((student) => ({
+        userId: student.studentId,
+        userName: student.studentName,
+        score: student.score,
+        timeTaken: student.timeTaken,
+        submittedAt: student.completedAt ?? student.lastActivityAt,
+        status: student.status,
+        completedCards: student.completedCards,
+        totalCards: student.totalCards,
+      }));
+    }
+    return this.report?.participants ?? [];
+  }
+
   /** Participants filtered by searchTerm and filterStatus */
-  get filteredParticipants(): ParticipantResult[] {
-    const all = this.report?.participants ?? [];
+  get filteredParticipants(): ParticipantRow[] {
+    const all = this.participantRows;
     return all
       .filter((p) => {
         const matchSearch = !this.searchTerm ||
@@ -101,23 +125,28 @@ export class FlashcardReport implements OnInit, OnDestroy {
         if (this.filterStatus === 'completed') {
           matchStatus = p.status === 'completed';
         } else if (this.filterStatus === 'in_progress') {
-          matchStatus = p.status === 'in_progress' || (p.score !== null && p.score < 100 && p.status !== 'completed');
+          matchStatus = p.status === 'in_progress';
         } else if (this.filterStatus === 'not_started') {
-          matchStatus = p.status === 'not_started' || p.score === null;
+          matchStatus = p.status === 'not_started';
         }
         return matchSearch && matchStatus;
       });
   }
 
-  /** Get formatted "last updated" text */
-  get lastUpdatedText(): string {
-    if (!this.lastUpdatedAt) return '';
-    const seconds = Math.floor((Date.now() - this.lastUpdatedAt.getTime()) / 1000);
-    if (seconds < 60) return 'Just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} min ago`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ago`;
+  get completedCount(): number {
+    return this.participantRows.filter((participant) => participant.status === 'completed').length;
+  }
+
+  get attentionParticipantCount(): number {
+    return this.participantRows.filter((participant) => participant.score !== null && participant.score < 60).length;
+  }
+
+  get attentionCardCount(): number {
+    return (this.report?.cards ?? []).filter((card) => card.correctPercentage < 60).length;
+  }
+
+  get hasParticipantFilters(): boolean {
+    return Boolean(this.searchTerm) || this.filterStatus !== 'all';
   }
 
   ngOnInit(): void {
@@ -144,6 +173,8 @@ export class FlashcardReport implements OnInit, OnDestroy {
 
   /** Refresh data without showing full loading state */
   private refreshData(): void {
+    this.isRefreshing = true;
+    this.cdr.markForCheck();
     if (!this.assignmentId) {
       // Use standard report endpoint if no assignmentId
       this.flashcardApi.getReport(this.setId, this.assignmentId)
@@ -152,23 +183,37 @@ export class FlashcardReport implements OnInit, OnDestroy {
           next: (data) => {
             this.report = data;
             this.lastUpdatedAt = new Date();
+            this.isRefreshing = false;
             this.cdr.markForCheck();
           },
           error: (err) => {
             console.error('Polling error:', err);
+            this.isRefreshing = false;
+            this.cdr.markForCheck();
           }
         });
     } else {
-      // Use assignment progress endpoint for real-time status
-      this.assignmentApi.getAssignmentProgress(this.assignmentId)
-        .then((progressData) => {
+      // Refresh both class progress and submission-derived score/card analytics.
+      Promise.all([
+        firstValueFrom(
+          this.flashcardApi
+            .getReport(this.setId, this.assignmentId)
+            .pipe(takeUntil(this.destroy$)),
+        ),
+        this.assignmentApi.getAssignmentProgress(this.assignmentId),
+      ])
+        .then(([reportData, progressData]) => {
+          this.report = reportData;
           this.assignmentProgress = progressData;
           this.useAssignmentProgress = true;
           this.lastUpdatedAt = new Date();
+          this.isRefreshing = false;
           this.cdr.markForCheck();
         })
         .catch((err) => {
           console.error('Polling error:', err);
+          this.isRefreshing = false;
+          this.cdr.markForCheck();
         });
     }
   }
@@ -217,6 +262,34 @@ export class FlashcardReport implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  setTab(tab: ReportTab): void {
+    this.activeTab = tab;
+    this.cdr.markForCheck();
+  }
+
+  setStatusFilter(status: 'all' | 'completed' | 'in_progress' | 'not_started'): void {
+    this.filterStatus = status;
+    this.cdr.markForCheck();
+  }
+
+  clearParticipantFilters(): void {
+    this.searchTerm = '';
+    this.filterStatus = 'all';
+    this.cdr.markForCheck();
+  }
+
+  getStatusLabel(status: ParticipantResult['status']): string {
+    if (status === 'in_progress') return 'In Progress';
+    if (status === 'not_started') return 'Not Started';
+    return 'Completed';
+  }
+
+  getCardPerformanceLabel(percentage: number): string {
+    if (percentage < 60) return 'Needs review';
+    if (percentage < 80) return 'Developing';
+    return 'Strong';
+  }
+
   dismissError(): void { this.errorMsg = ''; }
 
   goBack(): void {
@@ -249,7 +322,7 @@ export class FlashcardReport implements OnInit, OnDestroy {
    * Teacher per-student client-side PDF.
    * Lazy-loads cards + per-student cardResults on first invocation.
    */
-  async downloadParticipantPdf(p: ParticipantResult): Promise<void> {
+  async downloadParticipantPdf(p: ParticipantRow): Promise<void> {
     if (this.participantDownloadingId === p.userId) return;
     if (!this.assignmentId) {
       this.alert.showWarning(
