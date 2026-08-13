@@ -6,7 +6,7 @@
  * or Promises (via firstValueFrom) where needed.
  */
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -278,7 +278,7 @@ export interface WorksheetSubmission {
   // New root-level fields (single source of truth)
   earnedPoints: number;
   totalPoints: number;
-  score: number;
+  score?: number;
   isPassed: boolean;
   sections: SectionResult[];
   timeTaken: number;
@@ -290,6 +290,131 @@ export interface WorksheetSubmission {
   activity9Answers?: Record<string, string>;
   activity9Results?: Record<string, boolean | null>;
   activity9Feedbacks?: Record<string, string>;
+}
+
+export interface WorksheetReportStudentIdentity {
+  _id: string;
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
+}
+
+export interface WorksheetReportWorksheet extends Partial<Worksheet> {
+  _id: string;
+  title: string;
+  totalPoints: number;
+}
+
+export interface WorksheetReportAssignmentSummary {
+  _id: string;
+  title?: string;
+  deadline?: string;
+  class?: string;
+}
+
+export interface WorksheetReportSubmission
+  extends Omit<WorksheetSubmission, 'worksheetId' | 'assignmentId' | 'studentId'> {
+  worksheetId: string | { _id: string };
+  assignmentId: string | WorksheetReportAssignmentSummary;
+  studentId: string | WorksheetReportStudentIdentity;
+  isLate?: boolean;
+}
+
+export interface WorksheetReportOverview {
+  totalAssigned: number;
+  submittedCount: number;
+  pendingCount: number;
+  lateCount: number;
+  completionRate: number;
+}
+
+export interface WorksheetScoreBands {
+  '90-100': number;
+  '80-89': number;
+  '70-79': number;
+  'below-70': number;
+  /** Legacy client/PDF compatibility. */
+  below70?: number;
+}
+
+export interface WorksheetQuestionInsight {
+  questionId: string;
+  correctRate: number;
+  missedCount: number;
+  skippedRate: number;
+}
+
+export interface WorksheetSectionMissedQuestion {
+  questionId: string;
+  missedCount: number;
+  correctRate: number;
+  name?: string;
+  id?: string;
+}
+
+export interface WorksheetSectionStat {
+  sectionId: string;
+  correctRate: number;
+  completionRate: number;
+  avgAttempts: number;
+  mostMissedQuestions: WorksheetSectionMissedQuestion[];
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  totalAnswered: number;
+  avgTimeSpent?: number;
+}
+
+export interface WorksheetReportAnalytics {
+  averageScore: number;
+  medianScore: number;
+  passRate: number;
+  hardestQuestions: WorksheetQuestionInsight[];
+  mostMissedQuestions: WorksheetQuestionInsight[];
+  easiestQuestions: WorksheetQuestionInsight[];
+  weakSkillAreas: WorksheetSectionStat[];
+  sectionStats: WorksheetSectionStat[];
+  scoreBands: WorksheetScoreBands;
+  teacherInsights: string[];
+  /** Compatibility with older cached report shapes used by PDF mapping. */
+  overview?: Partial<WorksheetReportOverview> & {
+    submitted?: number;
+    pending?: number;
+    late?: number;
+    avgScore?: number;
+    medianScore?: number;
+    passRate?: number;
+    avgTime?: number;
+  };
+}
+
+export interface WorksheetReportPagination {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface WorksheetReportQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  classId?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface WorksheetReportResponse {
+  success: boolean;
+  data: {
+    worksheet: WorksheetReportWorksheet;
+    overview: WorksheetReportOverview;
+    analytics: WorksheetReportAnalytics;
+    submissions: WorksheetReportSubmission[];
+    pagination: WorksheetReportPagination;
+  };
 }
 
 export interface GenerateWorksheetDto {
@@ -680,25 +805,19 @@ export class WorksheetApiService {
    */
   getWorksheetReport(
     worksheetId: string,
-    params: {
-      page?: number;
-      limit?: number;
-      classId?: string;
-      status?: string;
-      dateFrom?: string;
-      dateTo?: string;
-    } = {},
-  ): Observable<{ success: boolean; data: any }> {
-    let query = '';
-    if (params.page) query += `&page=${params.page}`;
-    if (params.limit) query += `&limit=${params.limit}`;
-    if (params.classId) query += `&classId=${params.classId}`;
-    if (params.status) query += `&status=${params.status}`;
-    if (params.dateFrom) query += `&dateFrom=${params.dateFrom}`;
-    if (params.dateTo) query += `&dateTo=${params.dateTo}`;
-    const separator = query ? '?' : '';
-    return this.http.get<{ success: boolean; data: any }>(
-      `${this.base}/${worksheetId}/report${separator}${query.replace('&', '?')}`,
+    params: WorksheetReportQuery = {},
+  ): Observable<WorksheetReportResponse> {
+    let query = new HttpParams();
+    if (params.page) query = query.set('page', params.page);
+    if (params.limit) query = query.set('limit', params.limit);
+    if (params.search) query = query.set('search', params.search);
+    if (params.classId) query = query.set('classId', params.classId);
+    if (params.status) query = query.set('status', params.status);
+    if (params.dateFrom) query = query.set('dateFrom', params.dateFrom);
+    if (params.dateTo) query = query.set('dateTo', params.dateTo);
+    return this.http.get<WorksheetReportResponse>(
+      `${this.base}/${worksheetId}/report`,
+      { params: query },
     );
   }
 

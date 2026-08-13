@@ -1,481 +1,331 @@
-<div class="report-wrap">
+<main class="report-page">
+  <button type="button" class="back-link" (click)="goBack()">
+    <i class="bx bx-left-arrow-alt" aria-hidden="true"></i>
+    Back to worksheets
+  </button>
 
-  <!-- ERROR BANNER -->
-  <div class="error-banner" *ngIf="errorMsg">
-    <span>⚠ {{ errorMsg }}</span>
-    <button class="dismiss-btn" (click)="dismissError()">✕</button>
-  </div>
+  @if (errorMsg) {
+    <section class="error-banner" role="alert">
+      <div>
+        <strong>We couldn't load the latest report.</strong>
+        <span>{{ errorMsg }}</span>
+      </div>
+      <div class="error-actions">
+        <button type="button" class="text-action" (click)="refreshReport()">Try again</button>
+        <button type="button" class="icon-button" (click)="dismissError()" aria-label="Dismiss error">
+          <i class="bx bx-x" aria-hidden="true"></i>
+        </button>
+      </div>
+    </section>
+  }
 
-  <!-- HEADER -->
-  <div class="report-header">
-    <button class="btn-back" (click)="goBack()">← Back</button>
-    <h2 class="report-title">{{ worksheet?.title ?? 'Worksheet Submissions' }}</h2>
-    <div class="header-actions">
-      <button class="btn-share" (click)="openShareModal()">📤 Share</button>
-      <button class="btn-dl-report"
-              [disabled]="isPdfReportDownloading"
-              (click)="downloadReportPdf()">
+  <header class="report-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Worksheet report</span>
+      <h1>{{ worksheet?.title || 'Worksheet performance' }}</h1>
+      <p>Review class progress, student submissions, and learning outcomes.</p>
+      <div class="hero-meta" aria-label="Worksheet details">
+        @if (worksheet?.subject) { <span>{{ worksheet?.subject }}</span> }
+        @if (worksheet?.cefrLevel) { <span>CEFR {{ worksheet?.cefrLevel }}</span> }
+        @if (worksheet?.gradeLevel) { <span>{{ worksheet?.gradeLevel }}</span> }
+        @if (worksheet?.difficulty) { <span>{{ worksheet?.difficulty }}</span> }
+        @if (lastUpdatedAt) {
+          <span class="updated-state"><span class="live-dot" aria-hidden="true"></span>Updated {{ lastUpdatedAt | date:'shortTime' }}</span>
+        }
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button type="button" class="utility-button" (click)="refreshReport()" [disabled]="isRefreshing">
+        <i class="bx bx-refresh" [class.spin-icon]="isRefreshing" aria-hidden="true"></i>
+        {{ isRefreshing ? 'Refreshing' : 'Refresh' }}
+      </button>
+      <button type="button" class="utility-button" (click)="openShareModal()" [disabled]="!worksheet">
+        <i class="bx bx-share-alt" aria-hidden="true"></i>Share
+      </button>
+      <button type="button" class="utility-button" (click)="openAssignModal()" [disabled]="!worksheet">
+        <i class="bx bx-user-plus" aria-hidden="true"></i>Assign
+      </button>
+      <button type="button" class="primary-button" [disabled]="!worksheet || isPdfReportDownloading" (click)="downloadReportPdf()">
         @if (isPdfReportDownloading) {
-          <span class="pdf-spinner" aria-hidden="true"></span> Generating...
+          <span class="spinner" aria-hidden="true"></span>Generating
         } @else {
-          ↓ Download Report
+          <i class="bx bx-download" aria-hidden="true"></i>Download report
         }
       </button>
     </div>
-  </div>
+  </header>
 
-  <!-- SKELETON -->
-  <div class="report-skeleton" *ngIf="isLoading">
-    <div class="skel skel-stats"></div>
-    <div class="skel skel-row"></div>
-    <div class="skel skel-row"></div>
-    <div class="skel skel-row"></div>
-  </div>
+  @if (isLoading) {
+    <section class="report-skeleton" aria-label="Loading worksheet report" aria-busy="true">
+      <div class="skeleton-kpis">
+        @for (item of [1, 2, 3, 4, 5]; track item) { <span class="skeleton-block"></span> }
+      </div>
+      <span class="skeleton-block skeleton-insight"></span>
+      <span class="skeleton-block skeleton-toolbar"></span>
+      <span class="skeleton-block skeleton-row"></span>
+      <span class="skeleton-block skeleton-row"></span>
+      <span class="sr-only">Loading worksheet report…</span>
+    </section>
+  } @else {
+    <section class="kpi-grid" aria-label="Worksheet overview">
+      <article class="kpi-card kpi-primary">
+        <span class="kpi-label">Assigned</span>
+        <strong>{{ overview?.totalAssigned || 0 }}</strong>
+        <span class="kpi-context">Students assigned</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Submitted</span>
+        <strong>{{ overview?.submittedCount || 0 }}</strong>
+        <span class="kpi-context">Completed submissions</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Pending</span>
+        <strong>{{ overview?.pendingCount || 0 }}</strong>
+        <span class="kpi-context">Still outstanding</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Average score</span>
+        <strong>{{ analytics?.averageScore || 0 }}%</strong>
+        <span class="kpi-context">Across all submissions</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Completion</span>
+        <strong>{{ overview?.completionRate || 0 }}%</strong>
+        <span class="kpi-context">{{ overview?.lateCount || 0 }} submitted late</span>
+      </article>
+    </section>
 
-  <ng-container *ngIf="!isLoading">
-
-    <!-- OVERVIEW STATS ROW -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <span class="stat-icon">👥</span>
-        <span class="stat-label">TOTAL ASSIGNED</span>
-        <span class="stat-value">{{ overview?.totalAssigned || 0 }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon">✓</span>
-        <span class="stat-label">SUBMITTED</span>
-        <span class="stat-value">{{ overview?.submittedCount || 0 }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon">⏳</span>
-        <span class="stat-label">PENDING</span>
-        <span class="stat-value">{{ overview?.pendingCount || 0 }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon">⚠</span>
-        <span class="stat-label">LATE</span>
-        <span class="stat-value">{{ overview?.lateCount || 0 }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon">📊</span>
-        <span class="stat-label">COMPLETION RATE</span>
-        <span class="stat-value">{{ overview?.completionRate || 0 }}%</span>
-      </div>
-    </div>
-
-    <!-- ANALYTICS ROW -->
-    @if (analytics) {
-      <div class="stats-row analytics-row">
-        <div class="stat-card">
-          <span class="stat-icon">📈</span>
-          <span class="stat-label">AVERAGE SCORE</span>
-          <span class="stat-value">{{ analytics?.averageScore || 0 }}%</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">📉</span>
-          <span class="stat-label">MEDIAN SCORE</span>
-          <span class="stat-value">{{ analytics?.medianScore || 0 }}%</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">🎯</span>
-          <span class="stat-label">PASS RATE (≥70%)</span>
-          <span class="stat-value">{{ analytics?.passRate || 0 }}%</span>
-        </div>
-      </div>
-    }
-
-    <!-- SCORE BANDS -->
-    @if (scoreBands) {
-      <div class="score-bands-section">
-        <h3 class="section-title">Score Distribution</h3>
-        <div class="score-bands-grid">
-          <div class="score-band-item excellent">
-            <span class="band-label">90-100%</span>
-            <span class="band-count">{{ scoreBands['90-100'] || 0 }}</span>
-            <span class="band-bar" [style.width.%]="(scoreBands['90-100'] || 0) / (overview?.submittedCount || 1) * 100"></span>
-          </div>
-          <div class="score-band-item good">
-            <span class="band-label">80-89%</span>
-            <span class="band-count">{{ scoreBands['80-89'] || 0 }}</span>
-            <span class="band-bar" [style.width.%]="(scoreBands['80-89'] || 0) / (overview?.submittedCount || 1) * 100"></span>
-          </div>
-          <div class="score-band-item fair">
-            <span class="band-label">70-79%</span>
-            <span class="band-count">{{ scoreBands['70-79'] || 0 }}</span>
-            <span class="band-bar" [style.width.%]="(scoreBands['70-79'] || 0) / (overview?.submittedCount || 1) * 100"></span>
-          </div>
-          <div class="score-band-item poor">
-            <span class="band-label">Below 70%</span>
-            <span class="band-count">{{ scoreBands['below-70'] || 0 }}</span>
-            <span class="band-bar" [style.width.%]="(scoreBands['below-70'] || 0) / (overview?.submittedCount || 1) * 100"></span>
+    @if (teacherInsights.length > 0) {
+      <section class="teacher-insights" aria-labelledby="teacher-insights-title">
+        <div class="insights-heading">
+          <span class="insight-marker" aria-hidden="true"><i class="bx bx-bulb"></i></span>
+          <div>
+            <span class="eyebrow">Teacher focus</span>
+            <h2 id="teacher-insights-title">What deserves attention</h2>
           </div>
         </div>
-      </div>
-    }
-
-    <!-- TEACHER INSIGHTS -->
-    @if (teacherInsights && teacherInsights.length > 0) {
-      <div class="teacher-insights-section">
-        <h3 class="section-title">📝 Teacher Insights</h3>
         <div class="insights-list">
           @for (insight of teacherInsights; track $index) {
-            <div class="insight-item">
-              <span class="insight-bullet">💡</span>
-              <span class="insight-text">{{ insight }}</span>
-            </div>
+            <p><span aria-hidden="true">{{ $index + 1 }}</span>{{ insight }}</p>
           }
         </div>
-      </div>
+      </section>
     }
 
-    <!-- WORKSHEET DETAILS SECTION -->
-    @if (worksheet) {
-      <div class="worksheet-details-section">
-        <h3 class="section-title">Worksheet Details</h3>
-        <div class="details-grid">
-          <div class="detail-card">
-            <span class="detail-label">Subject</span>
-            <span class="detail-value">{{ worksheet.subject || 'N/A' }}</span>
-          </div>
-          <div class="detail-card">
-            <span class="detail-label">CEFR Level</span>
-            <span class="detail-value">{{ worksheet.cefrLevel || 'N/A' }}</span>
-          </div>
-          <div class="detail-card">
-            <span class="detail-label">Grade Level</span>
-            <span class="detail-value">{{ worksheet.gradeLevel || 'N/A' }}</span>
-          </div>
-          <div class="detail-card">
-            <span class="detail-label">Difficulty</span>
-            <span class="detail-value">{{ worksheet.difficulty || 'N/A' }}</span>
-          </div>
-          <div class="detail-card">
-            <span class="detail-label">Theme</span>
-            <span class="detail-value">{{ worksheet.theme?.primaryColor ? 'Custom' : 'Default' }}</span>
-          </div>
-          <div class="detail-card">
-            <span class="detail-label">Activities</span>
-            <span class="detail-value">{{ sectionAnalytics.length }} sections</span>
-          </div>
-        </div>
-      </div>
-    }
-
-    <!-- SECTION ANALYTICS SECTION -->
-    @if (sectionAnalytics.length > 0) {
-      <div class="section-analytics-section">
-        <h3 class="section-title">Section Performance Analytics</h3>
-        <div class="analytics-grid">
-          @for (section of sectionAnalytics; track section.id) {
-            <div class="section-card">
-              <div class="section-header">
-                <h4 class="section-name">{{ section.title }}</h4>
-                <span class="section-type">{{ section.type }}</span>
-              </div>
-              <div class="section-metrics">
-                <div class="metric-row">
-                  <span class="metric-label">Score</span>
-                  <span class="metric-value" [class.good]="section.averageScore >= 70" [class.poor]="section.averageScore < 70">
-                    {{ section.averageScore }}%
-                  </span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-label">Completion</span>
-                  <span class="metric-value">{{ section.completionRate }}%</span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-label">Avg Time</span>
-                  <span class="metric-value">{{ section.averageTimeSpent }}s</span>
-                </div>
-                <div class="metric-row">
-                  <span class="metric-label">Questions</span>
-                  <span class="metric-value">{{ section.totalQuestions }}</span>
-                </div>
-              </div>
-              <div class="section-breakdown">
-                <div class="breakdown-item correct">
-                  <span class="breakdown-count">{{ section.correctAnswers }}</span>
-                  <span class="breakdown-label">Correct</span>
-                </div>
-                <div class="breakdown-item incorrect">
-                  <span class="breakdown-count">{{ section.incorrectAnswers }}</span>
-                  <span class="breakdown-label">Incorrect</span>
-                </div>
-                <div class="breakdown-item skipped">
-                  <span class="breakdown-count">{{ section.skippedQuestions }}</span>
-                  <span class="breakdown-label">Skipped</span>
-                </div>
-              </div>
-              <!-- Most Missed Questions in Section -->
-              @if (section.mostMissedQuestions && section.mostMissedQuestions.length > 0) {
-                <div class="section-missed-questions">
-                  <span class="missed-title">Most Missed:</span>
-                  @for (missed of section.mostMissedQuestions; track missed.questionId) {
-                    <span class="missed-q-tag">{{ missed.questionId }} ({{ missed.correctRate }}%)</span>
-                  }
-                </div>
-              }
-            </div>
-          }
-        </div>
-      </div>
-    }
-
-    <!-- QUESTION-LEVEL INSIGHTS -->
-    @if (analytics?.hardestQuestions || analytics?.easiestQuestions) {
-      <div class="question-insights-section">
-        <button class="insights-toggle-btn" (click)="showQuestionInsights = !showQuestionInsights">
-          {{ showQuestionInsights ? '▼ Hide Question Insights' : '▶ Show Question Insights' }}
-        </button>
-        @if (showQuestionInsights) {
-          <div class="insights-panel">
-            @if (analytics?.hardestQuestions && analytics.hardestQuestions.length > 0) {
-              <div class="insight-block">
-                <h4 class="insight-block-title">🔴 Hardest Questions</h4>
-                <div class="questions-list">
-                  @for (q of analytics.hardestQuestions; track q.questionId) {
-                    <div class="question-item">
-                      <span class="q-id">{{ q.questionId }}</span>
-                      <span class="q-rate poor">{{ q.correctRate }}% correct</span>
-                      <span class="q-skipped" *ngIf="q.skippedRate > 0">{{ q.skippedRate }}% skipped</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-            @if (analytics?.easiestQuestions && analytics.easiestQuestions.length > 0) {
-              <div class="insight-block">
-                <h4 class="insight-block-title">🟢 Easiest Questions</h4>
-                <div class="questions-list">
-                  @for (q of analytics.easiestQuestions; track q.questionId) {
-                    <div class="question-item">
-                      <span class="q-id">{{ q.questionId }}</span>
-                      <span class="q-rate good">{{ q.correctRate }}% correct</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
-      </div>
-    }
-
-    <!-- STUDENT PERFORMANCE INSIGHTS -->
-    @if (performanceTrends || weakSections.length > 0) {
-      <div class="performance-insights-section">
-        <h3 class="section-title">Student Performance Insights</h3>
-        
-        @if (performanceTrends) {
-          <div class="trend-card">
-            <h4>Performance Trend</h4>
-            <div class="trend-content">
-              <span class="trend-indicator" [class.improving]="performanceTrends.trend === 'improving'" 
-                    [class.declining]="performanceTrends.trend === 'declining'" 
-                    [class.stable]="performanceTrends.trend === 'stable'">
-                @if (performanceTrends.trend === 'improving') { 📈 }
-                @if (performanceTrends.trend === 'declining') { 📉 }
-                @if (performanceTrends.trend === 'stable') { ➡️ }
-              </span>
-              <div class="trend-details">
-                <span class="trend-text">{{ performanceTrends.trend === 'improving' ? 'Improving' : performanceTrends.trend === 'declining' ? 'Declining' : 'Stable' }}</span>
-                <span class="trend-change">{{ performanceTrends.change > 0 ? '+' : '' }}{{ performanceTrends.change }}%</span>
-                <span class="trend-comparison">{{ performanceTrends.earlierAverage }}% → {{ performanceTrends.recentAverage }}%</span>
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (weakSections.length > 0) {
-          <div class="weak-sections-card">
-            <h4>Weak Sections (Need Attention)</h4>
-            <div class="weak-sections-list">
-              @for (section of weakSections; track section.id) {
-                <div class="weak-section-item">
-                  <span class="weak-section-name">{{ section.title }}</span>
-                  <span class="weak-section-score">{{ section.averageScore }}%</span>
-                  <span class="weak-section-type">{{ section.type }}</span>
-                </div>
-              }
-            </div>
-          </div>
-        }
-      </div>
-    }
-
-    <!-- COMPREHENSIVE REPORT TOGGLE -->
-    <div class="cr-toggle-row">
-      <button class="cr-toggle-btn" (click)="showComprehensive = !showComprehensive">
-        {{ showComprehensive ? '▲ Hide Detailed Analysis' : '▼ Show Detailed Analysis' }}
+    <nav class="report-nav" aria-label="Worksheet report sections">
+      <button type="button" [class.active]="activeView === 'students'" [attr.aria-current]="activeView === 'students' ? 'page' : null" (click)="setView('students')">
+        Students & submissions
       </button>
-    </div>
+      <button type="button" [class.active]="activeView === 'performance'" [attr.aria-current]="activeView === 'performance' ? 'page' : null" (click)="setView('performance')">
+        Performance insights
+      </button>
+    </nav>
 
-    <!-- COMPREHENSIVE REPORT PANEL -->
-    <div class="cr-panel" *ngIf="showComprehensive">
-      <app-comprehensive-report
-        [entries]="reportEntries"
-        [type]="'worksheet'">
-      </app-comprehensive-report>
-    </div>
-
-    <!-- SEARCH & FILTERS -->
-    <div class="participants-toolbar">
-      <input
-        class="search-input"
-        placeholder="Search by student name..."
-        [value]="searchTerm"
-        (input)="onSearch($event)" />
-      <div class="filter-controls">
-        <select class="filter-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
-          <option value="">All Statuses</option>
-          <option value="submitted">Submitted</option>
-          <option value="late">Late</option>
-        </select>
-        <input type="date" class="filter-date" [(ngModel)]="dateFromFilter" (change)="applyFilters()" placeholder="From" />
-        <input type="date" class="filter-date" [(ngModel)]="dateToFilter" (change)="applyFilters()" placeholder="To" />
-        <button class="btn-clear-filters" (click)="clearFilters()">Clear</button>
-      </div>
-    </div>
-
-    <!-- EMPTY STATE -->
-    <div class="empty-state" *ngIf="filteredSubmissions.length === 0">
-      <div class="empty-icon">📋</div>
-      <p>{{ searchTerm ? 'No results found' : 'No submissions yet' }}</p>
-    </div>
-
-    <!-- TABLE — desktop -->
-    <div class="participants-table" *ngIf="filteredSubmissions.length > 0">
-      <div class="table-head">
-        <span>Student</span>
-        <span>Score</span>
-        <span>Time</span>
-        <span>Date</span>
-        <span>PDF</span>
-      </div>
-      <div class="participant-row"
-           *ngFor="let s of filteredSubmissions; trackBy: trackById">
-        <div class="p-name-cell">
-          <div class="avatar-circle">{{ getStudentInitials(s) }}</div>
-          <span class="p-name">{{ getStudentName(s) }}</span>
-        </div>
-        <span class="p-score">{{ s.percentage | number:'1.0-0' }}%</span>
-        <span class="p-time">{{ s.timeTaken | formatTime }}</span>
-        <span class="p-date">{{ s.submittedAt | date:'dd MMM yyyy' }}</span>
-        <span>
-          <button class="btn-dl-row"
-                  [disabled]="downloadingSubmissionId === s._id"
-                  (click)="$event.stopPropagation(); onDownloadStudentPdf(s)">
-            @if (downloadingSubmissionId === s._id) {
-              <span class="pdf-spinner" aria-hidden="true"></span>
-            } @else {
-              ↓ PDF
-            }
-          </button>
-        </span>
-      </div>
-    </div>
-
-    <!-- CARDS — mobile -->
-    <div class="mobile-cards" *ngIf="filteredSubmissions.length > 0">
-      <div class="mobile-card"
-           *ngFor="let s of filteredSubmissions; trackBy: trackById">
-        <div class="mc-row mc-top">
-          <div class="p-name-cell">
-            <div class="avatar-circle">{{ getStudentInitials(s) }}</div>
-            <span class="p-name">{{ getStudentName(s) }}</span>
+    @if (activeView === 'students') {
+      <section class="content-panel" aria-labelledby="submission-list-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="submission-list-title">Student submissions</h2>
+            <p>Search, filter, and download an individual result.</p>
           </div>
-          <button class="btn-dl-row"
-                  [disabled]="downloadingSubmissionId === s._id"
-                  (click)="$event.stopPropagation(); onDownloadStudentPdf(s)">
-            @if (downloadingSubmissionId === s._id) {
-              <span class="pdf-spinner" aria-hidden="true"></span>
-            } @else {
-              ↓ PDF
-            }
-          </button>
+          <span class="results-count">{{ resultCountLabel }}</span>
         </div>
-        <div class="mc-row mc-stats">
-          <span class="mc-stat"><span class="mc-stat-label">Score</span> {{ s.percentage | number:'1.0-0' }}%</span>
-          <span class="mc-stat"><span class="mc-stat-label">Time</span> {{ s.timeTaken | formatTime }}</span>
-          <span class="mc-stat"><span class="mc-stat-label">Date</span> {{ s.submittedAt | date:'dd MMM yy' }}</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- PAGINATION -->
-    @if (pagination && pagination.pages > 1) {
-      <div class="pagination-controls">
-        <button class="pagination-btn" (click)="goToPrevPage()" [disabled]="currentPage === 1">← Previous</button>
-        <span class="pagination-info">Page {{ currentPage }} of {{ pagination.pages }}</span>
-        <button class="pagination-btn" (click)="goToNextPage()" [disabled]="currentPage === pagination.pages">Next →</button>
-      </div>
+        <div class="filter-toolbar">
+          <label class="search-field">
+            <span class="field-label">Search students</span>
+            <span class="input-shell"><i class="bx bx-search" aria-hidden="true"></i><input type="search" placeholder="Student name" [value]="searchTerm" (input)="onSearch($event)" /></span>
+          </label>
+          <label class="filter-field">
+            <span class="field-label">Class</span>
+            <select [(ngModel)]="classFilter" (change)="applyFilters()">
+              <option value="">All classes</option>
+              @for (teacherClass of teacherClasses; track teacherClass._id) {
+                <option [value]="teacherClass._id">{{ teacherClass.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="filter-field">
+            <span class="field-label">Status</span>
+            <select [(ngModel)]="statusFilter" (change)="applyFilters()">
+              <option value="">All statuses</option>
+              <option value="submitted">Submitted</option>
+              <option value="late">Late</option>
+            </select>
+          </label>
+          <label class="filter-field date-field">
+            <span class="field-label">From</span>
+            <input type="date" [(ngModel)]="dateFromFilter" (change)="applyFilters()" />
+          </label>
+          <label class="filter-field date-field">
+            <span class="field-label">To</span>
+            <input type="date" [(ngModel)]="dateToFilter" (change)="applyFilters()" />
+          </label>
+          @if (hasFilters) {
+            <button type="button" class="clear-button" (click)="clearFilters()">Clear filters</button>
+          }
+        </div>
+
+        @if (filteredSubmissions.length > 0) {
+          <div class="student-table" role="table" aria-label="Worksheet student submissions">
+            <div class="table-head" role="row">
+              <span role="columnheader">Student</span>
+              <span role="columnheader">Score</span>
+              <span role="columnheader">Time</span>
+              <span role="columnheader">Submitted</span>
+              <span role="columnheader">Status</span>
+              <span role="columnheader" class="action-heading">Report</span>
+            </div>
+            @for (submission of filteredSubmissions; track submission._id) {
+              <div class="student-row" role="row">
+                <div class="student-identity" role="cell">
+                  <span class="avatar" aria-hidden="true">{{ getStudentInitials(submission) }}</span>
+                  <div><strong>{{ getStudentName(submission) }}</strong><span>Student</span></div>
+                </div>
+                <div class="score-cell" role="cell" data-label="Score">
+                  <div><strong>{{ (submission.score ?? submission.percentage ?? 0) | number:'1.0-0' }}%</strong><span class="score-note">{{ (submission.score ?? submission.percentage ?? 0) >= 70 ? 'Passed' : 'Below 70%' }}</span></div>
+                  <span class="score-track" aria-hidden="true"><span [ngClass]="getScoreTone(submission)" [style.width.%]="submission.score ?? submission.percentage ?? 0"></span></span>
+                </div>
+                <span class="data-cell" role="cell" data-label="Time">{{ submission.timeTaken | formatTime }}</span>
+                <span class="data-cell" role="cell" data-label="Submitted">{{ submission.submittedAt | date:'dd MMM yyyy' }}</span>
+                <span role="cell" data-label="Status"><span class="status-pill" [class.status-late]="getSubmissionStatus(submission) === 'Late'">{{ getSubmissionStatus(submission) }}</span></span>
+                <div class="row-action" role="cell">
+                  <button type="button" class="row-button" [disabled]="downloadingSubmissionId === submission._id" (click)="onDownloadStudentPdf(submission)" [attr.aria-label]="'Download report for ' + getStudentName(submission)">
+                    @if (downloadingSubmissionId === submission._id) { <span class="spinner" aria-hidden="true"></span><span>Preparing</span> }
+                    @else { <i class="bx bx-download" aria-hidden="true"></i><span>PDF</span> }
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <i class="bx" [ngClass]="hasFilters ? 'bx-search-alt' : 'bx-file'" aria-hidden="true"></i>
+            <h3>{{ hasFilters ? 'No submissions match these filters' : 'No submissions yet' }}</h3>
+            <p>{{ hasFilters ? 'Try a broader date range or clear the selected filters.' : 'Student work will appear here after the first submission.' }}</p>
+            @if (hasFilters) { <button type="button" class="utility-button" (click)="clearFilters()">Clear filters</button> }
+          </div>
+        }
+
+        @if (pagination && pagination.pages > 1) {
+          <nav class="pagination" aria-label="Submission pages">
+            <button type="button" (click)="goToPrevPage()" [disabled]="currentPage === 1"><i class="bx bx-left-arrow-alt" aria-hidden="true"></i>Previous</button>
+            <span>Page <strong>{{ currentPage }}</strong> of <strong>{{ pagination.pages }}</strong></span>
+            <button type="button" (click)="goToNextPage()" [disabled]="currentPage === pagination.pages">Next<i class="bx bx-right-arrow-alt" aria-hidden="true"></i></button>
+          </nav>
+        }
+      </section>
     }
 
-  </ng-container>
+    @if (activeView === 'performance') {
+      <section class="performance-page" aria-labelledby="performance-title">
+        <div class="performance-header">
+          <div><span class="eyebrow">Class analytics</span><h2 id="performance-title">Performance insights</h2><p>Use score, question, and section patterns to plan follow-up teaching.</p></div>
+        </div>
 
-  <!-- SHARE MODAL -->
-  <div class="share-backdrop" *ngIf="showShareModal" (click)="closeShareModal()"></div>
-  <div class="share-modal" *ngIf="showShareModal" role="dialog" aria-modal="true">
-    <div class="share-modal-header">
-      <h3 class="share-modal-title">Share this worksheet</h3>
-      <button class="share-close-btn" (click)="closeShareModal()" aria-label="Close">✕</button>
-    </div>
+        <section class="performance-kpis" aria-label="Performance metrics">
+          <article><span>Average score</span><strong>{{ analytics?.averageScore || 0 }}%</strong><p>Class mean</p></article>
+          <article><span>Median score</span><strong>{{ analytics?.medianScore || 0 }}%</strong><p>Middle result</p></article>
+          <article><span>Pass rate</span><strong>{{ analytics?.passRate || 0 }}%</strong><p>Scored 70% or higher</p></article>
+        </section>
 
-    <div class="share-loading" *ngIf="shareLoading">
-      <div class="share-spinner"></div>
-      <span>Generating link…</span>
-    </div>
+        @if (scoreBands) {
+          <section class="analytics-card" aria-labelledby="score-bands-title">
+            <div class="module-heading"><div><h3 id="score-bands-title">Score distribution</h3><p>Students grouped by final score.</p></div><span>{{ overview?.submittedCount || 0 }} total</span></div>
+            <div class="score-bands">
+              @for (band of [
+                { label: '90–100%', count: scoreBands['90-100'] || 0, tone: 'strong' },
+                { label: '80–89%', count: scoreBands['80-89'] || 0, tone: 'primary' },
+                { label: '70–79%', count: scoreBands['70-79'] || 0, tone: 'developing' },
+                { label: 'Below 70%', count: scoreBands['below-70'] || 0, tone: 'attention' }
+              ]; track band.label) {
+                <div class="score-band">
+                  <div><span>{{ band.label }}</span><strong>{{ band.count }}</strong></div>
+                  <div class="band-track" role="progressbar" [attr.aria-label]="band.label + ': ' + band.count + ' students'" aria-valuemin="0" [attr.aria-valuemax]="overview?.submittedCount || 0" [attr.aria-valuenow]="band.count">
+                    <span [ngClass]="band.tone" [style.width.%]="(band.count / (overview?.submittedCount || 1)) * 100"></span>
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        }
 
-    <ng-container *ngIf="!shareLoading && shareUrl">
-      <!-- QR Code -->
-      <div class="share-qr-section">
-        <qr-code [value]="shareUrl" size="200" errorCorrectionLevel="M" />
-      </div>
+        @if (sectionAnalytics.length > 0) {
+          <section class="analytics-card" aria-labelledby="section-performance-title">
+            <div class="module-heading"><div><h3 id="section-performance-title">Section performance</h3><p>Compare correctness and completion across worksheet sections.</p></div><span>{{ sectionAnalytics.length }} sections</span></div>
+            <div class="section-grid">
+              @for (section of sectionAnalytics; track section.id) {
+                <article class="section-result">
+                  <div class="section-result-heading"><div><span>{{ section.type }}</span><h4>{{ section.title }}</h4></div><strong [class.attention-text]="section.averageScore < 60">{{ section.averageScore }}%</strong></div>
+                  <div class="section-progress"><span [class.attention]="section.averageScore < 60" [class.developing]="section.averageScore >= 60 && section.averageScore < 80" [style.width.%]="section.averageScore"></span></div>
+                  <dl><div><dt>Completion</dt><dd>{{ section.completionRate }}%</dd></div><div><dt>Questions</dt><dd>{{ section.totalQuestions }}</dd></div><div><dt>Correct</dt><dd>{{ section.correctAnswers }}</dd></div><div><dt>Missed</dt><dd>{{ section.incorrectAnswers + section.skippedQuestions }}</dd></div></dl>
+                  @if (section.mostMissedQuestions.length) {
+                    <div class="missed-list"><span>Most missed</span>@for (missed of section.mostMissedQuestions; track missed.questionId) { <span class="question-chip">{{ missed.questionId }} · {{ missed.correctRate }}%</span> }</div>
+                  }
+                </article>
+              }
+            </div>
+          </section>
+        } @else {
+          <section class="analytics-card empty-state compact"><i class="bx bx-grid-alt" aria-hidden="true"></i><h3>No section analytics yet</h3><p>Section performance will appear once answer data is available.</p></section>
+        }
 
-      <!-- Direct Link -->
-      <div class="share-url-row">
-        <input class="share-url-input" [value]="shareUrl" readonly aria-label="Share URL" />
-        <button class="share-copy-btn" [class.copied]="shareCopied" (click)="copyUrl()" [title]="shareCopied ? 'Copied!' : 'Copy link'">
-          {{ shareCopied ? '✓' : '📋' }}
-        </button>
-      </div>
-      <p class="share-hint">Anyone with this link can view this worksheet.</p>
-      <p class="share-hint">Only students enrolled in your class can submit answers.</p>
-      <div class="share-modal-actions">
-        <button class="share-revoke-btn" (click)="revokeShare()">Revoke link</button>
-        <button class="share-done-btn" (click)="closeShareModal()">Done</button>
-      </div>
-    </ng-container>
-  </div>
-</div>
+        @if (analytics?.hardestQuestions?.length || analytics?.easiestQuestions?.length) {
+          <section class="analytics-card question-card" aria-labelledby="question-insights-title">
+            <div class="module-heading"><div><h3 id="question-insights-title">Question insights</h3><p>Identify questions to reteach and questions the class understood well.</p></div><button type="button" class="text-action" (click)="showQuestionInsights = !showQuestionInsights" [attr.aria-expanded]="showQuestionInsights">{{ showQuestionInsights ? 'Hide details' : 'Show details' }}</button></div>
+            @if (showQuestionInsights) {
+              <div class="question-columns">
+                <div class="question-list"><h4><span class="list-accent attention"></span>Hardest questions</h4>
+                  @for (question of analytics?.hardestQuestions || []; track question.questionId) { <div><span>{{ question.questionId }}</span><strong class="attention-text">{{ question.correctRate | number:'1.0-0' }}% correct</strong>@if (question.skippedRate > 0) { <small>{{ question.skippedRate | number:'1.0-0' }}% skipped</small> }</div> }
+                </div>
+                <div class="question-list"><h4><span class="list-accent strong"></span>Easiest questions</h4>
+                  @for (question of analytics?.easiestQuestions || []; track question.questionId) { <div><span>{{ question.questionId }}</span><strong>{{ question.correctRate | number:'1.0-0' }}% correct</strong></div> }
+                </div>
+              </div>
+            }
+          </section>
+        } @else {
+          <section class="analytics-card empty-state compact"><i class="bx bx-help-circle" aria-hidden="true"></i><h3>No question insights yet</h3><p>Question-level patterns will appear once students submit answers.</p></section>
+        }
 
-<app-error-modal
-  [show]="errorModal.open"
-  [title]="errorModal.title"
-  [message]="errorModal.message"
-  (closed)="errorModal = { open: false, title: '', message: '' }">
-</app-error-modal>
+        @if (performanceTrends || weakSections.length > 0) {
+          <section class="attention-grid">
+            @if (performanceTrends) {
+              <article class="analytics-card mini-insight"><span class="eyebrow">Recent submissions on this page</span><h3>{{ performanceTrends.trend === 'improving' ? 'Scores are improving' : performanceTrends.trend === 'declining' ? 'Scores are trending down' : 'Scores are stable' }}</h3><p>{{ performanceTrends.earlierAverage }}% to {{ performanceTrends.recentAverage }}% ({{ performanceTrends.change > 0 ? '+' : '' }}{{ performanceTrends.change }} points).</p></article>
+            }
+            @if (weakSections.length > 0) {
+              <article class="analytics-card mini-insight"><span class="eyebrow">Priority sections</span><h3>Areas needing attention</h3><div class="priority-list">@for (section of weakSections; track section.id) { <span><strong>{{ section.title }}</strong><em>{{ section.averageScore }}%</em></span> }</div></article>
+            }
+          </section>
+        }
 
-<app-success-modal
-  [show]="successModal.open"
-  [title]="successModal.title"
-  [message]="successModal.message"
-  (closed)="successModal = { open: false, title: '', message: '' }">
-</app-success-modal>
-
-<app-worksheet-assign-modal
-  [show]="showAssignModal"
-  [classId]="null"
-  [preselectedWorksheetId]="worksheetId"
-  (showChange)="showAssignModal = $event"
-  (assigned)="onWorksheetAssigned($event)">
-</app-worksheet-assign-modal>
-
-<!-- Hidden PDF Container for html2canvas -->
-<div id="report-pdf-container"
-     style="position:fixed; left:-9999px; top:-9999px; width:794px; min-height:1123px;
-            background:white; font-family:sans-serif; z-index:-1; pointer-events:none; visibility:hidden;">
-  @if (reportData) {
-    <app-report-pdf-template [reportData]="reportData"></app-report-pdf-template>
+        <section class="analytics-card" aria-labelledby="student-highlights-title">
+          <div class="module-heading"><div><h3 id="student-highlights-title">Student highlights</h3><p>Top performers and students below the 70% worksheet benchmark.</p></div></div>
+          <app-comprehensive-report [entries]="reportEntries" [type]="'worksheet'" [passThreshold]="70" [showSummary]="false" [showDistribution]="false" [showPassBreakdown]="false"></app-comprehensive-report>
+        </section>
+      </section>
+    }
   }
+
+  @if (showShareModal) {
+    <button type="button" class="modal-backdrop" (click)="closeShareModal()" aria-label="Close share dialog"></button>
+    <section class="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
+      <div class="modal-header"><div><span class="eyebrow">Worksheet link</span><h2 id="share-modal-title">Share this worksheet</h2></div><button type="button" class="icon-button" (click)="closeShareModal()" aria-label="Close share dialog"><i class="bx bx-x" aria-hidden="true"></i></button></div>
+      @if (shareLoading) { <div class="share-loading"><span class="spinner" aria-hidden="true"></span><span>Generating a secure link…</span></div> }
+      @if (!shareLoading && shareUrl) {
+        <div class="qr-wrap"><qr-code [value]="shareUrl" size="190" errorCorrectionLevel="M" /></div>
+        <label class="share-link-field"><span>Direct link</span><span><input [value]="shareUrl" readonly aria-label="Share URL" /><button type="button" (click)="copyUrl()" [attr.aria-label]="shareCopied ? 'Link copied' : 'Copy link'"><i class="bx" [ngClass]="shareCopied ? 'bx-check' : 'bx-copy'" aria-hidden="true"></i></button></span></label>
+        <p class="share-hint">Anyone with this link can view the worksheet. Only enrolled students can submit answers.</p>
+        <div class="modal-actions"><button type="button" class="revoke-button" (click)="revokeShare()">Revoke link</button><button type="button" class="primary-button" (click)="closeShareModal()">Done</button></div>
+      }
+    </section>
+  }
+</main>
+
+<app-error-modal [show]="errorModal.open" [title]="errorModal.title" [message]="errorModal.message" (closed)="errorModal = { open: false, title: '', message: '' }"></app-error-modal>
+<app-success-modal [show]="successModal.open" [title]="successModal.title" [message]="successModal.message" (closed)="successModal = { open: false, title: '', message: '' }"></app-success-modal>
+<app-worksheet-assign-modal [show]="showAssignModal" [classId]="null" [preselectedWorksheetId]="worksheetId" (showChange)="showAssignModal = $event" (assigned)="onWorksheetAssigned($event)"></app-worksheet-assign-modal>
+
+<div id="report-pdf-container" class="report-pdf-host" aria-hidden="true">
+  @if (reportData) { <app-report-pdf-template [reportData]="reportData"></app-report-pdf-template> }
 </div>

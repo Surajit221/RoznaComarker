@@ -12,7 +12,6 @@ import {
   Component,
   Input,
   OnChanges,
-  SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -43,10 +42,13 @@ export class ComprehensiveReport implements OnChanges {
   @Input() entries: ReportEntry[] = [];
   @Input() type: ReportType = 'worksheet';
   @Input() passThreshold = 60;
+  @Input() showSummary = true;
+  @Input() showDistribution = true;
+  @Input() showPassBreakdown = true;
 
   distribution: DistBucket[] = [];
 
-  ngOnChanges(_: SimpleChanges): void {
+  ngOnChanges(): void {
     this.distribution = this.buildDistribution();
   }
 
@@ -96,7 +98,8 @@ export class ComprehensiveReport implements OnChanges {
   }
 
   get strugglers(): ReportEntry[] {
-    return [...this.entries]
+    return this.entries
+      .filter((entry) => entry.score < this.passThreshold)
       .sort((a, b) => a.score - b.score)
       .slice(0, 5);
   }

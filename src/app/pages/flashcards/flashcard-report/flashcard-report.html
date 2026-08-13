@@ -1,188 +1,255 @@
-<div class="report-wrap">
+<main class="report-page">
+  <button type="button" class="back-link" (click)="goBack()">
+    <i class="bx bx-left-arrow-alt" aria-hidden="true"></i>
+    Back to flashcards
+  </button>
 
-  <!-- ERROR BANNER -->
-  <div class="error-banner" *ngIf="errorMsg">
-    <span>⚠ {{ errorMsg }}</span>
-    <button class="dismiss-btn" (click)="dismissError()">✕</button>
-  </div>
-
-  <!-- HEADER -->
-  <div class="report-header">
-    <button class="btn-back" (click)="goBack()">← Back</button>
-    <div class="report-tabs">
-      <button class="tab-btn"
-              [class.active]="activeTab === 'participants'"
-              (click)="activeTab = 'participants'">
-        Participants
-      </button>
-      <button class="tab-btn"
-              [class.active]="activeTab === 'cards'"
-              (click)="activeTab = 'cards'">
-        Cards
-      </button>
-    </div>
-    <button class="btn-outline" (click)="downloadReport()" [disabled]="!report || isPdfDownloading">
-      @if (isPdfDownloading) {
-        <span class="fc-pdf-spinner" aria-hidden="true"></span> Generating...
-      } @else {
-        ↓ Download PDF
-      }
-    </button>
-  </div>
-
-  <!-- SKELETON -->
-  <div class="report-skeleton" *ngIf="isLoading">
-    <div class="skel skel-stats"></div>
-    <div class="skel skel-row"></div>
-    <div class="skel skel-row"></div>
-    <div class="skel skel-row"></div>
-  </div>
-
-  <ng-container *ngIf="!isLoading && report">
-
-    <!-- STATS ROW -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <span class="stat-icon">👥</span>
-        <span class="stat-label">SUBMISSIONS</span>
-        <span class="stat-value">{{ report.totalSubmissions }}</span>
+  @if (errorMsg) {
+    <section class="error-banner" role="alert">
+      <div>
+        <strong>We couldn't load the latest report.</strong>
+        <span>{{ errorMsg }}</span>
       </div>
-      <div class="stat-card">
-        <span class="stat-icon">📊</span>
-        <span class="stat-label">AVERAGE SCORE</span>
-        <span class="stat-value">{{ report.averageScore | number:'1.0-0' }}%</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-icon">⏱</span>
-        <span class="stat-label">MEDIAN TIME</span>
-        <span class="stat-value">{{ report.medianTimeTaken | formatTime }}</span>
-      </div>
-    </div>
-
-    <!-- LAST UPDATED & REFRESH -->
-    <div class="report-meta-row">
-      <p class="stats-note">
-        ℹ Only the first submission from each participant is recorded
-      </p>
-      <div class="last-updated-wrap">
-        <span class="last-updated-text" *ngIf="lastUpdatedAt">
-          Updated: {{ lastUpdatedText }}
-        </span>
-        <button class="btn-refresh" (click)="manualRefresh()" title="Refresh now">
-          ↻ Refresh
+      <div class="error-actions">
+        <button type="button" class="text-action" (click)="manualRefresh()">Try again</button>
+        <button type="button" class="icon-button" (click)="dismissError()" aria-label="Dismiss error">
+          <i class="bx bx-x" aria-hidden="true"></i>
         </button>
       </div>
+    </section>
+  }
+
+  <header class="report-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Flashcard report</span>
+      <h1>{{ assignmentProgress?.assignmentTitle || 'Flashcard performance' }}</h1>
+      <p>Review participation, student outcomes, and card-level understanding.</p>
+      <div class="hero-meta" aria-label="Report details">
+        @if (report) {
+          <span>{{ report.cards.length }} cards</span>
+        }
+        @if (assignmentId) {
+          <span>Assignment report</span>
+        }
+        @if (lastUpdatedAt) {
+          <span class="updated-state">
+            <span class="live-dot" aria-hidden="true"></span>
+            Updated {{ lastUpdatedAt | date:'shortTime' }}
+          </span>
+        }
+      </div>
     </div>
 
-    <!-- COMPREHENSIVE REPORT TOGGLE -->
-    <div class="cr-toggle-row">
-      <button class="cr-toggle-btn" (click)="showComprehensive = !showComprehensive">
-        {{ showComprehensive ? '▲ Hide Detailed Analysis' : '▼ Show Detailed Analysis' }}
+    <div class="hero-actions">
+      <button type="button" class="secondary-button" (click)="manualRefresh()" [disabled]="isRefreshing">
+        <i class="bx bx-refresh" [class.spin-icon]="isRefreshing" aria-hidden="true"></i>
+        {{ isRefreshing ? 'Refreshing' : 'Refresh' }}
+      </button>
+      <button type="button" class="primary-button" (click)="downloadReport()" [disabled]="!report || isPdfDownloading">
+        @if (isPdfDownloading) {
+          <span class="spinner" aria-hidden="true"></span>
+          Generating
+        } @else {
+          <i class="bx bx-download" aria-hidden="true"></i>
+          Download PDF
+        }
       </button>
     </div>
+  </header>
 
-    <!-- COMPREHENSIVE REPORT PANEL -->
-    <div class="cr-panel" *ngIf="showComprehensive">
-      <app-comprehensive-report
-        [entries]="reportEntries"
-        [type]="'flashcard'">
-      </app-comprehensive-report>
-    </div>
-
-    <!-- ── PARTICIPANTS TAB ── -->
-    <ng-container *ngIf="activeTab === 'participants'">
-
-      <div class="participants-toolbar">
-        <input class="search-input"
-               placeholder="Search by name..."
-               [value]="searchTerm"
-               (input)="onSearch($event)" />
-        <div class="filter-tabs">
-          <button class="filter-btn" [class.active]="filterStatus === 'all'"
-                  (click)="filterStatus = 'all'">
-            All
-          </button>
-          <button class="filter-btn" [class.active]="filterStatus === 'completed'"
-                  (click)="filterStatus = 'completed'">
-            Completed
-          </button>
-          <button class="filter-btn" [class.active]="filterStatus === 'in_progress'"
-                  (click)="filterStatus = 'in_progress'">
-            In Progress
-          </button>
-          <button class="filter-btn" [class.active]="filterStatus === 'not_started'"
-                  (click)="filterStatus = 'not_started'">
-            Not Started
-          </button>
-        </div>
+  @if (isLoading) {
+    <section class="report-skeleton" aria-label="Loading report" aria-busy="true">
+      <div class="skeleton-kpis">
+        <span class="skeleton-block"></span>
+        <span class="skeleton-block"></span>
+        <span class="skeleton-block"></span>
+        <span class="skeleton-block"></span>
       </div>
+      <span class="skeleton-block skeleton-insight"></span>
+      <span class="skeleton-block skeleton-toolbar"></span>
+      <span class="skeleton-block skeleton-row"></span>
+      <span class="skeleton-block skeleton-row"></span>
+      <span class="sr-only">Loading flashcard report…</span>
+    </section>
+  } @else if (report) {
+    <section class="kpi-grid" aria-label="Class overview">
+      <article class="kpi-card kpi-primary">
+        <span class="kpi-label">Participants</span>
+        <strong>{{ participantRows.length }}</strong>
+        <span class="kpi-context">{{ assignmentId ? 'Students assigned' : 'Recorded submissions' }}</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Completed</span>
+        <strong>{{ completedCount }}</strong>
+        <span class="kpi-context">Students marked complete</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Average score</span>
+        <strong>{{ report.averageScore | number:'1.0-0' }}%</strong>
+        <span class="kpi-context">Across recorded submissions</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-label">Median time</span>
+        <strong>{{ report.medianTimeTaken | formatTime }}</strong>
+        <span class="kpi-context">Typical completion time</span>
+      </article>
+    </section>
 
-      <div class="empty-state" *ngIf="filteredParticipants.length === 0">
-        No results found
-      </div>
-
-      <div class="participants-table" *ngIf="filteredParticipants.length > 0">
-        <div class="table-head">
-          <span>Participant</span>
-          <span>Score</span>
-          <span>Time</span>
-          <span>Date</span>
-          <span>Status</span>
-          <span>PDF</span>
+    @if (attentionParticipantCount > 0 || attentionCardCount > 0) {
+      <section class="teacher-insight" aria-labelledby="flashcard-attention-title">
+        <div class="insight-marker" aria-hidden="true"><i class="bx bx-bulb"></i></div>
+        <div>
+          <span class="insight-kicker">Teacher focus</span>
+          <h2 id="flashcard-attention-title">A quick place to start</h2>
+          <p>
+            @if (attentionParticipantCount > 0) {
+              {{ attentionParticipantCount }} {{ attentionParticipantCount === 1 ? 'student is' : 'students are' }} below 60%.
+            }
+            @if (attentionCardCount > 0) {
+              {{ attentionCardCount }} {{ attentionCardCount === 1 ? 'card has' : 'cards have' }} under 60% correct responses.
+            }
+          </p>
         </div>
-        <div class="participant-row"
-             *ngFor="let p of filteredParticipants; trackBy: trackById">
-          <div class="p-name-cell">
-            <div class="avatar-circle">{{ p.userName | initials }}</div>
-            <span class="p-name">{{ p.userName }}</span>
+        @if (attentionCardCount > 0) {
+          <button type="button" class="insight-link" (click)="setTab('cards')">Review cards</button>
+        } @else {
+          <button type="button" class="insight-link" (click)="setTab('participants')">Review students</button>
+        }
+      </section>
+    }
+
+    <nav class="report-nav" aria-label="Flashcard report sections">
+      <button type="button" [class.active]="activeTab === 'participants'" [attr.aria-current]="activeTab === 'participants' ? 'page' : null" (click)="setTab('participants')">Students</button>
+      <button type="button" [class.active]="activeTab === 'cards'" [attr.aria-current]="activeTab === 'cards' ? 'page' : null" (click)="setTab('cards')">Card performance</button>
+      <button type="button" [class.active]="activeTab === 'analytics'" [attr.aria-current]="activeTab === 'analytics' ? 'page' : null" (click)="setTab('analytics')">Analytics</button>
+    </nav>
+
+    @if (activeTab === 'participants') {
+      <section class="content-panel" aria-labelledby="student-results-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="student-results-title">Student results</h2>
+            <p>Find a student and download an individual report.</p>
           </div>
-          <span class="p-score">{{ p.score | number:'1.0-0' }}%</span>
-          <span class="p-time">{{ p.timeTaken | formatTime }}</span>
-          <span class="p-date">{{ p.submittedAt | date:'dd MMM yyyy' }}</span>
-          <span class="badge" [ngClass]="'badge-' + p.status">
-            {{ p.status === 'in_progress' ? 'In Progress' : (p.status === 'not_started' ? 'Not Started' : 'Completed') }}
-          </span>
-          <span>
-            <button class="btn-dl-row"
-                    [disabled]="participantDownloadingId === p.userId"
-                    (click)="downloadParticipantPdf(p)">
-              @if (participantDownloadingId === p.userId) {
-                <span class="fc-pdf-spinner" aria-hidden="true"></span>
-              } @else {
-                ↓ PDF
-              }
-            </button>
-          </span>
+          <span class="results-count">{{ filteredParticipants.length }} of {{ participantRows.length }}</span>
         </div>
-      </div>
 
-    </ng-container>
-
-    <!-- ── CARDS TAB ── -->
-    <ng-container *ngIf="activeTab === 'cards'">
-      <div class="cards-table">
-        <div class="table-head">
-          <span>Term</span>
-          <span>Correct %</span>
+        <div class="student-toolbar">
+          <label class="search-field">
+            <span class="sr-only">Search students by name</span>
+            <i class="bx bx-search" aria-hidden="true"></i>
+            <input type="search" placeholder="Search students" [value]="searchTerm" (input)="onSearch($event)" />
+          </label>
+          <div class="status-filters" aria-label="Filter by progress status">
+            <button type="button" [class.active]="filterStatus === 'all'" (click)="setStatusFilter('all')">All</button>
+            <button type="button" [class.active]="filterStatus === 'completed'" (click)="setStatusFilter('completed')">Completed</button>
+            <button type="button" [class.active]="filterStatus === 'in_progress'" (click)="setStatusFilter('in_progress')">In progress</button>
+            <button type="button" [class.active]="filterStatus === 'not_started'" (click)="setStatusFilter('not_started')">Not started</button>
+          </div>
+          @if (hasParticipantFilters) {
+            <button type="button" class="clear-button" (click)="clearParticipantFilters()">Clear filters</button>
+          }
         </div>
-        <div class="card-stat-row"
-             *ngFor="let c of report?.cards; trackBy: trackById">
-          <span class="card-front-text">{{ c.front }}</span>
-          <div class="mini-progress-wrap">
-            <div class="mini-progress-bar">
-              <div class="mini-bar-fill"
-                   [style.width.%]="c.correctPercentage">
-              </div>
+
+        @if (filteredParticipants.length > 0) {
+          <div class="student-table" role="table" aria-label="Flashcard student results">
+            <div class="table-head" role="row">
+              <span role="columnheader">Student</span>
+              <span role="columnheader">Score</span>
+              <span role="columnheader">Time</span>
+              <span role="columnheader">Submitted</span>
+              <span role="columnheader">Status</span>
+              <span role="columnheader" class="action-heading">Report</span>
             </div>
-            <span class="correct-pct">{{ c.correctPercentage | number:'1.0-0' }}%</span>
+            @for (participant of filteredParticipants; track participant.userId) {
+              <div class="student-row" role="row">
+                <div class="student-identity" role="cell">
+                  <span class="avatar" aria-hidden="true">{{ participant.userName | initials }}</span>
+                  <div>
+                    <strong>{{ participant.userName }}</strong>
+                    <span>@if (participant.totalCards) { {{ participant.completedCards || 0 }} of {{ participant.totalCards }} cards } @else { Participant }</span>
+                  </div>
+                </div>
+                <div class="score-cell" role="cell" data-label="Score">
+                  <strong>{{ participant.score === null ? '—' : ((participant.score | number:'1.0-0') + '%') }}</strong>
+                  <span class="score-track" aria-hidden="true"><span [style.width.%]="participant.score || 0"></span></span>
+                </div>
+                <span class="data-cell" role="cell" data-label="Time">{{ participant.timeTaken | formatTime }}</span>
+                <span class="data-cell" role="cell" data-label="Submitted">{{ participant.submittedAt ? (participant.submittedAt | date:'dd MMM yyyy') : '—' }}</span>
+                <span role="cell" data-label="Status"><span class="status-pill" [ngClass]="'status-' + participant.status">{{ getStatusLabel(participant.status) }}</span></span>
+                <div class="row-action" role="cell">
+                  <button type="button" class="row-button" [disabled]="participant.status !== 'completed' || participantDownloadingId === participant.userId" (click)="downloadParticipantPdf(participant)" [attr.aria-label]="participant.status === 'completed' ? 'Download report for ' + participant.userName : 'Report unavailable until ' + participant.userName + ' completes the assignment'">
+                    @if (participantDownloadingId === participant.userId) {
+                      <span class="spinner" aria-hidden="true"></span><span>Preparing</span>
+                    } @else {
+                      <i class="bx bx-download" aria-hidden="true"></i><span>PDF</span>
+                    }
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <i class="bx bx-search-alt" aria-hidden="true"></i>
+            <h3>No students match these filters</h3>
+            <p>Try another name or clear the selected status.</p>
+            <button type="button" class="secondary-button" (click)="clearParticipantFilters()">Clear filters</button>
+          </div>
+        }
+        <p class="data-note"><i class="bx bx-info-circle" aria-hidden="true"></i> Only the first submission from each participant is recorded.</p>
+      </section>
+    }
+
+    @if (activeTab === 'cards') {
+      <section class="content-panel" aria-labelledby="card-performance-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="card-performance-title">Card performance</h2>
+            <p>Spot terms the class may need to revisit.</p>
+          </div>
+          <span class="results-count">{{ report.cards.length }} cards</span>
+        </div>
+        @if (report.cards.length > 0) {
+          <div class="card-performance-list">
+            @for (card of report.cards; track card.cardId) {
+              <article class="card-performance-row">
+                <div class="card-copy">
+                  <span class="card-label">Card term</span>
+                  <strong>{{ card.front }}</strong>
+                </div>
+                <div class="performance-meter">
+                  <div class="performance-meta">
+                    <span>{{ getCardPerformanceLabel(card.correctPercentage) }}</span>
+                    <strong>{{ card.correctPercentage | number:'1.0-0' }}% correct</strong>
+                  </div>
+                  <div class="performance-track" role="progressbar" [attr.aria-label]="card.front + ' correct responses'" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="card.correctPercentage">
+                    <span [class.needs-review]="card.correctPercentage < 60" [class.developing]="card.correctPercentage >= 60 && card.correctPercentage < 80" [style.width.%]="card.correctPercentage"></span>
+                  </div>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <i class="bx bx-bar-chart-alt-2" aria-hidden="true"></i>
+            <h3>No card analytics yet</h3>
+            <p>Card performance will appear after students submit their work.</p>
+          </div>
+        }
+      </section>
+    }
+
+    @if (activeTab === 'analytics') {
+      <section class="content-panel analytics-panel" aria-labelledby="analytics-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="analytics-title">Class analytics</h2>
+            <p>Compare the score distribution and identify students at both ends of the class.</p>
           </div>
         </div>
-        <div class="empty-state" *ngIf="!report?.cards?.length">
-          No card data available
-        </div>
-      </div>
-    </ng-container>
-
-  </ng-container>
-
-</div>
+        <app-comprehensive-report [entries]="reportEntries" [type]="'flashcard'" [showSummary]="false"></app-comprehensive-report>
+      </section>
+    }
+  }
+</main>

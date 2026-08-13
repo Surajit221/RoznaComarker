@@ -1,136 +1,125 @@
-<div class="cr-wrap" *ngIf="total > 0; else emptyTpl">
+@if (total > 0) {
+  <div class="analytics-wrap">
+    @if (showSummary) {
+      <section class="analytics-summary" aria-label="Additional score metrics">
+        <article>
+          <span>Median score</span>
+          <strong>{{ medianScore | number:'1.0-1' }}%</strong>
+        </article>
+        <article>
+          <span>Highest score</span>
+          <strong>{{ highest | number:'1.0-1' }}%</strong>
+        </article>
+        <article>
+          <span>Lowest score</span>
+          <strong>{{ lowest | number:'1.0-1' }}%</strong>
+        </article>
+        <article>
+          <span>Average time</span>
+          <strong>{{ formatTime(avgTimeSec) }}</strong>
+        </article>
+      </section>
+    }
 
-  <!-- ── SUMMARY STAT GRID ─────────────────────────────────── -->
-  <div class="cr-section-title">Summary</div>
-  <div class="cr-summary-grid">
-    <div class="cr-stat">
-      <span class="cr-stat-icon">📊</span>
-      <span class="cr-stat-value">{{ average | number:'1.0-1' }}%</span>
-      <span class="cr-stat-label">Average Score</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">📈</span>
-      <span class="cr-stat-value">{{ medianScore | number:'1.0-1' }}%</span>
-      <span class="cr-stat-label">Median Score</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">🏆</span>
-      <span class="cr-stat-value">{{ highest | number:'1.0-1' }}%</span>
-      <span class="cr-stat-label">Highest Score</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">⚠️</span>
-      <span class="cr-stat-value">{{ lowest | number:'1.0-1' }}%</span>
-      <span class="cr-stat-label">Lowest Score</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">✅</span>
-      <span class="cr-stat-value">{{ passCount }}</span>
-      <span class="cr-stat-label">Passed (≥{{ passThreshold }}%)</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">❌</span>
-      <span class="cr-stat-value">{{ failCount }}</span>
-      <span class="cr-stat-label">Below Threshold</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">⏱</span>
-      <span class="cr-stat-value">{{ formatTime(avgTimeSec) }}</span>
-      <span class="cr-stat-label">Avg. Time Taken</span>
-    </div>
-    <div class="cr-stat">
-      <span class="cr-stat-icon">🎯</span>
-      <span class="cr-stat-value">{{ passRate | number:'1.0-0' }}%</span>
-      <span class="cr-stat-label">Pass Rate</span>
-    </div>
-  </div>
+    <div class="analytics-grid" [class.single-column]="!showDistribution && !showPassBreakdown">
+      @if (showPassBreakdown || showDistribution) {
+        <div class="chart-stack">
+          @if (showPassBreakdown) {
+            <section class="analytics-module" aria-labelledby="pass-breakdown-title">
+              <div class="module-heading">
+                <div>
+                  <h3 id="pass-breakdown-title">Threshold breakdown</h3>
+                  <p>{{ passThreshold }}% is the current benchmark.</p>
+                </div>
+                <strong>{{ passRate | number:'1.0-0' }}% passed</strong>
+              </div>
+              <div class="pass-track" role="img" [attr.aria-label]="passCount + ' passed and ' + failCount + ' below threshold'">
+                <span class="pass-segment" [style.width.%]="passRate"></span>
+                <span class="attention-segment" [style.width.%]="100 - passRate"></span>
+              </div>
+              <div class="legend">
+                <span><i class="pass-dot" aria-hidden="true"></i>Passed ({{ passCount }})</span>
+                <span><i class="attention-dot" aria-hidden="true"></i>Below threshold ({{ failCount }})</span>
+              </div>
+            </section>
+          }
 
-  <!-- ── PASS / FAIL BAR ───────────────────────────────────── -->
-  <div class="cr-section-title">Pass / Fail Breakdown</div>
-  <div class="cr-pf-bar-wrap">
-    <div class="cr-pf-bar">
-      <div class="cr-pf-pass" [style.width.%]="passRate"
-           [attr.title]="'Passed: ' + passCount"></div>
-      <div class="cr-pf-fail" [style.width.%]="100 - passRate"
-           [attr.title]="'Failed: ' + failCount"></div>
-    </div>
-    <div class="cr-pf-legend">
-      <span class="cr-legend-dot cr-dot-pass"></span>
-      <span>Passed ({{ passCount }})</span>
-      <span class="cr-legend-dot cr-dot-fail"></span>
-      <span>Below threshold ({{ failCount }})</span>
-    </div>
-  </div>
-
-  <!-- ── SCORE DISTRIBUTION ────────────────────────────────── -->
-  <div class="cr-section-title">Score Distribution</div>
-  <div class="cr-dist">
-    <div class="cr-dist-row" *ngFor="let b of distribution">
-      <span class="cr-dist-label">{{ b.label }}</span>
-      <div class="cr-dist-bar-wrap">
-        <div class="cr-dist-bar"
-             [style.width.%]="(b.count / maxDistCount) * 100">
+          @if (showDistribution) {
+            <section class="analytics-module" aria-labelledby="score-distribution-title">
+              <div class="module-heading">
+                <div>
+                  <h3 id="score-distribution-title">Score distribution</h3>
+                  <p>Number of students in each range.</p>
+                </div>
+              </div>
+              <div class="distribution-list">
+                @for (bucket of distribution; track bucket.label) {
+                  <div class="distribution-row">
+                    <span>{{ bucket.label }}</span>
+                    <div class="distribution-track" role="progressbar" [attr.aria-label]="bucket.label + ': ' + bucket.count + ' students'" aria-valuemin="0" [attr.aria-valuemax]="maxDistCount" [attr.aria-valuenow]="bucket.count">
+                      <span [style.width.%]="(bucket.count / maxDistCount) * 100"></span>
+                    </div>
+                    <strong>{{ bucket.count }}</strong>
+                  </div>
+                }
+              </div>
+            </section>
+          }
         </div>
-      </div>
-      <span class="cr-dist-count">{{ b.count }}</span>
-    </div>
-  </div>
+      }
 
-  <!-- ── TWO-COLUMN TABLES ─────────────────────────────────── -->
-  <div class="cr-tables-row">
-
-    <!-- Top performers -->
-    <div class="cr-table-block">
-      <div class="cr-section-title">🏆 Top Performers</div>
-      <div class="cr-perf-table">
-        <div class="cr-th-row">
-          <span>#</span>
-          <span>Student</span>
-          <span>Score</span>
-          <span>Time</span>
+      <section class="people-module" aria-labelledby="student-highlights-title">
+        <div class="module-heading">
+          <div>
+            <h3 id="student-highlights-title">Student highlights</h3>
+            <p>Quick class-level follow-up lists.</p>
+          </div>
         </div>
-        <div class="cr-tr" *ngFor="let e of topPerformers; let i = index; trackBy: trackByName">
-          <span class="cr-rank">{{ i + 1 }}</span>
-          <span class="cr-name">{{ e.name }}</span>
-          <span class="cr-score cr-score-high">{{ e.score | number:'1.0-0' }}%</span>
-          <span class="cr-time">{{ formatTime(e.timeTaken) }}</span>
+        <div class="people-columns">
+          <div class="people-list">
+            <div class="list-heading"><span class="list-accent strong"></span>Top performers</div>
+            @for (entry of topPerformers; track entry.name; let rank = $index) {
+              <div class="person-row">
+                <span class="rank">{{ rank + 1 }}</span>
+                <span class="person-name">{{ entry.name }}</span>
+                <strong>{{ entry.score | number:'1.0-0' }}%</strong>
+                <span class="person-time">{{ formatTime(entry.timeTaken) }}</span>
+              </div>
+            }
+          </div>
+          <div class="people-list">
+            <div class="list-heading"><span class="list-accent attention"></span>Needs attention</div>
+            @for (entry of strugglers; track entry.name; let rank = $index) {
+              <div class="person-row">
+                <span class="rank">{{ rank + 1 }}</span>
+                <span class="person-name">{{ entry.name }}</span>
+                <strong class="attention-score">{{ entry.score | number:'1.0-0' }}%</strong>
+                <span class="person-time">{{ formatTime(entry.timeTaken) }}</span>
+              </div>
+            } @empty {
+              <div class="list-empty">No students are below the {{ passThreshold }}% threshold.</div>
+            }
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Struggling students -->
-    <div class="cr-table-block">
-      <div class="cr-section-title">⚠️ Needs Attention</div>
-      <div class="cr-perf-table">
-        <div class="cr-th-row">
-          <span>#</span>
-          <span>Student</span>
-          <span>Score</span>
-          <span>Time</span>
-        </div>
-        <div class="cr-tr" *ngFor="let e of strugglers; let i = index; trackBy: trackByName">
-          <span class="cr-rank">{{ i + 1 }}</span>
-          <span class="cr-name">{{ e.name }}</span>
-          <span class="cr-score cr-score-low">{{ e.score | number:'1.0-0' }}%</span>
-          <span class="cr-time">{{ formatTime(e.timeTaken) }}</span>
-        </div>
-      </div>
+      </section>
     </div>
 
+    @if (passRate < 50 && total >= 3) {
+      <aside class="analytics-insight attention-insight">
+        <strong>Worth reviewing</strong>
+        <span>More than half of students scored below {{ passThreshold }}%. Consider revisiting the material.</span>
+      </aside>
+    } @else if (passRate >= 85 && total >= 3) {
+      <aside class="analytics-insight positive-insight">
+        <strong>Strong class outcome</strong>
+        <span>{{ passRate | number:'1.0-0' }}% met the benchmark for this {{ type }}.</span>
+      </aside>
+    }
   </div>
-
-  <!-- ── ALERT ─────────────────────────────────────────────── -->
-  <div class="cr-alert cr-alert-warn"
-       *ngIf="passRate < 50 && total >= 3">
-    ⚠️ More than half of students scored below {{ passThreshold }}%. Consider reviewing the material.
+} @else {
+  <div class="analytics-empty">
+    <i class="bx bx-bar-chart-alt-2" aria-hidden="true"></i>
+    <strong>No analytics yet</strong>
+    <span>Class analytics will appear after the first submission.</span>
   </div>
-  <div class="cr-alert cr-alert-good"
-       *ngIf="passRate >= 85 && total >= 3">
-    🎉 Excellent class performance! {{ passRate | number:'1.0-0' }}% passed this {{ type }}.
-  </div>
-
-</div>
-
-<ng-template #emptyTpl>
-  <div class="cr-empty">No submission data available yet.</div>
-</ng-template>
+}
