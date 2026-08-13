@@ -26,13 +26,17 @@
 
 .analytics-summary span {
   color: var(--color-text-muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .analytics-summary strong {
   color: var(--color-navy);
-  font-size: 20px;
+  font-size: 24px;
+  line-height: 32px;
 }
 
 .analytics-grid {
@@ -70,13 +74,15 @@
 .module-heading h3 {
   margin: 0;
   color: var(--color-navy);
-  font-size: 14px;
+  font-size: 18px;
+  line-height: 28px;
 }
 
 .module-heading p {
   margin: 3px 0 0;
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .module-heading > strong {
@@ -84,7 +90,8 @@
   border-radius: 999px;
   background: var(--color-primary-bg);
   color: var(--color-primary-dark);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -105,7 +112,8 @@
   gap: 8px 16px;
   margin-top: 10px;
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .legend span {
@@ -134,7 +142,8 @@
   align-items: center;
   gap: 9px;
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .distribution-row > span:first-child {
@@ -143,7 +152,8 @@
 
 .distribution-row strong {
   color: var(--color-text);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 16px;
   text-align: right;
 }
 
@@ -182,10 +192,11 @@
   padding: 0 11px;
   background: var(--color-surface);
   color: var(--color-navy);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 16px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .list-accent {
@@ -205,7 +216,8 @@
   min-height: 42px;
   padding: 0 10px;
   border-top: 1px solid var(--color-border);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .rank,
@@ -215,7 +227,7 @@
 
 .person-name {
   overflow: hidden;
-  font-weight: 600;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -237,8 +249,8 @@
   padding: 18px 12px;
   border-top: 1px solid var(--color-border);
   color: var(--color-text-muted);
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 16px;
   text-align: center;
 }
 
@@ -249,7 +261,8 @@
   padding: 12px 14px;
   border: 1px solid var(--color-border);
   border-radius: 11px;
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .analytics-insight span {
@@ -283,11 +296,13 @@
 
 .analytics-empty strong {
   color: var(--color-navy);
-  font-size: 14px;
+  font-size: 18px;
+  line-height: 28px;
 }
 
 .analytics-empty span {
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 @media (max-width: 900px) {
