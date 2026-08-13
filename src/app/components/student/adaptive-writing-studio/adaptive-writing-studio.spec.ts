@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { AdaptivePracticeApiService } from '../../../api/adaptive-practice-api.service';
 import { AdaptiveWritingStudio } from './adaptive-writing-studio';
-import type { AdaptivePracticeCheckResponse, AdaptivePracticeSessionResponse, AdaptiveSkillScore } from './adaptive-writing-studio.types';
+import type { AdaptivePracticeActivity, AdaptivePracticeCheckResponse, AdaptivePracticeSessionResponse, AdaptiveSkillScore } from './adaptive-writing-studio.types';
 import type { CanonicalResultViewState } from '../../../utils/canonical-result-state.util';
 
 describe('AdaptiveWritingStudio', () => {
@@ -365,6 +365,23 @@ describe('AdaptiveWritingStudio', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('input.fill-blank-input')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('textarea')).toBeTruthy();
+  });
+
+  it('normalizes legacy question-type aliases by interaction type rather than skill', () => {
+    const legacyActivities: AdaptivePracticeActivity[] = [
+      { id: 'legacy-mcq', questionType: 'multiple_choice', skillId: 'GRAMMAR', category: 'Grammar',
+        title: 'Choose', description: 'Choose.', evidence: 'Text.', task: 'Choose.', tip: 'Review.',
+        checklist: ['One', 'Two'], options: [{ id: 'A', text: 'One' }, { id: 'B', text: 'Two' }],
+        difficulty: 'foundational', isDevelopmentPreview: false },
+      { id: 'legacy-blank', questionType: 'fillInBlank', skillId: 'ORGANIZATION', category: 'Coherence & Flow',
+        title: 'Complete', description: 'Complete.', evidence: 'Text.', task: '___, continue.', tip: 'Connect.',
+        checklist: ['One', 'Two'], difficulty: 'developing', isDevelopmentPreview: false },
+      { id: 'legacy-rewrite', questionType: 'rewrite', skillId: 'VOCABULARY', category: 'Lexical Resource',
+        title: 'Rewrite', description: 'Rewrite.', evidence: 'Text.', task: 'Rewrite.', tip: 'Be precise.',
+        checklist: ['One', 'Two'], difficulty: 'proficient', isDevelopmentPreview: false }
+    ];
+    expect(legacyActivities.map(activity => component.questionType(activity)))
+      .toEqual(['mcq', 'fill_blank', 'open_response']);
   });
 
   it('shows the existing-draft CTA only when practice is complete and teacher permission is enabled', () => {

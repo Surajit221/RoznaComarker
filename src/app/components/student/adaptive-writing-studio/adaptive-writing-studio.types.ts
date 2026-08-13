@@ -15,6 +15,11 @@ export type AdaptiveEligibilityReason =
   | 'ALREADY_GENERATED'
   | 'RETRYABLE_FAILURE'
   | 'NON_RETRYABLE_FAILURE';
+export type AdaptiveCanonicalQuestionType = 'open_response' | 'mcq' | 'fill_blank';
+export type AdaptivePracticeQuestionType = AdaptiveCanonicalQuestionType
+  | 'written_response' | 'writtenResponse' | 'rewrite'
+  | 'multiple_choice' | 'multipleChoice'
+  | 'fillInBlank' | 'fill_in_blank';
 
 export interface AdaptiveSkillScore {
   id: AdaptiveSkillId;
@@ -38,7 +43,7 @@ export interface AdaptiveLearningSkill {
 
 export interface AdaptivePracticeActivity {
   id: string;
-  questionType?: 'open_response' | 'mcq' | 'fill_blank';
+  questionType?: AdaptivePracticeQuestionType;
   skillId: AdaptiveRubricSkillId;
   category: string;
   title: string;
@@ -59,7 +64,7 @@ export interface AdaptivePracticeSession {
   status: 'generating' | 'ready' | 'failed';
   activities: readonly {
     activityId: string;
-    questionType?: 'open_response' | 'mcq' | 'fill_blank';
+    questionType?: AdaptivePracticeQuestionType;
     skillId: AdaptiveRubricSkillId;
     category: string;
     title: string;

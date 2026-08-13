@@ -129,7 +129,7 @@
                   <details><summary>Suggested revision</summary><p>{{ result.suggestedRevision }}</p></details>
                   <p class="attempt-number">Attempt {{ attempts[activity.id].attemptNumber }} · Best {{ progress.activities[index]?.bestScore ?? result.score }}%</p>
                 } @else {
-                  <div class="deterministic-result"><strong>{{ result.passed ? 'Correct' : 'Not quite' }}</strong><span>{{ result.nextImprovement }}</span></div>
+                  <div class="deterministic-result"><strong>{{ result.passed ? 'Correct' : 'Not quite' }}</strong><span>{{ result.nextImprovement }}</span><span>{{ result.suggestedRevision }}</span></div>
                 }
               </section>
             }
