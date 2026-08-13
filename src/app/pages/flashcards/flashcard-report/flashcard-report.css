@@ -42,8 +42,9 @@ input:focus-visible {
   border: 0;
   background: transparent;
   color: var(--color-primary-dark);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 20px;
   cursor: pointer;
 }
 
@@ -71,7 +72,8 @@ input:focus-visible {
   border-radius: 12px;
   background: color-mix(in srgb, var(--color-danger) 7%, var(--color-white));
   color: var(--color-danger-dark);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .error-banner > div:first-child {
@@ -118,24 +120,26 @@ input:focus-visible {
 .insight-kicker,
 .card-label {
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  line-height: 16px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .hero-copy h1 {
   margin: 4px 0 6px;
   color: var(--color-navy);
-  font-size: clamp(24px, 3vw, 30px);
-  line-height: 1.2;
+  font-size: clamp(30px, 3vw, 36px);
+  line-height: 1.15;
 }
 
 .hero-copy > p {
   max-width: 620px;
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 18px;
+  line-height: 28px;
 }
 
 .hero-meta {
@@ -146,6 +150,7 @@ input:focus-visible {
   margin-top: 16px;
   color: var(--color-text-muted);
   font-size: 12px;
+  line-height: 16px;
 }
 
 .hero-meta > span:not(:first-child)::before {
@@ -189,6 +194,7 @@ input:focus-visible {
   min-height: 42px;
   border-radius: 10px;
   font-weight: 600;
+  line-height: 20px;
   cursor: pointer;
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
@@ -199,7 +205,8 @@ input:focus-visible {
   background: var(--color-primary);
   box-shadow: 0 3px 0 var(--color-primary-dark);
   color: var(--color-white);
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 24px;
 }
 
 .primary-button:hover:not(:disabled) {
@@ -211,7 +218,8 @@ input:focus-visible {
   border: 1px solid var(--color-border);
   background: var(--color-white);
   color: var(--color-primary-dark);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .secondary-button:hover:not(:disabled),
@@ -310,19 +318,23 @@ button:disabled {
 .kpi-label {
   color: var(--color-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .kpi-card strong {
   margin: 4px 0 2px;
   color: var(--color-navy);
-  font-size: clamp(24px, 3vw, 30px);
-  line-height: 1.15;
+  font-size: clamp(30px, 3vw, 36px);
+  line-height: 40px;
 }
 
 .kpi-context {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .teacher-insight {
@@ -351,13 +363,15 @@ button:disabled {
 .teacher-insight h2 {
   margin: 1px 0 2px;
   color: var(--color-navy);
-  font-size: 16px;
+  font-size: 18px;
+  line-height: 28px;
 }
 
 .teacher-insight p {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .insight-link {
@@ -366,7 +380,8 @@ button:disabled {
   border: 1px solid var(--color-warning-dark);
   background: var(--color-white);
   color: var(--color-navy);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .report-nav {
@@ -388,6 +403,7 @@ button:disabled {
   background: transparent;
   color: var(--color-text-muted);
   font-weight: 600;
+  line-height: 20px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -395,7 +411,7 @@ button:disabled {
 .report-nav button {
   flex: 1;
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .report-nav button.active,
@@ -423,13 +439,15 @@ button:disabled {
 .section-heading h2 {
   margin: 0;
   color: var(--color-navy);
-  font-size: 18px;
+  font-size: 20px;
+  line-height: 28px;
 }
 
 .section-heading p {
   margin: 4px 0 0;
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .results-count {
@@ -437,8 +455,9 @@ button:disabled {
   border-radius: 999px;
   background: var(--color-primary-bg);
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -477,7 +496,8 @@ button:disabled {
   border-radius: 9px;
   background: var(--color-white);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .search-field input:focus {
@@ -494,7 +514,8 @@ button:disabled {
 
 .status-filters button {
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .clear-button {
@@ -504,7 +525,8 @@ button:disabled {
   border: 0;
   background: transparent;
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .student-table {
@@ -524,9 +546,10 @@ button:disabled {
   min-height: 44px;
   background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  line-height: 16px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -559,8 +582,9 @@ button:disabled {
   border-radius: 50%;
   background: var(--color-primary-bg);
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 16px;
 }
 
 .student-identity > div {
@@ -571,14 +595,17 @@ button:disabled {
 .student-identity strong {
   overflow: hidden;
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .student-identity span:last-child {
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .score-cell {
@@ -589,7 +616,8 @@ button:disabled {
 
 .score-cell strong {
   color: var(--color-navy);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .score-track,
@@ -615,7 +643,8 @@ button:disabled {
 
 .data-cell {
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .status-pill {
@@ -625,8 +654,9 @@ button:disabled {
   padding: 4px 9px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -658,7 +688,8 @@ button:disabled {
   border: 1px solid var(--color-border);
   background: var(--color-white);
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .data-note {
@@ -667,7 +698,8 @@ button:disabled {
   gap: 5px;
   margin: 14px 0 0;
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .empty-state {
@@ -688,13 +720,15 @@ button:disabled {
 .empty-state h3 {
   margin: 0;
   color: var(--color-navy);
-  font-size: 15px;
+  font-size: 18px;
+  line-height: 28px;
 }
 
 .empty-state p {
   margin: 0 0 10px;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .card-performance-list {
@@ -720,8 +754,8 @@ button:disabled {
 .card-copy strong {
   overflow-wrap: anywhere;
   color: var(--color-text);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .performance-meter {
@@ -734,12 +768,14 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .performance-meta strong {
   color: var(--color-text);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .performance-track {
@@ -881,9 +917,10 @@ button:disabled {
   .student-row > [data-label]::before {
     color: var(--color-text-muted);
     content: attr(data-label);
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    line-height: 16px;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
@@ -911,6 +948,11 @@ button:disabled {
 }
 
 @media (max-width: 480px) {
+  .hero-copy h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
   .kpi-grid,
   .skeleton-kpis {
     grid-template-columns: 1fr 1fr;
@@ -923,7 +965,8 @@ button:disabled {
   }
 
   .kpi-card strong {
-    font-size: 23px;
+    font-size: 30px;
+    line-height: 36px;
   }
 
   .status-filters button {

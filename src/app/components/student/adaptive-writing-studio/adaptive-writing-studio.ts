@@ -10,6 +10,7 @@ import {
   type AdaptivePracticeActivity,
   type AdaptivePracticeAttempt,
   type AdaptivePracticeProgress,
+  type AdaptiveCanonicalQuestionType,
   type AdaptivePracticeSessionResponse,
   type AdaptiveLearningSkill,
   type AdaptiveEligibilityReason,
@@ -193,8 +194,13 @@ export class AdaptiveWritingStudio {
   }
 
   updateResponse(activityId: string, value: string): void { this.responses = { ...this.responses, [activityId]: value }; }
-  questionType(activity: AdaptivePracticeActivity): 'open_response' | 'mcq' | 'fill_blank' {
-    return activity.questionType || 'open_response';
+  questionType(activity: AdaptivePracticeActivity): AdaptiveCanonicalQuestionType {
+    const aliases: Record<string, AdaptiveCanonicalQuestionType> = {
+      mcq: 'mcq', multiple_choice: 'mcq', multipleChoice: 'mcq',
+      fill_blank: 'fill_blank', fillInBlank: 'fill_blank', fill_in_blank: 'fill_blank',
+      open_response: 'open_response', written_response: 'open_response', writtenResponse: 'open_response', rewrite: 'open_response'
+    };
+    return aliases[String(activity.questionType || '')] || 'open_response';
   }
   canCheck(activity: AdaptivePracticeActivity): boolean {
     const response = (this.responses[activity.id] || '').trim();
@@ -269,7 +275,8 @@ export class AdaptiveWritingStudio {
     if (response.state === 'ready' && response.session) {
       this.sessionId = response.session._id;
       this.activities = response.session.activities.map((activity) => ({ ...activity,
-        questionType: activity.questionType || 'open_response', id: activity.activityId, isDevelopmentPreview: false }));
+        questionType: this.questionType({ ...activity, id: activity.activityId, isDevelopmentPreview: false }),
+        id: activity.activityId, isDevelopmentPreview: false }));
       this.applyProgress(response.progress);
       this.state = 'generated';
       this.retryableFailure = false;
