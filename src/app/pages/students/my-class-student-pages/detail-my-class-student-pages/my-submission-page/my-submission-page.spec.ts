@@ -11,6 +11,16 @@ describe('MySubmissionPage', () => {
   let component: MySubmissionPage;
   let fixture: ComponentFixture<MySubmissionPage>;
 
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+  }
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MySubmissionPage], providers: [
@@ -143,6 +153,58 @@ describe('MySubmissionPage', () => {
     component.onSelectSubmissionImage(1);
 
     expect(component.activeFileIndex).toBe(1);
+  });
+
+  it('never exposes a protected raw image URL while the authenticated blob fetch is pending', async () => {
+    const request = deferred<string>();
+    spyOn<any>(component, 'fetchAsObjectUrl').and.returnValue(request.promise);
+
+    const pending = (component as any).setUploadedFileUrl('/files/submissions/test.jpg');
+    fixture.detectChanges();
+    const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+
+    expect(component.uploadedFileUrl).toBeNull();
+    expect(component.imageMediaState).toBe('fetching');
+    expect(overlay.imageUrl).toBeNull();
+    expect(overlay.mediaState).toBe('fetching');
+    expect(fixture.nativeElement.querySelector('app-correction-overlay img')).toBeNull();
+
+    request.resolve('blob:authenticated-image');
+    await pending;
+    fixture.detectChanges();
+    expect(component.uploadedFileUrl).toBe('blob:authenticated-image');
+    expect(overlay.imageUrl).toBe('blob:authenticated-image');
+  });
+
+  it('shows a genuine authenticated-fetch failure without falling back to the protected URL', async () => {
+    spyOn<any>(component, 'fetchAsObjectUrl').and.rejectWith(new Error('unauthorized'));
+
+    await (component as any).setUploadedFileUrl('/files/submissions/test.jpg');
+    fixture.detectChanges();
+    const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+
+    expect(component.uploadedFileUrl).toBeNull();
+    expect(component.imageMediaState).toBe('error');
+    expect(overlay.imageUrl).toBeNull();
+    expect(overlay.mediaState).toBe('error');
+    expect(fixture.nativeElement.querySelector('app-correction-overlay img')).toBeNull();
+  });
+
+  it('ignores and revokes a stale image response when a newer file wins the race', async () => {
+    const first = deferred<string>();
+    const second = deferred<string>();
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    spyOn<any>(component, 'fetchAsObjectUrl').and.returnValues(first.promise, second.promise);
+
+    const firstLoad = (component as any).setUploadedFileUrl('/files/submissions/a.jpg');
+    const secondLoad = (component as any).setUploadedFileUrl('/files/submissions/b.jpg');
+    second.resolve('blob:b');
+    await secondLoad;
+    first.resolve('blob:a');
+    await firstLoad;
+
+    expect(component.uploadedFileUrl).toBe('blob:b');
+    expect(revoke).toHaveBeenCalledWith('blob:a');
   });
 
   it('invalidates Draft 1 derived state when the same submission id receives Draft 2 files', () => {

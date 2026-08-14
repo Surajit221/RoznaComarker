@@ -73,6 +73,34 @@ describe('CorrectionOverlay media loading', () => {
     expect(fixture.nativeElement.querySelector('.correction-overlay__media-error button')).toBeTruthy();
   });
 
+  it('shows parent-owned authenticated loading and delegates retry without a raw image URL', () => {
+    const retry = jasmine.createSpy('retry');
+    component.retryRequested.subscribe(retry);
+    component.imageUrl = null;
+    component.sourceLoading = true;
+    component.ngOnChanges({
+      imageUrl: new SimpleChange(null, null, true),
+      sourceLoading: new SimpleChange(false, true, true)
+    });
+    fixture.detectChanges();
+
+    expect(component.displayImageUrl).toBeNull();
+    expect(component.mediaState).toBe('fetching');
+    expect(fixture.nativeElement.querySelector('img')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.document-skeleton__page')).toBeTruthy();
+
+    component.sourceLoading = false;
+    component.sourceLoadError = true;
+    component.ngOnChanges({
+      sourceLoading: new SimpleChange(true, false, false),
+      sourceLoadError: new SimpleChange(false, true, false)
+    });
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.correction-overlay__media-error button') as HTMLButtonElement).click();
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('img')).toBeNull();
+  });
+
   it('does not expose correction markers before image dimensions are ready', () => {
     component.imageUrl = 'blob:test-image';
     component.annotations = [{ _id: 'a', symbol: 'GR', page: 1, bboxList: [{ x: 1, y: 1, w: 1, h: 1 }] }] as unknown as FeedbackAnnotation[];

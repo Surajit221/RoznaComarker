@@ -429,6 +429,7 @@ export class MySubmissionPage {
 
   uploadedFileUrl: string | null = null;
   private rawUploadedFileUrl: string | null = null;
+  imageMediaState: MediaLoadState = 'idle';
   submissionFileUrls: string[] = [];
   submissionPreviewUrls: string[] = [];
   submissionFileIds: string[] = [];
@@ -1576,6 +1577,7 @@ export class MySubmissionPage {
 
   ngOnDestroy() {
     this.destroyed = true;
+    ++this.setUploadedFileUrlSeq;
     this.refreshParamSub?.unsubscribe();
     this.refreshParamSub = null;
     this.stopOcrPolling();
@@ -1679,6 +1681,7 @@ export class MySubmissionPage {
     this.canonicalDraftIdentity = null;
     this.uploadedFileUrl = null;
     this.pdfMediaState = 'idle';
+    this.imageMediaState = 'idle';
     this.hasLoadedOcrCorrections = false;
 
     try {
@@ -1969,6 +1972,7 @@ export class MySubmissionPage {
     this.uploadedFileUrl = null;
     this.uploadedFileIsPdf = false;
     this.pdfMediaState = 'idle';
+    this.imageMediaState = 'idle';
 
     if (!url) {
       return Promise.resolve();
@@ -1977,18 +1981,16 @@ export class MySubmissionPage {
     const lowered = url.toLowerCase().split('?')[0];
     this.uploadedFileIsPdf = lowered.endsWith('.pdf');
     if (this.uploadedFileIsPdf) this.pdfMediaState = 'fetching';
+    else this.imageMediaState = 'fetching';
 
     const normalizedUrl = this.normalizeUploadsUrl(url);
-
-    if (seq === this.setUploadedFileUrlSeq) {
-      this.uploadedFileUrl = normalizedUrl;
-    }
 
     return this.fetchAsObjectUrl(normalizedUrl, true)
       .then((objectUrl) => {
         if (seq === this.setUploadedFileUrlSeq) {
           this.uploadedFileUrl = objectUrl;
           if (this.uploadedFileIsPdf) this.pdfMediaState = 'loaded';
+          else this.imageMediaState = 'idle';
         } else {
           this.removeObjectUrl(objectUrl);
           URL.revokeObjectURL(objectUrl);
@@ -1996,10 +1998,16 @@ export class MySubmissionPage {
       })
       .catch(() => {
         if (seq === this.setUploadedFileUrlSeq) {
-          this.uploadedFileUrl = normalizedUrl;
+          this.uploadedFileUrl = null;
           if (this.uploadedFileIsPdf) this.pdfMediaState = 'error';
+          else this.imageMediaState = 'error';
         }
       });
+  }
+
+  retryUploadedImage(): void {
+    if (!this.rawUploadedFileUrl || this.uploadedFileIsPdf) return;
+    void this.setUploadedFileUrl(this.rawUploadedFileUrl);
   }
 
   retryUploadedPdf(): void {

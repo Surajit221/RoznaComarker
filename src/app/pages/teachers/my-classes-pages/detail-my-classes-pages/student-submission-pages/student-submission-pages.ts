@@ -2679,6 +2679,7 @@ export class StudentSubmissionPages {
 
   essayImageUrl: string | null = null;
   pdfMediaState: MediaLoadState = 'idle';
+  imageMediaState: MediaLoadState = 'idle';
 
   uploadData: any = null;
 
@@ -2690,6 +2691,7 @@ export class StudentSubmissionPages {
   activeFileIndex = 0;
 
   private applyCurrentSubmissionSeq = 0;
+  private imageLoadSeq = 0;
   private activeAnnotationsSource: FeedbackAnnotation[] | null = null;
   private activeAnnotationsFileIds: string[] | null = null;
   private activeAnnotationsFileId: string | null = null;
@@ -5654,6 +5656,7 @@ export class StudentSubmissionPages {
 
 
 
+    ++this.imageLoadSeq;
     this.revokeObjectUrls();
     this.previewSourceSignature = 'destroyed';
     for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
@@ -5775,6 +5778,39 @@ export class StudentSubmissionPages {
       this.essayImageUrl = null;
       this.pdfMediaState = 'error';
     }
+  }
+
+  private async loadUploadedImage(rawUrl: string, submissionSeq?: number): Promise<void> {
+    const imageSeq = ++this.imageLoadSeq;
+    const submissionId = this.currentSubmission?._id || null;
+    this.essayImageUrl = null;
+    this.imageMediaState = 'fetching';
+    try {
+      const objectUrl = await this.fetchAsObjectUrl(rawUrl);
+      const stale = imageSeq !== this.imageLoadSeq
+        || (submissionSeq !== undefined && submissionSeq !== this.applyCurrentSubmissionSeq)
+        || submissionId !== (this.currentSubmission?._id || null)
+        || rawUrl !== (this.activeFileUrlRaw || this.currentSubmission?.fileUrl || null);
+      if (stale) {
+        this.tryRevokeObjectUrl(objectUrl);
+        return;
+      }
+      this.essayImageUrl = objectUrl;
+      this.imageMediaState = 'idle';
+    } catch {
+      if (imageSeq !== this.imageLoadSeq
+        || (submissionSeq !== undefined && submissionSeq !== this.applyCurrentSubmissionSeq)
+        || submissionId !== (this.currentSubmission?._id || null)
+        || rawUrl !== (this.activeFileUrlRaw || this.currentSubmission?.fileUrl || null)) return;
+      this.essayImageUrl = null;
+      this.imageMediaState = 'error';
+    }
+  }
+
+  retryUploadedImage(): void {
+    const rawUrl = this.activeFileUrlRaw || this.currentSubmission?.fileUrl || null;
+    if (!rawUrl || !this.isProbablyImageUrl(rawUrl)) return;
+    void this.loadUploadedImage(rawUrl);
   }
 
 
@@ -5983,6 +6019,7 @@ export class StudentSubmissionPages {
       this.canonicalWritingCorrections = [];
     }
     const seq = ++this.applyCurrentSubmissionSeq;
+    ++this.imageLoadSeq;
 
     ++this.loadOcrCorrectionsSeq;
     ++this.loadTranscriptPagesSeq;
@@ -6081,6 +6118,7 @@ export class StudentSubmissionPages {
 
     this.essayImageUrl = null;
     this.pdfMediaState = 'idle';
+    this.imageMediaState = 'idle';
 
 
 
@@ -6139,18 +6177,8 @@ export class StudentSubmissionPages {
         this.pdfMediaState = 'error';
       }
     } else if (this.isProbablyImageUrl(url) && url) {
-      try {
-        const objectUrl = await this.fetchAsObjectUrl(url);
-        if (seq !== this.applyCurrentSubmissionSeq) {
-          this.tryRevokeObjectUrl(objectUrl);
-          return;
-        }
-        this.essayImageUrl = objectUrl;
-      } catch (fileErr) {
-        console.error('[TEACHER IMAGE FILE LOAD ERROR]', fileErr);
-        // Don't block submission loading for file errors
-        this.essayImageUrl = null;
-      }
+      await this.loadUploadedImage(url, seq);
+      if (seq !== this.applyCurrentSubmissionSeq) return;
     }
 
 
