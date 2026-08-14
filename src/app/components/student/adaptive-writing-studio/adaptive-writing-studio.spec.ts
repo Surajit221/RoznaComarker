@@ -1,8 +1,8 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { AdaptivePracticeApiService } from '../../../api/adaptive-practice-api.service';
 import { AdaptiveWritingStudio } from './adaptive-writing-studio';
-import type { AdaptivePracticeActivity, AdaptivePracticeCheckResponse, AdaptivePracticeSessionResponse, AdaptiveSkillScore } from './adaptive-writing-studio.types';
+import type { AdaptivePracticeActivity, AdaptivePracticeAttempt, AdaptivePracticeCheckResponse, AdaptivePracticeSessionResponse, AdaptiveSkillScore } from './adaptive-writing-studio.types';
 import type { CanonicalResultViewState } from '../../../utils/canonical-result-state.util';
 
 describe('AdaptiveWritingStudio', () => {
@@ -61,6 +61,33 @@ describe('AdaptiveWritingStudio', () => {
     expect(api.generateSession).toHaveBeenCalledTimes(1);
     expect(component.state).toBe('generated');
     expect(fixture.nativeElement.textContent).toContain('Recommended Practice');
+  });
+
+  it('renders and restores three mixed questions with independent state', () => {
+    const mixed: AdaptivePracticeSessionResponse = { ...ready, session: { ...ready.session!, activities: [{
+      activityId: 'activity-mixed', skillId: 'GRAMMAR', category: 'Grammar', title: 'Agreement set',
+      description: 'Recognize, complete, and produce.', evidence: 'The students is preparing.', difficulty: 'foundational',
+      questions: [
+        { questionId: 'q1', questionType: 'mcq', task: 'Choose the correct form.', tip: 'Match the subject.', checklist: ['Check subject', 'Check verb'], options: [{ id: 'A', text: 'is' }, { id: 'B', text: 'are' }] },
+        { questionId: 'q2', questionType: 'fill_blank', task: 'The students ___ preparing.', tip: 'Use a plural verb.', checklist: ['Use one word', 'Match number'] },
+        { questionId: 'q3', questionType: 'open_response', task: 'Rewrite the sentence correctly.', tip: 'Preserve meaning.', checklist: ['Correct agreement', 'Complete sentence'] }
+      ]
+    }] }, progress: { improvedActivities: 0, totalActivities: 1, totalQuestions: 3, completedQuestions: 1,
+      percentage: 33, activities: [{ activityId: 'activity-mixed', attemptCount: 1, improved: false, bestScore: 33,
+        latestScore: null, latestResponse: '', latestAttempt: null, questions: [
+          { questionId: 'q1', attemptActivityId: 'activity-mixed::q1', attemptCount: 1, improved: true, bestScore: 100, latestScore: 100, latestResponse: 'B', latestAttempt: null },
+          { questionId: 'q2', attemptActivityId: 'activity-mixed::q2', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null },
+          { questionId: 'q3', attemptActivityId: 'activity-mixed::q3', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null }
+        ] }] }, adaptiveSkills: adaptiveAnalysis };
+    api.getSession.and.returnValue(of(mixed)); component.submissionId = 'submission-mixed'; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.practice-question').length).toBe(3);
+    expect(fixture.nativeElement.querySelectorAll('input[type="radio"]').length).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.fill-blank-input').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('textarea').length).toBe(1);
+    expect(component.responses['activity-mixed:q1']).toBe('B');
+    component.updateResponse('activity-mixed:q2', 'are'); component.updateResponse('activity-mixed:q3', 'The students are preparing.');
+    expect(component.responses).toEqual(jasmine.objectContaining({ 'activity-mixed:q1': 'B', 'activity-mixed:q2': 'are',
+      'activity-mixed:q3': 'The students are preparing.' }));
   });
 
   it('keeps skill cards visible on API error and never falls back to fixtures', () => {
@@ -168,7 +195,7 @@ describe('AdaptiveWritingStudio', () => {
     const studio = fixture.nativeElement.querySelector('.studio') as HTMLElement;
     for (const width of [1440, 1280, 1024, 768, 430, 390, 375, 360, 320]) {
       studio.style.width = `${width}px`;
-      expect(Array.from(studio.querySelectorAll('.skill-card__score')).map((node: any) => node.textContent.trim()))
+      expect(Array.from(studio.querySelectorAll('.skill-card__score')).map((node) => node.textContent?.trim()))
         .withContext(`${width}px analysis`).toEqual(['18%', '13%', '5%', '100%', '100%']);
     }
   });
@@ -293,7 +320,7 @@ describe('AdaptiveWritingStudio', () => {
     component.updateResponse('activity-1', 'However, the ideas connect.');
     component.check(component.activities[0]);
     fixture.detectChanges();
-    expect(api.checkResponse).toHaveBeenCalledWith('session-1', 'activity-1', 'However, the ideas connect.', false);
+    expect(api.checkResponse).toHaveBeenCalledWith('session-1', 'activity-1', 'legacy-q1', 'However, the ideas connect.', false);
     expect(component.progressPercentage).toBe(100);
     expect(fixture.nativeElement.textContent).toContain('78%');
     expect(component.normalizedSkills.find((skill) => skill.id === 'coherence')).toEqual(jasmine.objectContaining({
@@ -335,6 +362,68 @@ describe('AdaptiveWritingStudio', () => {
     expect(api.checkResponse).toHaveBeenCalledTimes(2);
   });
 
+  it('uses the legacy activity key consistently from checking through polling', fakeAsync(() => {
+    const response = 'However, the legacy ideas connect clearly.';
+    const polledAttempt: AdaptivePracticeAttempt = { _id: 'legacy-ready', activityId: 'activity-1',
+      attemptNumber: 1, status: 'ready', response, result: { score: 78, passed: true,
+        summary: 'Clear improvement.', strength: 'Ideas connect.', nextImprovement: 'Keep the transition precise.',
+        checklist: [{ item: 'Clear links', met: true, feedback: 'Present.' }, { item: 'Smooth flow', met: true, feedback: 'Present.' }],
+        suggestedRevision: response, scoring: { taskFulfillment: 24, targetSkillApplication: 38, checklistCompletion: 16 } } };
+    api.checkResponse.and.returnValue(of({ state: 'checking', reused: false,
+      attempt: { _id: 'legacy-checking', activityId: 'activity-1', attemptNumber: 1, status: 'checking', response },
+      progress: ready.progress! }));
+    api.getAttempts.and.returnValue(of({ attempts: [polledAttempt], progress: {
+      improvedActivities: 1, totalActivities: 1, completed: true, percentage: 100,
+      activities: [{ activityId: 'activity-1', attemptCount: 1, improved: true, bestScore: 78,
+        latestScore: 78, latestResponse: response, latestAttempt: polledAttempt }]
+    } }));
+    component.startGeneration(); component.updateResponse('activity-1', response); component.check(component.activities[0]);
+    expect(component.checkStates['activity-1']).toBe('checking');
+    tick(1500); fixture.detectChanges();
+    expect(api.getAttempts).toHaveBeenCalledWith('session-1', 'activity-1', 'legacy-q1');
+    expect(component.checkStates['activity-1']).toBe('ready');
+    expect(component.attempts['activity-1']?.result?.score).toBe(78);
+    expect(component.checkStates['activity-1:legacy-q1']).toBeUndefined();
+    expect(component.attempts['activity-1:legacy-q1']).toBeUndefined();
+    expect(fixture.nativeElement.textContent).toContain('Clear improvement.');
+  }));
+
+  it('keeps new multi-question polling state independent', fakeAsync(() => {
+    const activity: AdaptivePracticeActivity = { id: 'abc', skillId: 'GRAMMAR', category: 'Grammar', title: 'Set',
+      description: 'Three questions.', evidence: 'The students is preparing.', difficulty: 'foundational', isDevelopmentPreview: false,
+      questions: [
+        { id: 'q1', questionType: 'open_response', task: 'Rewrite it.', tip: 'Match agreement.', checklist: ['Subject', 'Verb'] },
+        { id: 'q2', questionType: 'fill_blank', task: 'Students ___ ready.', tip: 'Use are.', checklist: ['Plural', 'Verb'] },
+        { id: 'q3', questionType: 'mcq', task: 'Choose.', tip: 'Match.', checklist: ['Subject', 'Verb'], options: [{ id: 'A', text: 'is' }, { id: 'B', text: 'are' }] }
+      ] };
+    const response = 'The students are preparing.';
+    const polledAttempt: AdaptivePracticeAttempt = { _id: 'q1-ready', activityId: 'abc::q1', questionId: 'q1',
+      attemptNumber: 1, status: 'ready', response, result: { score: 80, passed: true, summary: 'Corrected.',
+        strength: 'Agreement is correct.', nextImprovement: 'Continue.', checklist: [], suggestedRevision: response,
+        scoring: { taskFulfillment: 24, targetSkillApplication: 40, checklistCompletion: 16 } } };
+    component.activities = [activity]; component.state = 'generated';
+    (component as unknown as { sessionId: string }).sessionId = 'session-1';
+    component.updateResponse('abc:q1', response); component.updateResponse('abc:q2', 'are');
+    api.checkResponse.and.returnValue(of({ state: 'checking', reused: false,
+      attempt: { _id: 'q1-checking', activityId: 'abc::q1', questionId: 'q1', attemptNumber: 1, status: 'checking', response },
+      progress: { improvedActivities: 0, totalActivities: 1, percentage: 0, activities: [] } }));
+    api.getAttempts.and.returnValue(of({ attempts: [polledAttempt], progress: {
+      improvedActivities: 0, totalActivities: 1, totalQuestions: 3, completedQuestions: 1, percentage: 33,
+      activities: [{ activityId: 'abc', attemptCount: 1, improved: false, bestScore: 27, latestScore: null,
+        latestResponse: '', latestAttempt: null, questions: [
+          { questionId: 'q1', attemptActivityId: 'abc::q1', attemptCount: 1, improved: true, bestScore: 80, latestScore: 80, latestResponse: response, latestAttempt: polledAttempt },
+          { questionId: 'q2', attemptActivityId: 'abc::q2', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null },
+          { questionId: 'q3', attemptActivityId: 'abc::q3', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null }
+        ] }]
+    } }));
+    component.check(activity, activity.questions![0]); tick(1500);
+    expect(component.checkStates['abc:q1']).toBe('ready');
+    expect(component.responses['abc:q2']).toBe('are');
+    expect(component.attempts['abc:q2']).toBeUndefined();
+    expect(component.checkStates['abc']).toBeUndefined();
+    expect(api.getAttempts).toHaveBeenCalledWith('session-1', 'abc', 'q1');
+  }));
+
   it('renders accessible single-select MCQ options and submits the selected option id', () => {
     component.activities = [{ id: 'mcq-1', questionType: 'mcq', skillId: 'GRAMMAR', category: 'Grammar',
       title: 'Agreement', description: 'Choose the correct form.', evidence: 'The students is preparing.',
@@ -342,7 +431,7 @@ describe('AdaptiveWritingStudio', () => {
       options: [{ id: 'A', text: 'is' }, { id: 'B', text: 'are' }], difficulty: 'foundational', isDevelopmentPreview: false }];
     component.state = 'generated';
     (component as unknown as { sessionId: string }).sessionId = 'session-1';
-    (component as any).cdr.markForCheck();
+    (component as unknown as { cdr: { markForCheck(): void } }).cdr.markForCheck();
     fixture.detectChanges();
     const radios = fixture.nativeElement.querySelectorAll('input[type="radio"]');
     expect(radios.length).toBe(2);
@@ -361,7 +450,7 @@ describe('AdaptiveWritingStudio', () => {
       description: 'Revise the text.', evidence: 'Ideas.', task: 'Connect the ideas.', tip: 'Use a transition.',
       checklist: ['Clear', 'Connected'], difficulty: 'developing', isDevelopmentPreview: false }];
     component.state = 'generated';
-    (component as any).cdr.markForCheck();
+    (component as unknown as { cdr: { markForCheck(): void } }).cdr.markForCheck();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('input.fill-blank-input')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('textarea')).toBeTruthy();
@@ -389,7 +478,7 @@ describe('AdaptiveWritingStudio', () => {
     component.progress = { improvedActivities: 1, completedActivities: 1, totalActivities: 1,
       requiredActivityCount: 1, completed: true, percentage: 100, activities: [] };
     component.allowResubmission = false;
-    (component as any).cdr.markForCheck();
+    (component as unknown as { cdr: { markForCheck(): void } }).cdr.markForCheck();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Adaptive Practice Completed');
     expect(fixture.nativeElement.textContent).toContain('teacher has not enabled another draft yet');
@@ -398,7 +487,7 @@ describe('AdaptiveWritingStudio', () => {
     const emitted = jasmine.createSpy('submitNewDraft');
     component.submitNewDraft.subscribe(emitted);
     component.allowResubmission = true;
-    (component as any).cdr.markForCheck();
+    (component as unknown as { cdr: { markForCheck(): void } }).cdr.markForCheck();
     fixture.detectChanges();
     fixture.nativeElement.querySelector('.completion-panel__cta').click();
     expect(emitted).toHaveBeenCalledTimes(1);

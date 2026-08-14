@@ -8,6 +8,7 @@ import {
   ADAPTIVE_PRACTICE_THRESHOLD,
   type AdaptivePracticeAction,
   type AdaptivePracticeActivity,
+  type AdaptivePracticeQuestion,
   type AdaptivePracticeAttempt,
   type AdaptivePracticeProgress,
   type AdaptiveCanonicalQuestionType,
@@ -193,35 +194,45 @@ export class AdaptiveWritingStudio {
     });
   }
 
-  updateResponse(activityId: string, value: string): void { this.responses = { ...this.responses, [activityId]: value }; }
-  questionType(activity: AdaptivePracticeActivity): AdaptiveCanonicalQuestionType {
+  questionKey(activity: AdaptivePracticeActivity, question: AdaptivePracticeQuestion): string {
+    return this.stateKey(activity.id, question.id, question.id === 'legacy-q1');
+  }
+  activityQuestions(activity: AdaptivePracticeActivity): readonly AdaptivePracticeQuestion[] {
+    return activity.questions?.length ? activity.questions : [{ id: 'legacy-q1', questionType: activity.questionType,
+      task: activity.task || '', tip: activity.tip || '', checklist: activity.checklist || [],
+      modelAnswer: activity.modelAnswer, options: activity.options }];
+  }
+  updateResponse(key: string, value: string): void { this.responses = { ...this.responses, [key]: value }; }
+  questionType(question: AdaptivePracticeQuestion | AdaptivePracticeActivity): AdaptiveCanonicalQuestionType {
     const aliases: Record<string, AdaptiveCanonicalQuestionType> = {
       mcq: 'mcq', multiple_choice: 'mcq', multipleChoice: 'mcq',
       fill_blank: 'fill_blank', fillInBlank: 'fill_blank', fill_in_blank: 'fill_blank',
       open_response: 'open_response', written_response: 'open_response', writtenResponse: 'open_response', rewrite: 'open_response'
     };
-    return aliases[String(activity.questionType || '')] || 'open_response';
+    return aliases[String(question.questionType || '')] || 'open_response';
   }
-  canCheck(activity: AdaptivePracticeActivity): boolean {
-    const response = (this.responses[activity.id] || '').trim();
-    return response.length >= (this.questionType(activity) === 'open_response' ? 10 : 1)
-      && this.checkStates[activity.id] !== 'checking';
+  canCheck(activity: AdaptivePracticeActivity, question: AdaptivePracticeQuestion = this.activityQuestions(activity)[0]): boolean {
+    const key = this.questionKey(activity, question); const response = (this.responses[key] || '').trim();
+    return response.length >= (this.questionType(question) === 'open_response' ? 10 : 1)
+      && this.checkStates[key] !== 'checking';
   }
-  check(activity: AdaptivePracticeActivity): void {
-    this.checkPractice.emit({ submissionId: this.submissionId, activityId: activity.id, response: this.responses[activity.id] || '' });
-    this.runCheck(activity, false);
+  check(activity: AdaptivePracticeActivity, question: AdaptivePracticeQuestion = this.activityQuestions(activity)[0]): void {
+    const key = this.questionKey(activity, question);
+    this.checkPractice.emit({ submissionId: this.submissionId, activityId: activity.id, questionId: question.id, response: this.responses[key] || '' });
+    this.runCheck(activity, question, false);
   }
-  retryCheck(activity: AdaptivePracticeActivity): void { this.runCheck(activity, true); }
+  retryCheck(activity: AdaptivePracticeActivity, question: AdaptivePracticeQuestion = this.activityQuestions(activity)[0]): void { this.runCheck(activity, question, true); }
   bestPracticeScore(skillId: string): number | null {
     const rubricId = ({ task: 'CONTENT', coherence: 'ORGANIZATION', lexical: 'VOCABULARY', grammar: 'GRAMMAR', mechanics: 'MECHANICS' } as Record<string, string>)[skillId];
     const activity = this.activities.find((item) => item.skillId === rubricId);
     return activity ? this.progress.activities.find((item) => item.activityId === activity.id)?.bestScore ?? null : null;
   }
-  toggleModel(activity: AdaptivePracticeActivity): void {
+  toggleModel(activity: AdaptivePracticeActivity, question: AdaptivePracticeQuestion): void {
+    const key = this.questionKey(activity, question);
     const next = new Set(this.expandedModels);
-    if (next.has(activity.id)) next.delete(activity.id); else next.add(activity.id);
+    if (next.has(key)) next.delete(key); else next.add(key);
     this.expandedModels = next;
-    this.showModelAnswer.emit({ submissionId: this.submissionId, activityId: activity.id });
+    this.showModelAnswer.emit({ submissionId: this.submissionId, activityId: activity.id, questionId: question.id });
   }
   requestNewDraft(): void {
     if (this.practiceCompleted && this.allowResubmission) this.submitNewDraft.emit();
@@ -274,9 +285,11 @@ export class AdaptiveWritingStudio {
     this.applyAdaptiveSkills(response.adaptiveSkills);
     if (response.state === 'ready' && response.session) {
       this.sessionId = response.session._id;
-      this.activities = response.session.activities.map((activity) => ({ ...activity,
-        questionType: this.questionType({ ...activity, id: activity.activityId, isDevelopmentPreview: false }),
-        id: activity.activityId, isDevelopmentPreview: false }));
+      this.activities = response.session.activities.map((activity) => {
+        const questions = activity.questions?.length ? activity.questions.map((question) => ({ ...question,
+          id: question.questionId })) : undefined;
+        return { ...activity, id: activity.activityId, questions, isDevelopmentPreview: false };
+      });
       this.applyProgress(response.progress);
       this.state = 'generated';
       this.retryableFailure = false;
@@ -417,37 +430,36 @@ export class AdaptiveWritingStudio {
     return this.assessedSkillCount > 0 ? 'no-weaknesses' : 'unassessed';
   }
 
-  private runCheck(activity: AdaptivePracticeActivity, retry: boolean): void {
-    const response = (this.responses[activity.id] || '').trim();
-    if (!this.sessionId || !this.canCheck(activity)) return;
-    const requestVersion = (this.checkRequestVersions.get(activity.id) || 0) + 1;
-    this.checkRequestVersions.set(activity.id, requestVersion);
-    this.checkStates = { ...this.checkStates, [activity.id]: 'checking' };
-    this.checkErrors = { ...this.checkErrors, [activity.id]: '' };
-    this.checkSubscriptions.get(activity.id)?.unsubscribe();
-    const subscription = this.api.checkResponse(this.sessionId, activity.id, response, retry).subscribe({
+  private runCheck(activity: AdaptivePracticeActivity, question: AdaptivePracticeQuestion, retry: boolean): void {
+    const key = this.questionKey(activity, question); const response = (this.responses[key] || '').trim();
+    if (!this.sessionId || !this.canCheck(activity, question)) return;
+    const requestVersion = (this.checkRequestVersions.get(key) || 0) + 1;
+    this.checkRequestVersions.set(key, requestVersion);
+    this.checkStates = { ...this.checkStates, [key]: 'checking' };
+    this.checkErrors = { ...this.checkErrors, [key]: '' };
+    this.checkSubscriptions.get(key)?.unsubscribe();
+    const subscription = this.api.checkResponse(this.sessionId, activity.id, question.id, response, retry).subscribe({
       next: (result) => {
-        if (this.checkRequestVersions.get(activity.id) !== requestVersion
-          || (this.responses[activity.id] || '').trim() !== response) {
-          this.checkStates = { ...this.checkStates, [activity.id]: 'idle' };
+        if (this.checkRequestVersions.get(key) !== requestVersion || (this.responses[key] || '').trim() !== response) {
+          this.checkStates = { ...this.checkStates, [key]: 'idle' };
           this.cdr.markForCheck();
           return;
         }
-        this.attempts = { ...this.attempts, [activity.id]: result.attempt };
-        this.checkStates = { ...this.checkStates, [activity.id]: result.state === 'ready' ? 'ready' : result.state === 'failed' ? 'error' : 'checking' };
+        this.attempts = { ...this.attempts, [key]: result.attempt };
+        this.checkStates = { ...this.checkStates, [key]: result.state === 'ready' ? 'ready' : result.state === 'failed' ? 'error' : 'checking' };
         this.applyProgress(result.progress);
-        if (result.state === 'checking') this.scheduleCheckPoll(activity.id);
+        if (result.state === 'checking') this.scheduleCheckPoll(activity.id, question.id, question.id === 'legacy-q1');
         this.cdr.markForCheck();
       },
       error: (error: unknown) => {
-        if (this.checkRequestVersions.get(activity.id) !== requestVersion) return;
+        if (this.checkRequestVersions.get(key) !== requestVersion) return;
         const value = error as { error?: { message?: string } };
-        this.checkStates = { ...this.checkStates, [activity.id]: 'error' };
-        this.checkErrors = { ...this.checkErrors, [activity.id]: value?.error?.message || 'Your response could not be checked. Please try again.' };
+        this.checkStates = { ...this.checkStates, [key]: 'error' };
+        this.checkErrors = { ...this.checkErrors, [key]: value?.error?.message || 'Your response could not be checked. Please try again.' };
         this.cdr.markForCheck();
       }
     });
-    this.checkSubscriptions.set(activity.id, subscription);
+    this.checkSubscriptions.set(key, subscription);
   }
 
   private applyProgress(progress?: AdaptivePracticeProgress): void {
@@ -457,36 +469,45 @@ export class AdaptiveWritingStudio {
     const attempts = { ...this.attempts };
     const states = { ...this.checkStates };
     progress.activities.forEach((item) => {
-      if (item.latestResponse) responses[item.activityId] = item.latestResponse;
-      if (item.latestAttempt) { attempts[item.activityId] = item.latestAttempt; states[item.activityId] = 'ready'; }
+      const questionProgress = item.questions?.length ? item.questions : [{ questionId: 'legacy-q1', latestResponse: item.latestResponse, latestAttempt: item.latestAttempt }];
+      questionProgress.forEach((question) => { const activity = this.activities.find((candidate) => candidate.id === item.activityId);
+        const key = activity ? this.questionKey(activity, this.activityQuestions(activity)
+          .find((candidate) => candidate.id === question.questionId) || this.activityQuestions(activity)[0]) : `${item.activityId}:${question.questionId}`;
+        if (question.latestResponse) responses[key] = question.latestResponse;
+        if (question.latestAttempt) { attempts[key] = question.latestAttempt; states[key] = 'ready'; }
+      });
     });
     this.responses = responses;
     this.attempts = attempts;
     this.checkStates = states;
   }
 
-  private scheduleCheckPoll(activityId: string): void {
-    const count = (this.checkPollCounts.get(activityId) || 0) + 1;
-    this.checkPollCounts.set(activityId, count);
+  private stateKey(activityId: string, questionId: string, isLegacy: boolean): string {
+    return isLegacy ? activityId : `${activityId}:${questionId}`;
+  }
+
+  private scheduleCheckPoll(activityId: string, questionId: string, isLegacy: boolean): void {
+    const key = this.stateKey(activityId, questionId, isLegacy); const count = (this.checkPollCounts.get(key) || 0) + 1;
+    this.checkPollCounts.set(key, count);
     if (count > 20) {
-      this.checkStates = { ...this.checkStates, [activityId]: 'error' };
-      this.checkErrors = { ...this.checkErrors, [activityId]: 'Checking is taking longer than expected. Please try again.' };
+      this.checkStates = { ...this.checkStates, [key]: 'error' };
+      this.checkErrors = { ...this.checkErrors, [key]: 'Checking is taking longer than expected. Please try again.' };
       return;
     }
     const timer = setTimeout(() => {
-      const subscription = this.api.getAttempts(this.sessionId, activityId).subscribe({
+      const subscription = this.api.getAttempts(this.sessionId, activityId, questionId).subscribe({
         next: (result) => {
           const latest = result.attempts.at(-1);
           this.applyProgress(result.progress);
-          if (latest?.status === 'ready') { this.attempts = { ...this.attempts, [activityId]: latest }; this.checkStates = { ...this.checkStates, [activityId]: 'ready' }; this.checkPollCounts.delete(activityId); }
-          else if (latest?.status === 'failed') { this.checkStates = { ...this.checkStates, [activityId]: 'error' }; this.checkErrors = { ...this.checkErrors, [activityId]: latest.checking?.errorMessage || 'Your response could not be checked. Please try again.' }; }
-          else this.scheduleCheckPoll(activityId);
+          if (latest?.status === 'ready') { this.attempts = { ...this.attempts, [key]: latest }; this.checkStates = { ...this.checkStates, [key]: 'ready' }; this.checkPollCounts.delete(key); }
+          else if (latest?.status === 'failed') { this.checkStates = { ...this.checkStates, [key]: 'error' }; this.checkErrors = { ...this.checkErrors, [key]: latest.checking?.errorMessage || 'Your response could not be checked. Please try again.' }; }
+          else this.scheduleCheckPoll(activityId, questionId, isLegacy);
           this.cdr.markForCheck();
         },
-        error: () => { this.checkStates = { ...this.checkStates, [activityId]: 'error' }; this.checkErrors = { ...this.checkErrors, [activityId]: 'Checking status could not be loaded. Please try again.' }; this.cdr.markForCheck(); }
+        error: () => { this.checkStates = { ...this.checkStates, [key]: 'error' }; this.checkErrors = { ...this.checkErrors, [key]: 'Checking status could not be loaded. Please try again.' }; this.cdr.markForCheck(); }
       });
-      this.checkSubscriptions.set(activityId, subscription);
+      this.checkSubscriptions.set(key, subscription);
     }, 1500);
-    this.checkPollTimers.set(activityId, timer);
+    this.checkPollTimers.set(key, timer);
   }
 }
