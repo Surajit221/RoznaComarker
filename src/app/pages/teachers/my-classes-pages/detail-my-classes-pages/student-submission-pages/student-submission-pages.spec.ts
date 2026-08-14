@@ -1,10 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
+import { By } from '@angular/platform-browser';
 
 import { StudentSubmissionPages } from './student-submission-pages';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
+import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 
 describe('StudentSubmissionPages', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -27,6 +29,19 @@ describe('StudentSubmissionPages', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('does not pass the protected raw submission URL to the teacher image overlay', () => {
+    component.currentSubmission = { fileUrl: '/files/submissions/private.jpg' } as any;
+    component.submissionFileUrls = ['/files/submissions/private.jpg'];
+    component.essayImageUrl = null;
+    component.imageMediaState = 'fetching';
+    fixture.detectChanges();
+
+    const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+    expect(overlay.imageUrl).toBeNull();
+    expect(overlay.sourceLoading).toBeTrue();
+    expect(overlay.displayImageUrl).toBeNull();
   });
 
   it('resets every asynchronous section to loading for a newly selected submission', () => {

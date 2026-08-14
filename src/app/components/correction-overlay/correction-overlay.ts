@@ -47,10 +47,13 @@ export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'l
 })
 export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Input() imageUrl: string | null = null;
+  @Input() sourceLoading = false;
+  @Input() sourceLoadError = false;
   @Input() annotations: FeedbackAnnotation[] | null = null;
   @Input() page = 1;
   @Input() alt = 'Uploaded submission';
   @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
+  @Output() retryRequested = new EventEmitter<void>();
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
   @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
@@ -82,6 +85,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['imageUrl']) {
       this.beginImageLoad(this.imageUrl);
+    }
+    if ((changes['sourceLoading'] || changes['sourceLoadError']) && !this.imageUrl) {
+      this.displayImageUrl = null;
+      this.setMediaState(this.sourceLoading ? 'fetching' : this.sourceLoadError ? 'error' : 'idle');
     }
     if (changes['annotations'] || changes['page']) {
       this.rebuildMarkers();
@@ -131,7 +138,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   retryImage(): void {
     const url = this.imageUrl;
-    if (!url) return;
+    if (!url) {
+      this.retryRequested.emit();
+      return;
+    }
     this.displayImageUrl = null;
     this.setMediaState('fetching');
     this.cdr.detectChanges();
