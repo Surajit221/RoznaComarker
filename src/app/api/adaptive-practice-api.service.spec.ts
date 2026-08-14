@@ -47,6 +47,16 @@ describe('AdaptivePracticeApiService response contract', () => {
     expect(actual).toEqual({ state: 'generating', session: null });
   });
 
+  it('sends stable question identity when checking and polling an attempt', () => {
+    service.checkResponse('session-1', 'practice-1', 'q2', 'are').subscribe();
+    const check = http.expectOne((request) => request.url.endsWith('/sessions/session-1/activities/practice-1/check'));
+    expect(check.request.body).toEqual({ questionId: 'q2', response: 'are', retry: false });
+    check.flush({ success: true, data: { state: 'ready', attempt: {}, progress: {}, reused: false } });
+    service.getAttempts('session-1', 'practice-1', 'q2').subscribe();
+    const poll = http.expectOne((request) => request.url.includes('activityId=practice-1') && request.url.includes('questionId=q2'));
+    poll.flush({ success: true, data: { attempts: [], progress: {} } });
+  });
+
   for (const code of ['ANALYSIS_PROCESSING', 'ANALYSIS_INCOMPLETE', 'RUBRIC_NOT_AVAILABLE'] as const) {
     it(`preserves the 202 ${code} lifecycle contract`, () => {
       let actual: unknown;

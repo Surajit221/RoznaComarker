@@ -41,20 +41,29 @@ export interface AdaptiveLearningSkill {
   status: Exclude<AdaptiveSkillStatus, 'not-assessed'>;
 }
 
-export interface AdaptivePracticeActivity {
+export interface AdaptivePracticeQuestion {
   id: string;
   questionType?: AdaptivePracticeQuestionType;
-  skillId: AdaptiveRubricSkillId;
-  category: string;
-  title: string;
-  description: string;
-  evidence: string;
   task: string;
   tip: string;
   checklist: readonly string[];
   modelAnswer?: string;
   options?: readonly { id: string; text: string }[];
+  caseSensitive?: boolean;
+  explanation?: string;
+}
+
+export interface AdaptivePracticeActivity {
+  id: string;
+  skillId: AdaptiveRubricSkillId;
+  category: string;
+  title: string;
+  description: string;
+  evidence: string;
   difficulty: 'foundational' | 'developing' | 'proficient';
+  questions?: readonly AdaptivePracticeQuestion[];
+  questionType?: AdaptivePracticeQuestionType; task?: string; tip?: string; checklist?: readonly string[];
+  modelAnswer?: string; options?: readonly { id: string; text: string }[];
   isDevelopmentPreview: boolean;
 }
 
@@ -64,17 +73,15 @@ export interface AdaptivePracticeSession {
   status: 'generating' | 'ready' | 'failed';
   activities: readonly {
     activityId: string;
-    questionType?: AdaptivePracticeQuestionType;
     skillId: AdaptiveRubricSkillId;
     category: string;
     title: string;
     description: string;
     evidence: string;
-    task: string;
-    tip: string;
-    checklist: readonly string[];
-    modelAnswer?: string;
-    options?: readonly { id: string; text: string }[];
+    questions?: readonly (Omit<AdaptivePracticeQuestion, 'id'> & { questionId: string })[];
+    // Legacy response-only fields during the coordinated rollout.
+    task?: string; tip?: string; checklist?: readonly string[]; modelAnswer?: string;
+    options?: readonly { id: string; text: string }[]; questionType?: AdaptivePracticeQuestionType;
     difficulty: 'foundational' | 'developing' | 'proficient';
   }[];
   generation?: { errorMessage?: string };
@@ -96,7 +103,7 @@ export interface AdaptivePracticeAttemptResult {
 }
 
 export interface AdaptivePracticeAttempt {
-  _id: string; activityId: string; attemptNumber: number; status: 'checking' | 'ready' | 'failed';
+  _id: string; activityId: string; questionId?: string; attemptNumber: number; status: 'checking' | 'ready' | 'failed';
   response: string; result?: AdaptivePracticeAttemptResult;
   checking?: { errorMessage?: string };
 }
@@ -104,10 +111,17 @@ export interface AdaptivePracticeAttempt {
 export interface AdaptiveActivityProgress {
   activityId: string; attemptCount: number; improved: boolean; bestScore: number | null;
   latestScore: number | null; latestResponse: string; latestAttempt: AdaptivePracticeAttempt | null;
+  questions?: readonly AdaptiveQuestionProgress[];
+}
+
+export interface AdaptiveQuestionProgress {
+  questionId: string; attemptActivityId: string; attemptCount: number; improved: boolean; bestScore: number | null;
+  latestScore: number | null; latestResponse: string; latestAttempt: AdaptivePracticeAttempt | null;
 }
 
 export interface AdaptivePracticeProgress {
   improvedActivities: number; totalActivities: number; percentage: number;
+  totalQuestions?: number; completedQuestions?: number;
   completedActivities?: number; requiredActivityCount?: number; completed?: boolean;
   activities: readonly AdaptiveActivityProgress[];
 }
@@ -120,5 +134,6 @@ export interface AdaptivePracticeCheckResponse {
 export interface AdaptivePracticeAction {
   submissionId: string;
   activityId: string;
+  questionId?: string;
   response?: string;
 }

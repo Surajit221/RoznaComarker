@@ -75,16 +75,16 @@ export class AdaptivePracticeApiService {
     ).pipe(map((response) => unwrap(response, hasState)));
   }
 
-  checkResponse(sessionId: string, activityId: string, response: string, retry = false): Observable<AdaptivePracticeCheckResponse> {
+  checkResponse(sessionId: string, activityId: string, questionId: string, response: string, retry = false): Observable<AdaptivePracticeCheckResponse> {
     return this.http.post<BackendResponse<AdaptivePracticeCheckResponse>>(
       `${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/activities/${encodeURIComponent(activityId)}/check`,
-      { response, retry }
+      { questionId, response, retry }
     ).pipe(map((value) => unwrap(value, hasState)));
   }
 
-  getAttempts(sessionId: string, activityId: string): Observable<{ attempts: AdaptivePracticeAttempt[]; progress: AdaptivePracticeProgress }> {
+  getAttempts(sessionId: string, activityId: string, questionId: string): Observable<{ attempts: AdaptivePracticeAttempt[]; progress: AdaptivePracticeProgress }> {
     return this.http.get<BackendResponse<{ attempts: AdaptivePracticeAttempt[]; progress: AdaptivePracticeProgress }>>(
-      `${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/attempts?activityId=${encodeURIComponent(activityId)}`
+      `${this.baseUrl}/sessions/${encodeURIComponent(sessionId)}/attempts?activityId=${encodeURIComponent(activityId)}&questionId=${encodeURIComponent(questionId)}`
     ).pipe(map((response) => unwrap(response, (data) => isObject(data) && Array.isArray(data.attempts) && isObject(data.progress))));
   }
 
