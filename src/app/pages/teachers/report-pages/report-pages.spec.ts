@@ -117,5 +117,20 @@ describe('ReportPages class filtering', () => {
     const select = wrapper.querySelector('select');
     expect(wrapper).toBeTruthy();
     expect(select).toBeTruthy();
+    expect(select.id).toBe('report-class-filter');
+    expect(fixture.nativeElement.querySelector('label[for="report-class-filter"]')).toBeTruthy();
+    expect(wrapper.querySelector('.report-class-select-icon')).toBeTruthy();
+  });
+
+  it('keeps the native class select functional when changed from the rendered control', async () => {
+    await initialize();
+    const select = fixture.nativeElement.querySelector('#report-class-filter') as HTMLSelectElement;
+    select.value = 'class-a';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.selectedClassId).toBe('class-a');
+    expect(component.filteredRows.map((row) => row.authorName)).toEqual(['Alice']);
   });
 });

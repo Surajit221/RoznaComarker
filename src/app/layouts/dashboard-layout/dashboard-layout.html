@@ -39,7 +39,7 @@
               </button>
               @if (unreadCount > 0) {
               <span
-                class="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full">{{ unreadCount }}</span>
+                class="notification-badge absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full">{{ unreadCountLabel }}</span>
               }
 
               <div
@@ -147,25 +147,42 @@
           <h1 class="font-bold text-xl text-gray-800">RoznaHub</h1>
         </div>
 
-        <div id="user-menu" class="relative">
-          <button class="flex items-center" (click)="toggleUserDropdown()">
-            <img class="h-10 w-10 rounded-full" [src]="avatarUrl" alt="User profile" />
-          </button>
-
-          @if (isUserDropdownOpen()) {
-          <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
-
-            <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
-              [routerLink]="['/', roleService.currentRole(), 'my-profile']" (click)="closeAllDropdowns()">
-              <i class="bx bx-user mr-2"></i>Profile
-            </div>
-
-            <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer" (click)="toLogin()">
-              <i class="bx bx-log-out mr-2"></i>Sign out
-            </div>
-
+        <div class="mobile-header-actions">
+          <div class="relative" data-testid="mobile-notification">
+            <button
+              type="button"
+              class="mobile-notification-button"
+              aria-label="Open notifications"
+              (click)="toAllNotifications()">
+              <i class="bx bx-bell" aria-hidden="true"></i>
+            </button>
+            @if (unreadCount > 0) {
+            <span
+              class="notification-badge absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center text-xs font-bold text-white bg-red-500 rounded-full"
+              data-testid="mobile-notification-badge">{{ unreadCountLabel }}</span>
+            }
           </div>
-          }
+
+          <div id="user-menu" class="relative">
+            <button type="button" class="flex items-center" aria-label="Open profile menu" (click)="toggleUserDropdown()">
+              <img class="h-10 w-10 rounded-full" [src]="avatarUrl" alt="User profile" />
+            </button>
+
+            @if (isUserDropdownOpen()) {
+            <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+
+              <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer"
+                [routerLink]="['/', roleService.currentRole(), 'my-profile']" (click)="closeAllDropdowns()">
+                <i class="bx bx-user mr-2"></i>Profile
+              </div>
+
+              <div class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center cursor-pointer" (click)="toLogin()">
+                <i class="bx bx-log-out mr-2"></i>Sign out
+              </div>
+
+            </div>
+            }
+          </div>
         </div>
       </div>
 

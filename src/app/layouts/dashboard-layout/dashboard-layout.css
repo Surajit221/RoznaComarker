@@ -1,3 +1,33 @@
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mobile-notification-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #008081;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.mobile-notification-button:focus-visible {
+  outline: 3px solid rgb(0 128 129 / 30%);
+  outline-offset: 2px;
+}
+
+.notification-badge {
+  pointer-events: none;
+  line-height: 1;
+}
+
 .mobile-account-row {
   display: flex;
   align-items: center;
