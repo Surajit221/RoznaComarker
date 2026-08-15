@@ -1,10 +1,11 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { By } from '@angular/platform-browser';
+import { Router, RouterLinkActive } from '@angular/router';
+import { Subject } from 'rxjs';
 
 import { AuthService } from '../../auth/auth.service';
-import { NotificationApiService } from '../../api/notification-api.service';
+import { BackendNotification, NotificationApiService } from '../../api/notification-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { DeviceService } from '../../services/device.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
@@ -19,7 +20,13 @@ describe('DashboardLayout subscription ownership', () => {
     return `${btoa('{}')}.${btoa(JSON.stringify({ role }))}.signature`;
   }
 
-  async function render(role: 'teacher' | 'student', billing: any = null, viewport: 'desktop' | 'mobile' = 'desktop') {
+  async function render(
+    role: 'teacher' | 'student',
+    billing: any = null,
+    viewport: 'desktop' | 'mobile' = 'desktop',
+    unreadCount = 0,
+    realtimeNotifications = new Subject<BackendNotification>()
+  ) {
     const getMySubscription = jasmine.createSpy('getMySubscription').and.resolveTo({
       plan: {
         name: 'Free',
@@ -80,14 +87,18 @@ describe('DashboardLayout subscription ownership', () => {
           provide: NotificationApiService,
           useValue: {
             listMyNotifications: () => Promise.resolve([]),
-            getUnreadCount: () => Promise.resolve(0),
+            getUnreadCount: () => Promise.resolve(unreadCount),
             markRead: () => Promise.resolve(),
             markAllRead: () => Promise.resolve()
           }
         },
         {
           provide: NotificationRealtimeService,
-          useValue: { connect: () => undefined, disconnect: () => undefined, notifications$: of() }
+          useValue: {
+            connect: () => undefined,
+            disconnect: () => undefined,
+            notifications$: realtimeNotifications.asObservable()
+          }
         },
         {
           provide: DeviceService,
@@ -105,7 +116,7 @@ describe('DashboardLayout subscription ownership', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    return { getMySubscription, createCustomerPortal };
+    return { getMySubscription, createCustomerPortal, realtimeNotifications };
   }
 
   afterEach(() => {
@@ -188,5 +199,74 @@ describe('DashboardLayout subscription ownership', () => {
     await render('student', null, 'mobile');
     expect(fixture.nativeElement.querySelector('[data-testid="mobile-teacher-account-row"]')).toBeNull();
     expect(fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]').length).toBe(0);
+  });
+
+  it('uses the existing teacher Reports route in mobile nav and removes the redundant Notification item', async () => {
+    await render('teacher', null, 'mobile');
+    const nav = fixture.nativeElement.querySelector('nav');
+    const links = [...nav.querySelectorAll('a')] as HTMLAnchorElement[];
+    const labels = links.map((link) => link.textContent?.trim());
+    const reportsLink = links.find((link) => link.textContent?.trim() === 'Reports');
+
+    expect(labels).toEqual(['Dashboard', 'My Classes', 'Reports', 'Profile']);
+    expect(labels).not.toContain('Notification');
+    expect(reportsLink?.getAttribute('href')).toBe('/teacher/reports');
+
+    const reportsDebugElement = fixture.debugElement
+      .queryAll(By.directive(RouterLinkActive))
+      .find((item) => item.nativeElement.textContent.trim() === 'Reports');
+    expect(reportsDebugElement?.injector.get(RouterLinkActive).routerLinkActiveOptions).toEqual({ exact: false });
+  });
+
+  it('keeps student mobile navigation role-specific without exposing teacher Reports', async () => {
+    await render('student', null, 'mobile');
+    const nav = fixture.nativeElement.querySelector('nav');
+    const links = [...nav.querySelectorAll('a')] as HTMLAnchorElement[];
+    const labels = links.map((link) => link.textContent?.trim());
+    const hrefs = links.map((link) => link.getAttribute('href'));
+
+    expect(labels).toEqual(['Dashboard', 'My Classes', 'Notification', 'Profile']);
+    expect(labels).not.toContain('Reports');
+    expect(hrefs).toEqual([
+      '/student/dashboard',
+      '/student/my-classes',
+      '/student/my-notification',
+      '/student/my-profile'
+    ]);
+  });
+
+  it('shows teacher and student unread counts from the shared layout source and hides zero', async () => {
+    await render('teacher', null, 'mobile', 5);
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-notification-badge"]').textContent.trim()).toBe('5');
+
+    TestBed.resetTestingModule();
+    await render('student', null, 'mobile', 3);
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-notification-badge"]').textContent.trim()).toBe('3');
+
+    TestBed.resetTestingModule();
+    await render('student', null, 'mobile', 0);
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-notification-badge"]')).toBeNull();
+  });
+
+  it('updates and caps the mobile badge when the existing realtime service emits', async () => {
+    const { realtimeNotifications } = await render('teacher', null, 'mobile', 99);
+    realtimeNotifications.next({ _id: 'new-1', type: 'test', title: 'New', description: 'New', recipient: 'teacher-1' } as BackendNotification);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-notification-badge"]').textContent.trim()).toBe('99+');
+  });
+
+  it('opens each role existing notification route from the mobile bell', async () => {
+    await render('teacher', null, 'mobile', 5);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.nativeElement.querySelector('[data-testid="mobile-notification"] button').click();
+    expect(navigate).toHaveBeenCalledWith(['/', 'teacher', 'my-notification']);
+
+    TestBed.resetTestingModule();
+    await render('student', null, 'mobile', 3);
+    const studentNavigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    fixture.nativeElement.querySelector('[data-testid="mobile-notification"] button').click();
+    expect(studentNavigate).toHaveBeenCalledWith(['/', 'student', 'my-notification']);
   });
 });

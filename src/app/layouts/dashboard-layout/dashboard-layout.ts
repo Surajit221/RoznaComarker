@@ -40,6 +40,10 @@ export class DashboardLayout {
 
   unreadCount = 0;
 
+  get unreadCountLabel(): string {
+    return this.unreadCount > 99 ? '99+' : String(this.unreadCount);
+  }
+
   meName: string = '';
   mePhotoUrl: string = '';
 
@@ -127,7 +131,7 @@ export class DashboardLayout {
   teacherMenuMobile = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
-    { name: 'Notification', icon: 'bx bxs-bell', path: '/teacher/my-notification' }, // Sesuaikan path
+    { name: 'Reports', icon: 'bx bxs-report', path: '/teacher/reports' },
     { name: 'Profile', icon: 'bx bxs-user', path: '/teacher/my-profile' },
   ];
 

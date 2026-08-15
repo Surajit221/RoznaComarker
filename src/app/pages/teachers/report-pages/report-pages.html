@@ -2,11 +2,14 @@
   <h1 class="text-4xl font-bold text-gray-800">Reports</h1>
   <div class="report-class-filter">
     <label for="report-class-filter" class="block text-sm font-semibold text-gray-700 mb-1">Class</label>
-    <select id="report-class-filter" class="input-text bg-white" [value]="selectedClassId"
-      [disabled]="isLoading" (change)="onClassChange(($any($event.target)).value)">
-      <option value="">All Classes</option>
-      <option *ngFor="let classItem of teacherClasses" [value]="classItem._id">{{ classItem.name }}</option>
-    </select>
+    <div class="report-class-select-wrap">
+      <select id="report-class-filter" class="report-class-select" [value]="selectedClassId"
+        [disabled]="isLoading" (change)="onClassChange(($any($event.target)).value)">
+        <option value="">All Classes</option>
+        <option *ngFor="let classItem of teacherClasses" [value]="classItem._id">{{ classItem.name }}</option>
+      </select>
+      <i class="bx bx-chevron-down report-class-select-icon" aria-hidden="true"></i>
+    </div>
   </div>
 </div>
 <!-- Summary Cards -->
