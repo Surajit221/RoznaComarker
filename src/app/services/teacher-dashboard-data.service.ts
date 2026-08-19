@@ -93,7 +93,7 @@ export class TeacherDashboardDataService {
 
     const classSummaryById = new Map<string, BackendClassSummary>();
     for (const s of classSummaries || []) {
-      const id = (s as any)?._id;
+      const id = (s as any)?.id || (s as any)?._id;
       if (typeof id === 'string' && id) {
         classSummaryById.set(id, s);
       }
