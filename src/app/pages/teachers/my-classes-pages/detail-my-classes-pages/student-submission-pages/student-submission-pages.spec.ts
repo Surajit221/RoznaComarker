@@ -78,6 +78,10 @@ describe('StudentSubmissionPages', () => {
       });
       return true;
     });
+    const markReviewed = spyOn((component as any).feedbackApi, 'markSubmissionReviewed').and.resolveTo({
+      teacherReviewedAt: '2026-08-22T00:00:00.000Z', teacherReviewedBy: 'teacher-1'
+    });
+    const syncDashboard = spyOn((component as any).teacherDashboardState, 'markReviewed');
 
     await (component as any).applyCurrentSubmission({ _id: 'submission-2' } as any, false);
 
@@ -85,6 +89,8 @@ describe('StudentSubmissionPages', () => {
     expect(component.currentFeedback?.submissionId).toBe('submission-2');
     expect(component.canonicalResultState?.submissionId).toBe('submission-2');
     expect(component.canonicalResultState?.evaluationStatus).toBe('completed');
+    expect(markReviewed).toHaveBeenCalledOnceWith('submission-2');
+    expect(syncDashboard).toHaveBeenCalledOnceWith('submission-2');
   });
 
   it('rejects an older feedback response after the active submission changes', async () => {

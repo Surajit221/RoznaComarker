@@ -26,7 +26,7 @@ describe('Class Management Services', () => {
 
   describe('QrGeneratorService', () => {
     it('should generate valid class join URL', () => {
-      const joinCode = 'ABC123';
+      const joinCode = 'A7K92Q4';
       const url = qrGenerator.generateClassJoinUrl(joinCode);
       
       expect(url).toContain('joinCode=' + joinCode);
@@ -34,7 +34,7 @@ describe('Class Management Services', () => {
     });
 
     it('should validate join codes correctly', () => {
-      expect(qrGenerator.validateJoinCode('ABC123')).toBe(true);
+      expect(qrGenerator.validateJoinCode('A7K92Q4')).toBe(true);
       expect(qrGenerator.validateJoinCode('AB12')).toBe(false); // Too short
       expect(qrGenerator.validateJoinCode('ABC123!')).toBe(false); // Invalid character
       expect(qrGenerator.validateJoinCode('')).toBe(false); // Empty

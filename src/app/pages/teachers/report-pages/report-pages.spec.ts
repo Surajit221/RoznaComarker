@@ -5,7 +5,19 @@ import { AssignmentApiService } from '../../../api/assignment-api.service';
 import { ClassApiService } from '../../../api/class-api.service';
 import { FeedbackApiService } from '../../../api/feedback-api.service';
 import { SubmissionApiService } from '../../../api/submission-api.service';
-import { ReportPages } from './report-pages';
+import { essayReportStatusFromScore, ReportPages } from './report-pages';
+
+describe('essayReportStatusFromScore', () => {
+  it('uses the canonical 60-point revision and 80-point completed boundaries', () => {
+    expect(essayReportStatusFromScore(59)).toBe('needs_improvement');
+    expect(essayReportStatusFromScore(60)).toBe('need_revision');
+    expect(essayReportStatusFromScore(70)).toBe('need_revision');
+    expect(essayReportStatusFromScore(79)).toBe('need_revision');
+    expect(essayReportStatusFromScore(80)).toBe('completed');
+    expect(essayReportStatusFromScore(81)).toBe('completed');
+    expect(essayReportStatusFromScore(100)).toBe('completed');
+  });
+});
 
 describe('ReportPages class filtering', () => {
   let component: ReportPages;
@@ -71,7 +83,7 @@ describe('ReportPages class filtering', () => {
     expect(component.selectedClassId).toBe('');
     expect(component.totalEssays).toBe(2);
     expect(component.completedCount).toBe(1);
-    expect(component.needsImprovementCount).toBe(1);
+    expect(component.needRevisionCount).toBe(1);
     expect(component.filteredRows.map((row) => row.authorName)).toEqual(['Alice', 'Bob']);
   });
 
@@ -92,7 +104,7 @@ describe('ReportPages class filtering', () => {
     await component.onClassChange('class-b');
     expect(component.filteredRows.map((row) => row.authorName)).toEqual(['Bob']);
     expect(component.totalEssays).toBe(1);
-    expect(component.needsImprovementCount).toBe(1);
+    expect(component.needRevisionCount).toBe(1);
   });
 
   it('does not request an arbitrary class id outside the authenticated teacher class list', async () => {

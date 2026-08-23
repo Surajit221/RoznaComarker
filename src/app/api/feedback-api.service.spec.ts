@@ -31,4 +31,15 @@ describe('FeedbackApiService teacher comments', () => {
   it('does not introduce a hardcoded localhost endpoint', () => {
     expect(FeedbackApiService.prototype.updateTeacherComments.toString()).not.toContain('localhost');
   });
+
+  it('marks a submission reviewed with an idempotent PATCH endpoint', async () => {
+    const pending = service.markSubmissionReviewed('submission 1');
+    const request = http.expectOne(`${environment.apiUrl}/feedback/submission%201/reviewed`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({});
+    request.flush({ success: true, data: {
+      teacherReviewedAt: '2026-08-22T00:00:00.000Z', teacherReviewedBy: 'teacher-1'
+    } });
+    expect((await pending).teacherReviewedBy).toBe('teacher-1');
+  });
 });

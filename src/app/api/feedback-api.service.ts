@@ -108,6 +108,17 @@ export class FeedbackApiService {
     return resp.data;
   }
 
+  async markSubmissionReviewed(submissionId: string): Promise<{ teacherReviewedAt: string; teacherReviewedBy: string }> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    const resp = await firstValueFrom(
+      this.http.patch<BackendResponse<{ teacherReviewedAt: string; teacherReviewedBy: string }>>(
+        `${apiBaseUrl}/feedback/${encodeURIComponent(submissionId)}/reviewed`,
+        {}
+      )
+    );
+    return resp.data;
+  }
+
   async upsertSubmissionFeedback(submissionId: string, payload: SubmissionFeedback): Promise<SubmissionFeedback> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(

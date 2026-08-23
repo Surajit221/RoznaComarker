@@ -7,6 +7,14 @@ import { ClassApiService, type BackendClass } from '../../../api/class-api.servi
 import { FeedbackApiService } from '../../../api/feedback-api.service';
 import { SubmissionApiService, type BackendSubmission } from '../../../api/submission-api.service';
 
+export function essayReportStatusFromScore(
+  score: number
+): 'completed' | 'need_revision' | 'needs_improvement' {
+  if (score >= 80) return 'completed';
+  if (score >= 60) return 'need_revision';
+  return 'needs_improvement';
+}
+
 @Component({
   selector: 'app-report-pages',
   imports: [CommonModule],
@@ -123,12 +131,6 @@ export class ReportPages {
     return 'Needs Work';
   }
 
-  private statusBucketFromScore(pct: number): 'completed' | 'need_revision' | 'needs_improvement' {
-    if (pct >= 85) return 'completed';
-    if (pct >= 70) return 'need_revision';
-    return 'needs_improvement';
-  }
-
   private safePctText(n: number): string {
     const v = Number(n);
     if (!Number.isFinite(v)) return '0%';
@@ -220,7 +222,7 @@ export class ReportPages {
           const fb = feedbackBySubmissionId.get(r.submissionId);
           const scoreRaw = Number(fb && (fb as any).overallScore);
           const scorePct = Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0;
-          const bucket = this.statusBucketFromScore(scorePct);
+          const bucket = essayReportStatusFromScore(scorePct);
 
           const iconSet = idx % 5;
           const iconTheme =

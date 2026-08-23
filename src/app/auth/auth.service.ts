@@ -42,6 +42,10 @@ export type BackendMe = {
     lateSubmissionPenaltyPercent?: number;
     autoPublishGrades?: boolean;
   };
+  evaluationPropagation?: {
+    status: 'completed' | 'pending';
+    policyHash: string;
+  };
   role: string;
 };
 

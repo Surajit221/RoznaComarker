@@ -13,6 +13,7 @@ import {
   type AdaptivePracticeProgress,
   type AdaptiveCanonicalQuestionType,
   type AdaptivePracticeSessionResponse,
+  type AdaptiveSourceEvaluation,
   type AdaptiveLearningSkill,
   type AdaptiveEligibilityReason,
   type AdaptiveSkillScore,
@@ -60,9 +61,29 @@ export class AdaptiveWritingStudio {
   @Input() allowResubmission = false;
 
   @Input() set skills(value: readonly AdaptiveSkillScore[] | null | undefined) {
-    if (this.hasAuthoritativeAdaptiveSkills) return;
     const list = Array.isArray(value) ? value : [];
-    this.normalizedSkills = list.map((skill) => this.normalizeSkill(skill));
+    const normalized = list.map((skill) => this.normalizeSkill(skill));
+    if (this.hasAuthoritativeAdaptiveSkills) {
+      const comparable = normalized.length === this.normalizedSkills.length
+        && normalized.length > 0 && normalized.every((skill) => skill.percentage !== null);
+      const changed = comparable && normalized.some((skill, index) =>
+        skill.id !== this.normalizedSkills[index]?.id || skill.percentage !== this.normalizedSkills[index]?.percentage);
+      if (!changed) return;
+      const identity = this.canonicalUsableKey;
+      this.resetForCanonicalEvaluation();
+      this.canonicalUsableKey = identity;
+      this.normalizedSkills = normalized;
+      this.weakSkills = normalized.filter((skill) => skill.percentage !== null
+        && skill.percentage < ADAPTIVE_PRACTICE_THRESHOLD);
+      this.state = this.skillSummaryState();
+      queueMicrotask(() => {
+        if (identity === this.canonicalUsableKey && !this.hasAuthoritativeAdaptiveSkills
+          && this.submissionId && this.isCanonicalUsable(this.canonicalResultState)) this.loadExistingSession();
+      });
+      this.cdr.markForCheck();
+      return;
+    }
+    this.normalizedSkills = normalized;
     this.weakSkills = this.normalizedSkills.filter((skill) => skill.percentage !== null && skill.percentage < ADAPTIVE_PRACTICE_THRESHOLD);
     if ((this.state === 'idle' || this.state === 'unassessed') && !this.activities.length) this.state = this.skillSummaryState();
     this.cdr.markForCheck();
@@ -71,13 +92,28 @@ export class AdaptiveWritingStudio {
   @Input() set canonicalResultState(value: CanonicalResultViewState | null) {
     this._canonicalResultState = value;
     const usableKey = this.getCanonicalUsableKey(value);
-    const becameUsable = Boolean(usableKey && usableKey !== this.canonicalUsableKey);
+    const previousKey = this.canonicalUsableKey;
+    const identityChanged = Boolean(previousKey && usableKey !== previousKey);
+    const becameUsable = Boolean(usableKey && usableKey !== previousKey);
+    if (identityChanged) {
+      const wasPermanentFailure = this.state === 'error' && !this.retryableFailure && !this.analysisRecoveryPending;
+      this.resetForCanonicalEvaluation();
+      this.canonicalUsableKey = usableKey;
+      if (usableKey && this.submissionId) this.loadExistingSession();
+      else if (value && (value.processingActive || ['pending', 'processing'].includes(value.evaluationStatus))) {
+        this.state = 'waiting_for_analysis';
+        this.analysisRecoveryPending = !wasPermanentFailure;
+      }
+      this.cdr.markForCheck();
+      return;
+    }
     this.canonicalUsableKey = usableKey;
     if (becameUsable && this.analysisRecoveryPending
       && (this.state === 'waiting_for_analysis' || this.state === 'error')) {
       this.analysisRecoveryPending = false;
       this.loadExistingSession();
     }
+    this.cdr.markForCheck();
   }
   get canonicalResultState(): CanonicalResultViewState | null { return this._canonicalResultState; }
   private _canonicalResultState: CanonicalResultViewState | null = null;
@@ -116,6 +152,26 @@ export class AdaptiveWritingStudio {
   }
 
   get assessedSkillCount(): number { return this.normalizedSkills.filter((skill) => skill.percentage !== null).length; }
+  get lowestAssessedSkill(): NormalizedAdaptiveSkill | null {
+    return this.normalizedSkills.filter((skill) => skill.percentage !== null)
+      .reduce<NormalizedAdaptiveSkill | null>((lowest, skill) =>
+        !lowest || Number(skill.percentage) < Number(lowest.percentage) ? skill : lowest, null);
+  }
+  get noWeaknessMessage(): string {
+    const rawScore = this.canonicalResultState?.score;
+    const score = typeof rawScore === 'number' && Number.isFinite(rawScore) ? rawScore : null;
+    if (score !== null && score < 60) {
+      return 'Your individual writing skills are above the practice threshold, but the overall essay still needs improvement.';
+    }
+    if (score !== null && score < 80) {
+      return 'Your individual writing skills are above the practice threshold, but the overall essay still needs revision.';
+    }
+    return 'Great work — all assessed writing skills are currently on track.';
+  }
+  get noWeaknessIsSuccess(): boolean {
+    const score = this.canonicalResultState?.score;
+    return typeof score !== 'number' || !Number.isFinite(score) || score >= 80;
+  }
   get eligibilityReason(): AdaptiveEligibilityReason {
     const canonical = this.canonicalResultState;
     if (!this.submissionId) return 'NO_SUBMISSION';
@@ -138,7 +194,10 @@ export class AdaptiveWritingStudio {
       ANALYSIS_PROCESSING: 'Practice will be available after writing analysis completes.',
       SEMANTIC_FAILED: 'Practice is unavailable because semantic writing analysis failed.',
       STALE_EVALUATION: 'Practice is unavailable until the evaluation matches the latest corrections.',
-      NO_WEAK_SKILLS: this.assessedSkillCount ? 'No weak skills currently require adaptive practice.' : 'No assessed skills are available yet.',
+      NO_WEAK_SKILLS: this.assessedSkillCount
+        ? (this.noWeaknessIsSuccess ? 'No weak skills currently require adaptive practice.'
+          : 'Individual skill practice is not required at the current threshold; see the overall essay guidance below.')
+        : 'No assessed skills are available yet.',
       READY: 'Your current writing analysis is ready for personalized practice.',
       GENERATING: 'A single practice generation job is in progress.',
       ALREADY_GENERATED: 'Your generated practice is ready below.',
@@ -282,6 +341,13 @@ export class AdaptiveWritingStudio {
 
   private acceptResponse(version: number, response: AdaptivePracticeSessionResponse): void {
     if (version !== this.requestVersion) return;
+    if (response.sourceEvaluation && !this.responseMatchesCanonical(response.sourceEvaluation)) {
+      this.state = 'waiting_for_analysis';
+      this.analysisRecoveryPending = true;
+      this.errorMessage = '';
+      this.cdr.markForCheck();
+      return;
+    }
     this.applyAdaptiveSkills(response.adaptiveSkills);
     if (response.state === 'ready' && response.session) {
       this.sessionId = response.session._id;
@@ -375,6 +441,28 @@ export class AdaptiveWritingStudio {
     this.canonicalUsableKey = this.getCanonicalUsableKey(this.canonicalResultState);
     this.state = this.skillSummaryState();
   }
+
+  private resetForCanonicalEvaluation(): void {
+    this.cancelAsyncWork();
+    this.requestVersion++;
+    this.pollAttempts = 0;
+    this.activities = [];
+    this.hasAuthoritativeAdaptiveSkills = false;
+    this.normalizedSkills = [];
+    this.weakSkills = [];
+    this.sessionId = '';
+    this.responses = {};
+    this.expandedModels = new Set<string>();
+    this.pendingMessages = {};
+    this.checkStates = {};
+    this.attempts = {};
+    this.checkErrors = {};
+    this.progress = { improvedActivities: 0, totalActivities: 0, completed: false, percentage: 0, activities: [] };
+    this.errorMessage = '';
+    this.retryableFailure = false;
+    this.analysisRecoveryPending = false;
+    this.state = 'unassessed';
+  }
   private cancelAsyncWork(): void { this.requestSubscription?.unsubscribe(); this.requestSubscription = null; this.checkSubscriptions.forEach((subscription) => subscription.unsubscribe()); this.checkSubscriptions.clear(); this.checkPollTimers.forEach((timer) => clearTimeout(timer)); this.checkPollTimers.clear(); this.checkPollCounts.clear(); this.checkRequestVersions.clear(); this.clearTimer(); }
   private clearTimer(): void { if (this.timer !== null) clearTimeout(this.timer); this.timer = null; }
 
@@ -386,7 +474,24 @@ export class AdaptiveWritingStudio {
     return value && !value.processingActive && value.semanticStatus === 'completed'
       && value.evaluationStatus === 'completed' && value.correctionSourceHash
       && value.evaluationSourceHash === value.correctionSourceHash
-      ? `${value.submissionId || this.submissionId}:${value.correctionSourceHash}` : '';
+      ? JSON.stringify([
+        value.submissionId || this.submissionId, value.correctionSourceHash, value.evaluationSourceHash,
+        value.evaluationPolicyHash || '', value.evaluationRubricSourceHash || '',
+        value.assessmentVersion || '', value.evaluationVersion || '', value.teacherOverride === true
+      ]) : '';
+  }
+
+  private responseMatchesCanonical(source: AdaptiveSourceEvaluation): boolean {
+    const canonical = this.canonicalResultState;
+    if (!canonical) return false;
+    const text = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+    return text(source.correctionSourceHash) === text(canonical.correctionSourceHash)
+      && text(source.evaluationSourceHash) === text(canonical.evaluationSourceHash)
+      && text(source.evaluationPolicyHash) === text(canonical.evaluationPolicyHash)
+      && text(source.evaluationRubricSourceHash) === text(canonical.evaluationRubricSourceHash)
+      && text(source.assessmentVersion) === text(canonical.assessmentVersion)
+      && text(source.evaluationVersion) === text(canonical.evaluationVersion)
+      && source.teacherOverride === (canonical.teacherOverride === true);
   }
 
   private isAnalysisLifecycleCode(code: unknown): code is AdaptivePracticeLifecycleCode {

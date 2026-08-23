@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject, distinctUntilChanged, map, shareReplay, type Observable } from 'rxjs';
 
-import type { SubmissionFeedback } from '../models/submission-feedback.model';
 import type {
   DashboardSubmission,
   TeacherDashboardClassCard,
@@ -9,6 +8,7 @@ import type {
   TeacherDashboardStats
 } from '../models/dashboard-submission.model';
 import { TeacherDashboardDataService } from './teacher-dashboard-data.service';
+import { averageDashboardScore } from './teacher-dashboard-score.util';
 
 type TeacherDashboardState = {
   submissions: DashboardSubmission[];
@@ -132,14 +132,8 @@ export class TeacherDashboardStateService {
     if (assignmentId) this.evaluationFreshnessInvalidatedSubject.next(assignmentId);
   }
 
-  markReviewed(submissionId: string, feedback: SubmissionFeedback): void {
+  markReviewed(submissionId: string): void {
     if (!submissionId) return;
-
-    const reviewed = !!feedback && (feedback as any).overriddenByTeacher === true;
-    if (!reviewed) return;
-
-    const scoreRaw = Number((feedback as any).overallScore);
-    const score = Number.isFinite(scoreRaw) ? scoreRaw : 0;
 
     const state = this.stateSubject.value;
     const items = state.submissions || [];
@@ -150,16 +144,10 @@ export class TeacherDashboardStateService {
 
     const updated: DashboardSubmission = {
       ...items[idx],
-      status: 'reviewed',
-      score
+      status: 'reviewed'
     };
 
     const nextSubmissions = [...items.slice(0, idx), updated, ...items.slice(idx + 1)];
-
-    const reviewedItems = nextSubmissions.filter((x) => x.status === 'reviewed');
-    const avgScoreBase = reviewedItems.length
-      ? reviewedItems.reduce((acc, s) => acc + (Number.isFinite(s.score) ? s.score : 0), 0) / reviewedItems.length
-      : 0;
 
     const next: TeacherDashboardState = {
       ...state,
@@ -167,7 +155,7 @@ export class TeacherDashboardStateService {
       stats: {
         ...state.stats,
         pendingCount: nextSubmissions.filter((x) => x.status === 'submitted').length,
-        avgScore: Math.round(avgScoreBase * 10) / 10
+        avgScore: averageDashboardScore(nextSubmissions)
       }
     };
 

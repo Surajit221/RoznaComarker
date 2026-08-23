@@ -21,7 +21,7 @@ export type DashboardSubmission = {
   student: DashboardStudentLite;
   class: DashboardClassLite;
   assignment: DashboardAssignmentLite;
-  score: number;
+  score: number | null;
   status: DashboardSubmissionStatus;
   submittedAt: string;
 };

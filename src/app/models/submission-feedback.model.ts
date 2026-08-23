@@ -124,6 +124,8 @@ export interface SubmissionFeedback {
   teacherComments?: string;
   teacherCommentsUpdatedAt?: string;
   teacherCommentsUpdatedBy?: string;
+  teacherReviewedAt?: string;
+  teacherReviewedBy?: string;
 
   assessmentVersion?: string;
   maxOverallScore: number;
