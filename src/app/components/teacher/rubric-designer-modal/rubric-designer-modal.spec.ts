@@ -1,4 +1,5 @@
 import { SimpleChange } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { RubricDesignerModal } from './rubric-designer-modal';
 
 const validRubric = {
@@ -16,6 +17,32 @@ const validRubric = {
 };
 
 describe('RubricDesignerModal', () => {
+  it('renders a responsive multiline prompt and submits its multiline value unchanged', async () => {
+    await TestBed.configureTestingModule({ imports: [RubricDesignerModal] }).compileComponents();
+    const fixture = TestBed.createComponent(RubricDesignerModal);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const textarea = fixture.nativeElement.querySelector('textarea[aria-label="Rubric generation prompt"]') as HTMLTextAreaElement;
+    expect(textarea).toBeTruthy();
+    expect(textarea.rows).toBe(6);
+    expect(textarea.classList.contains('w-full')).toBeTrue();
+    expect(textarea.classList.contains('min-h-[160px]')).toBeTrue();
+    expect(textarea.classList.contains('resize-y')).toBeTrue();
+    expect(textarea.classList.contains('overflow-x-hidden')).toBeTrue();
+
+    const prompt = 'Assess the central argument.\nCheck supporting evidence.\nReward clear organization.';
+    const emitted: string[] = [];
+    fixture.componentInstance.generateAi.subscribe((value) => emitted.push(value));
+    textarea.value = prompt;
+    textarea.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    fixture.componentInstance.onGenerateRubricAi();
+
+    expect(fixture.componentInstance.rubricPromptControl.value).toBe(prompt);
+    expect(emitted).toEqual([prompt]);
+  });
+
   it('clears the prompt only after a valid generated rubric is applied', () => {
     const component = new RubricDesignerModal();
     component.rubricPromptControl.setValue('Generate a rubric');

@@ -6239,6 +6239,11 @@ export class StudentSubmissionPages {
       || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
         && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
 
+    if (feedbackLoaded && this.currentSubmission?._id) {
+      await this.markCurrentSubmissionReviewed(this.currentSubmission._id, seq);
+      if (seq !== this.applyCurrentSubmissionSeq) return;
+    }
+
 
 
 
@@ -6289,6 +6294,28 @@ export class StudentSubmissionPages {
 
 
 
+  }
+
+  private async markCurrentSubmissionReviewed(submissionId: string, expectedSeq: number): Promise<void> {
+    try {
+      const review = await this.feedbackApi.markSubmissionReviewed(submissionId);
+      if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return;
+      if (review?.teacherReviewedAt) {
+        if (this.currentFeedback) {
+          this.currentFeedback = {
+            ...this.currentFeedback,
+            teacherReviewedAt: review.teacherReviewedAt,
+            teacherReviewedBy: review.teacherReviewedBy
+          };
+        }
+        this.teacherDashboardState.markReviewed(submissionId);
+      }
+    } catch (error) {
+      console.error('[SUBMISSION REVIEW STATE ERROR]', {
+        submissionId,
+        message: error instanceof Error ? error.message : 'Request failed'
+      });
+    }
   }
 
 

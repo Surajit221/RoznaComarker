@@ -30,7 +30,10 @@ describe('AdaptiveWritingStudio', () => {
   }, progress: { improvedActivities: 0, totalActivities: 1, percentage: 0, activities: [{ activityId: 'activity-1', attemptCount: 0, improved: false, bestScore: null, latestScore: null, latestResponse: '', latestAttempt: null }] }, adaptiveSkills: adaptiveAnalysis };
   const currentCanonical = { submissionId: 'submission-1', correctionStatus: 'completed', evaluationStatus: 'completed',
     detailedFeedbackStatus: 'completed', semanticStatus: 'completed', processingActive: false,
-    correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash' } as CanonicalResultViewState;
+    correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash',
+    evaluationPolicyHash: 'policy-v1', evaluationRubricSourceHash: 'rubric-v1',
+    assessmentVersion: 'assessment-v1', evaluationVersion: 'evaluation-v1',
+    score: 85, hasValidCustomRubric: false } as CanonicalResultViewState;
 
   beforeEach(async () => {
     api = jasmine.createSpyObj<AdaptivePracticeApiService>('AdaptivePracticeApiService', ['getSession', 'generateSession', 'retryGeneration', 'checkResponse', 'getAttempts']);
@@ -108,6 +111,53 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.submissionId).toBe('submission-b');
     expect(component.activities.length).toBe(0);
   });
+
+  it('reloads once for a canonical evaluation identity change and ignores the older response', () => {
+    const oldRequest = new Subject<AdaptivePracticeSessionResponse>();
+    const currentRequest = new Subject<AdaptivePracticeSessionResponse>();
+    api.getSession.calls.reset();
+    api.getSession.and.returnValues(oldRequest.asObservable(), currentRequest.asObservable());
+
+    component.canonicalResultState = { ...currentCanonical, evaluationPolicyHash: 'policy-v2' };
+    component.canonicalResultState = { ...currentCanonical, evaluationPolicyHash: 'policy-v3' };
+    oldRequest.next({ ...idle, sourceEvaluation: {
+      correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash',
+      evaluationPolicyHash: 'policy-v2', evaluationRubricSourceHash: 'rubric-v1',
+      assessmentVersion: 'assessment-v1', evaluationVersion: 'evaluation-v1', teacherOverride: false
+    } });
+    expect(component.normalizedSkills).toEqual([]);
+
+    currentRequest.next({ ...idle, sourceEvaluation: {
+      correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash',
+      evaluationPolicyHash: 'policy-v3', evaluationRubricSourceHash: 'rubric-v1',
+      assessmentVersion: 'assessment-v1', evaluationVersion: 'evaluation-v1', teacherOverride: false
+    } });
+    expect(api.getSession).toHaveBeenCalledTimes(2);
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([18, 13, 5, 100, 100]);
+  });
+
+  it('does not reload or change percentages when the same canonical identity is rendered again', () => {
+    api.getSession.calls.reset();
+    const before = component.normalizedSkills.map((skill) => skill.percentage);
+    component.canonicalResultState = { ...currentCanonical, score: 84 };
+    component.canonicalResultState = { ...currentCanonical, score: 83 };
+    expect(api.getSession).not.toHaveBeenCalled();
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual(before);
+  });
+
+  it('reloads authoritative skills when teacher-edited rubric scores change under the same hashes', fakeAsync(() => {
+    api.getSession.calls.reset();
+    const teacherEdited: readonly AdaptiveSkillScore[] = [
+      { id: 'task', label: 'Task Achievement', earnedPoints: 3.6, maximumPoints: 20 },
+      { id: 'coherence', label: 'Coherence & Flow', earnedPoints: 4, maximumPoints: 20 },
+      { id: 'lexical', label: 'Lexical Resource', earnedPoints: 1, maximumPoints: 20 },
+      { id: 'grammar', label: 'Grammar', earnedPoints: 25, maximumPoints: 25 },
+      { id: 'mechanics', label: 'Mechanics', earnedPoints: 10, maximumPoints: 10 }
+    ];
+    component.skills = teacherEdited;
+    tick();
+    expect(api.getSession).toHaveBeenCalledOnceWith('submission-1');
+  }));
 
   it('uses the approved adaptive projection when redacted rubric points are unavailable', () => {
     api.getSession.and.returnValue(of(idle));
@@ -206,6 +256,118 @@ describe('AdaptiveWritingStudio', () => {
     fixture.detectChanges();
     expect(component.state).toBe('no-weaknesses');
     expect(fixture.nativeElement.textContent).toContain('Great work');
+  });
+
+  for (const scenario of [
+    { score: 85, expected: 'Great work', unexpected: 'still needs' },
+    { score: 75, expected: 'overall essay still needs revision', unexpected: 'Great work' },
+    { score: 55, expected: 'overall essay still needs improvement', unexpected: 'Great work' }
+  ]) {
+    it(`keeps no-weakness messaging consistent with an overall score of ${scenario.score}`, () => {
+      const onTrack = adaptiveAnalysis.map((skill) => ({ ...skill, adaptivePercentage: 75,
+        status: 'on-track' as const }));
+      api.getSession.and.returnValue(of({ state: 'no-weaknesses', session: null, adaptiveSkills: onTrack }));
+      component.canonicalResultState = { ...currentCanonical, score: scenario.score };
+      component.submissionId = `submission-overall-${scenario.score}`;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain(scenario.expected);
+      expect(fixture.nativeElement.textContent).not.toContain(scenario.unexpected);
+      expect(fixture.nativeElement.textContent).toContain('Lowest writing-skill diagnostic');
+    });
+  }
+
+  it('explains the relationship between a custom overall rubric and writing skill scores', () => {
+    const onTrack = adaptiveAnalysis.map((skill, index) => ({ ...skill,
+      adaptivePercentage: [75, 80, 78, 82, 90][index], status: 'on-track' as const }));
+    api.getSession.and.returnValue(of({ state: 'no-weaknesses', session: null, adaptiveSkills: onTrack }));
+    component.canonicalResultState = { ...currentCanonical, score: 65, hasValidCustomRubric: true };
+    component.submissionId = 'submission-custom-rubric';
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Your overall grade follows the teacher’s rubric. Writing Skill Analysis uses the built-in writing-skill scores from the same evaluation.');
+    expect(fixture.nativeElement.textContent).toContain('overall essay still needs revision');
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([75, 80, 78, 82, 90]);
+    expect(fixture.nativeElement.textContent).toContain('Writing Skill Analysis');
+    expect(fixture.nativeElement.querySelectorAll('.skill-card__label').length).toBe(5);
+  });
+
+  it('keeps backend skill percentages stable when switching to a custom-rubric evaluation', () => {
+    const expected = adaptiveAnalysis.map((skill, index) => ({ ...skill,
+      adaptivePercentage: [75, 80, 85, 66, 95][index],
+      status: ([75, 80, 85, 66, 95][index] < 70 ? 'needs-practice' : 'on-track') as 'needs-practice' | 'on-track'
+    }));
+    api.getSession.calls.reset();
+    api.getSession.and.returnValues(
+      of({ state: 'idle', session: null, adaptiveSkills: expected, sourceEvaluation: {
+        correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash',
+        evaluationPolicyHash: 'policy-v1', evaluationRubricSourceHash: 'fixed-rubric',
+        assessmentVersion: 'assessment-v1', evaluationVersion: 'evaluation-v1', teacherOverride: false
+      } }),
+      of({ state: 'idle', session: null, adaptiveSkills: expected, sourceEvaluation: {
+        correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash',
+        evaluationPolicyHash: 'policy-v1', evaluationRubricSourceHash: 'custom-rubric',
+        assessmentVersion: 'assessment-v1', evaluationVersion: 'evaluation-v1', teacherOverride: false
+      } })
+    );
+
+    component.canonicalResultState = { ...currentCanonical, evaluationRubricSourceHash: 'fixed-rubric' };
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([75, 80, 85, 66, 95]);
+    component.canonicalResultState = { ...currentCanonical, evaluationRubricSourceHash: 'custom-rubric',
+      hasValidCustomRubric: true, score: 65 };
+    fixture.detectChanges();
+    expect(api.getSession).toHaveBeenCalledTimes(2);
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual([75, 80, 85, 66, 95]);
+    expect(component.normalizedSkills.find((skill) => skill.id === 'grammar')).toEqual(jasmine.objectContaining({
+      percentage: 66, status: 'needs-practice', statusLabel: 'Needs practice'
+    }));
+  });
+
+  it('restores the confirmed QA percentages after browser refresh and panel reopen', () => {
+    const percentages = [75, 80, 85, 66, 95];
+    const qaSkills = adaptiveAnalysis.map((skill, index) => ({ ...skill,
+      adaptivePercentage: percentages[index],
+      status: (percentages[index] < 70 ? 'needs-practice' : 'on-track') as 'needs-practice' | 'on-track'
+    }));
+    const customCanonical = { ...currentCanonical, evaluationRubricSourceHash: 'custom-rubric',
+      hasValidCustomRubric: true, score: 58 };
+    const response = { state: 'idle', session: null, adaptiveSkills: qaSkills, sourceEvaluation: {
+      correctionSourceHash: 'current-hash', evaluationSourceHash: 'current-hash',
+      evaluationPolicyHash: 'policy-v1', evaluationRubricSourceHash: 'custom-rubric',
+      assessmentVersion: 'assessment-v1', evaluationVersion: 'evaluation-v1', teacherOverride: false
+    } } as AdaptivePracticeSessionResponse;
+    api.getSession.calls.reset();
+    api.getSession.and.returnValue(of(response));
+
+    fixture.destroy();
+    fixture = TestBed.createComponent(AdaptiveWritingStudio);
+    component = fixture.componentInstance;
+    component.skills = skills;
+    component.canonicalResultState = customCanonical;
+    component.submissionId = 'submission-1';
+    fixture.detectChanges();
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual(percentages);
+
+    component.submissionId = '';
+    component.submissionId = 'submission-1';
+    fixture.detectChanges();
+    expect(api.getSession).toHaveBeenCalledTimes(2);
+    expect(component.normalizedSkills.map((skill) => skill.percentage)).toEqual(percentages);
+    expect(component.normalizedSkills.find((skill) => skill.id === 'grammar')?.status).toBe('needs-practice');
+  });
+
+  it('preserves a below-threshold skill while the overall essay needs revision', () => {
+    const oneWeakSkill = adaptiveAnalysis.map((skill) => skill.skillId === 'ORGANIZATION'
+      ? { ...skill, adaptivePercentage: 62, status: 'needs-practice' as const }
+      : { ...skill, adaptivePercentage: 75, status: 'on-track' as const });
+    api.getSession.and.returnValue(of({ state: 'idle', session: null, adaptiveSkills: oneWeakSkill }));
+    component.canonicalResultState = { ...currentCanonical, score: 75 };
+    component.submissionId = 'submission-one-weak-skill';
+    fixture.detectChanges();
+    expect(component.normalizedSkills.find((skill) => skill.id === 'coherence')).toEqual(jasmine.objectContaining({
+      percentage: 62, status: 'needs-practice'
+    }));
+    expect(component.canGenerate).toBeTrue();
+    expect(fixture.nativeElement.textContent).not.toContain('Great work');
   });
 
   it('blocks generation while canonical analysis is pending or failed', () => {

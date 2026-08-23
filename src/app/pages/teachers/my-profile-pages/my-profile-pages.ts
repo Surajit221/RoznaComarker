@@ -64,7 +64,7 @@ export class MyProfilePages {
     this.isSavingAiConfig = true;
     try {
       const payload = this.aiConfigForm.getRawValue();
-      await this.auth.updateMeProfile({
+      const updated = await this.auth.updateMeProfile({
         aiConfig: {
           strictness: payload.strictness,
           checks: {
@@ -74,7 +74,9 @@ export class MyProfilePages {
           }
         }
       });
-      this.alert.showToast('AI settings updated');
+      this.alert.showToast(updated.evaluationPropagation?.status === 'pending'
+        ? 'AI settings updated; existing evaluations will refresh when reopened'
+        : 'AI settings updated');
     } catch (err: any) {
       this.alert.showError('Failed to update AI settings', err?.error?.message || err?.message || 'Please try again');
     } finally {
@@ -274,7 +276,7 @@ export class MyProfilePages {
         })
       ).then((arr) => arr.filter(Boolean));
 
-      const reviewsCount = (feedbacks || []).filter((fb: any) => fb?.overriddenByTeacher === true).length;
+      const reviewsCount = (feedbacks || []).filter((fb: any) => Boolean(fb?.teacherReviewedAt)).length;
 
       this.totalStudentsCount = Number.isFinite(totalStudents) ? totalStudents : 0;
       this.totalReviewsCount = Number.isFinite(reviewsCount) ? reviewsCount : 0;

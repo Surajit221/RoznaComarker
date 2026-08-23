@@ -41,6 +41,16 @@ export interface AdaptiveLearningSkill {
   status: Exclude<AdaptiveSkillStatus, 'not-assessed'>;
 }
 
+export interface AdaptiveSourceEvaluation {
+  correctionSourceHash: string;
+  evaluationSourceHash: string;
+  evaluationPolicyHash: string;
+  evaluationRubricSourceHash: string;
+  assessmentVersion: string;
+  evaluationVersion: string;
+  teacherOverride: boolean;
+}
+
 export interface AdaptivePracticeQuestion {
   id: string;
   questionType?: AdaptivePracticeQuestionType;
@@ -92,6 +102,8 @@ export interface AdaptivePracticeSessionResponse {
   session: AdaptivePracticeSession | null;
   progress?: AdaptivePracticeProgress;
   adaptiveSkills?: readonly AdaptiveLearningSkill[];
+  sourceFingerprint?: string | null;
+  sourceEvaluation?: AdaptiveSourceEvaluation | null;
 }
 
 export interface AdaptivePracticeAttemptResult {

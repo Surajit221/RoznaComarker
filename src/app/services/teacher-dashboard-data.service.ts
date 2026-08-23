@@ -11,6 +11,7 @@ import type {
   TeacherDashboardNeedsAttentionItem,
   TeacherDashboardStats
 } from '../models/dashboard-submission.model';
+import { averageDashboardScore, completedFeedbackScore } from './teacher-dashboard-score.util';
 
 type TeacherDashboardData = {
   submissions: DashboardSubmission[];
@@ -136,8 +137,8 @@ export class TeacherDashboardDataService {
       if (s.status !== 'reviewed') continue;
       const studentId = s.student?.id;
       if (!studentId) continue;
-      const score = Number(s.score);
-      if (!Number.isFinite(score)) continue;
+      const score = s.score;
+      if (typeof score !== 'number' || !Number.isFinite(score)) continue;
 
       const prev = reviewedByStudent.get(studentId);
       if (prev) {
@@ -169,13 +170,10 @@ export class TeacherDashboardDataService {
     const activeClasses = classIds.length;
     const totalStudents = classSummaries.reduce((acc, s) => acc + (Number.isFinite(s?.studentsCount) ? s.studentsCount : 0), 0);
 
-    const reviewed = submissions.filter((s) => s.status === 'reviewed');
-    const avgScoreBase = reviewed.length ? reviewed.reduce((acc, s) => acc + (Number.isFinite(s.score) ? s.score : 0), 0) / reviewed.length : 0;
-
     const stats: TeacherDashboardStats = {
       pendingCount: submissions.filter((s) => s.status === 'submitted').length,
       totalStudents,
-      avgScore: Math.round(avgScoreBase * 10) / 10,
+      avgScore: averageDashboardScore(submissions),
       activeClasses
     };
 
@@ -197,21 +195,20 @@ export class TeacherDashboardDataService {
         const submissionId = s._id;
 
         let status: 'submitted' | 'reviewed' = 'submitted';
-        let score = 0;
+        let score: number | null = null;
 
         if (submissionId) {
           try {
             const fb = await this.feedbackApi.getSubmissionFeedback(submissionId);
-            const n = Number((fb as any)?.overallScore);
-            score = Number.isFinite(n) ? n : 0;
+            score = completedFeedbackScore(fb);
 
-            const reviewed = !!fb && (fb as any).overriddenByTeacher === true;
+            const reviewed = !!fb && Boolean((fb as any).teacherReviewedAt);
             if (reviewed) {
               status = 'reviewed';
             }
           } catch {
             status = 'submitted';
-            score = 0;
+            score = null;
           }
         }
 

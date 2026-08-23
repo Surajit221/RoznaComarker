@@ -26,7 +26,9 @@ export class DashboardTeacherPages {
   readonly needsAttention$ = this.dashboardState.needsAttention$;
 
   async ngOnInit() {
-    await this.dashboardState.ensureLoaded();
+    // Refresh on each dashboard entry so evaluations completed while the teacher
+    // was on another page are reflected without polling.
+    await this.dashboardState.refresh();
   }
 
   onCreateClass(): void {

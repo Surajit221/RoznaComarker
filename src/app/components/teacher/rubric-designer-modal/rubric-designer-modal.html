@@ -105,14 +105,16 @@
           <button type="button" class="btn-primary w-full sm:w-auto" (click)="addRubricCriteriaRow()">+ Add</button>
         </div>
 
-        <div class="w-full sm:flex-1 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-          <input
-            type="text"
-            class="w-full sm:flex-1 sm:min-w-[220px] border-2 border-[#E7E7E7] rounded-2xl px-4 py-3 placeholder:text-[#B8B8B8] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
+        <div class="w-full sm:flex-1 flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-2">
+          <textarea
+            rows="6"
+            wrap="soft"
+            aria-label="Rubric generation prompt"
+            class="w-full min-h-[160px] sm:flex-1 sm:min-w-[220px] resize-y overflow-x-hidden border-2 border-[#E7E7E7] rounded-2xl px-4 py-3 placeholder:text-[#B8B8B8] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
             [formControl]="rubricPromptControl"
             placeholder="Describe the rubric you want to generate..."
             [disabled]="isGenerating"
-          />
+          ></textarea>
 
           <button
             type="button"
