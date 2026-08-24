@@ -5356,10 +5356,8 @@ export class StudentSubmissionPages {
 
   private async refreshRetriedAnalysis(submissionId: string): Promise<ResultRefreshSnapshot> {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
-    await this.loadOcrCorrections(submissionId);
-    await this.loadCompleteTranscript(submissionId);
-    await this.refreshWritingCorrections();
-    const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId);
+    const feedback = await this.measureSubmissionRequest('evaluation polling', submissionId,
+      () => this.feedbackApi.getSubmissionFeedback(submissionId));
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
     const state = this.canonicalResultState;
@@ -5375,26 +5373,16 @@ export class StudentSubmissionPages {
       this.hydrateRubricEditFormFromFeedback();
       this.hydrateRubricDesignerFromFeedback();
       this.recomputeRubricFeedbackItems();
-      await this.refreshCompletedEvaluationState(submissionId);
+      this.refreshCompletedEvaluationState(submissionId);
     }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
   }
 
-  private async refreshCompletedEvaluationState(submissionId: string): Promise<void> {
+  private refreshCompletedEvaluationState(submissionId: string): void {
     const assignmentId = this.assignmentId;
     if (!assignmentId || this.currentSubmission?._id !== submissionId) return;
-    try {
-      const submissions = await this.submissionApi.getSubmissionsByAssignment(assignmentId);
-      if (this.currentSubmission?._id !== submissionId || this.assignmentId !== assignmentId) return;
-      this.submissions = submissions || [];
-      const refreshedSubmission = this.submissions.find((item) => item._id === submissionId);
-      if (refreshedSubmission) this.currentSubmission = refreshedSubmission;
-    } catch {
-      // The completed feedback remains authoritative if the list refresh is transiently unavailable.
-    } finally {
-      if (this.currentSubmission?._id === submissionId && this.assignmentId === assignmentId) {
-        this.teacherDashboardState.invalidateEvaluationFreshness(assignmentId);
-      }
+    if (this.currentSubmission?._id === submissionId && this.assignmentId === assignmentId) {
+      this.teacherDashboardState.invalidateEvaluationFreshness(assignmentId);
     }
   }
 
@@ -6035,6 +6023,14 @@ export class StudentSubmissionPages {
     this.feedbackForm.patchValue({ message: '' });
     this.feedbackForm.disable({ emitEvent: false });
     this.recomputeRubricFeedbackItems();
+    // Start the authoritative persisted result before unrelated page resources.
+    const feedbackPromise = submission?._id ? this.loadFeedback(seq) : Promise.resolve(false);
+    void feedbackPromise.then((loaded) => {
+      if (loaded && submission?._id && seq === this.applyCurrentSubmissionSeq
+        && this.currentSubmission?._id === submission._id) {
+        void this.markCurrentSubmissionReviewed(submission._id, seq);
+      }
+    });
     await this.loadAssignmentRubricPresence(submission);
     if (seq !== this.applyCurrentSubmissionSeq || this.currentSubmission?._id !== submission?._id) return;
 
@@ -6140,30 +6136,12 @@ export class StudentSubmissionPages {
 
 
 
-    this.currentFeedback = null;
-
-
-
-    this.feedbackForm.patchValue({ message: '' });
-    this.feedbackForm.disable({ emitEvent: false });
-
-
-
-
-
-    this.recomputeRubricFeedbackItems();
-
-
-
-
-
-
-
     if (this.currentSubmission?._id && this.isProbablyPdfUrl(url)) {
       const previewUrl = this.buildSubmissionPreviewUrl(this.currentSubmission._id);
       this.pdfMediaState = 'fetching';
       try {
-        const objectUrl = await this.fetchAsObjectUrl(previewUrl);
+        const objectUrl = await this.measureSubmissionRequest('media preview', this.currentSubmission._id,
+          () => this.fetchAsObjectUrl(previewUrl));
         if (seq !== this.applyCurrentSubmissionSeq) {
           this.tryRevokeObjectUrl(objectUrl);
           return;
@@ -6177,7 +6155,8 @@ export class StudentSubmissionPages {
         this.pdfMediaState = 'error';
       }
     } else if (this.isProbablyImageUrl(url) && url) {
-      await this.loadUploadedImage(url, seq);
+      await this.measureSubmissionRequest('media preview', this.currentSubmission?._id || 'unknown',
+        () => this.loadUploadedImage(url, seq));
       if (seq !== this.applyCurrentSubmissionSeq) return;
     }
 
@@ -6189,11 +6168,14 @@ export class StudentSubmissionPages {
 
     if (this.currentSubmission?._id) {
 
-      await this.loadOcrCorrections(this.currentSubmission._id);
+      await this.measureSubmissionRequest('OCR corrections', this.currentSubmission._id,
+        () => this.loadOcrCorrections(this.currentSubmission!._id));
       if (seq !== this.applyCurrentSubmissionSeq) return;
-      await this.loadCompleteTranscript(this.currentSubmission._id);
+      await this.measureSubmissionRequest('transcript', this.currentSubmission._id,
+        () => this.loadCompleteTranscript(this.currentSubmission!._id));
       if (seq !== this.applyCurrentSubmissionSeq) return;
-      await this.refreshWritingCorrections();
+      await this.measureSubmissionRequest('writing corrections', this.currentSubmission._id,
+        () => this.refreshWritingCorrections());
       if (seq !== this.applyCurrentSubmissionSeq) return;
 
       const selected: any = this.currentSubmission;
@@ -6214,7 +6196,7 @@ export class StudentSubmissionPages {
 
 
 
-    const feedbackLoaded = await this.loadFeedback(seq);
+    const feedbackLoaded = await feedbackPromise;
     if (seq !== this.applyCurrentSubmissionSeq) return;
     const canonical = this.canonicalResultState as CanonicalResultViewState | null;
 
@@ -6238,17 +6220,6 @@ export class StudentSubmissionPages {
     this.scoreState = !feedbackLoaded
       || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
         && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
-
-    if (feedbackLoaded && this.currentSubmission?._id) {
-      await this.markCurrentSubmissionReviewed(this.currentSubmission._id, seq);
-      if (seq !== this.applyCurrentSubmissionSeq) return;
-    }
-
-
-
-
-
-
 
     if (updateUrl && this.studentId) {
 
@@ -6296,9 +6267,25 @@ export class StudentSubmissionPages {
 
   }
 
+  private async measureSubmissionRequest<T>(label: string, submissionId: string,
+    operation: () => Promise<T>): Promise<T> {
+    if (environment.production) return operation();
+    const startedAt = performance.now();
+    try {
+      return await operation();
+    } finally {
+      console.debug('[STUDENT SUBMISSION TIMING]', {
+        request: label,
+        submissionId,
+        durationMs: Math.round((performance.now() - startedAt) * 10) / 10
+      });
+    }
+  }
+
   private async markCurrentSubmissionReviewed(submissionId: string, expectedSeq: number): Promise<void> {
     try {
-      const review = await this.feedbackApi.markSubmissionReviewed(submissionId);
+      const review = await this.measureSubmissionRequest('review marker', submissionId,
+        () => this.feedbackApi.markSubmissionReviewed(submissionId));
       if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return;
       if (review?.teacherReviewedAt) {
         if (this.currentFeedback) {
@@ -6508,7 +6495,8 @@ export class StudentSubmissionPages {
 
 
 
-      const fb = await this.feedbackApi.getSubmissionFeedback(submissionId);
+      const fb = await this.measureSubmissionRequest('initial feedback', submissionId,
+        () => this.feedbackApi.getSubmissionFeedback(submissionId));
 
       if (expectedSeq !== this.applyCurrentSubmissionSeq || submissionId !== this.currentSubmission?._id) return false;
 
@@ -6516,10 +6504,11 @@ export class StudentSubmissionPages {
 
       this.canonicalResultState = normalizeCanonicalResult(fb, null);
       this.feedbackForm.patchValue({ message: fb?.teacherComments ?? '' });
-      const evaluationPending = this.canonicalResultState.evaluationStatus !== 'completed';
-      if (evaluationPending) {
+      const evaluationActive = shouldPollCanonicalResult(this.canonicalResultState);
+      if (this.canonicalResultState.evaluationStatus !== 'completed') {
         this.currentFeedback = fb as SubmissionFeedback;
-        if (shouldPollCanonicalResult(this.canonicalResultState)) {
+        this.applyFeedbackSectionStates(true);
+        if (evaluationActive) {
           this.resultCoordinator.start(submissionId, (id) => this.refreshRetriedAnalysis(id));
         }
         return true;
@@ -6582,6 +6571,7 @@ export class StudentSubmissionPages {
 
 
       this.recomputeRubricFeedbackItems();
+      this.applyFeedbackSectionStates(true);
 
       return true;
 
@@ -6631,6 +6621,21 @@ export class StudentSubmissionPages {
 
 
 
+  }
+
+  private applyFeedbackSectionStates(feedbackLoaded: boolean): void {
+    const canonical = this.canonicalResultState;
+    this.feedbackState = !feedbackLoaded ? 'error'
+      : canonical?.detailedFeedbackStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(canonical?.detailedFeedbackStatus || '') ? 'error' : 'processing';
+    this.teacherCommentState = feedbackLoaded ? 'loaded' : 'error';
+    this.aiFeedbackState = !feedbackLoaded ? 'error'
+      : canonical?.evaluationStatus === 'completed' ? 'loaded'
+        : ['failed', 'blocked'].includes(canonical?.evaluationStatus || '') ? 'error' : 'processing';
+    this.scoreState = !feedbackLoaded
+      || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
+        && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
+    if (feedbackLoaded) this.feedbackForm.enable({ emitEvent: false });
   }
 
 
