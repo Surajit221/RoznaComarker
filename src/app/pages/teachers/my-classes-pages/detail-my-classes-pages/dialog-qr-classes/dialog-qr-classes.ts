@@ -13,6 +13,7 @@ export class DialogQrClasses {
   @Input() qrValue: string = '';
   @Input() classTitle: string = '';
   @Input() instructionText: string = '';
+  @Input() showShareLink = false;
   @Output() closed = new EventEmitter<void>();
   device = inject(DeviceService);
   private alert = inject(AlertService);
@@ -21,6 +22,16 @@ export class DialogQrClasses {
 
   closeDialog() {
     this.closed.emit();
+  }
+
+  async copyShareLink(): Promise<void> {
+    if (!this.qrValue) return;
+    try {
+      await navigator.clipboard.writeText(this.qrValue);
+      this.alert.showSuccess('Link Copied', 'The assignment link has been copied.');
+    } catch {
+      this.alert.showError('Copy Failed', 'Unable to copy the assignment link. Please copy it manually.');
+    }
   }
 
   downloadQRCode() {

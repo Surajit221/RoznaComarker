@@ -20,4 +20,16 @@ describe('DialogQrClasses', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('shows and copies an assignment link when enabled', async () => {
+    component.qrValue = 'https://example.test/student/assignments/qr/token-1';
+    component.showShareLink = true;
+    const writeText = jasmine.createSpy('writeText').and.resolveTo();
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#assignment-share-link').value).toBe(component.qrValue);
+    await component.copyShareLink();
+    expect(writeText).toHaveBeenCalledOnceWith(component.qrValue);
+  });
 });
