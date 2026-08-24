@@ -70,7 +70,7 @@ describe('MySubmissionPage', () => {
     const shared = (component as any).getOcrPayload('submission-1', 'tab');
     const request = http.expectOne((candidate) => candidate.url.endsWith('/submissions/submission-1/ocr-corrections'));
     expect(request.request.urlWithParams).not.toContain('fileId=');
-    request.flush({ success: true, data: { ocr: [], corrections: [] } });
+    request.flush({ success: true, data: { processing: false, ocrStatus: 'completed', ocr: [], corrections: [] } });
     await Promise.all([first, shared]);
     await (component as any).getOcrPayload('submission-1', 'tab');
     http.expectNone((candidate) => candidate.url.includes('/ocr-corrections'));
@@ -78,8 +78,76 @@ describe('MySubmissionPage', () => {
     (component.submission as any).correctionSourceHash = 'source-2';
     const changed = (component as any).getOcrPayload('submission-1', 'initial');
     http.expectOne((candidate) => candidate.url.endsWith('/submissions/submission-1/ocr-corrections'))
-      .flush({ success: true, data: { ocr: [], corrections: [] } });
+      .flush({ success: true, data: { processing: false, ocrStatus: 'completed', ocr: [], corrections: [] } });
     await changed;
+  });
+
+  it('does not permanently cache a processing OCR response and applies the later completed state', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.submission = { _id: 'submission-1', ocrStatus: 'processing' } as any;
+    const first = (component as any).getOcrPayload('submission-1', 'initial');
+    http.expectOne((request) => request.url.includes('/ocr-corrections')).flush({
+      success: true, data: { processing: true, ocrStatus: 'processing', ocr: [], corrections: [] }
+    });
+    await first;
+
+    const second = (component as any).getOcrPayload('submission-1', 'completion');
+    http.expectOne((request) => request.url.includes('/ocr-corrections')).flush({
+      success: true, data: { processing: false, ocrStatus: 'completed', correctionSourceHash: 'source-2',
+        ocr: [{ fileId: 'file-1', pageNumber: 1, text: 'Completed transcript', words: [] }], corrections: [] }
+    });
+    const completed = await second;
+    (component as any).applyOcrPayloadState('submission-1', completed.data);
+    expect(component.ocrStatus).toBe('completed');
+    expect(component.isOcrPending).toBeFalse();
+  });
+
+  it('reconciles completed multi-page OCR state and renders both transcript pages ready', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.submission = { _id: 'submission-1', ocrStatus: 'processing', correctionStatus: 'processing' } as any;
+    component.submissionFileIds = ['file-1', 'file-2'];
+    spyOn<any>(component, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
+    const corrections = (component as any).loadOcrCorrections('submission-1');
+    const transcript = (component as any).loadCompleteTranscript('submission-1');
+    const request = http.expectOne((candidate) => candidate.url.includes('/ocr-corrections'));
+    request.flush({ success: true, data: { processing: false, ocrStatus: 'completed', correctionStatus: 'completed',
+      semanticStatus: 'completed', correctionSourceHash: 'source-complete',
+      statistics: { content: 6, grammar: 37, organization: 2, vocabulary: 5, mechanics: 4, total: 54 },
+      corrections: [], ocr: [
+        { fileId: 'file-1', pageNumber: 1, text: 'Submitted Page 1', words: [] },
+        { fileId: 'file-2', pageNumber: 1, text: 'Submitted Page 2', words: [] }
+      ] } });
+    await Promise.all([corrections, transcript]);
+
+    expect(component.ocrStatus).toBe('completed');
+    expect(component.isOcrPending).toBeFalse();
+    expect(component.submission?.correctionStatus).toBe('completed');
+    expect(component.transcriptPageViews.map((page) => page.status)).toEqual(['ready', 'ready']);
+    expect(component.transcriptPageViews.map((page) => page.text)).toEqual(['Submitted Page 1', 'Submitted Page 2']);
+    expect((component.submission as any).correctionSourceHash).toBe('source-complete');
+    expect(component.submission?.correctionStatistics?.grammar).toBe(37);
+    component.transcriptState = 'loaded';
+    component.onTabSelected('transcribed-text');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Submitted Page 1');
+    expect(fixture.nativeElement.textContent).toContain('Submitted Page 2');
+    expect(fixture.nativeElement.textContent).not.toContain('OCR is processing your file...');
+    expect(fixture.nativeElement.textContent).not.toContain("Preparing this page's transcript...");
+  });
+
+  it('does not let an old OCR response mutate a newly selected submission', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.submission = { _id: 'old-submission', ocrStatus: 'processing' } as any;
+    component.submissionFileIds = ['old-file'];
+    const loading = (component as any).loadCompleteTranscript('old-submission');
+    const request = http.expectOne((candidate) => candidate.url.includes('/old-submission/ocr-corrections'));
+    component.submission = { _id: 'new-submission', ocrStatus: 'processing' } as any;
+    request.flush({ success: true, data: { processing: false, ocrStatus: 'completed',
+      ocr: [{ fileId: 'old-file', pageNumber: 1, text: 'Old transcript', words: [] }], corrections: [] } });
+    await loading;
+    expect(component.submission!._id).toBe('new-submission');
+    expect(component.submission!.ocrStatus).toBe('processing');
+    expect(component.transcriptPageViews).toEqual([]);
   });
 
   it('canonical polling requests feedback only and never refreshes submission or OCR resources', async () => {
@@ -100,6 +168,29 @@ describe('MySubmissionPage', () => {
     expect(ocr).not.toHaveBeenCalled();
     expect(transcript).not.toHaveBeenCalled();
     expect(writing).not.toHaveBeenCalled();
+  });
+
+  it('performs only one OCR reconciliation when completed feedback overtakes stale local OCR state', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.submission = { _id: 'submission-1', ocrStatus: 'processing' } as any;
+    component.submissionFileIds = ['file-1'];
+    spyOn<any>(component, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
+      submissionId: 'submission-1', overallScore: 67, evaluationStatus: 'completed', correctionStatus: 'completed',
+      detailedFeedbackStatus: 'completed', processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    const completed = (component as any).refreshCanonicalResult('submission-1', 1);
+    http.expectOne((candidate) => candidate.url.includes('/ocr-corrections')).flush({ success: true, data: {
+      processing: false, ocrStatus: 'completed', correctionStatus: 'completed', correctionSourceHash: 'source-final',
+      statistics: { content: 6, grammar: 37, organization: 2, vocabulary: 5, mechanics: 4, total: 54 },
+      corrections: [], ocr: [{ fileId: 'file-1', pageNumber: 1, text: 'Final transcript', words: [] }]
+    } });
+    await completed;
+    await (component as any).refreshCanonicalResult('submission-1', 2);
+    http.expectNone((candidate) => candidate.url.includes('/ocr-corrections'));
+    expect(component.feedback?.overallScore).toBe(67);
+    expect(component.ocrStatus).toBe('completed');
+    expect(component.transcriptPageViews[0].status).toBe('ready');
   });
 
   it('does not start polling when reopening a completed unchanged submission', () => {
