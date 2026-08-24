@@ -192,6 +192,21 @@ describe('StudentSubmissionPages', () => {
     expect(writing).not.toHaveBeenCalled();
   });
 
+  it('shares one initial OCR corrections request across correction and transcript consumers', async () => {
+    component.currentSubmission = { _id: 'submission-1', correctionSourceHash: 'source-1' } as any;
+    const first = (component as any).getOcrCorrectionsPayload('submission-1');
+    const second = (component as any).getOcrCorrectionsPayload('submission-1');
+    const http = TestBed.inject(HttpTestingController);
+    const requests = http.match((request) => request.url.includes('/submissions/submission-1/ocr-corrections'));
+    expect(requests.length).toBe(1);
+    expect(requests[0].request.urlWithParams).not.toContain('fileId=');
+    requests[0].flush({ success: true, data: { ocr: [], corrections: [] } });
+    await Promise.all([first, second]);
+
+    await (component as any).getOcrCorrectionsPayload('submission-1');
+    expect(http.match((request) => request.url.includes('/ocr-corrections')).length).toBe(0);
+  });
+
   it('starts polling only for an active lifecycle, not failed, blocked, or stale results', async () => {
     component.currentSubmission = { _id: 'submission-1' } as any;
     (component as any).applyCurrentSubmissionSeq = 4;

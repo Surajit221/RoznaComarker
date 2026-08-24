@@ -18,7 +18,7 @@ describe('CanonicalSubmissionResultCoordinator', () => {
     expect(shouldRevalidateCanonicalResult(state.canonical)).toBeTrue();
   });
 
-  it('detects an external retry and replaces failed state with completed state', fakeAsync(() => {
+  it('stops immediately on a terminal failure and requires an explicit retry to restart', fakeAsync(() => {
     const service = new CanonicalSubmissionResultCoordinator();
     const states = [
       snapshot({ correctionStatus: 'partial', semanticStatus: 'failed', processingActive: false,
@@ -38,10 +38,7 @@ describe('CanonicalSubmissionResultCoordinator', () => {
     tick(0); flushMicrotasks();
     expect(calls).toBe(1);
     tick(30000); flushMicrotasks();
-    expect(calls).toBe(2);
-    tick(2000); flushMicrotasks();
-    expect(calls).toBe(3);
-    expect(applied.canonical.score).toBe(88);
+    expect(calls).toBe(1);
     expect(service.pollingState$.value.running).toBeFalse();
   }));
 
@@ -171,14 +168,14 @@ describe('CanonicalSubmissionResultCoordinator', () => {
     expect(service.pollingState$.value.running).toBeFalse();
   }));
 
-  it('slowly revalidates a retryable terminal failure and reports active polling deadlines', fakeAsync(() => {
+  it('stops terminal failures and reports active polling deadlines', fakeAsync(() => {
     const failedService = new CanonicalSubmissionResultCoordinator();
     failedService.start('submission-1', async () => snapshot({ correctionStatus: 'failed',
       semanticStatus: 'failed', evaluationStatus: 'blocked', detailedFeedbackStatus: 'blocked',
       processingActive: false, automaticPollingAllowed: false, manualRetryAllowed: true, terminal: true }));
     tick(0);
     flushMicrotasks();
-    expect(failedService.pollingState$.value.running).toBeTrue();
+    expect(failedService.pollingState$.value.running).toBeFalse();
     expect(failedService.pollingState$.value.timedOut).toBeFalse();
     failedService.stop();
 
