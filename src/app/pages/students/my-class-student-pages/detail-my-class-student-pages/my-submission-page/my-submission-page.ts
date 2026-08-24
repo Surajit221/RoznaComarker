@@ -411,7 +411,6 @@ export class MySubmissionPage {
   }
 
   isOcrPolling = false;
-  get isOcrRefreshing(): boolean { return this.isOcrPolling && this.isOcrPending; }
   ocrErrorMessage: string | null = null;
   private destroyed = false;
   private refreshParamSub: Subscription | null = null;
@@ -423,6 +422,7 @@ export class MySubmissionPage {
   private ocrPayloadInFlight = new Map<string, Promise<any>>();
   private loadTranscriptPagesSeq = 0;
   private transcriptPagesSignature: string | null = null;
+  private ocrCompletionReconciliationSubmissionId: string | null = null;
   private canonicalDraftIdentity: string | null = null;
   private assetRevisionToken: string | null = null;
   private setUploadedFileUrlSeq = 0;
@@ -1190,7 +1190,8 @@ export class MySubmissionPage {
       const success = Boolean(resp && (resp as any).success);
       const data = resp && typeof resp === 'object' ? (resp as any).data : null;
 
-      if (seq !== this.loadOcrCorrectionsSeq) return;
+      if (seq !== this.loadOcrCorrectionsSeq || this.submission?._id !== submissionId) return;
+      this.applyOcrPayloadState(submissionId, data);
 
       if (data?.processing === true) {
         this.correctionsState = 'processing';
@@ -1291,7 +1292,7 @@ export class MySubmissionPage {
     }
   }
 
-  private getOcrPayload(submissionId: string, reason: 'initial' | 'tab' | 'route' | 'manual'): Promise<any> {
+  private getOcrPayload(submissionId: string, reason: 'initial' | 'tab' | 'route' | 'completion' | 'manual'): Promise<any> {
     const sourceHash = String((this.submission as any)?.correctionSourceHash || 'unversioned');
     const key = `${submissionId}:${sourceHash}`;
     const cached = this.ocrPayloadCache.get(key);
@@ -1308,7 +1309,13 @@ export class MySubmissionPage {
     const request = firstValueFrom(this.http.get<any>(
       `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
     )).then((response) => {
-      this.ocrPayloadCache.set(key, response);
+      const data = response?.data;
+      const status = String(data?.ocrStatus || '').toLowerCase();
+      if (data?.processing !== true && ['completed', 'failed'].includes(status)) {
+        const responseSourceHash = typeof data?.correctionSourceHash === 'string' && data.correctionSourceHash.trim()
+          ? data.correctionSourceHash.trim() : sourceHash;
+        this.ocrPayloadCache.set(`${submissionId}:${responseSourceHash}`, response);
+      }
       return response;
     }).finally(() => {
       this.ocrPayloadInFlight.delete(key);
@@ -1316,6 +1323,46 @@ export class MySubmissionPage {
     });
     this.ocrPayloadInFlight.set(key, request);
     return request;
+  }
+
+  private applyOcrPayloadState(submissionId: string, data: any): void {
+    if (!this.submission || this.submission._id !== submissionId || !data || typeof data !== 'object') return;
+    const submission = this.submission as any;
+    const ocrStatus = String(data.ocrStatus || '').toLowerCase();
+    const correctionStatus = String(data.correctionStatus || '').toLowerCase();
+    const semanticStatus = String(data.semanticStatus || '').toLowerCase();
+    if (['pending', 'processing', 'completed', 'failed'].includes(ocrStatus)) submission.ocrStatus = ocrStatus;
+    if (['pending', 'processing', 'completed', 'partial', 'failed', 'stale'].includes(correctionStatus)) {
+      submission.correctionStatus = correctionStatus;
+    }
+    if (['pending', 'processing', 'retry_wait', 'completed', 'failed'].includes(semanticStatus)) {
+      submission.semanticStatus = semanticStatus;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'correctionSourceHash')
+      && (data.correctionSourceHash === null || typeof data.correctionSourceHash === 'string')) {
+      submission.correctionSourceHash = data.correctionSourceHash;
+    }
+    const statistics = data.statistics;
+    if (statistics && ['content', 'grammar', 'organization', 'vocabulary', 'mechanics', 'total']
+      .every((key) => Number.isFinite(Number(statistics[key])))) {
+      submission.correctionStatistics = { ...statistics };
+    }
+    if (Array.isArray(data.ocr) && (data.ocr.length > 0 || data.processing === false)) {
+      submission.ocrPages = data.ocr.map((page: any) => ({ ...page,
+        fileId: page?.fileId == null ? undefined : String(page.fileId),
+        pageNumber: Number.isFinite(Number(page?.pageNumber ?? page?.page))
+          ? Number(page.pageNumber ?? page.page) : 1,
+        words: Array.isArray(page?.words) ? page.words : [],
+        status: String(page?.status || page?.ocrStatus || '').toLowerCase()
+          || (ocrStatus === 'completed' ? 'completed' : ocrStatus === 'failed' ? 'failed' : 'processing') }));
+      this.rebuildOcrWords();
+    }
+    if (ocrStatus === 'completed' && data.processing !== true) {
+      this.hasLoadedOcrCorrections = true;
+      this.ocrErrorMessage = null;
+    } else if (data.processing === true || ['pending', 'processing'].includes(ocrStatus)) {
+      this.hasLoadedOcrCorrections = false;
+    }
   }
 
   private logRequestLifecycle(type: 'feedback' | 'ocr' | 'transcript' | 'media' | 'assignment-refresh',
@@ -1353,11 +1400,9 @@ export class MySubmissionPage {
 
   private async loadCompleteTranscript(submissionId: string): Promise<void> {
     const storedPages = Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : [];
-    const signature = JSON.stringify({ submissionId, ocrStatus: this.submission?.ocrStatus,
-      correctionSourceHash: (this.submission as any)?.correctionSourceHash || null,
-      pages: storedPages.map((page: any) => [String(page?.fileId || ''), Number(page?.pageNumber || 1),
-        String(page?.status || page?.ocrStatus || ''), Array.isArray(page?.words) ? page.words.length : 0]) });
-    if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
+    const currentSignature = this.buildTranscriptPagesSignature(submissionId, storedPages, this.submission?.ocrStatus);
+    if (['completed', 'failed'].includes(String(this.submission?.ocrStatus || ''))
+      && currentSignature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
     const seq = ++this.loadTranscriptPagesSeq;
     try {
       const startedAt = performance.now();
@@ -1365,13 +1410,17 @@ export class MySubmissionPage {
       this.logRequestLifecycle('transcript', submissionId, 'initial', performance.now() - startedAt, true, false);
       if (seq !== this.loadTranscriptPagesSeq || this.submission?._id !== submissionId) return;
       const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};
-      const pages = Array.isArray(data.ocr) && data.ocr.length ? data.ocr : (Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : []);
+      this.applyOcrPayloadState(submissionId, data);
+      const pages = Array.isArray(this.submission?.ocrPages) ? this.submission.ocrPages : [];
       const corrections = Array.isArray(data.corrections) ? data.corrections : [];
+      const responseOcrStatus = String(data.ocrStatus || '').toLowerCase();
+      const effectiveOcrStatus = ['pending', 'processing', 'completed', 'failed'].includes(responseOcrStatus)
+        ? responseOcrStatus : this.submission?.ocrStatus;
       const legend = this.getAcademicLegendForColors();
       this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds], ocrPages: pages,
-        corrections, overallOcrStatus: this.submission?.ocrStatus }).map((page) => ({ ...page,
+        corrections, overallOcrStatus: effectiveOcrStatus }).map((page) => ({ ...page,
         annotations: applyLegendToAnnotations(page.annotations, legend) }));
-      this.transcriptPagesSignature = signature;
+      this.transcriptPagesSignature = this.buildTranscriptPagesSignature(submissionId, pages, effectiveOcrStatus);
     } catch {
       if (seq !== this.loadTranscriptPagesSeq || this.submission?._id !== submissionId) return;
       this.transcriptPageViews = buildTranscriptPageViews({ submissionId, fileIds: [...this.submissionFileIds],
@@ -1507,6 +1556,7 @@ export class MySubmissionPage {
       this.writingCorrectionsHtml = null;
       this.transcriptPageViews = [];
       this.transcriptPagesSignature = null;
+      this.ocrCompletionReconciliationSubmissionId = null;
       this.hasLoadedOcrCorrections = false;
       this.assetRevisionToken = submission?.ocrJobId || submission?.submittedAt || String(Date.now());
       this.recomputeLegendAligned();
@@ -1713,6 +1763,7 @@ export class MySubmissionPage {
     this.ocrWords = [];
     this.transcriptPageViews = [];
     this.transcriptPagesSignature = null;
+    this.ocrCompletionReconciliationSubmissionId = null;
     this.submissionFileUrls = [];
     this.submissionFileIds = [];
     this.activeFileIndex = 0;
@@ -1847,6 +1898,15 @@ export class MySubmissionPage {
     }
   }
 
+  private buildTranscriptPagesSignature(submissionId: string, pages: any[], ocrStatus?: string | null): string {
+    return JSON.stringify({ submissionId, ocrStatus: ocrStatus || this.submission?.ocrStatus || null,
+      correctionSourceHash: (this.submission as any)?.correctionSourceHash || null,
+      pages: (Array.isArray(pages) ? pages : []).map((page: any) => [String(page?.fileId || ''),
+        Number(page?.pageNumber ?? page?.page ?? 1), String(page?.status || page?.ocrStatus || ''),
+        Array.isArray(page?.words) ? page.words.length : 0,
+        typeof page?.text === 'string' ? page.text.length : 0]) });
+  }
+
   private syncOcrPolling() {
     if (!this.submission) {
       this.stopOcrPolling();
@@ -1898,6 +1958,12 @@ export class MySubmissionPage {
     this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
+    if (canonical.evaluationStatus === 'completed' && this.isOcrPending && !this.hasLoadedOcrCorrections
+      && this.ocrCompletionReconciliationSubmissionId !== submissionId) {
+      this.ocrCompletionReconciliationSubmissionId = submissionId;
+      await Promise.allSettled([this.loadOcrCorrections(submissionId), this.loadCompleteTranscript(submissionId)]);
+      if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
+    }
     if (canonical.terminal === true || canonical.processingActive !== true || canonical.automaticPollingAllowed !== true) {
       this.isOcrPolling = false;
     }

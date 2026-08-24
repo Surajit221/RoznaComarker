@@ -70,7 +70,8 @@ export function buildTranscriptPageViews(options: { submissionId: string; fileId
     }).filter((item): item is FeedbackAnnotation => Boolean(item));
     const explicitStatus = String(page?.status || page?.ocrStatus || '').toLowerCase();
     const status: TranscriptPageView['status'] = explicitStatus === 'failed' ? 'failed'
-      : words.length || String(page?.text || '').trim() ? 'ready' : explicitStatus === 'completed' ? 'ready' : 'processing';
+      : words.length || String(page?.text || '').trim() ? 'ready' : explicitStatus === 'completed' ? 'ready'
+        : options.overallOcrStatus === 'failed' ? 'failed' : 'processing';
     return { key: `${fileId}:${number}`, displayNumber: index + 1, fileId, pageNumber: number, words, annotations,
       text: typeof page?.text === 'string' ? page.text : '', status };
   });

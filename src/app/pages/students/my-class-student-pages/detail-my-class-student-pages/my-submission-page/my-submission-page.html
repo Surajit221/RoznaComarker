@@ -210,7 +210,7 @@
 
                 <article class="text-gray-700 leading-relaxed text-lg space-y-6">
                   <section class="p-4 rounded-lg bg-white border border-gray-200">
-                    @if (isOcrPending || isOcrRefreshing) {
+                    @if (isOcrPending) {
                     <p class="text-sm text-gray-600 font-medium">OCR is processing your file...</p>
                     <p class="text-xs text-gray-500 mt-1">This may take a moment. Please wait.</p>
                     }
@@ -464,7 +464,7 @@
                   <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">Technology</span>
                 </div>
               </div>
-              @if (isOcrPending || isOcrRefreshing) {
+              @if (isOcrPending) {
               <p class="text-sm text-gray-600 font-medium">OCR is processing your file...</p>
               }
               @if (ocrErrorMessage) {

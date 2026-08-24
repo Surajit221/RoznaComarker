@@ -34,6 +34,20 @@ describe('complete transcript page views', () => {
     expect(failed.map((item) => item.status)).toEqual(['ready', 'failed']);
   });
 
+  it('classifies completed words or text as ready and empty processing/failed pages correctly', () => {
+    const views = buildTranscriptPageViews({ submissionId: 's', fileIds: ['words', 'text', 'pending', 'failed'],
+      overallOcrStatus: 'completed', corrections: [], ocrPages: [
+        { fileId: 'words', pageNumber: 1, words: [{ id: 'w1', text: 'Word', bbox: null }] },
+        { fileId: 'text', pageNumber: 1, text: 'Transcript text', words: [] },
+        { fileId: 'pending', pageNumber: 1, status: 'processing', words: [] },
+        { fileId: 'failed', pageNumber: 1, status: 'failed', words: [] }
+      ] });
+    expect(views.map((view) => view.status)).toEqual(['ready', 'ready', 'processing', 'failed']);
+    const failed = buildTranscriptPageViews({ submissionId: 's', fileIds: ['failed'], overallOcrStatus: 'failed',
+      corrections: [], ocrPages: [{ fileId: 'failed', pageNumber: 1, words: [] }] });
+    expect(failed[0].status).toBe('failed');
+  });
+
   it('returns cached-ready objects only when explicitly rebuilt by the caller', () => {
     const input = { submissionId: 's', fileIds: ['f1'], ocrPages: [page('f1', 'Only')], corrections: [] };
     const cached = buildTranscriptPageViews(input);
