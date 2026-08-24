@@ -7,6 +7,18 @@
   @if (instructionText) {
     <p class="text-sm text-gray-600 text-center -mt-5">{{ instructionText }}</p>
   }
+  @if (showShareLink) {
+    <div class="w-full -mt-4">
+      <label class="text-sm font-semibold block mb-2" for="assignment-share-link">Assignment Link</label>
+      <div class="flex gap-2">
+        <input id="assignment-share-link" class="min-w-0 flex-1 border rounded-lg px-3 py-2"
+          [value]="qrValue" readonly />
+        <button type="button" class="btn-info-sm" (click)="copyShareLink()" aria-label="Copy assignment link">
+          Copy
+        </button>
+      </div>
+    </div>
+  }
   @if(device.isDesktop()){
   <div class="flex flex-row gap-3">
     <button type="button" class="btn-danger" (click)="closeDialog()">Close</button>
