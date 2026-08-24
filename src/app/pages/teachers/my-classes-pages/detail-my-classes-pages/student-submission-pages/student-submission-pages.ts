@@ -1941,6 +1941,8 @@ export class StudentSubmissionPages {
   private loadOcrCorrectionsSeq = 0;
   private loadTranscriptPagesSeq = 0;
   private transcriptPagesSignature: string | null = null;
+  private ocrCorrectionsPayloadCache = new Map<string, any>();
+  private ocrCorrectionsPayloadInFlight = new Map<string, Promise<any>>();
 
 
 
@@ -2818,19 +2820,7 @@ export class StudentSubmissionPages {
 
     try {
 
-      const apiBaseUrl = environment.apiUrl;
-
-      const resp = await firstValueFrom(
-
-
-
-        this.http.get<any>(
-          `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections${this.activeFileId ? `?fileId=${encodeURIComponent(this.activeFileId)}` : ''}`
-        )
-
-
-
-      );
+      const resp = await this.getOcrCorrectionsPayload(submissionId);
 
 
 
@@ -3095,6 +3085,24 @@ export class StudentSubmissionPages {
 
 
 
+
+  private getOcrCorrectionsPayload(submissionId: string): Promise<any> {
+    const sourceHash = String((this.currentSubmission as any)?.correctionSourceHash || 'unversioned');
+    const key = `${submissionId}:${sourceHash}`;
+    if (this.ocrCorrectionsPayloadCache.has(key)) {
+      return Promise.resolve(this.ocrCorrectionsPayloadCache.get(key));
+    }
+    const existing = this.ocrCorrectionsPayloadInFlight.get(key);
+    if (existing) return existing;
+    const request = firstValueFrom(this.http.get<any>(
+      `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
+    )).then((response) => {
+      this.ocrCorrectionsPayloadCache.set(key, response);
+      return response;
+    }).finally(() => this.ocrCorrectionsPayloadInFlight.delete(key));
+    this.ocrCorrectionsPayloadInFlight.set(key, request);
+    return request;
+  }
 
   get studentName(): string {
 
@@ -3424,6 +3432,8 @@ export class StudentSubmissionPages {
 
 
     const text = this.extractedText || '';
+
+    if (text === this.lastWritingCorrectionsText || this.isWritingCorrectionsLoading) return;
 
 
 
@@ -5332,10 +5342,7 @@ export class StudentSubmissionPages {
     if (signature === this.transcriptPagesSignature && this.transcriptPageViews.length) return;
     const seq = ++this.loadTranscriptPagesSeq;
     try {
-      const apiBaseUrl = environment.apiUrl;
-      const resp = await firstValueFrom(this.http.get<any>(
-        `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
-      ));
+      const resp = await this.getOcrCorrectionsPayload(submissionId);
       if (seq !== this.loadTranscriptPagesSeq || this.currentSubmission?._id !== submissionId) return;
       const data = resp?.data && typeof resp.data === 'object' ? resp.data : {};
       const pages = Array.isArray(data.ocr) && data.ocr.length ? data.ocr
@@ -5650,6 +5657,8 @@ export class StudentSubmissionPages {
     for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
     this.previewObjectUrls = [];
     this.resultCoordinator.stop();
+    this.ocrCorrectionsPayloadCache.clear();
+    this.ocrCorrectionsPayloadInFlight.clear();
 
 
 
@@ -6005,6 +6014,8 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id && this.currentSubmission._id !== submission?._id) {
       this.resultCoordinator.stop();
       this.canonicalWritingCorrections = [];
+      this.ocrCorrectionsPayloadCache.clear();
+      this.ocrCorrectionsPayloadInFlight.clear();
     }
     const seq = ++this.applyCurrentSubmissionSeq;
     ++this.imageLoadSeq;
