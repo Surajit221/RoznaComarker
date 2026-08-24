@@ -116,6 +116,102 @@ describe('StudentSubmissionPages', () => {
     expect(component.canonicalResultState?.evaluationStatus).toBe('completed');
   });
 
+  it('renders saved feedback without waiting for a slow PDF preview', async () => {
+    let releasePreview!: (value: string) => void;
+    const preview = new Promise<string>((resolve) => { releasePreview = resolve; });
+    spyOn<any>(component, 'loadAssignmentRubricPresence').and.resolveTo();
+    spyOn<any>(component, 'ensureClassSettingsLoadedFromSubmission').and.resolveTo();
+    spyOn<any>(component, 'fetchAsObjectUrl').and.returnValue(preview);
+    spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
+    spyOn<any>(component, 'loadCompleteTranscript').and.resolveTo();
+    spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+    spyOn<any>(component, 'markCurrentSubmissionReviewed').and.resolveTo();
+    spyOn<any>(component, 'loadFeedback').and.callFake(async () => {
+      component.currentFeedback = { submissionId: 'submission-2', overallScore: 91 } as any;
+      component.canonicalResultState = normalizeCanonicalResult({ submissionId: 'submission-2',
+        evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', processingActive: false,
+        automaticPollingAllowed: false, terminal: true });
+      return true;
+    });
+
+    const applying = (component as any).applyCurrentSubmission({
+      _id: 'submission-2', fileUrl: '/private/submission.pdf'
+    } as any, false);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.currentFeedback?.overallScore).toBe(91);
+    expect(component.scoreState).toBe('loaded');
+    releasePreview('blob:preview');
+    await applying;
+  });
+
+  it('renders saved feedback without waiting for a slow transcript request', async () => {
+    let releaseTranscript!: () => void;
+    const transcript = new Promise<void>((resolve) => { releaseTranscript = resolve; });
+    spyOn<any>(component, 'loadAssignmentRubricPresence').and.resolveTo();
+    spyOn<any>(component, 'ensureClassSettingsLoadedFromSubmission').and.resolveTo();
+    spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
+    spyOn<any>(component, 'loadCompleteTranscript').and.returnValue(transcript);
+    spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+    spyOn<any>(component, 'markCurrentSubmissionReviewed').and.resolveTo();
+    spyOn<any>(component, 'loadFeedback').and.callFake(async () => {
+      component.currentFeedback = { submissionId: 'submission-2', overallScore: 88 } as any;
+      component.canonicalResultState = normalizeCanonicalResult({ submissionId: 'submission-2',
+        evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', processingActive: false,
+        automaticPollingAllowed: false, terminal: true });
+      return true;
+    });
+
+    const applying = (component as any).applyCurrentSubmission({ _id: 'submission-2' } as any, false);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.currentFeedback?.overallScore).toBe(88);
+    expect(component.scoreState).toBe('loaded');
+    releaseTranscript();
+    await applying;
+  });
+
+  it('polls only feedback and never reloads correction or transcript resources', async () => {
+    component.currentSubmission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
+    const ocr = spyOn<any>(component, 'loadOcrCorrections');
+    const transcript = spyOn<any>(component, 'loadCompleteTranscript');
+    const writing = spyOn<any>(component, 'refreshWritingCorrections');
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
+      submissionId: 'submission-1', evaluationStatus: 'processing', detailedFeedbackStatus: 'processing',
+      processingActive: true, automaticPollingAllowed: true, terminal: false
+    } as any);
+
+    const snapshot = await (component as any).refreshRetriedAnalysis('submission-1');
+
+    expect(snapshot.canonical.evaluationStatus).toBe('processing');
+    expect(ocr).not.toHaveBeenCalled();
+    expect(transcript).not.toHaveBeenCalled();
+    expect(writing).not.toHaveBeenCalled();
+  });
+
+  it('starts polling only for an active lifecycle, not failed, blocked, or stale results', async () => {
+    component.currentSubmission = { _id: 'submission-1' } as any;
+    (component as any).applyCurrentSubmissionSeq = 4;
+    const start = spyOn((component as any).resultCoordinator, 'start');
+    const feedbackApi = (component as any).feedbackApi;
+    spyOn(feedbackApi, 'getSubmissionFeedback').and.resolveTo({
+      submissionId: 'submission-1', evaluationStatus: 'failed', detailedFeedbackStatus: 'blocked',
+      processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    await (component as any).loadFeedback(4);
+    expect(start).not.toHaveBeenCalled();
+
+    feedbackApi.getSubmissionFeedback.and.resolveTo({
+      submissionId: 'submission-1', evaluationStatus: 'processing', detailedFeedbackStatus: 'processing',
+      processingActive: true, automaticPollingAllowed: true, terminal: false
+    });
+    await (component as any).loadFeedback(4);
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps section loading states independent', () => {
     component.transcriptState = 'loaded';
     component.correctionsState = 'loaded';
@@ -350,6 +446,7 @@ describe('StudentSubmissionPages', () => {
     ]);
     expect(component.aiFeedbackState).toBe('loaded');
     expect(invalidate).toHaveBeenCalledOnceWith('assignment-1');
+    expect((component as any).submissionApi.getSubmissionsByAssignment).not.toHaveBeenCalled();
   });
 
   it('shows completed score rows while detailed feedback is still processing', async () => {
