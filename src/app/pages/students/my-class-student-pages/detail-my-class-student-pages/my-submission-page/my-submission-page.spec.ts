@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpTestingController } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
 
 import { MySubmissionPage } from './my-submission-page';
@@ -60,6 +61,91 @@ describe('MySubmissionPage', () => {
     component.feedbackState = 'loading';
     expect(component.transcriptState).toBe('loaded');
     expect(component.feedbackState).toBe('loading');
+  });
+
+  it('shares one OCR network request and invalidates it only when source identity changes', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.submission = { _id: 'submission-1', correctionSourceHash: 'source-1' } as any;
+    const first = (component as any).getOcrPayload('submission-1', 'initial');
+    const shared = (component as any).getOcrPayload('submission-1', 'tab');
+    const request = http.expectOne((candidate) => candidate.url.endsWith('/submissions/submission-1/ocr-corrections'));
+    expect(request.request.urlWithParams).not.toContain('fileId=');
+    request.flush({ success: true, data: { ocr: [], corrections: [] } });
+    await Promise.all([first, shared]);
+    await (component as any).getOcrPayload('submission-1', 'tab');
+    http.expectNone((candidate) => candidate.url.includes('/ocr-corrections'));
+
+    (component.submission as any).correctionSourceHash = 'source-2';
+    const changed = (component as any).getOcrPayload('submission-1', 'initial');
+    http.expectOne((candidate) => candidate.url.endsWith('/submissions/submission-1/ocr-corrections'))
+      .flush({ success: true, data: { ocr: [], corrections: [] } });
+    await changed;
+  });
+
+  it('canonical polling requests feedback only and never refreshes submission or OCR resources', async () => {
+    component.submission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
+    const submissionRefresh = spyOn((component as any).submissionApi, 'getMySubmissionByAssignmentId');
+    const ocr = spyOn<any>(component, 'loadOcrCorrections');
+    const transcript = spyOn<any>(component, 'loadCompleteTranscript');
+    const writing = spyOn<any>(component, 'refreshWritingCorrections');
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
+      submissionId: 'submission-1', evaluationStatus: 'processing', detailedFeedbackStatus: 'processing',
+      processingActive: true, automaticPollingAllowed: true, terminal: false
+    });
+
+    const snapshot = await (component as any).refreshCanonicalResult('submission-1', 1);
+
+    expect(snapshot.canonical.evaluationStatus).toBe('processing');
+    expect(submissionRefresh).not.toHaveBeenCalled();
+    expect(ocr).not.toHaveBeenCalled();
+    expect(transcript).not.toHaveBeenCalled();
+    expect(writing).not.toHaveBeenCalled();
+  });
+
+  it('does not start polling when reopening a completed unchanged submission', () => {
+    component.submission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
+    component.canonicalResultState = normalizeCanonicalResult({
+      evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', evaluationCurrent: true,
+      processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+    const start = spyOn((component as any).resultCoordinator, 'start');
+
+    (component as any).syncOcrPolling();
+
+    expect(start).not.toHaveBeenCalled();
+    expect(component.isOcrPolling).toBeFalse();
+  });
+
+  it('renders completed feedback while the initial OCR request is still slow', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.submission = { _id: 'submission-1', correctionSourceHash: 'source-1' } as any;
+    (component as any).loadSeq = 7;
+    const slowOcr = (component as any).getOcrPayload('submission-1', 'initial');
+    const request = http.expectOne((candidate) => candidate.url.includes('/ocr-corrections'));
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
+      submissionId: 'submission-1', overallScore: 93, evaluationStatus: 'completed',
+      detailedFeedbackStatus: 'completed', evaluationCurrent: true,
+      processingActive: false, automaticPollingAllowed: false, terminal: true
+    });
+
+    await (component as any).loadAndApplyFeedback('submission-1', 7, 'initial');
+
+    expect(component.feedback?.overallScore).toBe(93);
+    expect(component.scoreState).toBe('loaded');
+    request.flush({ success: true, data: { ocr: [], corrections: [] } });
+    await slowOcr;
+  });
+
+  it('component destruction stops polling and clears request caches', () => {
+    const stop = spyOn((component as any).resultCoordinator, 'stop');
+    (component as any).ocrPayloadCache.set('submission-1:source-1', {});
+    component.isOcrPolling = true;
+
+    component.ngOnDestroy();
+
+    expect(stop).toHaveBeenCalled();
+    expect(component.isOcrPolling).toBeFalse();
+    expect((component as any).ocrPayloadCache.size).toBe(0);
   });
 
   it('keeps canonical score, grade, statistics and comments identical across viewport branches', () => {
