@@ -68,9 +68,9 @@
               <span class="ml-2 block text-base text-gray-700">Remember Me</span>
             </label>
 
-            <a href="#" class="text-base text-[#EE4E4E] underline hover:text-[#e73a3a] font-medium">
+            <button type="button" (click)="openForgotPassword()" class="text-base text-[#EE4E4E] underline hover:text-[#e73a3a] font-medium">
               Forgot Password?
-            </a>
+            </button>
           </div>
 
           <!-- Buttons -->
@@ -173,9 +173,9 @@
           <span class="ml-2 block text-base text-gray-700">Remember Me</span>
         </label>
 
-        <a href="#" class="text-base text-[#EE4E4E] underline hover:text-[#e73a3a] font-medium">
+        <button type="button" (click)="openForgotPassword()" class="text-base text-[#EE4E4E] underline hover:text-[#e73a3a] font-medium">
           Forgot Password?
-        </a>
+        </button>
       </div>
 
       <!-- Buttons -->
@@ -210,3 +210,24 @@
   </div>
   }
 </ng-container>
+
+@if (showForgotPassword) {
+  <div class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" (click)="closeForgotPassword()">
+    <section class="w-full max-w-md rounded-[24px] bg-white p-6 shadow-xl" role="dialog" aria-modal="true"
+      aria-labelledby="forgot-password-title" (click)="$event.stopPropagation()">
+      <h2 id="forgot-password-title" class="text-2xl font-bold text-[#3F3A3A]">Reset your password</h2>
+      <p class="mt-2 text-[#595959]">Enter your email and we’ll send Firebase password reset instructions.</p>
+      <label for="forgot-email" class="mt-5 block text-sm font-bold">Email</label>
+      <input id="forgot-email" type="email" autocomplete="email" class="input-text mt-1"
+        [value]="forgotEmail" (input)="updateForgotEmail($event)" (keyup.enter)="submitForgotPassword()" />
+      @if (forgotPasswordError) { <p class="mt-3 text-sm text-red-600" role="alert">{{ forgotPasswordError }}</p> }
+      @if (forgotPasswordMessage) { <p class="mt-3 text-sm text-[#006d6e]" role="status">{{ forgotPasswordMessage }}</p> }
+      <div class="mt-6 flex gap-3">
+        <button type="button" class="btn-warning w-1/2" (click)="closeForgotPassword()"
+          [disabled]="forgotPasswordLoading">Cancel</button>
+        <button type="button" class="btn-primary w-1/2" (click)="submitForgotPassword()"
+          [disabled]="forgotPasswordLoading">{{ forgotPasswordLoading ? 'Sending…' : 'Send Reset Link' }}</button>
+      </div>
+    </section>
+  </div>
+}

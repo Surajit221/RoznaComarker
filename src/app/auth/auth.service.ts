@@ -16,6 +16,11 @@ type BackendLoginResponse = {
   };
 };
 
+export type VerificationRequired = {
+  verificationRequired: true;
+  email: string;
+};
+
 type BackendResponse<T> = {
   success: boolean;
   data: T;
@@ -87,6 +92,11 @@ export class AuthService {
 
   async loginWithEmail(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(this.auth, email, password);
+    await cred.user.reload();
+    if (!cred.user.emailVerified) {
+      clearPrivateAuthStorage();
+      return { verificationRequired: true, email: cred.user.email || email } as VerificationRequired;
+    }
     const token = await cred.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
@@ -98,13 +108,41 @@ export class AuthService {
 
   async signupWithEmail(email: string, password: string) {
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
-    const token = await cred.user.getIdToken(true);
-    if (!token) {
-      throw new Error('Failed to get Firebase ID token');
-    }
-    const resp = await this.exchangeWithBackend(token);
-    this.persistBackendSession(resp);
-    return resp;
+    clearPrivateAuthStorage();
+    await this.requestVerificationDelivery(await cred.user.getIdToken(true));
+    return { verificationRequired: true, email: cred.user.email || email } as VerificationRequired;
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/auth/request-password-reset`, {
+      email: email.trim().toLowerCase()
+    }));
+  }
+
+  async resendVerificationEmail(): Promise<string> {
+    await this.auth.authStateReady();
+    const user = this.auth.currentUser;
+    if (!user) throw Object.assign(new Error('Authentication is required'), { code: 'auth/no-current-user' });
+    await user.reload();
+    if (!user.emailVerified) await this.requestVerificationDelivery(await user.getIdToken(true));
+    return user.email || '';
+  }
+
+  async completeEmailVerification(): Promise<BackendLoginResponse | null> {
+    await this.auth.authStateReady();
+    const user = this.auth.currentUser;
+    if (!user) throw Object.assign(new Error('Authentication is required'), { code: 'auth/no-current-user' });
+    await user.reload();
+    if (!user.emailVerified) return null;
+    const token = await user.getIdToken(true);
+    const response = await this.exchangeWithBackend(token);
+    this.persistBackendSession(response);
+    return response;
+  }
+
+  async pendingVerificationEmail(): Promise<string | null> {
+    await this.auth.authStateReady();
+    return this.auth.currentUser?.email || null;
   }
 
   async loginWithGoogle() {
@@ -257,6 +295,12 @@ export class AuthService {
     if (resp?.token) {
       localStorage.setItem(this.backendJwtKey, resp.token);
     }
+  }
+
+  private async requestVerificationDelivery(firebaseToken: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/auth/send-verification-email`, {}, {
+      headers: { Authorization: `Bearer ${firebaseToken}` }
+    }));
   }
 
   private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {

@@ -10,6 +10,8 @@ export const AUTH_ROUTES: Routes = [
     children: [
       { path: 'login', component: LoginPages },
       { path: 'register', component: RegisterPages },
+      { path: 'verify-email', loadComponent: () =>
+        import('./verify-email/verify-email').then((m) => m.VerifyEmail) },
       { path: 'select-role', canActivate: [RoleSelectionGuard], loadComponent: () =>
         import('./select-role/select-role').then((m) => m.SelectRole) },
     ],
