@@ -14,26 +14,6 @@
         </div>
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3">
-          <!-- Role -->
-          <div class="flex flex-col gap-1">
-            <label for="role" class="text-sm font-bold pl-2">Select Your Role</label>
-            <div class="relative">
-              <select
-                id="role"
-                formControlName="role"
-                class="input-text appearance-none pr-10 cursor-pointer"
-                required
-              >
-                <option value="" disabled selected>Select Your Role</option>
-                <option value="teacher">Teacher</option>
-                <option value="student">Student</option>
-              </select>
-              <i
-                class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"
-              ></i>
-            </div>
-          </div>
-
           <!-- Email -->
           <div class="flex flex-col gap-1">
             <label for="role" class="text-sm font-bold pl-2">Email</label>
@@ -110,8 +90,6 @@
           <div class="flex flex-row justify-center gap-3">
             <div
               class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-              [class.opacity-50]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
-              [class.pointer-events-none]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
               (click)="onGoogleLogin()"
             >
               <img src="icons/ic_google.svg" alt="Google" />
@@ -141,26 +119,6 @@
     </div>
 
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3 w-full px-6">
-      <!-- Role -->
-      <div class="flex flex-col gap-1">
-        <label for="role" class="text-sm font-bold pl-2">Select Your Role</label>
-        <div class="relative">
-          <select
-            id="role"
-            formControlName="role"
-            class="input-text appearance-none pr-10 cursor-pointer"
-            required
-          >
-            <option value="" disabled selected>Select Your Role</option>
-            <option value="teacher">Teacher</option>
-            <option value="student">Student</option>
-          </select>
-          <i
-            class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl"
-          ></i>
-        </div>
-      </div>
-
       <!-- Email -->
       <div class="flex flex-col gap-1">
         <label for="role" class="text-sm font-bold pl-2">Email</label>
@@ -237,8 +195,6 @@
       <div class="flex flex-row justify-center gap-3">
         <div
           class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-          [class.opacity-50]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
-          [class.pointer-events-none]="loginForm.get('role')?.invalid || loginForm.get('role')?.value === ''"
           (click)="onGoogleLogin()"
         >
           <img src="icons/ic_google.svg" alt="Google" />

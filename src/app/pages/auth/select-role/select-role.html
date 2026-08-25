@@ -1,0 +1,28 @@
+<main class="role-page">
+  <section class="role-panel" aria-labelledby="role-title">
+    <div class="brand"><img src="img/logo.png" alt="" /><span>RoznaHub</span></div>
+    <h1 id="role-title">Welcome to RoznaHub</h1>
+    <p class="subtitle">How will you use RoznaHub?</p>
+
+    <div class="role-options" role="radiogroup" aria-label="Choose your account role">
+      <button type="button" class="role-card" role="radio"
+        [class.selected]="selectedRole === 'teacher'"
+        [attr.aria-checked]="selectedRole === 'teacher'" (click)="select('teacher')">
+        <span class="role-icon" aria-hidden="true"><i class="bx bx-chalkboard"></i></span>
+        <span><strong>Teacher</strong><small>Create classes, assignments, and assess students.</small></span>
+      </button>
+      <button type="button" class="role-card" role="radio"
+        [class.selected]="selectedRole === 'student'"
+        [attr.aria-checked]="selectedRole === 'student'" (click)="select('student')">
+        <span class="role-icon" aria-hidden="true"><i class="bx bx-book-reader"></i></span>
+        <span><strong>Student</strong><small>Join classes and complete assignments.</small></span>
+      </button>
+    </div>
+
+    @if (errorMessage) { <p class="role-error" role="alert">{{ errorMessage }}</p> }
+    <button type="button" class="continue-button" [disabled]="!selectedRole || isSaving"
+      (click)="continue()">
+      {{ isSaving ? 'Saving…' : 'Continue' }}
+    </button>
+  </section>
+</main>

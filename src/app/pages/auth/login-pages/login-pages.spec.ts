@@ -21,4 +21,10 @@ describe('LoginPages', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('does not render or require a role selector', () => {
+    expect(component.loginForm.contains('role')).toBeFalse();
+    expect(fixture.nativeElement.querySelector('select')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Select Your Role');
+  });
 });

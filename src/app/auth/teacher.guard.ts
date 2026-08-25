@@ -15,8 +15,9 @@ export class TeacherGuard implements CanActivate {
     const payload = decodeBackendJwt(token);
     const role = payload && payload.role;
 
+    if (!role) return this.router.createUrlTree(['/select-role']);
     if (role !== 'teacher') {
-      return this.buildLoginRedirectTree(state.url);
+      return this.router.createUrlTree([role === 'student' ? '/student/my-classes' : '/']);
     }
 
     return true;

@@ -12,7 +12,7 @@ type BackendLoginResponse = {
   user?: {
     id: string;
     email: string;
-    role: string;
+    role: string | null;
   };
 };
 
@@ -46,7 +46,7 @@ export type BackendMe = {
     status: 'completed' | 'pending';
     policyHash: string;
   };
-  role: string;
+  role: string | null;
 };
 
 export type BackendUser = {
@@ -85,44 +85,41 @@ export class AuthService {
     console.error(`[${context}] Unknown error`, err);
   }
 
-  async loginWithEmail(email: string, password: string, intendedRole?: string) {
+  async loginWithEmail(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(this.auth, email, password);
-    const token = await cred.user.getIdToken();
+    const token = await cred.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const resp = await this.exchangeWithBackend(token, intendedRole);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
 
-  async signupWithEmail(email: string, password: string, intendedRole?: string) {
+  async signupWithEmail(email: string, password: string) {
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
-    const token = await cred.user.getIdToken();
+    const token = await cred.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const resp = await this.exchangeWithBackend(token, intendedRole);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
 
-  async loginWithGoogle(intendedRole?: string) {
+  async loginWithGoogle() {
     const provider = new GoogleAuthProvider();
     const cred = await runInInjectionContext(this.injector, () => signInWithPopup(this.auth, provider));
-    const token = await cred.user.getIdToken();
+    const token = await cred.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const resp = await this.exchangeWithBackend(token, intendedRole);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
 
-  async startGoogleRedirect(intendedRole?: string) {
-    if (intendedRole) {
-      localStorage.setItem('intended_role', intendedRole);
-    }
+  async startGoogleRedirect() {
     const provider = new GoogleAuthProvider();
     await runInInjectionContext(this.injector, () => signInWithRedirect(this.auth, provider));
   }
@@ -131,13 +128,11 @@ export class AuthService {
     const result = await runInInjectionContext(this.injector, () => getRedirectResult(this.auth));
     if (!result?.user) return null;
 
-    const token = await result.user.getIdToken();
+    const token = await result.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const intendedRole = localStorage.getItem('intended_role');
-    localStorage.removeItem('intended_role');
-    const resp = await this.exchangeWithBackend(token, intendedRole || undefined);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
@@ -264,13 +259,13 @@ export class AuthService {
     }
   }
 
-  private async exchangeWithBackend(firebaseToken: string, intendedRole?: string): Promise<BackendLoginResponse> {
+  private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.post<BackendLoginResponse>(
           `${apiBaseUrl}/auth/login`,
-          { intendedRole: intendedRole || null },
+          {},
           {
             headers: {
               Authorization: `Bearer ${firebaseToken}`

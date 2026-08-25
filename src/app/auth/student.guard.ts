@@ -20,9 +20,10 @@ export class StudentGuard implements CanActivate {
     const payload = decodeBackendJwt(token);
     const role = payload && payload.role;
 
+    if (!role) return this.router.createUrlTree(['/select-role']);
     if (role !== 'student') {
       this.captureJoinIntentIfPresent(state.url);
-      return this.buildLoginRedirectTree(state.url);
+      return this.router.createUrlTree([role === 'teacher' ? '/teacher/my-classes' : '/']);
     }
 
     return true;
