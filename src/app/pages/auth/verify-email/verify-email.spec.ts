@@ -47,4 +47,13 @@ describe('VerifyEmail', () => {
     expect(component.cooldown).toBe(60);
     component.ngOnDestroy();
   });
+
+  it('does not start a cooldown when resend delivery fails', async () => {
+    auth.resendVerificationEmail.and.rejectWith({ code: 'auth/network-request-failed' });
+    const component = TestBed.createComponent(VerifyEmail).componentInstance;
+    component.cooldown = 0;
+    await component.resend();
+    expect(component.cooldown).toBe(0);
+    expect(component.error).toContain('connection');
+  });
 });

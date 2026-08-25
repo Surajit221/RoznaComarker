@@ -3,6 +3,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../auth/auth.service';
 import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.service';
+import { authErrorMessage } from '../../../auth/auth-error.util';
 
 @Component({ selector: 'app-verify-email', imports: [CommonModule],
   templateUrl: './verify-email.html', styleUrl: './verify-email.css' })
@@ -10,7 +11,7 @@ export class VerifyEmail implements OnInit, OnDestroy {
   email = '';
   checking = false;
   resending = false;
-  cooldown = 60;
+  cooldown = 0;
   message = '';
   error = '';
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -25,7 +26,9 @@ export class VerifyEmail implements OnInit, OnDestroy {
       return;
     }
     this.email = email;
-    this.startCooldown();
+    if (history.state?.verificationDeliveryWarning) {
+      this.error = "Your account was created, but we couldn't send the verification email right now. Please use Resend Verification.";
+    }
   }
 
   ngOnDestroy(): void {
@@ -54,7 +57,7 @@ export class VerifyEmail implements OnInit, OnDestroy {
       if (err?.code === 'auth/no-current-user' || err?.status === 401) {
         await this.router.navigate(['/login'], { replaceUrl: true });
       } else {
-        this.error = this.safeError(err);
+        this.error = authErrorMessage(err, 'verification');
       }
     } finally { this.checking = false; }
   }
@@ -71,7 +74,7 @@ export class VerifyEmail implements OnInit, OnDestroy {
       this.startCooldown();
     } catch (err: any) {
       if (err?.code === 'auth/no-current-user') await this.router.navigate(['/login'], { replaceUrl: true });
-      else this.error = this.safeError(err);
+      else this.error = authErrorMessage(err, 'verification');
     } finally { this.resending = false; }
   }
 
@@ -88,10 +91,4 @@ export class VerifyEmail implements OnInit, OnDestroy {
     }, 1000);
   }
 
-  private safeError(err: any): string {
-    const code = String(err?.code || err?.error?.code || '');
-    if (code === 'auth/too-many-requests') return 'Too many attempts. Please try again later.';
-    if (code === 'auth/network-request-failed') return 'Network error. Please check your connection.';
-    return 'We could not complete that request. Please try again.';
-  }
 }

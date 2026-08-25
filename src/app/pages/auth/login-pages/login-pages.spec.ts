@@ -3,6 +3,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LoginPages } from './login-pages';
 import { routedComponentProviders, signedOutUserProviders } from '../../../../testing/standalone-test-providers';
 import { AuthService } from '../../../auth/auth.service';
+import { Router } from '@angular/router';
+import { AlertService } from '../../../services/alert.service';
 
 describe('LoginPages', () => {
   let component: LoginPages;
@@ -45,5 +47,38 @@ describe('LoginPages', () => {
     await component.submitForgotPassword();
     expect(auth.requestPasswordReset).toHaveBeenCalledWith('user@example.test');
     expect(component.forgotPasswordMessage).toContain('If an account supports password sign-in');
+  });
+
+  it('routes an account with failed verification delivery to the resend screen without a signup error', async () => {
+    const auth = TestBed.inject(AuthService) as any;
+    const router = TestBed.inject(Router);
+    const alert = TestBed.inject(AlertService);
+    auth.signupWithEmail = jasmine.createSpy().and.resolveTo({
+      verificationRequired: true, email: 'person@example.test', deliveryWarning: true
+    });
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const showError = spyOn(alert, 'showError');
+    component.loginForm.patchValue({ email: 'person@example.test', password: 'secret1' });
+
+    await component.onSignup();
+
+    expect(navigate).toHaveBeenCalledWith(['/verify-email'], jasmine.objectContaining({
+      replaceUrl: true, state: { verificationDeliveryWarning: true }
+    }));
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('prevents duplicate login submissions while the full authentication chain is pending', async () => {
+    const auth = TestBed.inject(AuthService) as any;
+    let resolveLogin!: (value: any) => void;
+    auth.loginWithEmail = jasmine.createSpy().and.returnValue(new Promise(resolve => resolveLogin = resolve));
+    component.loginForm.patchValue({ email: 'person@example.test', password: 'secret1' });
+
+    const first = component.onSubmit();
+    await component.onSubmit();
+    expect(auth.loginWithEmail).toHaveBeenCalledTimes(1);
+    expect(component.activeOperation).toBe('login');
+    resolveLogin({ verificationRequired: true });
+    await first;
   });
 });
