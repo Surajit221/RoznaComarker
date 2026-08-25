@@ -1,0 +1,18 @@
+<main class="verify-page">
+  <section class="verify-panel" aria-labelledby="verify-title">
+    <div class="brand"><img src="img/logo.png" alt="" /><span>RoznaHub</span></div>
+    <div class="mail-icon" aria-hidden="true"><i class="bx bx-envelope"></i></div>
+    <h1 id="verify-title">Verify your email</h1>
+    <p>We sent a verification link to <strong>{{ maskedEmail }}</strong>.</p>
+    <p class="hint">Open the link in that email, then return here to continue.</p>
+    @if (message) { <p class="success" role="status">{{ message }}</p> }
+    @if (error) { <p class="error" role="alert">{{ error }}</p> }
+    <button type="button" class="primary" [disabled]="checking" (click)="checkVerification()">
+      {{ checking ? 'Checking…' : "I've Verified My Email" }}
+    </button>
+    <button type="button" class="secondary" [disabled]="resending || cooldown > 0" (click)="resend()">
+      @if (cooldown > 0) { Resend in {{ cooldown }}s } @else { {{ resending ? 'Sending…' : 'Resend Verification Email' }} }
+    </button>
+    <button type="button" class="back" (click)="backToLogin()">Back to Login</button>
+  </section>
+</main>

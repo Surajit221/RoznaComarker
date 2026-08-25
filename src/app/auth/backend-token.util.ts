@@ -39,6 +39,7 @@ export function clearPrivateAuthStorage(): void {
   localStorage.removeItem('authToken');
   localStorage.removeItem('role');
   localStorage.removeItem('intended_role');
+  localStorage.removeItem('preferred_role');
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('authToken');
 }

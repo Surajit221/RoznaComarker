@@ -157,6 +157,7 @@ export class WorksheetCreatePage implements OnDestroy {
     formData.append('language', this.language);
     formData.append('subject', this.subject || 'General');
     formData.append('gradeLevel', this.gradeLevel || 'Not specified');
+    formData.append('difficulty', this.difficulty || 'medium');
 
     this.http.post<any>(`${environment.apiUrl}/worksheets/extract-structure`, formData)
       .pipe(takeUntil(this.destroy$))
@@ -272,11 +273,12 @@ export class WorksheetCreatePage implements OnDestroy {
         if (
           activity.type === 'ordering' ||
           activity.type === 'classification' ||
-          activity.type === 'matching' ||
           activity.type === 'dragDrop' ||
           activity.type === 'sorting'
         ) {
           count = data.items?.length || 0;
+        } else if (activity.type === 'matching') {
+          count = data.pairs?.length || 0;
         } else if (
           activity.type === 'multipleChoice' ||
           activity.type === 'trueFalse' ||

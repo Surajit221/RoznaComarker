@@ -12,8 +12,13 @@ type BackendLoginResponse = {
   user?: {
     id: string;
     email: string;
-    role: string;
+    role: string | null;
   };
+};
+
+export type VerificationRequired = {
+  verificationRequired: true;
+  email: string;
 };
 
 type BackendResponse<T> = {
@@ -46,7 +51,7 @@ export type BackendMe = {
     status: 'completed' | 'pending';
     policyHash: string;
   };
-  role: string;
+  role: string | null;
 };
 
 export type BackendUser = {
@@ -85,44 +90,74 @@ export class AuthService {
     console.error(`[${context}] Unknown error`, err);
   }
 
-  async loginWithEmail(email: string, password: string, intendedRole?: string) {
+  async loginWithEmail(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(this.auth, email, password);
-    const token = await cred.user.getIdToken();
+    await cred.user.reload();
+    if (!cred.user.emailVerified) {
+      clearPrivateAuthStorage();
+      return { verificationRequired: true, email: cred.user.email || email } as VerificationRequired;
+    }
+    const token = await cred.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const resp = await this.exchangeWithBackend(token, intendedRole);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
 
-  async signupWithEmail(email: string, password: string, intendedRole?: string) {
+  async signupWithEmail(email: string, password: string) {
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
-    const token = await cred.user.getIdToken();
-    if (!token) {
-      throw new Error('Failed to get Firebase ID token');
-    }
-    const resp = await this.exchangeWithBackend(token, intendedRole);
-    this.persistBackendSession(resp);
-    return resp;
+    clearPrivateAuthStorage();
+    await this.requestVerificationDelivery(await cred.user.getIdToken(true));
+    return { verificationRequired: true, email: cred.user.email || email } as VerificationRequired;
   }
 
-  async loginWithGoogle(intendedRole?: string) {
+  async requestPasswordReset(email: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/auth/request-password-reset`, {
+      email: email.trim().toLowerCase()
+    }));
+  }
+
+  async resendVerificationEmail(): Promise<string> {
+    await this.auth.authStateReady();
+    const user = this.auth.currentUser;
+    if (!user) throw Object.assign(new Error('Authentication is required'), { code: 'auth/no-current-user' });
+    await user.reload();
+    if (!user.emailVerified) await this.requestVerificationDelivery(await user.getIdToken(true));
+    return user.email || '';
+  }
+
+  async completeEmailVerification(): Promise<BackendLoginResponse | null> {
+    await this.auth.authStateReady();
+    const user = this.auth.currentUser;
+    if (!user) throw Object.assign(new Error('Authentication is required'), { code: 'auth/no-current-user' });
+    await user.reload();
+    if (!user.emailVerified) return null;
+    const token = await user.getIdToken(true);
+    const response = await this.exchangeWithBackend(token);
+    this.persistBackendSession(response);
+    return response;
+  }
+
+  async pendingVerificationEmail(): Promise<string | null> {
+    await this.auth.authStateReady();
+    return this.auth.currentUser?.email || null;
+  }
+
+  async loginWithGoogle() {
     const provider = new GoogleAuthProvider();
     const cred = await runInInjectionContext(this.injector, () => signInWithPopup(this.auth, provider));
-    const token = await cred.user.getIdToken();
+    const token = await cred.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const resp = await this.exchangeWithBackend(token, intendedRole);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
 
-  async startGoogleRedirect(intendedRole?: string) {
-    if (intendedRole) {
-      localStorage.setItem('intended_role', intendedRole);
-    }
+  async startGoogleRedirect() {
     const provider = new GoogleAuthProvider();
     await runInInjectionContext(this.injector, () => signInWithRedirect(this.auth, provider));
   }
@@ -131,13 +166,11 @@ export class AuthService {
     const result = await runInInjectionContext(this.injector, () => getRedirectResult(this.auth));
     if (!result?.user) return null;
 
-    const token = await result.user.getIdToken();
+    const token = await result.user.getIdToken(true);
     if (!token) {
       throw new Error('Failed to get Firebase ID token');
     }
-    const intendedRole = localStorage.getItem('intended_role');
-    localStorage.removeItem('intended_role');
-    const resp = await this.exchangeWithBackend(token, intendedRole || undefined);
+    const resp = await this.exchangeWithBackend(token);
     this.persistBackendSession(resp);
     return resp;
   }
@@ -264,13 +297,19 @@ export class AuthService {
     }
   }
 
-  private async exchangeWithBackend(firebaseToken: string, intendedRole?: string): Promise<BackendLoginResponse> {
+  private async requestVerificationDelivery(firebaseToken: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/auth/send-verification-email`, {}, {
+      headers: { Authorization: `Bearer ${firebaseToken}` }
+    }));
+  }
+
+  private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.post<BackendLoginResponse>(
           `${apiBaseUrl}/auth/login`,
-          { intendedRole: intendedRole || null },
+          {},
           {
             headers: {
               Authorization: `Bearer ${firebaseToken}`

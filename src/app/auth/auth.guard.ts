@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
-import { readUsableBackendJwt } from './backend-token.util';
+import { decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
 
 @Injectable({ providedIn: 'root' })
 export class AuthGuard implements CanActivate {
@@ -10,6 +10,10 @@ export class AuthGuard implements CanActivate {
     const token = readUsableBackendJwt();
     if (!token) {
       this.router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+      return false;
+    }
+    if (!decodeBackendJwt(token)?.role) {
+      this.router.navigate(['/select-role']);
       return false;
     }
     return true;
