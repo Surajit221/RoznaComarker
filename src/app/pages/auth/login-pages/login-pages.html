@@ -27,6 +27,7 @@
                 autocomplete="username"
                 required
                 aria-label="Email"
+                [disabled]="isLoading"
               />
             </div>
           </div>
@@ -44,6 +45,7 @@
                 autocomplete="current-password"
                 required
                 aria-label="Password"
+                [disabled]="isLoading"
               />
               <button
                 type="button"
@@ -75,8 +77,12 @@
 
           <!-- Buttons -->
           <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
-            <button type="button" class="btn-warning w-1/2" (click)="onSignup()">Sign Up</button>
-            <button type="submit" class="btn-primary w-1/2">Log In</button>
+            <button type="button" class="btn-warning w-1/2" (click)="onSignup()" [disabled]="isLoading">
+              {{ activeOperation === 'signup' ? 'Creating account…' : 'Sign Up' }}
+            </button>
+            <button type="submit" class="btn-primary w-1/2" [disabled]="isLoading">
+              {{ activeOperation === 'login' ? 'Logging in…' : 'Log In' }}
+            </button>
           </div>
 
           <!-- Divider -->
@@ -88,12 +94,13 @@
 
           <!-- Social buttons -->
           <div class="flex flex-row justify-center gap-3">
-            <div
+            <button type="button"
               class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-              (click)="onGoogleLogin()"
+              (click)="onGoogleLogin()" [disabled]="isLoading" aria-label="Continue with Google"
             >
-              <img src="icons/ic_google.svg" alt="Google" />
-            </div>
+              @if (activeOperation === 'google') { <span aria-hidden="true">…</span> }
+              @else { <img src="icons/ic_google.svg" alt="" /> }
+            </button>
             <div
               class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
             >
@@ -132,6 +139,7 @@
             autocomplete="username"
             required
             aria-label="Email"
+            [disabled]="isLoading"
           />
         </div>
       </div>
@@ -149,6 +157,7 @@
             autocomplete="current-password"
             required
             aria-label="Password"
+            [disabled]="isLoading"
           />
           <button
             type="button"
@@ -180,8 +189,12 @@
 
       <!-- Buttons -->
       <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
-        <button type="button" class="btn-warning w-1/2" (click)="onSignup()">Sign Up</button>
-        <button type="submit" class="btn-primary w-1/2">Log In</button>
+        <button type="button" class="btn-warning w-1/2" (click)="onSignup()" [disabled]="isLoading">
+          {{ activeOperation === 'signup' ? 'Creating account…' : 'Sign Up' }}
+        </button>
+        <button type="submit" class="btn-primary w-1/2" [disabled]="isLoading">
+          {{ activeOperation === 'login' ? 'Logging in…' : 'Log In' }}
+        </button>
       </div>
 
       <!-- Divider -->
@@ -193,12 +206,13 @@
 
       <!-- Social buttons -->
       <div class="flex flex-row justify-center gap-3">
-        <div
+        <button type="button"
           class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-          (click)="onGoogleLogin()"
+          (click)="onGoogleLogin()" [disabled]="isLoading" aria-label="Continue with Google"
         >
-          <img src="icons/ic_google.svg" alt="Google" />
-        </div>
+          @if (activeOperation === 'google') { <span aria-hidden="true">…</span> }
+          @else { <img src="icons/ic_google.svg" alt="" /> }
+        </button>
         <div
           class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
         >

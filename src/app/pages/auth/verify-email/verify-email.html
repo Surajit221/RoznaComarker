@@ -7,12 +7,12 @@
     <p class="hint">Open the link in that email, then return here to continue.</p>
     @if (message) { <p class="success" role="status">{{ message }}</p> }
     @if (error) { <p class="error" role="alert">{{ error }}</p> }
-    <button type="button" class="primary" [disabled]="checking" (click)="checkVerification()">
+    <button type="button" class="primary" [disabled]="checking || resending" (click)="checkVerification()">
       {{ checking ? 'Checking…' : "I've Verified My Email" }}
     </button>
-    <button type="button" class="secondary" [disabled]="resending || cooldown > 0" (click)="resend()">
+    <button type="button" class="secondary" [disabled]="checking || resending || cooldown > 0" (click)="resend()">
       @if (cooldown > 0) { Resend in {{ cooldown }}s } @else { {{ resending ? 'Sending…' : 'Resend Verification Email' }} }
     </button>
-    <button type="button" class="back" (click)="backToLogin()">Back to Login</button>
+    <button type="button" class="back" [disabled]="checking || resending" (click)="backToLogin()">Back to Login</button>
   </section>
 </main>

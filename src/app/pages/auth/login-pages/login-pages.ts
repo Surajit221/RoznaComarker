@@ -6,6 +6,7 @@ import { AuthService } from '../../../auth/auth.service';
 import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.service';
 import { AlertService } from '../../../services/alert.service';
 import { DeviceService } from '../../../services/device.service';
+import { AuthErrorContext, authErrorMessage } from '../../../auth/auth-error.util';
 
 @Component({ selector: 'app-login-pages', imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './login-pages.html', styleUrl: './login-pages.css' })
@@ -14,6 +15,7 @@ export class LoginPages implements OnInit {
   showPassword = false;
   device = inject(DeviceService);
   isLoading = false;
+  activeOperation: 'login' | 'signup' | 'google' | null = null;
   showForgotPassword = false;
   forgotEmail = '';
   forgotPasswordLoading = false;
@@ -39,7 +41,7 @@ export class LoginPages implements OnInit {
       const response = await this.auth.completeGoogleRedirectIfPresent();
       if (response) await this.finishAuthentication(response);
     } catch (err: any) {
-      this.handleLoginError(err, 'Google login failed');
+      this.handleLoginError(err, 'Google sign-in failed', 'google');
     }
   }
 
@@ -74,11 +76,11 @@ export class LoginPages implements OnInit {
       await this.auth.requestPasswordReset(email);
       this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent.';
     } catch (err: any) {
-      const code = String(err?.code || '');
-      if (code === 'auth/too-many-requests') this.forgotPasswordError = 'Too many attempts. Please try again later.';
-      else if (code === 'auth/network-request-failed') this.forgotPasswordError = 'Network error. Please check your connection.';
-      else if (code === 'auth/invalid-email') this.forgotPasswordError = 'Please enter a valid email address.';
-      else this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent.';
+      const code = String(err?.code || err?.error?.code || '');
+      if (code === 'auth/invalid-email') this.forgotPasswordError = authErrorMessage(err, 'forgot-password');
+      else if (code === 'auth/too-many-requests' || code === 'auth/network-request-failed' || err?.status === 429 || err?.status === 0) {
+        this.forgotPasswordError = authErrorMessage(err, 'forgot-password');
+      } else this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent.';
     } finally {
       this.forgotPasswordLoading = false;
     }
@@ -87,28 +89,31 @@ export class LoginPages implements OnInit {
   async onSubmit(): Promise<void> {
     if (this.isLoading || this.loginForm.invalid) return;
     this.isLoading = true;
+    this.activeOperation = 'login';
     try {
       const response = await this.auth.loginWithEmail(this.loginForm.value.email, this.loginForm.value.password);
       await this.finishAuthentication(response);
     } catch (err: any) {
-      this.handleLoginError(err, 'Login failed');
-    } finally { this.isLoading = false; }
+      this.handleLoginError(err, 'Login failed', 'login');
+    } finally { this.isLoading = false; this.activeOperation = null; }
   }
 
   async onSignup(): Promise<void> {
     if (this.isLoading || this.loginForm.invalid) return;
     this.isLoading = true;
+    this.activeOperation = 'signup';
     try {
       const response = await this.auth.signupWithEmail(this.loginForm.value.email, this.loginForm.value.password);
       await this.finishAuthentication(response);
     } catch (err: any) {
-      this.handleLoginError(err, 'Signup failed');
-    } finally { this.isLoading = false; }
+      this.handleLoginError(err, 'Signup failed', 'signup');
+    } finally { this.isLoading = false; this.activeOperation = null; }
   }
 
   async onGoogleLogin(): Promise<void> {
     if (this.isLoading) return;
     this.isLoading = true;
+    this.activeOperation = 'google';
     try {
       const response = await this.auth.loginWithGoogle();
       await this.finishAuthentication(response);
@@ -116,15 +121,18 @@ export class LoginPages implements OnInit {
       const raw = String(err?.message || err?.code || err || '').toLowerCase();
       if (raw.includes('cross-origin-opener-policy') || raw.includes('window.close')) {
         try { await this.auth.startGoogleRedirect(); return; }
-        catch (redirectError: any) { this.handleLoginError(redirectError, 'Google login failed'); return; }
+        catch (redirectError: any) { this.handleLoginError(redirectError, 'Google sign-in failed', 'google'); return; }
       }
-      this.handleLoginError(err, 'Google login failed');
-    } finally { this.isLoading = false; }
+      this.handleLoginError(err, 'Google sign-in failed', 'google');
+    } finally { this.isLoading = false; this.activeOperation = null; }
   }
 
-  private finishAuthentication(response: { verificationRequired?: boolean; user?: { role?: unknown } }): Promise<boolean> {
+  private finishAuthentication(response: { verificationRequired?: boolean; deliveryWarning?: boolean; user?: { role?: unknown } }): Promise<boolean> {
     if (response?.verificationRequired) {
-      return this.router.navigate(['/verify-email'], { replaceUrl: true });
+      return this.router.navigate(['/verify-email'], {
+        replaceUrl: true,
+        state: { verificationDeliveryWarning: response.deliveryWarning === true }
+      });
     }
     return this.postAuth.navigate(response?.user, this.returnUrl());
   }
@@ -133,7 +141,7 @@ export class LoginPages implements OnInit {
     return this.route.snapshot.queryParamMap.get('redirect') || this.route.snapshot.queryParamMap.get('returnUrl');
   }
 
-  private handleLoginError(err: any, title: string): void {
-    this.alert.showError(title, err?.error?.message || err?.message || 'Please try again');
+  private handleLoginError(err: any, title: string, context: AuthErrorContext): void {
+    this.alert.showError(title, authErrorMessage(err, context));
   }
 }

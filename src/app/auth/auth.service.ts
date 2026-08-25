@@ -19,6 +19,7 @@ type BackendLoginResponse = {
 export type VerificationRequired = {
   verificationRequired: true;
   email: string;
+  deliveryWarning?: boolean;
 };
 
 type BackendResponse<T> = {
@@ -109,8 +110,14 @@ export class AuthService {
   async signupWithEmail(email: string, password: string) {
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
     clearPrivateAuthStorage();
-    await this.requestVerificationDelivery(await cred.user.getIdToken(true));
-    return { verificationRequired: true, email: cred.user.email || email } as VerificationRequired;
+    let deliveryWarning = false;
+    try {
+      await this.requestVerificationDelivery(await cred.user.getIdToken(true));
+    } catch (error) {
+      deliveryWarning = true;
+      console.error('[signupWithEmail] Account created but verification delivery failed', error);
+    }
+    return { verificationRequired: true, email: cred.user.email || email, deliveryWarning } as VerificationRequired;
   }
 
   async requestPasswordReset(email: string): Promise<void> {
