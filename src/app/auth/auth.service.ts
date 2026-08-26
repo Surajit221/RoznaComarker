@@ -1,7 +1,7 @@
 import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from '@angular/fire/auth';
+import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, sendEmailVerification, sendPasswordResetEmail } from '@angular/fire/auth';
 
 import { environment } from '../../environments/environment';
 import { clearPrivateAuthStorage, decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
@@ -112,7 +112,7 @@ export class AuthService {
     clearPrivateAuthStorage();
     let deliveryWarning = false;
     try {
-      await this.requestVerificationDelivery(await cred.user.getIdToken(true));
+      await sendEmailVerification(cred.user, this.actionCodeSettings('/verify-email'));
     } catch (error) {
       deliveryWarning = true;
       console.error('[signupWithEmail] Account created but verification delivery failed', error);
@@ -121,9 +121,7 @@ export class AuthService {
   }
 
   async requestPasswordReset(email: string): Promise<void> {
-    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/auth/request-password-reset`, {
-      email: email.trim().toLowerCase()
-    }));
+    await sendPasswordResetEmail(this.auth, email.trim().toLowerCase(), this.actionCodeSettings('/login'));
   }
 
   async resendVerificationEmail(): Promise<string> {
@@ -131,7 +129,7 @@ export class AuthService {
     const user = this.auth.currentUser;
     if (!user) throw Object.assign(new Error('Authentication is required'), { code: 'auth/no-current-user' });
     await user.reload();
-    if (!user.emailVerified) await this.requestVerificationDelivery(await user.getIdToken(true));
+    if (!user.emailVerified) await sendEmailVerification(user, this.actionCodeSettings('/verify-email'));
     return user.email || '';
   }
 
@@ -304,10 +302,8 @@ export class AuthService {
     }
   }
 
-  private async requestVerificationDelivery(firebaseToken: string): Promise<void> {
-    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/auth/send-verification-email`, {}, {
-      headers: { Authorization: `Bearer ${firebaseToken}` }
-    }));
+  private actionCodeSettings(path: '/verify-email' | '/login') {
+    return { url: `${environment.FRONTEND_URL.replace(/\/+$/u, '')}${path}`, handleCodeInApp: false };
   }
 
   private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {

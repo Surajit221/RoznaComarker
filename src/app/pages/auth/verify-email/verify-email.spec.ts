@@ -25,6 +25,7 @@ describe('VerifyEmail', () => {
     await component.checkVerification();
     expect(auth.completeEmailVerification).toHaveBeenCalledTimes(1);
     expect(component.error).toContain('not verified yet');
+    expect(component.error).toContain('Spam or Junk');
   });
 
   it('continues through the existing post-auth resolver after verification', async () => {
@@ -55,5 +56,44 @@ describe('VerifyEmail', () => {
     await component.resend();
     expect(component.cooldown).toBe(0);
     expect(component.error).toContain('connection');
+  });
+
+  it('shows Spam/Junk guidance and the remaining cooldown in the page', async () => {
+    const fixture = TestBed.createComponent(VerifyEmail);
+    fixture.componentInstance.cooldown = 42;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Check your Spam or Junk folder');
+    expect(fixture.nativeElement.textContent).toContain('Resend available in 42s');
+  });
+
+  it('shows responsive loading labels and disables both verification actions', () => {
+    const fixture = TestBed.createComponent(VerifyEmail);
+    fixture.componentInstance.checking = true;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Checking verification...');
+    const buttons = fixture.nativeElement.querySelectorAll('button');
+    expect(buttons[0].disabled).toBeTrue();
+    expect(buttons[1].disabled).toBeTrue();
+  });
+
+  it('shows Spam/Junk guidance after a successful resend', async () => {
+    auth.resendVerificationEmail.and.resolveTo('person@example.test');
+    const component = TestBed.createComponent(VerifyEmail).componentInstance;
+    component.cooldown = 0;
+    await component.resend();
+    expect(component.message).toContain('Spam/Junk');
+    component.ngOnDestroy();
+  });
+
+  it('uses action-focused wording for a partial-signup delivery warning', async () => {
+    history.replaceState({ verificationDeliveryWarning: true }, '');
+    const fixture = TestBed.createComponent(VerifyEmail);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.error).toContain('Resend verification email button below');
+    expect(fixture.componentInstance.error).toContain('Spam or Junk');
+    history.replaceState({}, '');
   });
 });

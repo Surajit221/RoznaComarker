@@ -77,11 +77,13 @@
 
           <!-- Buttons -->
           <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
-            <button type="button" class="btn-warning w-1/2" (click)="onSignup()" [disabled]="isLoading">
-              {{ activeOperation === 'signup' ? 'Creating account…' : 'Sign Up' }}
+            <button type="button" class="btn-warning auth-button w-1/2" (click)="onSignup()" [disabled]="isLoading"
+              [attr.aria-busy]="activeOperation === 'signup'">
+              <span class="button-content">@if (activeOperation === 'signup') { <span class="spinner" aria-hidden="true"></span><span>Creating account...</span> } @else { <span>Sign Up</span> }</span>
             </button>
-            <button type="submit" class="btn-primary w-1/2" [disabled]="isLoading">
-              {{ activeOperation === 'login' ? 'Logging in…' : 'Log In' }}
+            <button type="submit" class="btn-primary auth-button w-1/2" [disabled]="isLoading"
+              [attr.aria-busy]="activeOperation === 'login'">
+              <span class="button-content">@if (activeOperation === 'login') { <span class="spinner" aria-hidden="true"></span><span>Logging in...</span> } @else { <span>Login</span> }</span>
             </button>
           </div>
 
@@ -97,8 +99,9 @@
             <button type="button"
               class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
               (click)="onGoogleLogin()" [disabled]="isLoading" aria-label="Continue with Google"
+              [attr.aria-busy]="activeOperation === 'google'"
             >
-              @if (activeOperation === 'google') { <span aria-hidden="true">…</span> }
+              @if (activeOperation === 'google') { <span class="spinner" aria-hidden="true"></span> }
               @else { <img src="icons/ic_google.svg" alt="" /> }
             </button>
             <div
@@ -189,11 +192,13 @@
 
       <!-- Buttons -->
       <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
-        <button type="button" class="btn-warning w-1/2" (click)="onSignup()" [disabled]="isLoading">
-          {{ activeOperation === 'signup' ? 'Creating account…' : 'Sign Up' }}
+        <button type="button" class="btn-warning auth-button w-1/2" (click)="onSignup()" [disabled]="isLoading"
+          [attr.aria-busy]="activeOperation === 'signup'">
+          <span class="button-content">@if (activeOperation === 'signup') { <span class="spinner" aria-hidden="true"></span><span>Creating account...</span> } @else { <span>Sign Up</span> }</span>
         </button>
-        <button type="submit" class="btn-primary w-1/2" [disabled]="isLoading">
-          {{ activeOperation === 'login' ? 'Logging in…' : 'Log In' }}
+        <button type="submit" class="btn-primary auth-button w-1/2" [disabled]="isLoading"
+          [attr.aria-busy]="activeOperation === 'login'">
+          <span class="button-content">@if (activeOperation === 'login') { <span class="spinner" aria-hidden="true"></span><span>Logging in...</span> } @else { <span>Login</span> }</span>
         </button>
       </div>
 
@@ -209,8 +214,9 @@
         <button type="button"
           class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
           (click)="onGoogleLogin()" [disabled]="isLoading" aria-label="Continue with Google"
+          [attr.aria-busy]="activeOperation === 'google'"
         >
-          @if (activeOperation === 'google') { <span aria-hidden="true">…</span> }
+          @if (activeOperation === 'google') { <span class="spinner spinner-teal" aria-hidden="true"></span> }
           @else { <img src="icons/ic_google.svg" alt="" /> }
         </button>
         <div
@@ -233,14 +239,17 @@
       <p class="mt-2 text-[#595959]">Enter your email and we’ll send Firebase password reset instructions.</p>
       <label for="forgot-email" class="mt-5 block text-sm font-bold">Email</label>
       <input id="forgot-email" type="email" autocomplete="email" class="input-text mt-1"
-        [value]="forgotEmail" (input)="updateForgotEmail($event)" (keyup.enter)="submitForgotPassword()" />
+        [value]="forgotEmail" [disabled]="forgotPasswordLoading"
+        (input)="updateForgotEmail($event)" (keyup.enter)="submitForgotPassword()" />
       @if (forgotPasswordError) { <p class="mt-3 text-sm text-red-600" role="alert">{{ forgotPasswordError }}</p> }
       @if (forgotPasswordMessage) { <p class="mt-3 text-sm text-[#006d6e]" role="status">{{ forgotPasswordMessage }}</p> }
       <div class="mt-6 flex gap-3">
         <button type="button" class="btn-warning w-1/2" (click)="closeForgotPassword()"
           [disabled]="forgotPasswordLoading">Cancel</button>
-        <button type="button" class="btn-primary w-1/2" (click)="submitForgotPassword()"
-          [disabled]="forgotPasswordLoading">{{ forgotPasswordLoading ? 'Sending…' : 'Send Reset Link' }}</button>
+        <button type="button" class="btn-primary reset-button w-1/2" (click)="submitForgotPassword()"
+          [disabled]="forgotPasswordLoading" [attr.aria-busy]="forgotPasswordLoading">
+          <span class="button-content">@if (forgotPasswordLoading) { <span class="spinner" aria-hidden="true"></span><span>Sending reset link...</span> } @else { <span>Send reset link</span> }</span>
+        </button>
       </div>
     </section>
   </div>

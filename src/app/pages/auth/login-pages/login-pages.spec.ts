@@ -47,6 +47,7 @@ describe('LoginPages', () => {
     await component.submitForgotPassword();
     expect(auth.requestPasswordReset).toHaveBeenCalledWith('user@example.test');
     expect(component.forgotPasswordMessage).toContain('If an account supports password sign-in');
+    expect(component.forgotPasswordMessage).toContain('Spam/Junk');
   });
 
   it('routes an account with failed verification delivery to the resend screen without a signup error', async () => {
@@ -80,5 +81,21 @@ describe('LoginPages', () => {
     expect(component.activeOperation).toBe('login');
     resolveLogin({ verificationRequired: true });
     await first;
+  });
+
+  it('shows stable mobile signup and login loading labels with disabled buttons', () => {
+    (component.device as any).width.set(360);
+    component.isLoading = true;
+    component.activeOperation = 'signup';
+    fixture.detectChanges();
+    let buttons = Array.from(fixture.nativeElement.querySelectorAll('.auth-button')) as HTMLButtonElement[];
+    expect(fixture.nativeElement.textContent).toContain('Creating account...');
+    expect(buttons.every(button => button.disabled)).toBeTrue();
+
+    component.activeOperation = 'login';
+    fixture.detectChanges();
+    buttons = Array.from(fixture.nativeElement.querySelectorAll('.auth-button')) as HTMLButtonElement[];
+    expect(fixture.nativeElement.textContent).toContain('Logging in...');
+    expect(buttons.every(button => button.disabled)).toBeTrue();
   });
 });
