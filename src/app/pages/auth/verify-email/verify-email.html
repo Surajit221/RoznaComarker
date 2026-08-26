@@ -4,14 +4,27 @@
     <div class="mail-icon" aria-hidden="true"><i class="bx bx-envelope"></i></div>
     <h1 id="verify-title">Verify your email</h1>
     <p>We sent a verification link to <strong>{{ maskedEmail }}</strong>.</p>
-    <p class="hint">Open the link in that email, then return here to continue.</p>
+    <p class="hint">It may take a minute to arrive. Open the link, then return here to continue.</p>
+    <aside class="delivery-hint">
+      <strong>Didn't see the email?</strong>
+      <span>Check your Spam or Junk folder.</span>
+    </aside>
     @if (message) { <p class="success" role="status">{{ message }}</p> }
     @if (error) { <p class="error" role="alert">{{ error }}</p> }
-    <button type="button" class="primary" [disabled]="checking || resending" (click)="checkVerification()">
-      {{ checking ? 'Checking…' : "I've Verified My Email" }}
+    <button type="button" class="primary" [disabled]="checking || resending"
+      [attr.aria-busy]="checking" (click)="checkVerification()">
+      <span class="button-content">
+        @if (checking) { <span class="spinner" aria-hidden="true"></span><span>Checking verification...</span> }
+        @else { <span>I've verified my email</span> }
+      </span>
     </button>
-    <button type="button" class="secondary" [disabled]="checking || resending || cooldown > 0" (click)="resend()">
-      @if (cooldown > 0) { Resend in {{ cooldown }}s } @else { {{ resending ? 'Sending…' : 'Resend Verification Email' }} }
+    <button type="button" class="secondary" [disabled]="checking || resending || cooldown > 0"
+      [attr.aria-busy]="resending" (click)="resend()">
+      <span class="button-content">
+        @if (cooldown > 0) { <span>Resend available in {{ cooldown }}s</span> }
+        @else if (resending) { <span class="spinner spinner-teal" aria-hidden="true"></span><span>Sending verification email...</span> }
+        @else { <span>Resend verification email</span> }
+      </span>
     </button>
     <button type="button" class="back" [disabled]="checking || resending" (click)="backToLogin()">Back to Login</button>
   </section>

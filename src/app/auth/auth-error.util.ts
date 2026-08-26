@@ -25,7 +25,7 @@ export function authErrorMessage(error: any, context: AuthErrorContext): string 
   if (status === 0) return messages['auth/network-request-failed'];
   if (status === 401 && context === 'login') return messages['auth/invalid-credential'];
 
-  if (context === 'verification') return 'We could not complete the verification request. Please try again.';
+  if (context === 'verification') return "We couldn't resend the verification email. Please try again shortly.";
   if (context === 'forgot-password') return 'We could not send reset instructions right now. Please try again.';
   if (context === 'google') return 'Google sign-in could not be completed. Please try again.';
   if (context === 'signup') return 'We could not create your account. Please try again.';

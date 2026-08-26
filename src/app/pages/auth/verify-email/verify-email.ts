@@ -27,7 +27,7 @@ export class VerifyEmail implements OnInit, OnDestroy {
     }
     this.email = email;
     if (history.state?.verificationDeliveryWarning) {
-      this.error = "Your account was created, but we couldn't send the verification email right now. Please use Resend Verification.";
+      this.error = "Your account was created, but we couldn't send the verification email right now. Please use the Resend verification email button below. If you don't see the email after resending, check your Spam or Junk folder.";
     }
   }
 
@@ -42,14 +42,14 @@ export class VerifyEmail implements OnInit, OnDestroy {
   }
 
   async checkVerification(): Promise<void> {
-    if (this.checking) return;
+    if (this.checking || this.resending) return;
     this.checking = true;
     this.message = '';
     this.error = '';
     try {
       const response = await this.auth.completeEmailVerification();
       if (!response) {
-        this.error = 'Your email is not verified yet. Please open the link we sent and try again.';
+        this.error = "Your email is not verified yet. Please open the verification link, then try again. If you can't find the email, check your Spam or Junk folder.";
         return;
       }
       await this.postAuth.navigate(response.user);
@@ -63,13 +63,13 @@ export class VerifyEmail implements OnInit, OnDestroy {
   }
 
   async resend(): Promise<void> {
-    if (this.resending || this.cooldown > 0) return;
+    if (this.checking || this.resending || this.cooldown > 0) return;
     this.resending = true;
     this.message = '';
     this.error = '';
     try {
       await this.auth.resendVerificationEmail();
-      this.message = 'A new verification email has been sent.';
+      this.message = 'Verification email sent. Please check your inbox and Spam/Junk folder.';
       this.cooldown = 60;
       this.startCooldown();
     } catch (err: any) {

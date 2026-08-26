@@ -74,13 +74,13 @@ export class LoginPages implements OnInit {
     this.forgotPasswordLoading = true;
     try {
       await this.auth.requestPasswordReset(email);
-      this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent.';
+      this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent. Please check your inbox and Spam/Junk folder.';
     } catch (err: any) {
       const code = String(err?.code || err?.error?.code || '');
       if (code === 'auth/invalid-email') this.forgotPasswordError = authErrorMessage(err, 'forgot-password');
       else if (code === 'auth/too-many-requests' || code === 'auth/network-request-failed' || err?.status === 429 || err?.status === 0) {
         this.forgotPasswordError = authErrorMessage(err, 'forgot-password');
-      } else this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent.';
+      } else this.forgotPasswordMessage = 'If an account supports password sign-in, reset instructions have been sent. Please check your inbox and Spam/Junk folder.';
     } finally {
       this.forgotPasswordLoading = false;
     }
