@@ -251,12 +251,36 @@
                   <span class="wv-blank-wrapper">
                     <span class="wv-blank-chip" [class]="a4BlankClass(part)">{{ a4BlankDisplay(part) }}</span>
                   </span>
-                  @if (data.a4Checked && part.correctAnswer && part.blankId && data.a4Blanks[part.blankId].toLowerCase() !== part.correctAnswer.toLowerCase()) {
+                  @if (data.a4Checked && part.correctAnswer && part.blankId && (data.a4Blanks[part.blankId] || '').toLowerCase() !== part.correctAnswer.toLowerCase()) {
                     <span class="wv-pdf-blank-correction">({{ part.correctAnswer }})</span>
                   }
                 }
               }
             </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ACTIVITY 5: Matching Pairs -->
+    @if (hasA5 && worksheet.activity5) {
+      <div class="wv-card wv-activity-card wv-pdf-activity">
+        <div class="wv-activity-header"><div class="wv-activity-header-text"><p class="wv-section-label">ACTIVITY 5</p><h3 class="wv-activity-title">{{ worksheet.activity5.title }}</h3><p class="wv-activity-inst">{{ worksheet.activity5.instructions }}</p></div><span class="wv-score-badge">{{ a5Score }} / {{ a5Total }}</span></div>
+        <div class="wv-pdf-static-list">
+          @for (pair of worksheet.activity5.pairs; track pair.id; let qi = $index) {
+            <div class="wv-pdf-question-unit"><strong>Q{{ qi + 1 }}. {{ pair.leftItem.text }}</strong><p>Your match: {{ data.a5Matches?.[pair.id] || 'Not answered' }}</p><p>Correct match: {{ pair.rightItem.text }}</p><p>Result: {{ data.a5Matches?.[pair.id] === pair.rightItem.text ? 'Correct' : (data.a5Matches?.[pair.id] ? 'Wrong' : 'Skipped') }}</p></div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ACTIVITY 6: True / False -->
+    @if (hasA6 && worksheet.activity6) {
+      <div class="wv-card wv-activity-card wv-pdf-activity">
+        <div class="wv-activity-header"><div class="wv-activity-header-text"><p class="wv-section-label">ACTIVITY 6</p><h3 class="wv-activity-title">{{ worksheet.activity6.title }}</h3><p class="wv-activity-inst">{{ worksheet.activity6.instructions }}</p></div><span class="wv-score-badge">{{ a6Score }} / {{ a6Total }}</span></div>
+        <div class="wv-pdf-static-list">
+          @for (question of worksheet.activity6.questions; track question.id; let qi = $index) {
+            <div class="wv-pdf-question-unit"><strong>Q{{ qi + 1 }}. {{ question.text }}</strong><p>Your answer: {{ data.a6Answers?.[question.id] === undefined ? 'Not answered' : (data.a6Answers?.[question.id] ? 'True' : 'False') }}</p><p>Correct answer: {{ question.correctAnswer ? 'True' : 'False' }}</p><p>Result: {{ data.a6Answers?.[question.id] === undefined ? 'Skipped' : (data.a6Answers?.[question.id] === question.correctAnswer ? 'Correct' : 'Wrong') }}</p></div>
           }
         </div>
       </div>

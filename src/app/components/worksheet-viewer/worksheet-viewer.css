@@ -2092,3 +2092,6 @@
   color: #64748b;
   margin-bottom: 0.75rem;
 }
+.wv-autosave-error { color: #fecaca; }
+.wv-resume-banner { margin: .5rem auto 0; max-width: 960px; padding: .55rem .8rem;
+  border-radius: 8px; background: rgba(255,255,255,.12); color: #fff; text-align: center; font-size: .8125rem; }

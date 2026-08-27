@@ -14,6 +14,9 @@
   gap: 2rem;
   font-family: var(--font-main, 'Poppins', sans-serif);
 }
+.sfp-resume-banner { margin: 0; width: 100%; max-width: 720px; padding: .6rem .85rem;
+  box-sizing: border-box; border-radius: 10px; background: rgba(255,255,255,.16); color: #fff;
+  font-size: .8125rem; text-align: center; }
 
 /* ── Loading ─────────────────────────────────────────────── */
 .sfp-loading {
@@ -379,6 +382,8 @@
   align-items: center;
   gap: 0.375rem;
 }
+.sfp-grading-error { margin: 0; color: #b91c1c; font-size: .8125rem; text-align: center; }
+.sfp-grade-explanation { margin: 0; color: #4b5563; font-size: .8125rem; text-align: center; }
 .sfp-grading-spinner::before {
   content: '';
   display: inline-block;
@@ -547,7 +552,7 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 600px) {
-  .sfp-screen { padding: 1rem 0.875rem; gap: 1rem; }
+  .sfp-screen { padding: 1rem 0.875rem; gap: 1rem; overflow-y: auto; }
   .sfp-card-scene { height: 240px; }
   .sfp-card-face { padding: 1.5rem 1rem; }
   .sfp-card-definition { font-size: 1rem; }
@@ -565,4 +570,13 @@
     padding: 0.375rem 0.75rem;
     font-size: 0.75rem;
   }
+  .sfp-qa-scene { height: 480px; }
+  .sfp-answer-input, .sfp-btn-reveal, .sfp-btn-next-card { width: 100%; min-width: 0; }
+}
+
+@media (max-width: 380px) {
+  .sfp-screen { padding-inline: .625rem; }
+  .sfp-header { gap: .4rem; }
+  .sfp-btn-back-deck { padding-inline: .55rem; }
+  .sfp-qa-scene { height: 500px; }
 }

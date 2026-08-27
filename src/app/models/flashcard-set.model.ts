@@ -1,5 +1,7 @@
 export interface FlashCard {
   _id?: string;
+  id?: string;
+  cardId?: string;
   front: string;
   back: string;
   frontImage?: string;
@@ -8,11 +10,30 @@ export interface FlashCard {
   template?: string;
 }
 
+export interface RuntimeCardProgress {
+  cardId: string;
+  completed: boolean;
+  known?: boolean;
+  studentAnswer?: string;
+  isCorrect?: boolean;
+  correctAnswer?: string;
+  gradingMethod?: 'exact' | 'normalized' | 'semantic_ai';
+  confidence?: number;
+  explanation?: string;
+  checkedAt?: string;
+  completedAt?: string;
+}
+
 export interface CardResult {
   cardId: string;
   known: boolean;
   studentAnswer?: string;
   isCorrect?: boolean;
+  correctAnswer?: string;
+  gradingMethod?: 'exact' | 'normalized' | 'semantic_ai';
+  confidence?: number;
+  explanation?: string;
+  checkedAt?: string;
 }
 
 export interface FlashcardSet {

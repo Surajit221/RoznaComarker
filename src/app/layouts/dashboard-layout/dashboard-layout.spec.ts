@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { BackendNotification, NotificationApiService } from '../../api/notification-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
+import { CreditsApiService } from '../../api/credits-api.service';
 import { DeviceService } from '../../services/device.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
 import { RoleService } from '../../services/role.service';
@@ -83,6 +84,13 @@ describe('DashboardLayout subscription ownership', () => {
           }
         },
         { provide: SubscriptionApiService, useValue: { getMySubscription, createCustomerPortal } },
+        { provide: CreditsApiService, useValue: {
+          getWallet: () => Promise.resolve({ plan: 'free', monthlyCredits: 25, monthlyCreditsUsed: 0,
+            monthlyCreditsRemaining: 25, purchasedCredits: 0, bonusCredits: 0, availableCredits: 25,
+            resetDate: '2026-09-01', billingCycleStart: '2026-08-01', billingCycleEnd: '2026-09-01',
+            usagePercent: 0, nudgeThresholds: { soft: 50, warning: 80 }, warningAcknowledged: false }),
+          getPacks: () => Promise.resolve([]), acknowledgeNudge: () => Promise.reject()
+        } },
         {
           provide: NotificationApiService,
           useValue: {
@@ -97,7 +105,8 @@ describe('DashboardLayout subscription ownership', () => {
           useValue: {
             connect: () => undefined,
             disconnect: () => undefined,
-            notifications$: realtimeNotifications.asObservable()
+            notifications$: realtimeNotifications.asObservable(),
+            events$: new Subject<any>().asObservable()
           }
         },
         {

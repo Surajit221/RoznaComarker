@@ -14,9 +14,14 @@ export type BackendPlan = {
   name: string;
   slug: 'free' | 'starter_monthly' | 'custom' | string;
   price: number | null;
+  annualPrice?: number | null;
+  displayOrder?: number;
   currency: string;
   billingInterval: string | null;
   popular: boolean;
+  assessmentCreditNudges?: { softThresholdPercent: number; warningThresholdPercent: number };
+  purchasable?: boolean;
+  annualBillingAvailable?: boolean;
   features: {
     maxClasses: number | null;
     maxStudents: number | null;

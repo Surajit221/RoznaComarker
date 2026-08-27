@@ -33,6 +33,10 @@ export interface WorksheetPdfInput {
   /** Activity 4 — reconstructable from submission.answers (sectionId === 'activity4'). */
   a4Blanks: Record<string, string>;
   a4Checked?: boolean;
+  /** Activity 5 — matching pairs. */
+  a5Matches?: Record<string, string>;
+  /** Activity 6 — true/false. */
+  a6Answers?: Record<string, boolean>;
   /** Score summary. */
   totalPointsEarned: number;
   totalPointsPossible: number;
@@ -217,6 +221,20 @@ export class WorksheetPdfTemplateComponent {
   }
 
   get a4Total(): number { return this.worksheet.activity4?.sentences?.length ?? 0; }
+
+  get hasA5(): boolean { return !!this.worksheet.activity5?.pairs?.length; }
+  get a5Score(): number {
+    return (this.worksheet.activity5?.pairs ?? []).filter((pair: any) =>
+      this.data.a5Matches?.[pair.id] === pair.rightItem?.text).length;
+  }
+  get a5Total(): number { return this.worksheet.activity5?.pairs?.length ?? 0; }
+
+  get hasA6(): boolean { return !!this.worksheet.activity6?.questions?.length; }
+  get a6Score(): number {
+    return (this.worksheet.activity6?.questions ?? []).filter((question: any) =>
+      this.data.a6Answers?.[question.id] === question.correctAnswer).length;
+  }
+  get a6Total(): number { return this.worksheet.activity6?.questions?.length ?? 0; }
 
   trackByIndex(i: number): number { return i; }
 

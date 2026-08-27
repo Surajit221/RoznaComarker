@@ -91,7 +91,7 @@ export class StudentResultsPage implements OnInit {
   }
 
   get cardsNeedingReview(): Array<CardResult & { card?: FlashCard }> {
-    return this.cardResultsWithContent.filter((r) => !r.known);
+    return this.cardResultsWithContent.filter((r) => this.template === 'qa' ? r.isCorrect === false : !r.known);
   }
 
   get hasPerCardBreakdown(): boolean {
@@ -122,6 +122,15 @@ export class StudentResultsPage implements OnInit {
       this.needsReviewCount = state.needsReviewCount ?? null;
       this.incompleteCount = state.incompleteCount ?? null;
       this.type = state.type ?? 'flashcard';
+      if (this.type === 'flashcard' && this.template === 'qa') {
+        // The per-card server result is canonical for assessed Q&A. Ignore
+        // cached score/counts and the legacy self-rating `known` flag.
+        const checked = this.cardResults.filter((result) => typeof result.isCorrect === 'boolean');
+        this.correctCount = checked.filter((result) => result.isCorrect === true).length;
+        this.needsReviewCount = checked.filter((result) => result.isCorrect === false).length;
+        this.score = checked.length > 0 ? Math.round((this.correctCount / checked.length) * 100) : 0;
+        this.incompleteCount = Math.max(0, this.total - checked.length);
+      }
       this.hasState = true;
     } else {
       this.router.navigate(['/student/my-classes']);
@@ -182,9 +191,9 @@ export class StudentResultsPage implements OnInit {
           total: this.total,
           timeTaken: this.timeTaken,
           template: this.template,
-          correctCount: this.correctCount ?? this.cardResults.filter((r) => r.known).length,
+          correctCount: this.correctCount ?? this.cardResults.filter((r) => this.template === 'qa' ? r.isCorrect === true : r.known).length,
           needsReviewCount:
-            this.needsReviewCount ?? this.cardResults.filter((r) => !r.known).length,
+            this.needsReviewCount ?? this.cardResults.filter((r) => this.template === 'qa' ? r.isCorrect === false : !r.known).length,
           cards: this.cards,
           cardResults: this.cardResults,
         },

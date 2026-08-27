@@ -18,7 +18,7 @@
 .wv-pdf-root {
   width: 794px;
   background: #f1f5f9;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Poppins', sans-serif;
   display: block !important;
   height: auto !important;
   overflow: visible !important;
@@ -36,13 +36,13 @@
 }
 
 /* Each activity card avoids being split mid-page */
-.wv-pdf-activity,
 .wv-pdf-score-banner,
 .wv-pdf-root .wv-score-panel,
 .wv-pdf-root .wv-concept-card {
   break-inside: avoid;
   page-break-inside: avoid;
 }
+.wv-pdf-question-unit,.wv-pdf-root .wv-mcq-question,.wv-pdf-root .wv-sentence,.wv-pdf-root .wv-mystery-card{break-inside:avoid;page-break-inside:avoid}.wv-pdf-static-list{display:grid;gap:.6rem}.wv-pdf-question-unit{border:1px solid #e2e8f0;border-radius:8px;padding:.7rem;background:#fff;overflow-wrap:anywhere}.wv-pdf-question-unit p{margin:.25rem 0 0;font-size:.8rem;color:#475569}
 
 /* Concept explanation text overflow handling for PDF */
 .wv-pdf-root .wv-concept-body {

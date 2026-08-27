@@ -60,20 +60,21 @@
       <h3 class="srp-section-title">Your answers</h3>
       <div *ngFor="let r of cardResultsWithContent"
            class="srp-result-row"
-           [class.srp-result-correct]="r.known"
-           [class.srp-result-wrong]="!r.known">
-        <span class="srp-result-icon">{{ r.known ? '✓' : '✗' }}</span>
+           [class.srp-result-correct]="r.isCorrect === true"
+           [class.srp-result-wrong]="r.isCorrect !== true">
+        <span class="srp-result-icon">{{ r.isCorrect === true ? '✓' : '✗' }}</span>
         <div class="srp-result-content">
           <p class="srp-result-question">{{ r.card?.front || 'Question' }}</p>
           <p class="srp-result-answer srp-result-correct-answer">
-            <strong>Correct:</strong> {{ r.card?.back || '—' }}
+            <strong>Correct:</strong> {{ r.correctAnswer || r.card?.back || '—' }}
           </p>
           <p class="srp-result-answer" *ngIf="r.studentAnswer">
             <strong>Your answer:</strong>
-            <span [class.srp-answer-correct]="r.known" [class.srp-answer-wrong]="!r.known">
+            <span [class.srp-answer-correct]="r.isCorrect === true" [class.srp-answer-wrong]="r.isCorrect !== true">
               {{ r.studentAnswer }}
             </span>
           </p>
+          <p class="srp-result-answer"><strong>Status:</strong> {{ r.isCorrect === true ? 'Correct' : 'Incorrect' }}</p>
           <p class="srp-result-answer srp-no-answer" *ngIf="!r.studentAnswer">
             <em>(no answer given)</em>
           </p>

@@ -72,11 +72,16 @@
           <button class="wv-btn-back" (click)="closed.emit()">← Back</button>
           @if (isSavingDraft()) {
             <span class="wv-autosave-indicator wv-autosave-saving">Saving...</span>
+          } @else if (draftSaveError()) {
+            <span class="wv-autosave-indicator wv-autosave-error" role="status">Unable to save</span>
           } @else if (lastSavedAt()) {
             <span class="wv-autosave-indicator">Saved {{ lastSavedAt() | date:'shortTime' }}</span>
           }
           <button class="wv-btn-close" (click)="closed.emit()">×</button>
         </div>
+      }
+      @if (resumeMessage() && !reviewMode) {
+        <p class="wv-resume-banner">{{ resumeMessage() }}</p>
       }
       <div class="wv-header-body">
         <div class="wv-header-left">

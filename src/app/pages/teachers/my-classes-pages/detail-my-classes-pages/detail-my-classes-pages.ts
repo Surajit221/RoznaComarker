@@ -30,6 +30,7 @@ import { WorksheetAssignModal } from '../../../../components/teacher/worksheet-a
 import { FlashcardAssignModal } from '../../../../components/teacher/flashcard-assign-modal/flashcard-assign-modal';
 import { WorksheetViewerComponent } from '../../../../components/worksheet-viewer/worksheet-viewer';
 import { ResourceStateService } from '../../../../services/resource-state.service';
+import { AuthService } from '../../../../auth/auth.service';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -78,6 +79,7 @@ export class DetailMyClassesPages {
   private submissionApi = inject(SubmissionApiService);
   private qrGenerator = inject(QrGeneratorService);
   private realtime = inject(NotificationRealtimeService);
+  private auth = inject(AuthService);
 
   private realtimeSub: Subscription | null = null;
   private pollId: number | null = null;
@@ -180,6 +182,13 @@ export class DetailMyClassesPages {
     const RESERVED = ['student-profile', 'student-submissions'];
     if (!this.classId || RESERVED.includes(this.classId)) {
       this.classId = null;
+      return;
+    }
+    const viewer = await this.auth.getMeProfile().catch(() => null);
+    if (viewer?.role !== 'teacher') {
+      if (viewer?.role === 'student' && this.classId) {
+        await this.router.navigate(['/student/classroom', this.classId]);
+      }
       return;
     }
     await this.loadClassSummary();

@@ -13,7 +13,6 @@ import { SubmissionApiService } from '../../../../api/submission-api.service';
 import { type BackendUploadResponse, UploadApiService } from '../../../../api/upload-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassSummary } from '../../../../api/class-api.service';
-import { TeacherDashboardStateService } from '../../../../services/teacher-dashboard-state.service';
 import { NotificationRealtimeService } from '../../../../services/notification-realtime.service';
 import { AssignmentStateService } from '../../../../services/assignment-state.service';
 import { WorksheetApiService } from '../../../../api/worksheet-api.service';
@@ -43,7 +42,6 @@ export class DetailMyClassStudentPages {
   private uploadApi = inject(UploadApiService);
   private alert = inject(AlertService);
   private classApi = inject(ClassApiService);
-  private teacherDashboardState = inject(TeacherDashboardStateService);
   private realtime = inject(NotificationRealtimeService);
 
   private realtimeSub: Subscription | null = null;

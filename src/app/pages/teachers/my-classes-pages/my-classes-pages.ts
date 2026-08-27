@@ -24,7 +24,9 @@ export class MyClassesPages {
 
   showEditDialog = false;
   showDeleteDialog = false;
+  showArchiveDialog = false;
   selectedClass: BackendClass | null = null;
+  selectedStatus: 'active' | 'archived' = 'active';
 
   private classesById = new Map<string, BackendClass>();
 
@@ -48,6 +50,8 @@ export class MyClassesPages {
     submissions: number;
     description: string;
     lastEdited: string;
+    status: 'active' | 'archived';
+    archivedAt: string | null;
   }> = [];
 
   classes: Array<{
@@ -59,6 +63,8 @@ export class MyClassesPages {
     submissions: number;
     description: string;
     lastEdited: string;
+    status: 'active' | 'archived';
+    archivedAt: string | null;
   }> = [];
 
   async ngOnInit() {
@@ -168,7 +174,9 @@ export class MyClassesPages {
         assignments: summary.assignmentsCount || 0,
         submissions: summary.submissionsCount || 0,
         description: c.description || '',
-        lastEdited: summary.lastEdited || ''
+        lastEdited: summary.lastEdited || '',
+        status: c.status || 'active',
+        archivedAt: c.archivedAt || null
       };
     } catch (err) {
       // Fallback if summary fails
@@ -180,7 +188,9 @@ export class MyClassesPages {
         assignments: 0,
         submissions: 0,
         description: c.description || '',
-        lastEdited: ''
+        lastEdited: '',
+        status: c.status || 'active',
+        archivedAt: c.archivedAt || null
       };
     }
   }
@@ -189,7 +199,7 @@ export class MyClassesPages {
     if (this.isLoading) return;
     this.isLoading = true;
     try {
-      const classes = await this.classApi.getMyTeacherClasses();
+      const classes = await this.classApi.getMyTeacherClasses(this.selectedStatus);
 
       this.classesById = new Map<string, BackendClass>();
       for (const c of classes || []) {
@@ -220,6 +230,51 @@ export class MyClassesPages {
 
   onAddClasses() {
     this.showDialog = true;
+  }
+
+  async selectStatus(status: 'active' | 'archived') {
+    if (status === this.selectedStatus) return;
+    this.selectedStatus = status;
+    this.searchTerm = '';
+    await this.loadClasses();
+  }
+
+  onArchiveRequested(payload: { id: string; title: string }) {
+    this.selectedClass = this.classesById.get(payload.id) || null;
+    this.showArchiveDialog = true;
+  }
+
+  closeArchiveDialog() {
+    this.showArchiveDialog = false;
+    this.selectedClass = null;
+  }
+
+  async confirmArchiveClass() {
+    const id = this.selectedClass?._id;
+    if (!id) return;
+    try {
+      await this.classApi.archiveClass(id);
+      this.alert.showSuccess('Class archived', 'All class history has been kept');
+      this.closeArchiveDialog();
+      await this.loadClasses();
+    } catch (err: any) {
+      this.alert.showError('Failed to archive class', err?.error?.message || err?.message || 'Please try again');
+    }
+  }
+
+  async onRestoreRequested(payload: { id: string; title: string }) {
+    const found = this.classesById.get(payload.id);
+    if (!found) return;
+    try {
+      await this.classApi.unarchiveClass(payload.id);
+      this.alert.showSuccess('Class restored', `${payload.title} is active again`);
+      await this.loadClasses();
+    } catch (err: any) {
+      const message = err?.error?.code === 'ACTIVE_CLASS_LIMIT_REACHED'
+        ? "You've reached your active class limit. Archive another class or upgrade your plan before restoring this class."
+        : err?.error?.message || err?.message || 'Please try again';
+      this.alert.showError('Unable to restore class', message);
+    }
   }
   closeDialog() {
     this.showDialog = false;

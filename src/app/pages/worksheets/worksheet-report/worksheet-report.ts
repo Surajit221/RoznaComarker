@@ -9,7 +9,7 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   Subject,
   catchError,
@@ -39,7 +39,6 @@ import {
 } from '../../../api/worksheet-api.service';
 import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
 import { ClassApiService, type BackendClass } from '../../../api/class-api.service';
-import { environment } from '../../../../environments/environment';
 import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
 import { triggerBlobDownload } from '../../../utils/file-download.util';
@@ -57,6 +56,8 @@ import type {
   WorksheetReportData,
 } from '../../../services/worksheet-report-pdf.service';
 import { ReportPdfTemplateComponent } from './report-pdf-template/report-pdf-template.component';
+import { PdfApiService } from '../../../api/pdf-api.service';
+import { NotificationRealtimeService } from '../../../services/notification-realtime.service';
 
 interface WorksheetSectionAnalytics {
   id: string;
@@ -112,7 +113,8 @@ export class WorksheetReport implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly directReportRequest$ = new Subject<void>();
   private readonly searchRequest$ = new Subject<string>();
-  private readonly http = inject(HttpClient);
+  private readonly pdfApi = inject(PdfApiService);
+  private readonly realtime = inject(NotificationRealtimeService);
 
   worksheet: WorksheetReportWorksheet | null = null;
   submissions: WorksheetReportSubmission[] = [];
@@ -365,6 +367,14 @@ export class WorksheetReport implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initializeReportRequests();
     this.loadTeacherClasses();
+    this.realtime.connect();
+    this.realtime.notifications$.pipe(takeUntil(this.destroy$)).subscribe((notification) => {
+      if (notification?.type !== 'assignment_submitted') return;
+      const data = notification.data || {};
+      if (String(data['resourceType'] || '') !== 'worksheet') return;
+      if (String(data['worksheetId'] || '') !== this.worksheetId) return;
+      this.directReportRequest$.next();
+    });
   }
 
   ngOnDestroy(): void {
@@ -797,58 +807,19 @@ export class WorksheetReport implements OnInit, OnDestroy {
     this.downloadingSubmissionId = submission._id;
     this.cdr.markForCheck();
     try {
-      // Data is already in the submission object
-      const worksheetId = typeof submission.worksheetId === 'object'
-        ? submission.worksheetId._id
-        : submission.worksheetId;
-        
-      const student = typeof submission.studentId === 'string' ? null : submission.studentId;
-      const studentName = student?.displayName
-        || student?.email
-        || 'Student';
-      
-      // Read directly from submission fields
-      const answers = submission.activity9Answers || {};
-      const results = submission.activity9Results || {};
-      const score = submission.totalPointsEarned || 0;
-      const total = submission.totalPointsPossible || 0;
-      
-      console.log('[TEACHER PDF] worksheetId:', worksheetId);
-      console.log('[TEACHER PDF] answers:', Object.keys(answers).length);
-      console.log('[TEACHER PDF] results:', Object.keys(results).length);
-      console.log('[TEACHER PDF] score:', score, '/', total);
-      
-      // Call backend directly - no overlayPdfService needed
-      const response = await firstValueFrom(this.http.post(
-        `${environment.apiUrl}/worksheets/${worksheetId}/download-overlay`,
-        {
-          answers,
-          results,
-          studentName,
-          score,
-          total,
-          subject: '',
-          grade: ''
-        },
-        { responseType: 'blob' },
-      ));
-      
-      const blob = new Blob([response], {
-        type: 'application/pdf'
+      const studentName = this.getStudentName(submission);
+      const assignmentTitle = typeof submission.assignmentId === 'object'
+        ? submission.assignmentId?.title || this.worksheet?.title || 'worksheet'
+        : this.worksheet?.title || 'worksheet';
+      const safePart = (value: string) => value.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'report';
+      const blob = await this.pdfApi.downloadWorksheetSubmissionPdf(submission._id);
+      if (!blob || blob.size === 0) throw new Error('The server returned an empty PDF.');
+      triggerBlobDownload(blob, {
+        filename: `${safePart(studentName)}-${safePart(assignmentTitle)}-report.pdf`,
+        mimeType: 'application/pdf',
       });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${studentName.replace(/\s+/g, '-')}_results.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      console.log('[TEACHER PDF] Download complete!');
       
     } catch(error: unknown) {
-      console.error('[TEACHER PDF] Error:', error);
       this.errorModal = {
         open: true,
         title: 'PDF Failed',

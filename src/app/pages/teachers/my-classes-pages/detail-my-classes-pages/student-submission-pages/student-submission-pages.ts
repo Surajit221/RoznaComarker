@@ -3207,7 +3207,9 @@ export class StudentSubmissionPages {
 
       this.alert.showToast('Re-evaluation started', 'success');
     } catch (err: any) {
-      this.alert.showError('Re-evaluation failed', err?.error?.message || err?.message || 'Please try again');
+      const noCredits = err?.error?.code === 'INSUFFICIENT_ASSESSMENT_CREDITS';
+      this.alert.showError(noCredits ? 'Assessment Credits used' : 'Re-evaluation failed',
+        err?.error?.message || err?.message || 'Please try again');
     } finally {
       this.isRetryingAnalysis = false;
     }

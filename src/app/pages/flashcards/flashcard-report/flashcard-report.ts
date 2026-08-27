@@ -24,6 +24,7 @@ import { AlertService } from '../../../services/alert.service';
 import { triggerBlobDownload } from '../../../utils/file-download.util';
 import { FlashcardPdfRenderService } from '../../../components/flashcard-pdf-template/flashcard-pdf-render.service';
 import { ComprehensiveReport, type ReportEntry } from '../../../components/comprehensive-report/comprehensive-report';
+import { NotificationRealtimeService } from '../../../services/notification-realtime.service';
 
 type ReportTab = 'participants' | 'cards' | 'analytics';
 type AssignmentProgress = Awaited<ReturnType<AssignmentApiService['getAssignmentProgress']>>;
@@ -53,6 +54,7 @@ export class FlashcardReport implements OnInit, OnDestroy {
   private readonly alert          = inject(AlertService);
   private readonly assignmentApi  = inject(AssignmentApiService);
   private readonly fcPdfRenderer  = inject(FlashcardPdfRenderService);
+  private readonly realtime       = inject(NotificationRealtimeService);
 
   report: FlashcardReportModel | null = null;
   isLoading  = true;
@@ -151,6 +153,15 @@ export class FlashcardReport implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadReport();
+    this.realtime.connect();
+    this.realtime.notifications$.pipe(takeUntil(this.destroy$)).subscribe((notification) => {
+      if (notification?.type !== 'assignment_submitted') return;
+      const data = notification.data || {};
+      if (String(data['resourceType'] || '') !== 'flashcard') return;
+      if (!this.assignmentId || String(data['assignmentId'] || '') !== this.assignmentId) return;
+      this.cachedSubmissions = null;
+      this.refreshData();
+    });
     this.startPolling();
   }
 
@@ -342,11 +353,10 @@ export class FlashcardReport implements OnInit, OnDestroy {
         this.cachedSetTitle = set?.title ?? '';
       }
 
-      // Lazy-load all submissions for the assignment (cached).
-      if (!this.cachedSubmissions) {
-        this.cachedSubmissions =
-          await this.assignmentApi.getFlashcardAssignmentSubmissions(this.assignmentId);
-      }
+      // Always request the persisted assignment submissions so a recently
+      // completed participant cannot produce a stale or mismatched PDF.
+      this.cachedSubmissions =
+        await this.assignmentApi.getFlashcardAssignmentSubmissions(this.assignmentId);
 
       const sub = (this.cachedSubmissions ?? []).find((s: any) => {
         const uid = typeof s.userId === 'string' ? s.userId : s.userId?._id;
@@ -375,29 +385,36 @@ export class FlashcardReport implements OnInit, OnDestroy {
             known:  r.status === 'know',
           }));
 
-      const correctCount = derivedResults.filter((r) => r.known).length;
+      const isAssessedQa = (subAny.template ?? 'term-def') === 'qa';
+      const correctCount = derivedResults.filter((r) => isAssessedQa ? r.isCorrect === true : r.known).length;
+      const assessedTotal = isAssessedQa
+        ? derivedResults.filter((r) => typeof r.isCorrect === 'boolean').length
+        : derivedResults.length;
+      const authoritativeDisplayScore = assessedTotal > 0 ? Math.round((correctCount / assessedTotal) * 100) : 0;
       const total        = subAny.totalCards ?? this.cachedCards.length ?? derivedResults.length;
       const dateStr = subAny.submittedAt
         ? new Date(subAny.submittedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
         : '';
-      const safeName  = (p.userName || 'student').replace(/\s+/g, '-').toLowerCase();
-      const safeTitle = (this.cachedSetTitle || 'flashcards').replace(/\s+/g, '-').toLowerCase();
+      const safeFilenamePart = (value: string, fallback: string) =>
+        value.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || fallback;
+      const safeName  = safeFilenamePart(p.userName || '', 'student');
+      const safeTitle = safeFilenamePart(this.cachedSetTitle || '', 'flashcards');
 
       await this.fcPdfRenderer.render(
         {
           setTitle:         this.cachedSetTitle || 'Flashcard Set',
           studentName:      p.userName || 'Student',
           date:             dateStr,
-          score:            subAny.score ?? p.score ?? 0,
+          score:            isAssessedQa ? authoritativeDisplayScore : (subAny.score ?? p.score ?? 0),
           total,
           timeTaken:        subAny.timeTaken ?? p.timeTaken ?? 0,
           template:         subAny.template ?? 'term-def',
           correctCount,
-          needsReviewCount: total - correctCount,
+          needsReviewCount: isAssessedQa ? assessedTotal - correctCount : total - correctCount,
           cards:            this.cachedCards,
           cardResults:      derivedResults,
         },
-        `${safeName}_${safeTitle}.pdf`,
+        `${safeName}-${safeTitle}-report.pdf`,
       );
     } catch (err: any) {
       this.alert.showError('Failed to generate PDF', err?.error?.message ?? err?.message ?? 'Please try again');

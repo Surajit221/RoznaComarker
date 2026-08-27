@@ -19,9 +19,13 @@ export class MyClassesCard {
   @Input() submissions!: number;
   @Input() description!: string;
   @Input() lastEdited!: string;
+  @Input() status: 'active' | 'archived' = 'active';
+  @Input() archivedAt: string | null = null;
 
   @Output() editRequested = new EventEmitter<{ id: string; title: string; description: string }>();
   @Output() deleteRequested = new EventEmitter<{ id: string; title: string }>();
+  @Output() archiveRequested = new EventEmitter<{ id: string; title: string }>();
+  @Output() restoreRequested = new EventEmitter<{ id: string; title: string }>();
 
   device = inject(DeviceService);
 
@@ -67,6 +71,20 @@ export class MyClassesCard {
     if (!this.id) return;
     this.menuOpen = false;
     this.deleteRequested.emit({ id: this.id, title: this.title });
+  }
+
+  onArchiveClick(event: Event) {
+    event.preventDefault(); event.stopPropagation();
+    if (!this.id) return;
+    this.menuOpen = false;
+    this.archiveRequested.emit({ id: this.id, title: this.title });
+  }
+
+  onRestoreClick(event: Event) {
+    event.preventDefault(); event.stopPropagation();
+    if (!this.id) return;
+    this.menuOpen = false;
+    this.restoreRequested.emit({ id: this.id, title: this.title });
   }
 
   formatLastEdited(): string {

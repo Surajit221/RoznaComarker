@@ -87,6 +87,10 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   // Draft autosave
   isSavingDraft = signal(false);
   lastSavedAt = signal<Date | null>(null);
+  draftSaveError = signal<string | null>(null);
+  resumeMessage = signal<string | null>(null);
+  private draftRevision = 0;
+  private persistedElapsedSeconds = 0;
   private autosaveTrigger = new Subject<void>();
   private destroy$ = new Subject<void>();
   private autosaveInterval: any = null;
@@ -446,9 +450,9 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
       });
     }
 
-    // Setup autosave with debouncing (saves 30 seconds after last change)
+    // Text input is debounced; discrete actions call the same trigger after a meaningful change.
     this.autosaveTrigger.pipe(
-      debounceTime(30000),
+      debounceTime(750),
       takeUntil(this.destroy$)
     ).subscribe(() => {
       this.saveDraft();
@@ -531,6 +535,14 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
         if (draft.activity2Revealed) this.a2Revealed.set(draft.activity2Revealed);
         if (draft.activity3Answers) this.a3Answers.set(draft.activity3Answers);
         if (draft.activity4Blanks) this.a4Blanks.set(draft.activity4Blanks);
+        if (draft.activity5Matches) this.a5Matches.set(draft.activity5Matches);
+        if (draft.activity6Answers) this.a6Answers.set(draft.activity6Answers);
+        if (draft.activity7Labels) this.a7Labels.set(draft.activity7Labels);
+        if (draft.activity8Sequences) this.a8Sequences.set(draft.activity8Sequences);
+        this.draftRevision = Number(draft.revision || 0);
+        this.persistedElapsedSeconds = Math.max(0, Number(draft.timeSpent) || 0);
+        this.startTime = Date.now();
+        this.resumeMessage.set('Welcome back — continuing where you left off.');
         this.lastSavedAt.set(new Date(draft.lastSavedAt || draft.updatedAt));
       }
     } catch (err: any) {
@@ -544,6 +556,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   private async saveDraft(): Promise<void> {
     if (!this.assignmentId || this.reviewMode || this.isSubmitted()) return;
     this.isSavingDraft.set(true);
+    this.draftSaveError.set(null);
     try {
       // Convert a1Slots to activity1Answers map
       const a1Answers: Record<string, string> = {};
@@ -558,12 +571,20 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
         activity2Revealed: this.a2Revealed(),
         activity3Answers: this.a3Answers(),
         activity4Blanks: this.a4Blanks(),
+        activity5Matches: this.a5Matches(),
+        activity6Answers: this.a6Answers(),
+        activity7Labels: this.a7Labels(),
+        activity8Sequences: this.a8Sequences(),
+        currentQuestionId: this.firstIncompleteQuestionId(),
+        currentQuestionIndex: 0,
+        expectedRevision: this.draftRevision,
         progressPercentage: this.progressPercent(),
-        timeSpent: Math.floor((Date.now() - this.startTime) / 1000),
-      }));
+        timeSpent: this.persistedElapsedSeconds + Math.floor((Date.now() - this.startTime) / 1000),
+      })).then((response) => { this.draftRevision = Number(response?.data?.revision || this.draftRevision + 1); });
       this.lastSavedAt.set(new Date());
     } catch (err: any) {
       console.warn('[SAVE DRAFT] Failed to save draft:', err);
+      this.draftSaveError.set("We couldn't save your progress. Please check your connection.");
     } finally {
       this.isSavingDraft.set(false);
     }
@@ -572,6 +593,19 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   private triggerAutosave(): void {
     if (!this.assignmentId || this.reviewMode || this.isSubmitted()) return;
     this.autosaveTrigger.next();
+  }
+
+  private firstIncompleteQuestionId(): string | null {
+    const ws = this.worksheet();
+    for (const item of ws?.activity2?.items ?? []) if (!this.a2Answers()[item.id]) return item.id;
+    for (const item of ws?.activity3?.questions ?? []) if (!this.a3Answers()[item.id]) return item.id;
+    for (const sentence of ws?.activity4?.sentences ?? []) for (const part of sentence.parts ?? []) {
+      const blankId = part.blankId;
+      if (part.type === 'blank' && blankId && !this.a4Blanks()[blankId]) return blankId;
+    }
+    for (const pair of ws?.activity5?.pairs ?? []) if (!this.a5Matches()[pair.id]) return pair.id;
+    for (const question of ws?.activity6?.questions ?? []) if (this.a6Answers()[question.id] === undefined) return question.id;
+    return null;
   }
 
   shuffle<T>(arr: T[]): T[] {
@@ -1349,6 +1383,8 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
           a3Answers: this.a3Answers(),
           a4Blanks: this.a4Blanks(),
           a4Checked: this.a4Checked(),
+          a5Matches: this.a5Matches(),
+          a6Answers: this.a6Answers(),
           totalPointsEarned: this.totalScore(),
           totalPointsPossible: this.totalPossible(),
           percentage: this.progressPercent(),

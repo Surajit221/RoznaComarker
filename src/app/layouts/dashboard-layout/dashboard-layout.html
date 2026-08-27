@@ -25,6 +25,20 @@
       <header class="flex items-center justify-end px-6 py-2">
         <div class="flex flex-row gap-10">
           @if (role === 'teacher') {
+            @if (creditWallet) {
+            <section class="credit-summary" aria-label="Assessment Credits" data-testid="assessment-credit-wallet">
+              <div><span>Assessment Credits</span><strong>{{ creditWallet.availableCredits }}</strong></div>
+              <small>{{ creditWallet.monthlyCreditsRemaining }} monthly + {{ creditWallet.purchasedCredits }} purchased + {{ creditWallet.bonusCredits }} bonus · resets {{ creditResetLabel }}</small>
+              @if (creditWallet.usagePercent >= creditWallet.nudgeThresholds.warning && creditWallet.usagePercent < 100 && !creditWallet.warningAcknowledged) {
+              <p>You're at {{ creditWallet.usagePercent }}% of your monthly Assessment Credits. Consider adding credits or upgrading before your next class set.</p>
+              <div class="credit-actions"><button type="button" (click)="onAddCredits()">Add Credits</button><button type="button" (click)="onPlanButton()">Upgrade Plan</button><button type="button" aria-label="Dismiss credit warning" (click)="dismissCreditWarning()">Dismiss</button></div>
+              }
+              @if (creditWallet.availableCredits === 0) {
+              <p>You have used all your Assessment Credits for this billing cycle.</p>
+              <div class="credit-actions"><button type="button" (click)="onPlanButton()">Upgrade Plan</button><button type="button" (click)="onAddCredits()">Add Credits</button></div>
+              }
+            </section>
+            }
             <app-chart-storage [used]="storageUsedGb" [total]="storageTotalGb" [strokeColor]="'#FFC300'" [size]="150"
               [planButtonLabel]="planButtonLabel" (planButtonClick)="onPlanButton()">
             </app-chart-storage>
@@ -188,6 +202,11 @@
 
       @if (role === 'teacher') {
       <div class="mobile-account-row" data-testid="mobile-teacher-account-row">
+        @if (creditWallet) {
+        <button type="button" class="mobile-credit-summary" data-testid="mobile-assessment-credit-wallet" (click)="onAddCredits()">
+          <span>Credits</span><strong>{{ creditWallet.availableCredits }}</strong><small>{{ creditWallet.purchasedCredits }} purchased · {{ creditWallet.bonusCredits }} bonus</small>
+        </button>
+        }
         <div class="mobile-storage-summary">
           <span class="mobile-storage-ring" [style.--storage-progress]="mobileStoragePercent + '%'" aria-hidden="true"></span>
           <span class="mobile-storage-text">{{ mobileStorageUsedLabel }} / {{ mobileStorageTotalLabel }} used</span>
@@ -196,6 +215,9 @@
           {{ planButtonLabel }}
         </button>
       </div>
+      @if (creditWallet && creditWallet.usagePercent >= creditWallet.nudgeThresholds.warning && creditWallet.usagePercent < 100 && !creditWallet.warningAcknowledged) {
+      <section class="mobile-credit-warning" aria-label="Assessment Credit usage warning"><p>You're at {{ creditWallet.usagePercent }}% of your monthly Assessment Credits.</p><div><button type="button" (click)="onAddCredits()">Add Credits</button><button type="button" (click)="onPlanButton()">Upgrade</button><button type="button" (click)="dismissCreditWarning()">Dismiss</button></div></section>
+      }
       }
     </header>
     }
@@ -222,3 +244,20 @@
   </div>
   }
 </ng-container>
+
+@if (showTopupDialog) {
+<div class="topup-backdrop" role="presentation" (click)="closeTopupDialog()">
+  <section class="topup-dialog" role="dialog" aria-modal="true" aria-labelledby="topup-title" (click)="$event.stopPropagation()">
+    <div class="topup-heading"><div><h2 id="topup-title">Add Assessment Credits</h2><p>Purchased credits do not expire at your monthly reset.</p></div><button type="button" aria-label="Close" [disabled]="!!topupCheckoutCode" (click)="closeTopupDialog()"><i class="bx bx-x"></i></button></div>
+    @if (topupLoading) { <div class="topup-status" aria-live="polite">Loading credit packs...</div> }
+    @if (topupMessage) { <div class="topup-status" aria-live="polite">{{ topupMessage }}</div> }
+    <div class="topup-grid">
+      @for (pack of creditPacks; track pack.code) {
+      <article class="topup-pack"><h3>{{ pack.name }}</h3><strong>{{ pack.credits }} Credits</strong><p>{{ pack.price | currency:pack.currency }}</p><small>For eligible {{ pack.allowedPlans.join(', ') }} plans</small>
+        <button type="button" class="btn-primary" [disabled]="!!topupCheckoutCode" [attr.aria-busy]="topupCheckoutCode === pack.code" (click)="purchaseCredits(pack)">{{ topupCheckoutCode === pack.code ? 'Preparing checkout...' : 'Add Credits' }}</button>
+      </article>
+      }
+    </div>
+  </section>
+</div>
+}

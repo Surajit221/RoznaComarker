@@ -9,11 +9,16 @@ import type { BackendNotification } from '../api/notification-api.service';
 export class NotificationRealtimeService {
   private source: EventSource | null = null;
   private readonly notificationSubject = new Subject<BackendNotification>();
+  private readonly eventSubject = new Subject<{ type: string; data: any }>();
 
   constructor(private auth: AuthService) {}
 
   get notifications$(): Observable<BackendNotification> {
     return this.notificationSubject.asObservable();
+  }
+
+  get events$(): Observable<{ type: string; data: any }> {
+    return this.eventSubject.asObservable();
   }
 
   connect(): void {
@@ -54,6 +59,16 @@ export class NotificationRealtimeService {
         // ignore
       }
     });
+
+    for (const type of ['credits_updated', 'assignment_report_updated']) {
+      this.source.addEventListener(type, (ev: MessageEvent) => {
+        try {
+          this.eventSubject.next({ type, data: JSON.parse(ev.data) });
+        } catch {
+          // Ignore malformed event payloads.
+        }
+      });
+    }
 
     this.source.addEventListener('error', () => {
       // Browser will auto-retry; if it gets stuck, allow manual reconnect
