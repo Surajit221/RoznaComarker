@@ -26,7 +26,7 @@
 
     <!-- Summary Stats Grid -->
     <div class="summary-stats-section">
-      <div class="section-title">Summary Statistics</div>
+      <div class="section-title">Class Overview</div>
       <div class="stats-grid">
         <!-- Row 1 -->
         <div class="stat-tile">
@@ -40,10 +40,6 @@
         <div class="stat-tile">
           <div class="stat-label">PENDING</div>
           <div class="stat-value">{{ reportData.stats.pending }}</div>
-        </div>
-        <div class="stat-tile">
-          <div class="stat-label">LATE</div>
-          <div class="stat-value">{{ reportData.stats.late }}</div>
         </div>
         <div class="stat-tile">
           <div class="stat-label">COMPLETION RATE</div>
@@ -65,6 +61,22 @@
         <div class="stat-tile">
           <div class="stat-label">AVG TIME</div>
           <div class="stat-value">{{ formatTime(reportData.stats.avgTime) }}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">HIGHEST</div>
+          <div class="stat-value">{{ highestScore }}%</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">LOWEST</div>
+          <div class="stat-value">{{ lowestScore }}%</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">LATE</div>
+          <div class="stat-value">{{ reportData.stats.late }}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">BELOW THRESHOLD</div>
+          <div class="stat-value">{{ failedCount }}</div>
         </div>
       </div>
     </div>
@@ -89,11 +101,11 @@
     </div>
 
     <!-- Teacher Insights -->
-    @if (reportData.teacherInsights && reportData.teacherInsights.length > 0) {
+    @if (visibleTeacherInsights.length > 0) {
       <div class="insights-section">
         <div class="section-title">Teacher Insights</div>
         <div class="insights-box">
-          @for (insight of reportData.teacherInsights; track $index) {
+          @for (insight of visibleTeacherInsights; track $index) {
             <div class="insight-item">💡 {{ insight }}</div>
           }
         </div>
@@ -131,9 +143,6 @@
       </div>
     </div>
 
-    <!-- Page Break -->
-    <div class="page-break"></div>
-
     <!-- Footer -->
     <div class="pdf-footer">
       <span class="footer-left">Rozna Education Platform</span>
@@ -148,24 +157,23 @@
       <div class="section-title">Section Performance Analytics</div>
       <div class="section-cards-grid">
         @for (section of reportData.sections; track section.id) {
+          @if (section.questionCount > 0) {
           <div class="section-card">
             <div class="section-card-header">
               <div class="section-card-title">{{ section.title }}</div>
-              <div class="section-card-badge">ACTIVITY</div>
+              <div class="section-card-score" [style.color]="getScoreColor(section.score)">
+                {{ section.score }}%
+              </div>
             </div>
-            <div class="section-card-score" [style.color]="getScoreColor(section.score)">
-              {{ section.score }}%
-            </div>
-            <div class="section-card-stats">
-              <span>Score {{ section.score }}%</span>
-              <span>Completion {{ section.completion }}%</span>
-              <span>Avg Time {{ formatTime(section.avgTime) }}</span>
-              <span>Questions {{ section.questionCount }}</span>
+            <div class="section-card-metrics">
+              <div class="section-metric"><span>Questions</span><strong>{{ section.questionCount }}</strong></div>
+              <div class="section-metric"><span>Completion</span><strong>{{ section.completion }}%</strong></div>
+              <div class="section-metric"><span>Average time</span><strong>{{ formatTime(section.avgTime) }}</strong></div>
             </div>
             <div class="section-card-pills">
-              <div class="pill pill-correct">CORRECT {{ section.correct }}</div>
-              <div class="pill pill-incorrect">INCORRECT {{ section.incorrect }}</div>
-              <div class="pill pill-skipped">SKIPPED {{ section.skipped }}</div>
+              <div class="pill pill-correct"><span>Correct</span><strong>{{ section.correct }}</strong></div>
+              <div class="pill pill-incorrect"><span>Incorrect</span><strong>{{ section.incorrect }}</strong></div>
+              <div class="pill pill-skipped"><span>Skipped</span><strong>{{ section.skipped }}</strong></div>
             </div>
             @if (section.mostMissed && section.mostMissed.length > 0) {
               <div class="section-card-missed">
@@ -176,6 +184,7 @@
               </div>
             }
           </div>
+          }
         }
       </div>
     </div>
@@ -185,22 +194,20 @@
       <div class="section-title">Question Insights</div>
       <div class="question-insights-grid">
         <div class="insight-column">
-          <div class="insight-column-title">🔴 Hardest Questions</div>
-          @for (q of reportData.hardestQuestions.slice(0, 5); track q.name) {
+          <div class="insight-column-title"><span class="insight-dot insight-dot-hard"></span>Hardest Questions</div>
+          @for (q of reportData.hardestQuestions; track q.name) {
             <div class="insight-row">
               <span class="insight-q-name">{{ q.name }}</span>
-              <span class="insight-q-badge insight-badge-red">{{ q.correctPct }}% correct</span>
+              <span class="insight-q-value">{{ q.correctPct }}%</span>
             </div>
           }
         </div>
         <div class="insight-column">
-          <div class="insight-column-title">🟢 Easiest Questions</div>
-          @for (q of reportData.easiestQuestions.slice(0, 5); track q.name) {
+          <div class="insight-column-title"><span class="insight-dot insight-dot-easy"></span>Easiest Questions</div>
+          @for (q of reportData.easiestQuestions; track q.name) {
             <div class="insight-row">
               <span class="insight-q-name">{{ q.name }}</span>
-              <span class="insight-q-badge" [class.insight-badge-green]="q.correctPct >= 70" [class.insight-badge-red]="q.correctPct < 70">
-                {{ q.correctPct }}% correct
-              </span>
+              <span class="insight-q-value">{{ q.correctPct }}%</span>
             </div>
           }
         </div>
@@ -208,95 +215,33 @@
     </div>
 
     <!-- Student Performance Insights -->
-    @if (reportData.weakSections && reportData.weakSections.length > 0) {
+    @if (visibleWeakSections.length > 0) {
       <div class="weak-sections-section">
         <div class="section-title">Student Performance Insights</div>
         <div class="weak-sections-box">
-          <div class="weak-sections-title">Weak Sections (Need Attention)</div>
-          @for (ws of reportData.weakSections; track ws.name) {
+          <div class="weak-sections-title">Weak Sections - Need Attention</div>
+          @for (ws of visibleWeakSections; track ws.name) {
             <div class="weak-section-row">
               <span class="weak-section-name">{{ ws.name }}</span>
               <span class="weak-section-score">{{ ws.score }}%</span>
-              <span class="weak-section-badge">ACTIVITY</span>
             </div>
           }
         </div>
       </div>
     }
 
-    <!-- Detailed Analysis -->
+    <div class="pdf-footer">
+      <span class="footer-left">Rozna Education Platform</span>
+      <span class="footer-right">Generated on {{ today }}</span>
+    </div>
+  </div>
+
+  <!-- PAGE 3 -->
+  <div class="pdf-page">
+
+    <!-- Student-focused analysis; class analytics are intentionally kept on page 1 only. -->
     <div class="detailed-analysis-section">
-      <div class="section-title">Detailed Student Analysis</div>
-
-      <!-- Summary Row -->
-      <div class="summary-row">
-        <div class="summary-tile">
-          <div class="summary-label">Avg Score</div>
-          <div class="summary-value">{{ reportData.stats.avgScore }}%</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Median</div>
-          <div class="summary-value">{{ reportData.stats.medianScore }}%</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Highest</div>
-          <div class="summary-value">{{ highestScore }}%</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Lowest</div>
-          <div class="summary-value">{{ lowestScore }}%</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Passed</div>
-          <div class="summary-value">{{ passedCount }}</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Below Threshold</div>
-          <div class="summary-value">{{ failedCount }}</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Total Time</div>
-          <div class="summary-value">{{ formatTime(reportData.stats.avgTime * reportData.students.length) }}</div>
-        </div>
-        <div class="summary-tile">
-          <div class="summary-label">Pass Rate</div>
-          <div class="summary-value">{{ reportData.stats.passRate }}%</div>
-        </div>
-      </div>
-
-      <!-- Pass/Fail Bar -->
-      <div class="passfail-section">
-        <div class="section-subtitle">Pass/Fail Breakdown</div>
-        <div class="passfail-bar">
-          @let total = reportData.students.length || 1;
-          <div class="passfail-pass" [style.width.%]="(passedCount / total) * 100"></div>
-          <div class="passfail-fail" [style.width.%]="(failedCount / total) * 100"></div>
-        </div>
-        <div class="passfail-legend">
-          ● Passed ({{ passedCount }}) 
-          ● Below threshold ({{ failedCount }})
-        </div>
-      </div>
-
-      <!-- Score Distribution -->
-      <div class="score-dist-section">
-        <div class="section-subtitle">Score Distribution</div>
-        @for (band of [
-          { label: '0-20%', count: 0 },
-          { label: '21-40%', count: 0 },
-          { label: '41-60%', count: 0 },
-          { label: '61-80%', count: reportData.scoreDistribution['70-79'] },
-          { label: '81-100%', count: reportData.scoreDistribution['90-100'] + reportData.scoreDistribution['80-89'] }
-        ]; track band.label) {
-          <div class="dist-row">
-            <span class="dist-label">{{ band.label }}</span>
-            <div class="dist-bar-wrap">
-              <div class="dist-bar dist-bar-teal" [style.width.px]="getBarWidth(band.count, 4, 400)"></div>
-            </div>
-            <span class="dist-count">{{ band.count }}</span>
-          </div>
-        }
-      </div>
+      <div class="section-title">Student Results</div>
 
       <!-- Top Performers vs Needs Attention -->
       <div class="performers-section">
@@ -316,6 +261,9 @@
                 <span>{{ student.score }}%</span>
                 <span>{{ formatTime(student.time) }}</span>
               </div>
+            }
+            @if (topPerformers.length === 0) {
+              <div class="performers-empty">No students met the top-performer threshold.</div>
             }
           </div>
         </div>
@@ -344,30 +292,26 @@
       <div class="student-results-section">
         <div class="section-subtitle">Student Results</div>
         <div class="results-table">
-          <div class="results-header">
+          <div class="results-header" [style.grid-template-columns]="resultsGridColumns">
             <span>Student</span>
             <span>Score</span>
             <span>Time</span>
             <span>Date</span>
             <span>Status</span>
-            <span>Drag&Drop</span>
-            <span>Classification</span>
-            <span>Multiple Choice</span>
-            <span>Fill Blanks</span>
-            <span>Matching</span>
+            @for (column of activeResultColumns; track column.label) {
+              <span>{{ column.label }}</span>
+            }
           </div>
           @for (student of reportData.students; track student.name; let even = $even) {
-            <div class="results-row" [class.results-row-even]="even">
+            <div class="results-row" [class.results-row-even]="even" [style.grid-template-columns]="resultsGridColumns">
               <span>{{ student.name }}</span>
               <span>{{ student.score }}%</span>
               <span>{{ formatTime(student.time) }}</span>
               <span>{{ student.date }}</span>
               <span>{{ student.status }}</span>
-              <span>{{ student.dragDropScore }}%</span>
-              <span>{{ student.classificationScore }}%</span>
-              <span>{{ student.multipleChoiceScore }}%</span>
-              <span>{{ student.fillBlanksScore }}%</span>
-              <span>{{ student.matchingScore }}%</span>
+              @for (column of activeResultColumns; track column.label) {
+                <span>{{ studentActivityScore(student, column.scoreKey) }}%</span>
+              }
             </div>
           }
         </div>

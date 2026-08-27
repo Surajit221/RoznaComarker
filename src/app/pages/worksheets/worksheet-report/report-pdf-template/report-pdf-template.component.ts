@@ -38,6 +38,53 @@ export class ReportPdfTemplateComponent {
     return this.reportData.students.length > 0 ? Math.min(...this.reportData.students.map(s => s.score)) : 0;
   }
 
+  get activeResultColumns(): Array<{ label: string; scoreKey: keyof import('../../../../services/worksheet-report-pdf.service').StudentResult }> {
+    const columns: Array<{ id: string; label: string; scoreKey: keyof import('../../../../services/worksheet-report-pdf.service').StudentResult }> = [
+      { id: 'activity1', label: 'Drag & Drop', scoreKey: 'dragDropScore' },
+      { id: 'activity2', label: 'Classification', scoreKey: 'classificationScore' },
+      { id: 'activity3', label: 'MCQ', scoreKey: 'multipleChoiceScore' },
+      { id: 'activity4', label: 'Fill Blanks', scoreKey: 'fillBlanksScore' },
+      { id: 'activity5', label: 'Matching', scoreKey: 'matchingScore' },
+      { id: 'activity6', label: 'True/False', scoreKey: 'trueFalseScore' },
+    ];
+    return columns.filter((column) =>
+      this.reportData.sections.some((section) => section.id === column.id && section.questionCount > 0),
+    );
+  }
+
+  get resultsGridColumns(): string {
+    return `minmax(120px, 2fr) 50px 58px 76px 58px repeat(${this.activeResultColumns.length}, minmax(54px, 1fr))`;
+  }
+
+  get visibleWeakSections() {
+    const activeNames = new Set(
+      this.reportData.sections
+        .filter((section) => section.questionCount > 0)
+        .flatMap((section) => [section.title.toLowerCase(), section.type.toLowerCase()]),
+    );
+    return this.reportData.weakSections.filter((section) => activeNames.has(section.name.toLowerCase()));
+  }
+
+  get visibleTeacherInsights(): string[] {
+    const aliases: Record<string, string[]> = {
+      activity1: ['drag & drop', 'ordering'], activity2: ['classification'],
+      activity3: ['multiple choice'], activity4: ['fill in blanks'],
+      activity5: ['matching pairs', 'matching'], activity6: ['true/false', 'true / false'],
+    };
+    const excludedTerms = this.reportData.sections
+      .filter((section) => section.questionCount <= 0)
+      .flatMap((section) => [section.title, section.type, ...(aliases[section.id] || [])])
+      .map((term) => term.toLowerCase());
+    return this.reportData.teacherInsights
+      .filter((insight) => !excludedTerms.some((term) => insight.toLowerCase().includes(term)))
+      .slice(0, 4);
+  }
+
+  studentActivityScore(student: import('../../../../services/worksheet-report-pdf.service').StudentResult, scoreKey: keyof import('../../../../services/worksheet-report-pdf.service').StudentResult): number {
+    const value = student[scoreKey];
+    return typeof value === 'number' ? value : 0;
+  }
+
   formatTime(seconds: number): string {
     if (seconds <= 0) return '0s';
     const m = Math.floor(seconds / 60);
