@@ -1138,6 +1138,8 @@
   gap: 4px;
 }
 
+.wv-mobile-match { display: none; }
+
 .wv-match-row {
   display: grid;
   grid-template-columns: 1fr 28px 1fr;
@@ -1357,14 +1359,20 @@
 }
 
 /* Mobile – stack columns on small screens */
-@media (max-width: 600px) {
-  .wv-match-row {
-    grid-template-columns: 1fr 20px 1fr;
-    gap: 4px;
-  }
-  .wv-match-term,
-  .wv-match-drop { padding: 8px 10px; font-size: 12px; }
-  .wv-match-answer-line { margin-left: 0; }
+@media (max-width: 768px) {
+  .wv-desktop-match, .wv-answer-bank { display: none; }
+  .wv-mobile-match { display: grid; gap: 12px; width: 100%; min-width: 0; }
+  .wv-mobile-match-card { border: 1.5px solid #dbe4ee; border-radius: 12px; overflow: hidden; background: #fff; min-width: 0; }
+  .wv-mobile-match-card.selected { border-color: var(--wv-primary); box-shadow: 0 0 0 3px var(--wv-primary-15); }
+  .wv-mobile-match-card.matched { border-color: #10b981; }
+  .wv-mobile-match-prompt { width: 100%; min-height: 56px; padding: 12px; border: 0; background: #fff; color: #1e293b; text-align: left; display: grid; gap: 5px; font: inherit; overflow-wrap: anywhere; }
+  .wv-mobile-match-prompt:focus-visible, .wv-mobile-match-choice:focus-visible { outline: 3px solid var(--wv-primary-30); outline-offset: 2px; }
+  .wv-mobile-match-prompt strong { color: #047857; font-size: 13px; overflow-wrap: anywhere; }
+  .wv-mobile-match-status { color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .wv-mobile-match-choices { display: grid; gap: 8px; padding: 10px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+  .wv-mobile-match-choice { width: 100%; min-height: 48px; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; text-align: left; font: inherit; overflow-wrap: anywhere; white-space: normal; }
+  .wv-mobile-match-choice.chosen { border-color: var(--wv-primary); background: var(--wv-primary-15); }
+  .wv-mobile-match-choice:disabled { opacity: .45; }
 }
 
 /* ── Activity 6: True / False (redesign) ────────── */
@@ -1643,6 +1651,9 @@
   transform: translate(-50%, -50%);
   cursor: pointer;
   z-index: 10;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .wv-label-marker {
@@ -1726,6 +1737,30 @@
   border-color: #e2e8f0;
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.wv-label-option.selected {
+  background: var(--wv-primary);
+  color: white;
+  box-shadow: 0 0 0 3px var(--wv-primary-20);
+}
+
+.wv-label-option:focus-visible,
+.wv-label-target:focus-visible .wv-label-marker {
+  outline: 3px solid var(--wv-primary-30);
+  outline-offset: 3px;
+}
+
+@media (max-width: 768px) {
+  .wv-image-wrapper { max-width: 100%; overflow: hidden; }
+  .wv-label-marker { width: 44px; height: 44px; font-size: 14px; }
+  .wv-label-option { min-height: 44px; padding: 9px 14px; white-space: normal; }
+  .wv-label-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wv-label-text { max-width: 130px; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+}
+
+@media (max-width: 360px) {
+  .wv-label-options { grid-template-columns: 1fr; }
 }
 
 .wv-label-option:disabled {

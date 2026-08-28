@@ -32,6 +32,14 @@ export class PdfApiService {
     );
   }
 
+  async downloadStudentWorksheetResultPdf(submissionId: string): Promise<Blob> {
+    const apiBaseUrl = this.getApiBaseUrl();
+    return firstValueFrom(this.http.get(
+      `${apiBaseUrl}/pdf/student-worksheet-result/${encodeURIComponent(submissionId)}`,
+      { responseType: 'blob' },
+    ));
+  }
+
   async downloadWorksheetReportPdf(worksheetId: string): Promise<Blob> {
     const apiBaseUrl = this.getApiBaseUrl();
 

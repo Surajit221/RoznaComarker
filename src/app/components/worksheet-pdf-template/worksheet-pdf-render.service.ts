@@ -16,6 +16,7 @@ import {
   Injectable,
   createComponent,
   inject,
+  isDevMode,
 } from '@angular/core';
 import {
   WorksheetPdfTemplateComponent,
@@ -26,7 +27,6 @@ import {
   destroyOffscreenHost,
   downloadPdfFromElement,
 } from '../../utils/pdf-export.util';
-import { WorksheetViewerComponent } from '../worksheet-viewer/worksheet-viewer';
 import type { Worksheet } from '../../api/worksheet-api.service';
 
 export interface ViewerPdfInput {
@@ -41,6 +41,62 @@ export interface ViewerPdfInput {
   timeTaken?: number;
 }
 
+export function normalizeViewerPdfInput(input: ViewerPdfInput): WorksheetPdfInput {
+  const worksheet: any = { ...input.worksheet };
+  const activities = Array.isArray((input.worksheet as any).activities) ? (input.worksheet as any).activities : [];
+  const typeMap: Record<string, string> = {
+    ordering: 'activity1', dragDrop: 'activity1', sorting: 'activity1',
+    classification: 'activity2', multipleChoice: 'activity3',
+    fillBlanks: 'activity4', 'fill-blanks': 'activity4',
+    matching: 'activity5', trueFalse: 'activity6', 'true-false': 'activity6',
+  };
+  const sourceIds: Record<string, string[]> = {};
+  activities.forEach((activity: any, index: number) => {
+    const canonicalId = typeMap[String(activity?.type || '')];
+    if (!canonicalId) return;
+    worksheet[canonicalId] = { ...(activity?.data || {}), title: activity?.title || activity?.data?.title || '', instructions: activity?.instructions || activity?.data?.instructions || '' };
+    sourceIds[canonicalId] = [`activity_${index}`, canonicalId];
+  });
+  for (let index = 1; index <= 6; index += 1) {
+    const id = `activity${index}`;
+    if (!sourceIds[id]) sourceIds[id] = [id];
+  }
+  const bySection = (canonicalId: string) => input.submittedAnswers.filter((answer) => sourceIds[canonicalId].includes(answer.sectionId));
+  const answerMap = (canonicalId: string) => Object.fromEntries(bySection(canonicalId).map((answer) => [answer.questionId, answer.studentAnswer]));
+  const items = worksheet.activity1?.items ?? [];
+  const a1Answers = answerMap('activity1');
+  const a1Slots = items.map((_: any, index: number) => items.find((item: any) => item.id === a1Answers[`slot_${index}`]) ?? null);
+  const a6Answers = Object.fromEntries(bySection('activity6').map((answer) => [answer.questionId, answer.studentAnswer.toLowerCase() === 'true']));
+  const counts = {
+    mcq: worksheet.activity3?.questions?.length ?? 0,
+    fill: (worksheet.activity4?.sentences ?? []).reduce((total: number, sentence: any) => total + (sentence.parts ?? []).filter((part: any) => part.type === 'blank').length, 0),
+    matching: worksheet.activity5?.pairs?.length ?? 0,
+    trueFalse: worksheet.activity6?.questions?.length ?? 0,
+  };
+  const totalGradable = counts.mcq + counts.fill + counts.matching + counts.trueFalse + (worksheet.activity1?.items?.length ?? 0) + (worksheet.activity2?.items?.length ?? 0);
+  if (isDevMode()) console.info('[STUDENT WORKSHEET PDF]', { worksheetTitle: worksheet.title || '', sectionCount: Object.values(counts).filter((count) => count > 0).length, ...counts, totalGradable });
+  const expected = input.totalPointsPossible ?? 0;
+  if (expected > 0 && totalGradable === 0) throw new Error(`Student worksheet PDF mapping failed: expected ${expected} gradable items but resolved 0.`);
+  return {
+    worksheet,
+    studentName: input.studentName,
+    date: input.date,
+    a1Slots,
+    a1Checked: true,
+    a2Answers: answerMap('activity2'),
+    a2Revealed: Object.fromEntries(bySection('activity2').map((answer) => [answer.questionId, true])),
+    a3Answers: answerMap('activity3'),
+    a4Blanks: answerMap('activity4'),
+    a4Checked: true,
+    a5Matches: answerMap('activity5'),
+    a6Answers,
+    totalPointsEarned: input.totalPointsEarned ?? 0,
+    totalPointsPossible: expected,
+    percentage: input.percentage ?? 0,
+    timeTaken: input.timeTaken,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorksheetPdfRenderService {
   private readonly appRef    = inject(ApplicationRef);
@@ -52,6 +108,7 @@ export class WorksheetPdfRenderService {
    */
   async render(data: WorksheetPdfInput, fileName: string): Promise<void> {
     const host = createOffscreenHost(794);
+    host.classList.add('pdf-worksheet-result');
     let compRef: ComponentRef<WorksheetPdfTemplateComponent> | null = null;
 
     try {
@@ -68,7 +125,11 @@ export class WorksheetPdfRenderService {
       );
       await new Promise<void>((resolve) => setTimeout(resolve, 500));
 
-      await downloadPdfFromElement(host, { fileName });
+      await downloadPdfFromElement(host, {
+        fileName,
+        pageBreakAvoidSelector: '.wv-pdf-avoid-break',
+        keepWithNextSelector: '.wv-pdf-keep-with-next',
+      });
     } finally {
       if (compRef) {
         try { this.appRef.detachView(compRef.hostView); } catch { /* ignore */ }
@@ -131,51 +192,10 @@ export class WorksheetPdfRenderService {
   }
 
   /**
-   * Mount the real WorksheetViewerComponent off-screen in reviewMode, wait for it
-   * to render with the student's submission data, capture via html2canvas, then
-   * clean up. Used by the teacher report page which has no viewer on screen.
+   * Normalize a persisted student submission into the dedicated worksheet-style
+   * PDF template. The normal on-screen worksheet component is not modified.
    */
   async renderViewerOffscreen(input: ViewerPdfInput, fileName: string): Promise<void> {
-    const host = createOffscreenHost(794);
-    // Give the host an explicit overflow:visible so html2canvas isn't clipped.
-    host.style.overflow = 'visible';
-    let compRef: ComponentRef<WorksheetViewerComponent> | null = null;
-
-    try {
-      compRef = createComponent(WorksheetViewerComponent, {
-        environmentInjector: this.envInjector,
-        hostElement: host,
-      });
-      compRef.setInput('worksheetId', input.worksheetId);
-      compRef.setInput('reviewMode', true);
-      compRef.setInput('submittedAnswers', input.submittedAnswers);
-      compRef.setInput('reviewMeta', {
-        studentName: input.studentName,
-        date: input.date,
-        totalPointsEarned: input.totalPointsEarned,
-        totalPointsPossible: input.totalPointsPossible,
-        percentage: input.percentage,
-        timeTaken: input.timeTaken,
-      });
-      this.appRef.attachView(compRef.hostView);
-      compRef.changeDetectorRef.detectChanges();
-
-      // Wait for the viewer to fetch the worksheet and hydrate.
-      // The viewer calls api.getById internally via worksheetId.
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      );
-      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
-      compRef.changeDetectorRef.detectChanges();
-      await new Promise<void>((resolve) => setTimeout(resolve, 500));
-
-      await this.renderFromElement(host, fileName);
-    } finally {
-      if (compRef) {
-        try { this.appRef.detachView(compRef.hostView); } catch { /* ignore */ }
-        try { compRef.destroy(); } catch { /* ignore */ }
-      }
-      destroyOffscreenHost(host);
-    }
+    await this.render(normalizeViewerPdfInput(input), fileName);
   }
 }

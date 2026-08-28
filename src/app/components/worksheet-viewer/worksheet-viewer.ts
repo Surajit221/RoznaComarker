@@ -30,6 +30,20 @@ import { AssignmentStateService } from '../../services/assignment-state.service'
 import { AuthService } from '../../auth/auth.service';
 import { environment } from '../../../environments/environment';
 
+export function setCanonicalMatch(matches: Record<string, string>, pairId: string, rightText: string): Record<string, string> {
+  const next = { ...matches };
+  for (const key of Object.keys(next)) if (next[key] === rightText) delete next[key];
+  next[pairId] = rightText;
+  return next;
+}
+
+export function setCanonicalImageLabel(labels: Record<string, string>, targetId: string, labelText: string): Record<string, string> {
+  const next = { ...labels };
+  for (const key of Object.keys(next)) if (next[key] === labelText) delete next[key];
+  next[targetId] = labelText;
+  return next;
+}
+
 @Component({
   selector: 'app-worksheet-viewer',
   standalone: true,
@@ -140,6 +154,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
 
   /* ── Activity 5: Match Pairs ─────────────────── */
   a5Matches = signal<Record<string, string>>({});
+  a5MobileSelectedPairId = signal<string | null>(null);
   a5Checked = signal(false);
   a5Bank: { id: string; text: string }[] = [];
 
@@ -149,6 +164,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
 
   /* ── Activity 7: Image Label ─────────────────── */
   a7Labels = signal<Record<string, string>>({});
+  a7SelectedLabel = signal<string | null>(null);
   a7Checked = signal(false);
 
   /* ── Activity 8: Enhanced Sequencing ─────────── */
@@ -806,8 +822,23 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     }
   }
 
+  selectMobileMatchPair(pairId: string): void {
+    if (this.reviewMode || this.a5Checked()) return;
+    this.a5MobileSelectedPairId.set(this.a5MobileSelectedPairId() === pairId ? null : pairId);
+  }
+
+  chooseMobileMatch(pairId: string, rightText: string): void {
+    if (this.reviewMode || this.a5Checked()) return;
+    this.a5Matches.update((matches) => setCanonicalMatch(matches, pairId, rightText));
+    const nextUnmatched = (this.worksheet()?.activity5?.pairs ?? []).find((pair: any) => !this.a5Matches()[pair.id]);
+    this.a5MobileSelectedPairId.set(nextUnmatched?.id ?? null);
+    this.cdr.markForCheck();
+    this.triggerAutosave();
+  }
+
   resetActivity5(): void {
     this.a5Matches.set({});
+    this.a5MobileSelectedPairId.set(null);
     this.a5Checked.set(false);
     this.a5Bank = (this.worksheet()?.activity5?.pairs ?? []).map((p: any) => ({ id: p.id, text: p.rightItem?.text ?? '' }));
     this.cdr.markForCheck();
@@ -850,17 +881,24 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   }
 
   /* ── Activity 7: Image Label Methods ─────────────────── */
-  selectImageLabel(labelId: string, labelText: string): void {
+  selectImageLabel(_labelId: string, labelText: string): void {
     if (this.reviewMode || this.a7Checked()) return;
-    const currentLabels = this.a7Labels();
-    currentLabels[labelId] = labelText;
-    this.a7Labels.set(currentLabels);
+    this.a7SelectedLabel.set(this.a7SelectedLabel() === labelText ? null : labelText);
+    this.cdr.markForCheck();
+  }
+
+  assignImageLabel(targetId: string): void {
+    const labelText = this.a7SelectedLabel();
+    if (this.reviewMode || this.a7Checked() || !labelText) return;
+    this.a7Labels.update((labels) => setCanonicalImageLabel(labels, targetId, labelText));
+    this.a7SelectedLabel.set(null);
     this.cdr.markForCheck();
     this.triggerAutosave();
   }
 
   resetActivity7(): void {
     this.a7Labels.set({});
+    this.a7SelectedLabel.set(null);
     this.a7Checked.set(false);
     this.cdr.markForCheck();
     this.triggerAutosave();

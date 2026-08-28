@@ -26,6 +26,10 @@ export interface GeneratePdfOptions {
   backgroundColor?: string;
   /** If true, also calls pdf.save(). Default: false. We download via Blob for iOS support. */
   saveDirectly?: boolean;
+  /** PDF-only blocks that should not be cut when choosing canvas page boundaries. */
+  pageBreakAvoidSelector?: string;
+  /** PDF-only headings that should stay with the next protected block. */
+  keepWithNextSelector?: string;
 }
 
 /**
@@ -42,6 +46,8 @@ export async function generatePdfFromElement(
     scale = 2,
     pageWidthPx = 794,
     backgroundColor = '#ffffff',
+    pageBreakAvoidSelector,
+    keepWithNextSelector,
   } = options;
 
   // Wait for any pending fonts before rasterizing so the PDF matches the UI.
@@ -82,19 +88,48 @@ export async function generatePdfFromElement(
   const imgWidth = pdfWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  const imgData = canvas.toDataURL('image/png');
+  const cssPageHeight = pageWidthPx * (pdfHeight / pdfWidth);
+  const rootRect = element.getBoundingClientRect();
+  const protectedRanges = pageBreakAvoidSelector
+    ? Array.from(element.querySelectorAll<HTMLElement>(pageBreakAvoidSelector)).map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { top: rect.top - rootRect.top, bottom: rect.bottom - rootRect.top };
+      })
+    : [];
+  if (keepWithNextSelector) {
+    for (const heading of Array.from(element.querySelectorAll<HTMLElement>(keepWithNextSelector))) {
+      const next = heading.parentElement?.querySelector<HTMLElement>(pageBreakAvoidSelector || '');
+      if (!next) continue;
+      const headingRect = heading.getBoundingClientRect();
+      const nextRect = next.getBoundingClientRect();
+      protectedRanges.push({ top: headingRect.top - rootRect.top, bottom: nextRect.bottom - rootRect.top });
+    }
+  }
 
-  let position = 0;
-  let remaining = imgHeight;
-  let pageIndex = 0;
+  const cssHeight = canvas.height / scale;
+  const boundaries = [0];
+  while (boundaries[boundaries.length - 1] < cssHeight - 0.5) {
+    const start = boundaries[boundaries.length - 1];
+    let end = Math.min(start + cssPageHeight, cssHeight);
+    const crossing = protectedRanges
+      .filter((range) => range.top < end && range.bottom > end && range.top > start + 24)
+      .sort((a, b) => a.top - b.top)[0];
+    if (crossing) end = crossing.top;
+    if (end <= start + 24) end = Math.min(start + cssPageHeight, cssHeight);
+    boundaries.push(end);
+  }
 
-  // Slice the tall canvas across A4 pages by translating the image upward.
-  while (remaining > 0) {
+  for (let pageIndex = 0; pageIndex < boundaries.length - 1; pageIndex++) {
     if (pageIndex > 0) pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, -position, imgWidth, imgHeight);
-    position += pdfHeight;
-    remaining -= pdfHeight;
-    pageIndex++;
+    const sourceY = Math.round(boundaries[pageIndex] * scale);
+    const sourceBottom = Math.round(boundaries[pageIndex + 1] * scale);
+    const sourceHeight = Math.max(1, sourceBottom - sourceY);
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = sourceHeight;
+    pageCanvas.getContext('2d')?.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
+    const renderedHeight = (sourceHeight / canvas.width) * pdfWidth;
+    pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, renderedHeight);
   }
 
   return pdf.output('blob');

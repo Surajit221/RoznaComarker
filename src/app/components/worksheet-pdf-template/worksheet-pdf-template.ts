@@ -47,6 +47,7 @@ export interface WorksheetPdfInput {
 
 @Component({
   selector: 'app-worksheet-pdf-template',
+  host: { class: 'pdf-worksheet-result' },
   standalone: true,
   imports: [CommonModule],
   templateUrl: './worksheet-pdf-template.html',
@@ -228,6 +229,9 @@ export class WorksheetPdfTemplateComponent {
       this.data.a5Matches?.[pair.id] === pair.rightItem?.text).length;
   }
   get a5Total(): number { return this.worksheet.activity5?.pairs?.length ?? 0; }
+  a5IsCorrect(pair: any): boolean { return this.data.a5Matches?.[pair.id] === pair.rightItem?.text; }
+  a5IsSkipped(pair: any): boolean { return !this.data.a5Matches?.[pair.id]; }
+  a5StateClass(pair: any): string { return this.a5IsSkipped(pair) ? 'is-skipped' : this.a5IsCorrect(pair) ? 'is-correct' : 'is-wrong'; }
 
   get hasA6(): boolean { return !!this.worksheet.activity6?.questions?.length; }
   get a6Score(): number {
@@ -235,6 +239,12 @@ export class WorksheetPdfTemplateComponent {
       this.data.a6Answers?.[question.id] === question.correctAnswer).length;
   }
   get a6Total(): number { return this.worksheet.activity6?.questions?.length ?? 0; }
+  a6OptionClass(question: any, value: boolean): string {
+    const answer = this.data.a6Answers?.[question.id];
+    if (value === question.correctAnswer) return 'correct';
+    if (answer === value) return 'wrong';
+    return '';
+  }
 
   trackByIndex(i: number): number { return i; }
 
