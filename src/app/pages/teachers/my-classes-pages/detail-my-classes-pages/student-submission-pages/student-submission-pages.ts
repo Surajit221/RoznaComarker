@@ -2270,6 +2270,9 @@ export class StudentSubmissionPages {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    if (this.canonicalResultState?.semanticStatus === 'partial') {
+      return 'Corrections from completed analysis sections are shown; one or more sections could not be completed.';
+    }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
     return this.canonicalResultState.correctionStatus === 'partial'
       ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'

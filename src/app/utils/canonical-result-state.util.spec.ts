@@ -2,6 +2,17 @@ import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRet
   normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
+  it('does not render structural zero counts as authoritative when structural coverage is incomplete', () => {
+    const state = normalizeCanonicalResult({ correctionStatus: 'partial', semanticStatus: 'partial',
+      statisticsCompleteness: 'partial', categoryAvailability: {
+        content: 'failed', organization: 'failed', vocabulary: 'available', grammar: 'available', mechanics: 'available'
+      }, correctionStatistics: { content: 0, organization: 0, vocabulary: 2, grammar: 3, mechanics: 1 } });
+    expect(categoryDisplay(state, 'content')).toBe('Unavailable');
+    expect(categoryDisplay(state, 'organization')).toBe('Unavailable');
+    expect(categoryDisplay(state, 'grammar')).toBe(3);
+    expect(categoryDisplay(state, 'mechanics')).toBe(1);
+  });
+
   it('keeps a provisional score visible while semantic corrections continue', () => {
     const state = normalizeCanonicalResult({ submissionId: 's-provisional', correctionStatus: 'processing',
       semanticStatus: 'processing', processingActive: true, automaticPollingAllowed: true,
