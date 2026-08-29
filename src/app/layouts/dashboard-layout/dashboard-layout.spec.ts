@@ -138,7 +138,10 @@ describe('DashboardLayout subscription ownership', () => {
     const subscriptionCtas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
 
     expect(getMySubscription).toHaveBeenCalledTimes(1);
-    expect(fixture.nativeElement.querySelector('app-chart-storage')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-chart-storage')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-account-usage')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="account-usage-button"]').textContent.trim()).toContain('Usage');
+    expect(fixture.nativeElement.querySelector('[data-testid="assessment-credit-wallet"]')).toBeNull();
     expect(subscriptionCtas.length).toBe(1);
     expect(subscriptionCtas[0].textContent.trim()).toBe('Upgrade Plan');
     expect(text).toContain('My Classes');
@@ -184,12 +187,15 @@ describe('DashboardLayout subscription ownership', () => {
     expect(subscriptionCtas[0].textContent.trim()).toBe('Manage Billing');
   });
 
-  it('shows one compact mobile teacher storage row and reuses the subscription CTA', async () => {
+  it('shows one compact mobile Usage row without permanent credit or storage detail', async () => {
     await render('teacher', null, 'mobile');
     const row = fixture.nativeElement.querySelector('[data-testid="mobile-teacher-account-row"]');
     const ctas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
     expect(row).not.toBeNull();
-    expect(row.textContent).toContain('0 MB / 500 MB used');
+    expect(row.textContent).toContain('Usage');
+    expect(row.textContent).not.toContain('0 MB / 500 MB used');
+    expect(fixture.nativeElement.querySelector('.mobile-credit-warning')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-assessment-credit-wallet"]')).toBeNull();
     expect(ctas.length).toBe(1);
     expect(ctas[0].textContent.trim()).toBe('Upgrade Plan');
     expect(fixture.nativeElement.querySelector('#user-menu')).not.toBeNull();

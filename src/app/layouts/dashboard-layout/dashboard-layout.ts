@@ -1,8 +1,8 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, effect, HostListener, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { DeviceService } from '../../services/device.service';
-import { ChartStorage } from '../../shared/chart-storage/chart-storage';
+import { AccountUsage } from '../../components/account-usage/account-usage';
 import { AuthService } from '../../auth/auth.service';
 import { RoleService } from '../../services/role.service';
 import { SubscriptionApiService, type BackendMySubscription } from '../../api/subscription-api.service';
@@ -30,7 +30,7 @@ function decodeJwtPayload(token: string): any | null {
 @Component({
   selector: 'app-dashboard-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterModule, ChartStorage],
+  imports: [CommonModule, RouterOutlet, RouterModule, AccountUsage],
   templateUrl: './dashboard-layout.html',
   styleUrls: ['./dashboard-layout.css'],
 })
@@ -73,44 +73,15 @@ export class DashboardLayout {
   topupCheckoutCode: string | null = null;
   topupMessage: string | null = null;
   isSubscriptionLoading = false;
+  isCreditsLoading = false;
+  subscriptionLoadFailed = false;
+  creditsLoadFailed = false;
 
   teacherMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
     { name: 'Reports', icon: 'bx bxs-report', path: '/teacher/reports' },
   ];
-
-  get storageUsedGb(): number {
-    const usedMB = this.mySubscription?.usage?.storageMB;
-    const usedGb = typeof usedMB === 'number' && Number.isFinite(usedMB) ? usedMB / 1024 : 0;
-    return Math.max(0, Number(usedGb.toFixed(2)));
-  }
-
-  get storageTotalGb(): number {
-    const limitMB =
-      this.mySubscription?.plan?.features?.storageMB ??
-      this.mySubscription?.plan?.limits?.storageMB;
-    const totalGb = typeof limitMB === 'number' && Number.isFinite(limitMB) ? limitMB / 1024 : 0;
-    return Math.max(0, Number(totalGb.toFixed(2)));
-  }
-
-  get mobileStorageUsedLabel(): string {
-    const usedMB = Math.max(0, Number(this.mySubscription?.usage?.storageMB) || 0);
-    return usedMB >= 1024 ? `${Number((usedMB / 1024).toFixed(2))} GB` : `${Number(usedMB.toFixed(2))} MB`;
-  }
-
-  get mobileStorageTotalLabel(): string {
-    const raw = this.mySubscription?.plan?.features?.storageMB ?? this.mySubscription?.plan?.limits?.storageMB;
-    const totalMB = Math.max(0, Number(raw) || 0);
-    return totalMB >= 1024 ? `${Number((totalMB / 1024).toFixed(2))} GB` : `${Number(totalMB.toFixed(2))} MB`;
-  }
-
-  get mobileStoragePercent(): number {
-    const used = Math.max(0, Number(this.mySubscription?.usage?.storageMB) || 0);
-    const rawTotal = this.mySubscription?.plan?.features?.storageMB ?? this.mySubscription?.plan?.limits?.storageMB;
-    const total = Math.max(0, Number(rawTotal) || 0);
-    return total > 0 ? Math.min(100, (used / total) * 100) : 0;
-  }
 
   get hasStripeSubscription(): boolean {
     return ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(this.mySubscription?.billing?.status || '');
@@ -168,13 +139,6 @@ export class DashboardLayout {
   async dismissCreditWarning(): Promise<void> {
     try { this.creditWallet = await this.creditsApi.acknowledgeNudge(); }
     catch { /* keep the warning visible if acknowledgement was not persisted */ }
-  }
-
-  get creditResetLabel(): string {
-    const value = this.creditWallet?.resetDate;
-    if (!value) return '—';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
   teacherMenuMobile = [
@@ -248,6 +212,7 @@ export class DashboardLayout {
     const creditRequest = this.role === 'teacher' ? this.creditsApi.getWallet() : Promise.resolve(null);
 
     this.isSubscriptionLoading = this.role === 'teacher';
+    this.isCreditsLoading = this.role === 'teacher';
     const [meResult, subResult, creditResult, , ] = await Promise.allSettled([
       this.auth.getMeProfile(),
       subscriptionRequest,
@@ -256,6 +221,7 @@ export class DashboardLayout {
       this.refreshUnreadCount(),
     ]);
     this.isSubscriptionLoading = false;
+    this.isCreditsLoading = false;
 
     if (meResult.status === 'fulfilled') {
       const me = meResult.value;
@@ -265,10 +231,13 @@ export class DashboardLayout {
 
     if (subResult.status === 'fulfilled' && subResult.value) {
       this.mySubscription = subResult.value;
+      this.subscriptionLoadFailed = false;
     } else {
       this.mySubscription = null;
+      this.subscriptionLoadFailed = this.role === 'teacher';
     }
     this.creditWallet = creditResult.status === 'fulfilled' ? creditResult.value : null;
+    this.creditsLoadFailed = this.role === 'teacher' && creditResult.status !== 'fulfilled';
 
     const topupState = this.router.routerState.snapshot.root.queryParamMap.get('topup');
     if (topupState === 'confirming') void this.confirmTopupPayment();
@@ -296,9 +265,29 @@ export class DashboardLayout {
   private async refreshAuthoritativeCredits(): Promise<void> {
     try {
       this.creditWallet = await this.creditsApi.getWallet();
+      this.creditsLoadFailed = false;
     } catch {
       // Preserve the last known server value if a transient refresh fails.
     }
+  }
+
+  async retryAccountUsage(): Promise<void> {
+    if (this.role !== 'teacher' || this.isSubscriptionLoading || this.isCreditsLoading) return;
+    this.isSubscriptionLoading = true;
+    this.isCreditsLoading = true;
+    const [subscriptionResult, creditResult] = await Promise.allSettled([
+      this.subscriptionApi.getMySubscription(), this.creditsApi.getWallet()
+    ]);
+    this.isSubscriptionLoading = false;
+    this.isCreditsLoading = false;
+    if (subscriptionResult.status === 'fulfilled') {
+      this.mySubscription = subscriptionResult.value;
+      this.subscriptionLoadFailed = false;
+    } else this.subscriptionLoadFailed = true;
+    if (creditResult.status === 'fulfilled') {
+      this.creditWallet = creditResult.value;
+      this.creditsLoadFailed = false;
+    } else this.creditsLoadFailed = true;
   }
 
   private async confirmTopupPayment(): Promise<void> {

@@ -22,26 +22,18 @@
 
     <div class="flex flex-col flex-1 overflow-hidden">
       @if(!isFullScreen()) {
-      <header class="flex items-center justify-end px-6 py-2">
-        <div class="flex flex-row gap-10">
+      <header class="desktop-dashboard-header flex items-center justify-end px-6 py-3">
+        <div class="desktop-header-content">
           @if (role === 'teacher') {
-            @if (creditWallet) {
-            <section class="credit-summary" aria-label="Assessment Credits" data-testid="assessment-credit-wallet">
-              <div><span>Assessment Credits</span><strong>{{ creditWallet.availableCredits }}</strong></div>
-              <small>{{ creditWallet.monthlyCreditsRemaining }} monthly + {{ creditWallet.purchasedCredits }} purchased + {{ creditWallet.bonusCredits }} bonus · resets {{ creditResetLabel }}</small>
-              @if (creditWallet.usagePercent >= creditWallet.nudgeThresholds.warning && creditWallet.usagePercent < 100 && !creditWallet.warningAcknowledged) {
-              <p>You're at {{ creditWallet.usagePercent }}% of your monthly Assessment Credits. Consider adding credits or upgrading before your next class set.</p>
-              <div class="credit-actions"><button type="button" (click)="onAddCredits()">Add Credits</button><button type="button" (click)="onPlanButton()">Upgrade Plan</button><button type="button" aria-label="Dismiss credit warning" (click)="dismissCreditWarning()">Dismiss</button></div>
-              }
-              @if (creditWallet.availableCredits === 0) {
-              <p>You have used all your Assessment Credits for this billing cycle.</p>
-              <div class="credit-actions"><button type="button" (click)="onPlanButton()">Upgrade Plan</button><button type="button" (click)="onAddCredits()">Add Credits</button></div>
-              }
-            </section>
-            }
-            <app-chart-storage [used]="storageUsedGb" [total]="storageTotalGb" [strokeColor]="'#FFC300'" [size]="150"
-              [planButtonLabel]="planButtonLabel" (planButtonClick)="onPlanButton()">
-            </app-chart-storage>
+            <div class="desktop-account-actions">
+              <app-account-usage [wallet]="creditWallet" [subscription]="mySubscription"
+                [creditsLoading]="isCreditsLoading" [subscriptionLoading]="isSubscriptionLoading"
+                [creditsError]="creditsLoadFailed" [subscriptionError]="subscriptionLoadFailed"
+                [planButtonLabel]="planButtonLabel"
+                (addCredits)="onAddCredits()" (upgradePlan)="onPlanButton()"
+                (dismissWarning)="dismissCreditWarning()" (retryUsage)="retryAccountUsage()" />
+              <button type="button" class="desktop-plan-button" data-testid="subscription-cta" (click)="onPlanButton()">{{ planButtonLabel }}</button>
+            </div>
           }
 
           <div class="flex items-center gap-4">
@@ -202,22 +194,16 @@
 
       @if (role === 'teacher') {
       <div class="mobile-account-row" data-testid="mobile-teacher-account-row">
-        @if (creditWallet) {
-        <button type="button" class="mobile-credit-summary" data-testid="mobile-assessment-credit-wallet" (click)="onAddCredits()">
-          <span>Credits</span><strong>{{ creditWallet.availableCredits }}</strong><small>{{ creditWallet.purchasedCredits }} purchased · {{ creditWallet.bonusCredits }} bonus</small>
-        </button>
-        }
-        <div class="mobile-storage-summary">
-          <span class="mobile-storage-ring" [style.--storage-progress]="mobileStoragePercent + '%'" aria-hidden="true"></span>
-          <span class="mobile-storage-text">{{ mobileStorageUsedLabel }} / {{ mobileStorageTotalLabel }} used</span>
-        </div>
+        <app-account-usage [wallet]="creditWallet" [subscription]="mySubscription"
+          [creditsLoading]="isCreditsLoading" [subscriptionLoading]="isSubscriptionLoading"
+          [creditsError]="creditsLoadFailed" [subscriptionError]="subscriptionLoadFailed"
+          [planButtonLabel]="planButtonLabel"
+          (addCredits)="onAddCredits()" (upgradePlan)="onPlanButton()"
+          (dismissWarning)="dismissCreditWarning()" (retryUsage)="retryAccountUsage()" />
         <button type="button" class="mobile-plan-button" data-testid="subscription-cta" (click)="onPlanButton()">
           {{ planButtonLabel }}
         </button>
       </div>
-      @if (creditWallet && creditWallet.usagePercent >= creditWallet.nudgeThresholds.warning && creditWallet.usagePercent < 100 && !creditWallet.warningAcknowledged) {
-      <section class="mobile-credit-warning" aria-label="Assessment Credit usage warning"><p>You're at {{ creditWallet.usagePercent }}% of your monthly Assessment Credits.</p><div><button type="button" (click)="onAddCredits()">Add Credits</button><button type="button" (click)="onPlanButton()">Upgrade</button><button type="button" (click)="dismissCreditWarning()">Dismiss</button></div></section>
-      }
       }
     </header>
     }

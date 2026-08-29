@@ -4,19 +4,14 @@
   gap: 0.75rem;
 }
 
-.credit-summary { min-width: 15rem; padding: .65rem .8rem; border: 1px solid #dce8e8; border-radius: .8rem; background: #fff; color: #374151; }
-.credit-summary > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.credit-summary strong { color: #008081; font-size: 1.25rem; }
-.credit-summary small { display: block; margin-top: .2rem; color: #6b7280; white-space: nowrap; }
-.credit-summary p { margin: .45rem 0; max-width: 20rem; font-size: .75rem; }
-.credit-actions { display: flex; gap: .4rem; }
-.credit-actions button { padding: .3rem .55rem; border-radius: 999px; background: #526a96; color: #fff; font-size: .7rem; font-weight: 700; }
-.mobile-credit-summary { display: grid; grid-template-columns: auto auto; align-items: baseline; column-gap: .35rem; flex: 0 0 auto; color: #374151; font-size: .7rem; }
-.mobile-credit-summary strong { color: #008081; font-size: 1rem; }
-.mobile-credit-summary small { grid-column: 1 / -1; color: #6b7280; }
-.mobile-credit-warning { margin: 0 1rem .6rem; border: 1px solid #f0c64e; border-radius: .8rem; background: #fff8dc; padding: .65rem; color: #594500; font-size: .75rem; }
-.mobile-credit-warning div { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .45rem; }
-.mobile-credit-warning button { min-height: 2.25rem; border-radius: .65rem; background: #526a96; padding: .35rem .65rem; color: #fff; font-weight: 700; }
+.desktop-dashboard-header { min-height: 4.5rem; border-bottom: 1px solid rgb(231 231 231 / 75%); background: rgb(255 255 255 / 72%); }
+.desktop-dashboard-header button:not(:disabled), .mobile-dashboard-header button:not(:disabled), .topup-dialog button:not(:disabled) { cursor: pointer; }
+.desktop-dashboard-header button:disabled, .mobile-dashboard-header button:disabled, .topup-dialog button:disabled { cursor: not-allowed; }
+.desktop-header-content { display: flex; align-items: center; gap: 1.25rem; }
+.desktop-account-actions { display: flex; align-items: center; gap: .65rem; }
+.desktop-plan-button { min-height: 2.75rem; border: 1px solid var(--color-navy-dark); border-radius: var(--radius-md); background: var(--color-navy); padding: .65rem 1rem; color: #fff; font-size: .875rem; font-weight: 700; }
+.desktop-plan-button:hover { background: #2c436e; }
+.desktop-plan-button:focus-visible, .mobile-plan-button:focus-visible { outline: 3px solid rgb(0 128 129 / 28%); outline-offset: 2px; }
 .topup-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: rgb(15 23 42 / 55%); }
 .topup-dialog { width: min(100%, 38rem); max-height: calc(100dvh - 2rem); overflow-y: auto; border-radius: 1.25rem; background: #fff; padding: 1.25rem; color: #374151; box-shadow: 0 20px 50px rgb(15 23 42 / 25%); }
 .topup-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
@@ -60,58 +55,25 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin: 0 1rem 0.6rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.8rem;
-  background: #fff;
-  box-shadow: 0 2px 10px rgb(15 23 42 / 7%);
-}
-
-.mobile-storage-summary {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.mobile-storage-ring {
-  --storage-progress: 0%;
-  width: 1.8rem;
-  height: 1.8rem;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: conic-gradient(#ffc300 var(--storage-progress), #526a96 0);
-  position: relative;
-}
-
-.mobile-storage-ring::after {
-  content: '';
-  position: absolute;
-  inset: 0.35rem;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.mobile-storage-text {
-  color: #374151;
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
+  margin: 0 .3rem;
+  padding: 0 0.7rem 0.65rem;
 }
 
 .mobile-plan-button {
-  flex: 0 0 auto;
-  border-radius: 999px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2.75rem;
+  border-radius: var(--radius-md);
   background: #526a96;
   color: #fff;
-  padding: 0.48rem 0.75rem;
+  padding: 0.6rem 0.7rem;
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .mobile-teacher-content {
-  margin-top: 8.75rem;
+  margin-top: 8.15rem;
 }
 
 @media (max-width: 359px) {
@@ -121,7 +83,6 @@
     padding-inline: 0.55rem;
   }
 
-  .mobile-storage-text,
   .mobile-plan-button {
     font-size: 0.68rem;
   }
@@ -129,5 +90,4 @@
   .mobile-plan-button {
     padding-inline: 0.6rem;
   }
-  .mobile-credit-summary small { display: none; }
 }
