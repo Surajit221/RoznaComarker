@@ -843,6 +843,13 @@ export class MySubmissionPage {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    if (this.canonicalResultState?.semanticStatus === 'partial') {
+      return 'Your score is ready. Corrections from completed analysis sections are shown; one or more sections could not be completed.';
+    }
+    if (this.canonicalResultState?.semanticStatus === 'failed'
+      && this.canonicalResultState?.evaluationStatus === 'completed') {
+      return 'Your score is ready, but detailed writing corrections are temporarily unavailable. This does not mean that no mistakes were found.';
+    }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
     return this.canonicalResultState.correctionStatus === 'partial'
       ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
@@ -1953,7 +1960,8 @@ export class MySubmissionPage {
     const canonical = this.canonicalResultState;
     this.correctionsState = canonical.correctionStatus === 'completed' ? 'loaded' : canonical.correctionStatus === 'failed' ? 'error' : canonical.correctionStatus === 'partial' ? 'partial' : 'processing';
     this.statisticsState = canonical.statisticsStatus === 'complete' ? 'loaded' : canonical.statisticsStatus === 'failed' ? 'error' : canonical.statisticsStatus === 'partial' ? 'partial' : 'processing';
-    this.scoreState = canonical.evaluationStatus === 'completed' ? 'loaded'
+    this.scoreState = canonical.evaluationStatus === 'completed'
+      || (canonical.evaluationStatus === 'partial' && canonical.score !== null && Number.isFinite(Number(canonical.score))) ? 'loaded'
       : ['failed', 'blocked'].includes(canonical.evaluationStatus) && !this.feedback?.previousEvaluation ? 'error' : 'processing';
     this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';

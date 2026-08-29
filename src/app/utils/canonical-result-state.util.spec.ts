@@ -2,6 +2,31 @@ import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRet
   normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
+  it('keeps a provisional score visible while semantic corrections continue', () => {
+    const state = normalizeCanonicalResult({ submissionId: 's-provisional', correctionStatus: 'processing',
+      semanticStatus: 'processing', processingActive: true, automaticPollingAllowed: true,
+      evaluationStatus: 'partial', evaluationSource: 'provisional', score: 78, grade: 'B+',
+      correctionSourceHash: 'hash', evaluationSourceHash: 'hash' });
+    expect(state.score).toBe(78);
+    expect(state.grade).toBe('B+');
+    expect(state.processingActive).toBeTrue();
+  });
+
+  it('preserves validated partial corrections as terminal partial coverage', () => {
+    const state = normalizeCanonicalResult({ submissionId: 's-partial', correctionStatus: 'partial',
+      semanticStatus: 'partial', processingActive: false, automaticPollingAllowed: false,
+      statisticsCompleteness: 'partial', categoryAvailability: { content: 'partial', organization: 'partial',
+        vocabulary: 'partial', grammar: 'partial', mechanics: 'partial' },
+      statistics: { content: 1, organization: 2, vocabulary: 3, grammar: 4, mechanics: 5 },
+      evaluationStatus: 'completed', score: 74, correctionsAvailable: true,
+      correctionsCompleteness: 'partial' });
+    expect(state.semanticStatus).toBe('partial');
+    expect(state.correctionsAvailable).toBeTrue();
+    expect(state.correctionsCompleteness).toBe('partial');
+    expect(state.statistics.grammar).toBe(4);
+    expect(state.evaluationStatus).toBe('completed');
+  });
+
   it('produces the same canonical result for desktop and mobile consumers', () => {
     const response = {
       submissionId: 'submission-reference', correctionSourceHash: 'correction-hash',
@@ -129,6 +154,19 @@ describe('canonical result normalization', () => {
     expect(categoryDisplay(state, 'grammar')).toBe(1);
     expect(categoryDisplay(state, 'mechanics')).toBe(26);
     expect(categoryDisplay(state, 'content')).toBe('Unavailable');
+  });
+
+  it('preserves a completed degraded evaluation when optional semantic corrections fail', () => {
+    const state = normalizeCanonicalResult({ correctionStatus: 'partial', semanticStatus: 'failed',
+      correctionSourceHash: 'source-1', evaluationStatus: 'completed', evaluationSourceHash: 'source-1',
+      detailedFeedbackStatus: 'completed', detailedFeedbackSourceHash: 'source-1', overallScore: 76,
+      statisticsCompleteness: 'none', processingActive: false, automaticPollingAllowed: false, terminal: true });
+    expect(state.evaluationStatus).toBe('completed');
+    expect(state.score).toBe(76);
+    expect(state.semanticSucceeded).toBeFalse();
+    expect(state.correctionsAvailable).toBeFalse();
+    expect(state.detailedFeedbackStatus).toBe('completed');
+    expect(categoryDisplay(state, 'grammar')).toBe('Unavailable');
   });
 
   it('replaces a failed state with completed canonical data and clears stale errors', () => {

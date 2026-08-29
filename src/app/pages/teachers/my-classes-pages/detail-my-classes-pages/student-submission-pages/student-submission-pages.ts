@@ -5370,7 +5370,8 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
     const state = this.canonicalResultState;
-    this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
+    this.scoreState = state.evaluationStatus === 'completed'
+      || (state.evaluationStatus === 'partial' && state.score !== null && Number.isFinite(Number(state.score))) ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
     this.aiFeedbackState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) ? 'error' : 'processing';
@@ -6041,6 +6042,7 @@ export class StudentSubmissionPages {
     void feedbackPromise.then((loaded) => {
       if (loaded && submission?._id && seq === this.applyCurrentSubmissionSeq
         && this.currentSubmission?._id === submission._id) {
+        this.applyFeedbackSectionStates(true);
         void this.markCurrentSubmissionReviewed(submission._id, seq);
       }
     });

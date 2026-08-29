@@ -377,6 +377,14 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.canGenerate).toBeFalse();
   });
 
+  it('allows adaptive practice from a current degraded transcript-based evaluation', () => {
+    component.canonicalResultState = { ...currentCanonical, correctionStatus: 'partial',
+      semanticStatus: 'failed', evaluationStatus: 'completed', processingActive: false };
+    component.skills = skills;
+    expect(component.eligibilityReason).toBe('READY');
+    expect(component.canGenerate).toBeTrue();
+  });
+
   it('treats semantic retry_wait as analysis processing', () => {
     component.canonicalResultState = { ...currentCanonical, semanticStatus: 'retry_wait', processingActive: false };
     expect(component.eligibilityReason).toBe('ANALYSIS_PROCESSING');

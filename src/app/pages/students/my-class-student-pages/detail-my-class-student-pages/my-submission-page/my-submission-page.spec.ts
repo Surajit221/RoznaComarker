@@ -180,6 +180,7 @@ describe('MySubmissionPage', () => {
       detailedFeedbackStatus: 'completed', processingActive: false, automaticPollingAllowed: false, terminal: true
     });
     const completed = (component as any).refreshCanonicalResult('submission-1', 1);
+    await Promise.resolve();
     http.expectOne((candidate) => candidate.url.includes('/ocr-corrections')).flush({ success: true, data: {
       processing: false, ocrStatus: 'completed', correctionStatus: 'completed', correctionSourceHash: 'source-final',
       statistics: { content: 6, grammar: 37, organization: 2, vocabulary: 5, mechanics: 4, total: 54 },
