@@ -322,7 +322,7 @@
           <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
           <div class="flex flex-row gap-2">
             <button type="button" class="btn-info" [disabled]="!canGenerateAiFeedback"
-              (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback' }}</button>
+              (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback — 1 Credit' }}</button>
             <button type="button" class="btn-primary" [disabled]="isPdfDownloading"
               (click)="downloadPdfForCurrentSubmission()">
               @if (isPdfDownloading) {

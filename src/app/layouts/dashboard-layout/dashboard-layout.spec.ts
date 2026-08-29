@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { BackendNotification, NotificationApiService } from '../../api/notification-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
+import { CreditsApiService } from '../../api/credits-api.service';
 import { DeviceService } from '../../services/device.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
 import { RoleService } from '../../services/role.service';
@@ -83,6 +84,13 @@ describe('DashboardLayout subscription ownership', () => {
           }
         },
         { provide: SubscriptionApiService, useValue: { getMySubscription, createCustomerPortal } },
+        { provide: CreditsApiService, useValue: {
+          getWallet: () => Promise.resolve({ plan: 'free', monthlyCredits: 25, monthlyCreditsUsed: 0,
+            monthlyCreditsRemaining: 25, purchasedCredits: 0, bonusCredits: 0, availableCredits: 25,
+            resetDate: '2026-09-01', billingCycleStart: '2026-08-01', billingCycleEnd: '2026-09-01',
+            usagePercent: 0, nudgeThresholds: { soft: 50, warning: 80 }, warningAcknowledged: false }),
+          getPacks: () => Promise.resolve([]), acknowledgeNudge: () => Promise.reject()
+        } },
         {
           provide: NotificationApiService,
           useValue: {
@@ -97,7 +105,8 @@ describe('DashboardLayout subscription ownership', () => {
           useValue: {
             connect: () => undefined,
             disconnect: () => undefined,
-            notifications$: realtimeNotifications.asObservable()
+            notifications$: realtimeNotifications.asObservable(),
+            events$: new Subject<any>().asObservable()
           }
         },
         {
@@ -129,7 +138,10 @@ describe('DashboardLayout subscription ownership', () => {
     const subscriptionCtas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
 
     expect(getMySubscription).toHaveBeenCalledTimes(1);
-    expect(fixture.nativeElement.querySelector('app-chart-storage')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-chart-storage')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-account-usage')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="account-usage-button"]').textContent.trim()).toContain('Usage');
+    expect(fixture.nativeElement.querySelector('[data-testid="assessment-credit-wallet"]')).toBeNull();
     expect(subscriptionCtas.length).toBe(1);
     expect(subscriptionCtas[0].textContent.trim()).toBe('Upgrade Plan');
     expect(text).toContain('My Classes');
@@ -175,12 +187,15 @@ describe('DashboardLayout subscription ownership', () => {
     expect(subscriptionCtas[0].textContent.trim()).toBe('Manage Billing');
   });
 
-  it('shows one compact mobile teacher storage row and reuses the subscription CTA', async () => {
+  it('shows one compact mobile Usage row without permanent credit or storage detail', async () => {
     await render('teacher', null, 'mobile');
     const row = fixture.nativeElement.querySelector('[data-testid="mobile-teacher-account-row"]');
     const ctas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
     expect(row).not.toBeNull();
-    expect(row.textContent).toContain('0 MB / 500 MB used');
+    expect(row.textContent).toContain('Usage');
+    expect(row.textContent).not.toContain('0 MB / 500 MB used');
+    expect(fixture.nativeElement.querySelector('.mobile-credit-warning')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="mobile-assessment-credit-wallet"]')).toBeNull();
     expect(ctas.length).toBe(1);
     expect(ctas[0].textContent.trim()).toBe('Upgrade Plan');
     expect(fixture.nativeElement.querySelector('#user-menu')).not.toBeNull();

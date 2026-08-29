@@ -21,7 +21,7 @@ export class PostAuthNavigationService {
   defaultDestination(role: FinalizedRole): string {
     if (role === 'teacher') return '/teacher/my-classes';
     if (role === 'student') return '/student/my-classes';
-    return '/';
+    return '/admin/credits';
   }
 
   async navigate(user: { role?: unknown } | null | undefined, returnUrl?: string | null): Promise<boolean> {
@@ -61,6 +61,7 @@ export class PostAuthNavigationService {
   private isAllowedForRole(url: string, role: FinalizedRole): boolean {
     if (url.startsWith('/teacher')) return role === 'teacher';
     if (url.startsWith('/student')) return role === 'student';
+    if (url.startsWith('/admin')) return role === 'admin';
     if (url.startsWith('/checkout') || url.startsWith('/worksheets')) return role === 'teacher';
     return true;
   }

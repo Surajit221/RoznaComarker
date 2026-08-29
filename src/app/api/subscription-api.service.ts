@@ -71,17 +71,17 @@ export class SubscriptionApiService {
     }
   }
 
-  async getCheckoutPlan(): Promise<BackendPlan> {
+  async getCheckoutPlan(planCode = 'starter_monthly'): Promise<BackendPlan> {
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendPlan>>(`${this.getApiBaseUrl()}/subscription/checkout-plan`)
+      this.http.get<BackendResponse<BackendPlan>>(`${this.getApiBaseUrl()}/subscription/checkout-plan`, { params: { planCode } })
     );
     return resp.data;
   }
 
-  async createCheckoutSession(planSlug: string, checkoutAttemptId: string): Promise<{ clientSecret: string }> {
+  async createCheckoutSession(planCode: string, checkoutAttemptId: string, billingPeriod: 'monthly' | 'annual' = 'monthly'): Promise<{ clientSecret: string }> {
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<{ clientSecret: string }>>(
-        `${this.getApiBaseUrl()}/subscription/checkout-session`, { planSlug, checkoutAttemptId }
+        `${this.getApiBaseUrl()}/subscription/checkout-session`, { planCode, billingPeriod, checkoutAttemptId }
       )
     );
     return resp.data;

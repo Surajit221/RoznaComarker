@@ -1,4 +1,4 @@
-/*
+﻿/*
  * PDF-only overrides for WorksheetPdfTemplate.
  * Extends the wv-* classes from worksheet-viewer.css to:
  *  - Lock width to A4 (794px) and disable scrolling/overflow
@@ -18,7 +18,7 @@
 .wv-pdf-root {
   width: 794px;
   background: #f1f5f9;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Poppins', sans-serif;
   display: block !important;
   height: auto !important;
   overflow: visible !important;
@@ -36,13 +36,13 @@
 }
 
 /* Each activity card avoids being split mid-page */
-.wv-pdf-activity,
 .wv-pdf-score-banner,
 .wv-pdf-root .wv-score-panel,
 .wv-pdf-root .wv-concept-card {
   break-inside: avoid;
   page-break-inside: avoid;
 }
+.wv-pdf-question-unit,.wv-pdf-root .wv-mcq-question,.wv-pdf-root .wv-sentence,.wv-pdf-root .wv-mystery-card{break-inside:avoid;page-break-inside:avoid}.wv-pdf-static-list{display:grid;gap:.6rem}.wv-pdf-question-unit{border:1px solid #e2e8f0;border-radius:8px;padding:.7rem;background:#fff;overflow-wrap:anywhere}.wv-pdf-question-unit p{margin:.25rem 0 0;font-size:.8rem;color:#475569}
 
 /* Concept explanation text overflow handling for PDF */
 .wv-pdf-root .wv-concept-body {
@@ -67,7 +67,7 @@
   min-height: 1.2em;
 }
 
-/* Score banner — colored by tier */
+/* Score banner â€” colored by tier */
 .wv-pdf-score-banner {
   display: flex;
   justify-content: space-between;
@@ -168,3 +168,259 @@
 .wv-pdf-root .wv-a1-pool {
   display: none;
 }
+
+/* Student worksheet-result PDF polish. These selectors live only in the
+ * off-screen PDF component; the normal worksheet viewer is unaffected. */
+:host(.pdf-worksheet-result) .wv-pdf-root,
+:host(.pdf-worksheet-result) .wv-pdf-root * {
+  box-sizing: border-box;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-activity-card {
+  padding: 1rem 1.125rem;
+  min-height: 0;
+  overflow: visible;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-activity-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.75rem;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-activity-header-text {
+  min-width: 0;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-activity-title,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-activity-inst,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-q-text,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-opt-text,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-sentence,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-item,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-answer,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-feedback,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-question-heading,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-answer-summary,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-readonly {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-score-badge {
+  position: static;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  min-width: 58px;
+}
+
+/* Multiple choice */
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-mcq-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-mcq-question {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.7rem;
+  row-gap: 0.7rem;
+  padding: 0.85rem;
+  min-height: 0;
+  overflow: visible;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-q-badge {
+  grid-column: 1;
+  grid-row: 1;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  line-height: 1;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-q-text {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  margin: 0;
+  line-height: 1.42;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-mcq-options,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-correction-line {
+  grid-column: 1 / -1;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-mcq-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.55rem;
+  margin-top: 0.05rem;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-mcq-btn {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 48px;
+  height: auto;
+  padding: 0.55rem 0.65rem;
+  line-height: 1.38;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-opt-letter {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  line-height: 1;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-correction-line {
+  margin: 0.05rem 0 0 3.25rem;
+  line-height: 1.4;
+}
+
+/* Fill in the blanks and word bank */
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-word-bank {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-word-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  height: auto;
+  padding: 0.35rem 0.7rem;
+  line-height: 1.3;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-sentences {
+  display: grid;
+  gap: 0.6rem;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-sentence {
+  line-height: 1.55;
+  padding: 0.7rem 0.8rem;
+  min-height: 0;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-blank-wrapper,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-blank-chip {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-blank-chip {
+  justify-content: center;
+  min-height: 34px;
+  height: auto;
+  padding: 0.35rem 0.65rem;
+  line-height: 1.3;
+}
+
+/* Matching pairs */
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-matching-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-row.is-correct { border-color: #86efac; background: #f0fdf4; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-row.is-wrong { border-color: #fca5a5; background: #fef2f2; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-row.is-skipped { border-color: #cbd5e1; }
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-item,
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-answer {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 1.4;
+}
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-item { gap: 0.55rem; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-arrow { text-align: center; color: #008081; font-weight: 800; line-height: 1; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-row-number { flex: 0 0 auto; color: #008081; font-weight: 800; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-match-feedback {
+  grid-column: 3;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0 0.2rem 0.1rem;
+  color: #991b1b;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-feedback-label { color: #64748b; font-weight: 600; }
+
+/* True / false */
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-tf-list { display: grid; gap: 0.65rem; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-tf-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-question-heading { display: flex; align-items: flex-start; gap: 0.55rem; line-height: 1.45; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-tf-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-tf-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-weight: 700;
+  line-height: 1.2;
+}
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-tf-option.correct { color: #166534; border-color: #22c55e; background: #dcfce7; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-tf-option.wrong { color: #991b1b; border-color: #ef4444; background: #fee2e2; }
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-answer-summary { display: flex; flex-wrap: wrap; gap: 0.35rem 1.25rem; color: #475569; font-size: 0.78rem; line-height: 1.4; }
+
+:host(.pdf-worksheet-result) .wv-pdf-root .wv-pdf-avoid-break {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+

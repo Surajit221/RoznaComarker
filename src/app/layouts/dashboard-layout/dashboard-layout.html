@@ -22,12 +22,18 @@
 
     <div class="flex flex-col flex-1 overflow-hidden">
       @if(!isFullScreen()) {
-      <header class="flex items-center justify-end px-6 py-2">
-        <div class="flex flex-row gap-10">
+      <header class="desktop-dashboard-header flex items-center justify-end px-6 py-3">
+        <div class="desktop-header-content">
           @if (role === 'teacher') {
-            <app-chart-storage [used]="storageUsedGb" [total]="storageTotalGb" [strokeColor]="'#FFC300'" [size]="150"
-              [planButtonLabel]="planButtonLabel" (planButtonClick)="onPlanButton()">
-            </app-chart-storage>
+            <div class="desktop-account-actions">
+              <app-account-usage [wallet]="creditWallet" [subscription]="mySubscription"
+                [creditsLoading]="isCreditsLoading" [subscriptionLoading]="isSubscriptionLoading"
+                [creditsError]="creditsLoadFailed" [subscriptionError]="subscriptionLoadFailed"
+                [planButtonLabel]="planButtonLabel"
+                (addCredits)="onAddCredits()" (upgradePlan)="onPlanButton()"
+                (dismissWarning)="dismissCreditWarning()" (retryUsage)="retryAccountUsage()" />
+              <button type="button" class="desktop-plan-button" data-testid="subscription-cta" (click)="onPlanButton()">{{ planButtonLabel }}</button>
+            </div>
           }
 
           <div class="flex items-center gap-4">
@@ -188,10 +194,12 @@
 
       @if (role === 'teacher') {
       <div class="mobile-account-row" data-testid="mobile-teacher-account-row">
-        <div class="mobile-storage-summary">
-          <span class="mobile-storage-ring" [style.--storage-progress]="mobileStoragePercent + '%'" aria-hidden="true"></span>
-          <span class="mobile-storage-text">{{ mobileStorageUsedLabel }} / {{ mobileStorageTotalLabel }} used</span>
-        </div>
+        <app-account-usage [wallet]="creditWallet" [subscription]="mySubscription"
+          [creditsLoading]="isCreditsLoading" [subscriptionLoading]="isSubscriptionLoading"
+          [creditsError]="creditsLoadFailed" [subscriptionError]="subscriptionLoadFailed"
+          [planButtonLabel]="planButtonLabel"
+          (addCredits)="onAddCredits()" (upgradePlan)="onPlanButton()"
+          (dismissWarning)="dismissCreditWarning()" (retryUsage)="retryAccountUsage()" />
         <button type="button" class="mobile-plan-button" data-testid="subscription-cta" (click)="onPlanButton()">
           {{ planButtonLabel }}
         </button>
@@ -222,3 +230,20 @@
   </div>
   }
 </ng-container>
+
+@if (showTopupDialog) {
+<div class="topup-backdrop" role="presentation" (click)="closeTopupDialog()">
+  <section class="topup-dialog" role="dialog" aria-modal="true" aria-labelledby="topup-title" (click)="$event.stopPropagation()">
+    <div class="topup-heading"><div><h2 id="topup-title">Add Assessment Credits</h2><p>Purchased credits do not expire at your monthly reset.</p></div><button type="button" aria-label="Close" [disabled]="!!topupCheckoutCode" (click)="closeTopupDialog()"><i class="bx bx-x"></i></button></div>
+    @if (topupLoading) { <div class="topup-status" aria-live="polite">Loading credit packs...</div> }
+    @if (topupMessage) { <div class="topup-status" aria-live="polite">{{ topupMessage }}</div> }
+    <div class="topup-grid">
+      @for (pack of creditPacks; track pack.code) {
+      <article class="topup-pack"><h3>{{ pack.name }}</h3><strong>{{ pack.credits }} Credits</strong><p>{{ pack.price | currency:pack.currency }}</p><small>For eligible {{ pack.allowedPlans.join(', ') }} plans</small>
+        <button type="button" class="btn-primary" [disabled]="!!topupCheckoutCode" [attr.aria-busy]="topupCheckoutCode === pack.code" (click)="purchaseCredits(pack)">{{ topupCheckoutCode === pack.code ? 'Preparing checkout...' : 'Add Credits' }}</button>
+      </article>
+      }
+    </div>
+  </section>
+</div>
+}

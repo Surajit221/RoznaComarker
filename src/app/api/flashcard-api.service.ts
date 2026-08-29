@@ -59,10 +59,13 @@ export class FlashcardApiService {
       .pipe(map(() => void 0));
   }
 
-  gradeAnswer(question: string, correctAnswer: string, studentAnswer: string): Observable<{ isCorrect: boolean }> {
+  gradeAnswer(setId: string, cardId: string, answer: string, assignmentId?: string): Observable<{
+    correct: boolean; isCorrect: boolean; correctAnswer: string; studentAnswer: string;
+    explanation: string; gradingMethod: 'exact' | 'normalized' | 'semantic_ai'; confidence?: number; checkedAt: string;
+  }> {
     return this.http
-      .post<BackendResponse<{ isCorrect: boolean }>>(`${this.baseUrl}/grade-answer`, {
-        question, correctAnswer, studentAnswer,
+      .post<BackendResponse<any>>(`${this.baseUrl}/${encodeURIComponent(setId)}/cards/${encodeURIComponent(cardId)}/check-answer`, {
+        answer, assignmentId: assignmentId || undefined,
       })
       .pipe(map((r) => r.data));
   }
@@ -176,12 +179,16 @@ export class FlashcardApiService {
    * Called on every card navigation to persist student progress.
    */
   saveProgress(setId: string, payload: {
+    status?: 'not_started' | 'in_progress' | 'completed';
     lastCardIndex: number;
     cardsViewed: number[];
     cardResults?: Record<string, 'knew' | 'didnt_know'>;
     assignmentId?: string;
     template?: string;
     totalCards?: number;
+    currentCardId?: string | null;
+    cardProgress?: Array<{ cardId: string; studentAnswer?: string; selfRating?: 'knew' | 'didnt_know'; completedAt?: string | null }>;
+    expectedRevision?: number;
   }): Observable<{
     progressId: string;
     status: 'not_started' | 'in_progress' | 'completed';
@@ -193,6 +200,7 @@ export class FlashcardApiService {
     startedAt: string | null;
     lastActivityAt: string | null;
     completedAt: string | null;
+    revision: number;
   }> {
     return this.http
       .patch<BackendResponse<any>>(
@@ -219,6 +227,10 @@ export class FlashcardApiService {
     lastActivityAt: string | null;
     completedAt: string | null;
     template?: string;
+    currentCardId?: string | null;
+    cardProgress?: Array<{ cardId: string; studentAnswer: string; selfRating?: 'knew' | 'didnt_know' | null;
+      isChecked: boolean; isCorrect: boolean | null; gradingMethod?: string; checkedAt?: string | null; completedAt?: string | null }>;
+    revision?: number;
   }> {
     let params = new HttpParams();
     if (assignmentId && String(assignmentId).trim().length) {

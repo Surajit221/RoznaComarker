@@ -118,6 +118,9 @@ export class CreateFlashcard implements OnDestroy {
    * then navigate to /flashcards/:id/edit on success.
    */
   generateFlashcards(): void {
+    if (this.isGenerating) {
+      return;
+    }
     if (this.createForm.invalid) {
       this.createForm.markAllAsTouched();
       return;
@@ -162,8 +165,24 @@ export class CreateFlashcard implements OnDestroy {
           const queryParams = returnToClassId ? { classId: returnToClassId } : undefined;
           this.router.navigate(['/flashcards', newSet._id], { queryParams });
         },
-        error: () =>
-          this.openErrorModal('Error', 'Failed to generate flashcards. Please try again.'),
+        error: (error: { status?: number; error?: { code?: string } }) => {
+          const code = error?.error?.code;
+          if (code === 'INSUFFICIENT_FLASHCARD_CONTENT') {
+            this.openErrorModal('Add more content', 'Please enter a topic or source with at least 3 characters.');
+          } else if (code === 'FLASHCARD_OUTPUT_INVALID' || error?.status === 502) {
+            this.openErrorModal(
+              'Could not generate flashcards',
+              'The AI could not produce valid flashcards this time. Please try again.',
+            );
+          } else if (error?.status === 0) {
+            this.openErrorModal(
+              'Connection error',
+              'We could not reach the server. Check your connection and try again.',
+            );
+          } else {
+            this.openErrorModal('Could not generate flashcards', 'Please try again in a moment.');
+          }
+        },
       });
   }
 }

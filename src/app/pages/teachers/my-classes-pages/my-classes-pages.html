@@ -18,6 +18,11 @@
     </div>
   </div>
 
+  <div class="mb-5 flex w-fit rounded-xl bg-gray-100 p-1" role="tablist" aria-label="Class status">
+    <button type="button" class="min-h-11 rounded-lg px-5 font-semibold" [class.bg-white]="selectedStatus === 'active'" [class.text-[#136C6D]]="selectedStatus === 'active'" (click)="selectStatus('active')">Active</button>
+    <button type="button" class="min-h-11 rounded-lg px-5 font-semibold" [class.bg-white]="selectedStatus === 'archived'" [class.text-[#136C6D]]="selectedStatus === 'archived'" (click)="selectStatus('archived')">Archived</button>
+  </div>
+
   <div class="grid grid-cols-4 gap-3 items-stretch">
     @if (isLoading) {
     <div class="col-span-4 flex justify-center items-center py-12">
@@ -53,8 +58,12 @@
       [submissions]="item.submissions"
       [description]="item.description"
       [lastEdited]="item.lastEdited"
+      [status]="item.status"
+      [archivedAt]="item.archivedAt"
       (editRequested)="onEditRequested($event)"
       (deleteRequested)="onDeleteRequested($event)"
+      (archiveRequested)="onArchiveRequested($event)"
+      (restoreRequested)="onRestoreRequested($event)"
     />
     }
     }
@@ -63,6 +72,12 @@
   <app-modal-dialog [open]="showDialog">
     <h2 class="text-3xl font-bold text-center mb-8">Create New Class</h2>
     <app-my-classes-form (created)="onClassCreated($event)" (closed)="closeDialog()"></app-my-classes-form>
+  </app-modal-dialog>
+
+  <app-modal-dialog [open]="showArchiveDialog" (closed)="closeArchiveDialog()" maxWidthClass="max-w-[520px]">
+    <h2 class="text-3xl font-bold text-center mb-3">Archive this class?</h2>
+    <p class="text-center text-gray-600 mb-8">Students, assignments, submissions, reports, feedback, and progress will be kept. The class will move to Archived and will no longer count toward your active-class limit.</p>
+    <div class="flex justify-center gap-3"><button type="button" class="btn-primary" (click)="confirmArchiveClass()">Archive Class</button><button type="button" class="btn-warning" (click)="closeArchiveDialog()">Cancel</button></div>
   </app-modal-dialog>
 
   <app-modal-dialog [open]="showEditDialog" (closed)="closeEditDialog()">
@@ -97,6 +112,10 @@
     <div class="flex flex-col gap-2">
       <div class="w-full flex flex-row justify-between items-center">
         <p class="text-2xl font-bold">My Classes</p>
+      </div>
+      <div class="flex w-full rounded-xl bg-gray-100 p-1" role="tablist" aria-label="Class status">
+        <button type="button" class="min-h-11 flex-1 rounded-lg px-3 font-semibold" [class.bg-white]="selectedStatus === 'active'" [class.text-[#136C6D]]="selectedStatus === 'active'" (click)="selectStatus('active')">Active</button>
+        <button type="button" class="min-h-11 flex-1 rounded-lg px-3 font-semibold" [class.bg-white]="selectedStatus === 'archived'" [class.text-[#136C6D]]="selectedStatus === 'archived'" (click)="selectStatus('archived')">Archived</button>
       </div>
       <div class="relative">
         <input 
@@ -145,16 +164,20 @@
       [submissions]="item.submissions"
       [description]="item.description"
       [lastEdited]="item.lastEdited"
+      [status]="item.status"
+      [archivedAt]="item.archivedAt"
       (editRequested)="onEditRequested($event)"
       (deleteRequested)="onDeleteRequested($event)"
+      (archiveRequested)="onArchiveRequested($event)"
+      (restoreRequested)="onRestoreRequested($event)"
     />
     }
     }
     </div>
   </div>
-  <button class="fixed bottom-20 right-6 btn-primary-sm" (click)="onOpenCreateClass()">
+  @if (selectedStatus === 'active') {<button class="fixed bottom-20 right-6 btn-primary-sm" (click)="onOpenCreateClass()">
     Create A New Class
-  </button>
+  </button>}
 
   <app-bottomsheet-dialog [open]="openSheet" (closed)="onCloseCreateClass()">
     <h2 class="text-2xl font-bold mb-3">Create A New Class</h2>
@@ -170,6 +193,12 @@
       (updated)="onClassUpdated($event)"
       (closed)="closeEditDialog()"
     ></app-my-classes-form>
+  </app-modal-dialog>
+
+  <app-modal-dialog [open]="showArchiveDialog" (closed)="closeArchiveDialog()" maxWidthClass="max-w-[420px]">
+    <h2 class="text-2xl font-bold text-center mb-2">Archive this class?</h2>
+    <p class="text-center text-gray-600 mb-6">All students, work, reports, feedback, and progress will be kept. This class will no longer count toward your active-class limit.</p>
+    <div class="grid grid-cols-1 gap-3"><button type="button" class="btn-primary-sm" (click)="confirmArchiveClass()">Archive Class</button><button type="button" class="btn-warning-sm" (click)="closeArchiveDialog()">Cancel</button></div>
   </app-modal-dialog>
 
   <app-modal-dialog [open]="showDeleteDialog" (closed)="closeDeleteDialog()" maxWidthClass="max-w-[420px]">

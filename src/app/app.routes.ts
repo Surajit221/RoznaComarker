@@ -1,7 +1,12 @@
 import { Routes } from '@angular/router';
 import { TeacherGuard } from './auth/teacher.guard';
+import { AdminGuard } from './auth/admin.guard';
 
 export const routes: Routes = [
+  { path: 'admin/credits', canActivate: [AdminGuard], loadComponent: () =>
+    import('./pages/admin/admin-credits').then((m) => m.AdminCredits) },
+  { path: 'admin/pricing', canActivate: [AdminGuard], loadComponent: () =>
+    import('./pages/admin/admin-pricing').then((m) => m.AdminPricing) },
   {
     path: 'checkout/starter',
     canActivate: [TeacherGuard],
@@ -16,6 +21,11 @@ export const routes: Routes = [
     path: 'checkout/cancel',
     canActivate: [TeacherGuard],
     loadComponent: () => import('./pages/checkout/checkout-cancel').then((m) => m.CheckoutCancelComponent),
+  },
+  {
+    path: 'checkout/:planCode',
+    canActivate: [TeacherGuard],
+    loadComponent: () => import('./pages/checkout/checkout').then((m) => m.CheckoutComponent),
   },
   {
     path: '',

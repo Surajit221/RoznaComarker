@@ -27,7 +27,8 @@ import {
 } from '../../../api/worksheet-api.service';
 import { AssignmentApiService } from '../../../api/assignment-api.service';
 import { WorksheetViewerComponent } from '../../../components/worksheet-viewer/worksheet-viewer';
-import { WorksheetPdfRenderService } from '../../../components/worksheet-pdf-template/worksheet-pdf-render.service';
+import { PdfApiService } from '../../../api/pdf-api.service';
+import { triggerBlobDownload } from '../../../utils/file-download.util';
 import { AlertService } from '../../../services/alert.service';
 import { AuthService } from '../../../auth/auth.service';
 import { environment } from '../../../../environments/environment';
@@ -54,7 +55,7 @@ export class StudentWorksheetResultsPage implements OnInit {
   private readonly api = inject(WorksheetApiService);
   private readonly assignmentApi = inject(AssignmentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
-  private readonly pdfRenderer = inject(WorksheetPdfRenderService);
+  private readonly pdfApi = inject(PdfApiService);
   private readonly alert = inject(AlertService);
   private readonly auth = inject(AuthService);
 
@@ -517,23 +518,9 @@ export class StudentWorksheetResultsPage implements OnInit {
       const studentName = this.studentName || 'Student';
       const safeName = studentName.replace(/\s+/g, '-').toLowerCase();
       const safeTitle = (this.worksheet.title ?? 'worksheet').replace(/\s+/g, '-').toLowerCase();
-      const dateStr = this.formattedDate;
-
-      await this.pdfRenderer.renderViewerOffscreen(
-        {
-          worksheet: this.worksheet,
-          worksheetId: this.submission.worksheetId,
-          studentName,
-          date: dateStr,
-          submittedAnswers: (this.submission.answers as any[]) ?? [],
-          totalPointsEarned: this.submission.earnedPoints ?? this.submission.totalPointsEarned ?? 0,
-          totalPointsPossible:
-            this.submission.totalPoints ?? this.submission.totalPointsPossible ?? 0,
-          percentage: this.submission.score ?? this.submission.percentage ?? 0,
-          timeTaken: this.submission.timeTaken,
-        },
-        `${safeName}_${safeTitle}.pdf`,
-      );
+      const blob = await this.pdfApi.downloadStudentWorksheetResultPdf(this.submission._id);
+      if (!blob?.size) throw new Error('The server returned an empty PDF.');
+      triggerBlobDownload(blob, { filename: `${safeName}_${safeTitle}.pdf`, mimeType: 'application/pdf' });
     } catch (err: any) {
       this.alert.showError(
         'Failed to generate PDF',

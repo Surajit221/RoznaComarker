@@ -55,6 +55,8 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.state).toBe('idle');
     expect(fixture.nativeElement.querySelectorAll('.skill-card').length).toBe(5);
     expect(fixture.nativeElement.textContent).not.toContain('Recommended Practice');
+    expect(fixture.nativeElement.textContent).toContain('Generate Adaptive Practice');
+    expect(fixture.nativeElement.textContent).not.toContain('Your generated practice is ready below.');
   });
 
   it('calls generation once, blocks duplicates and reveals a ready session', () => {
@@ -64,6 +66,8 @@ describe('AdaptiveWritingStudio', () => {
     expect(api.generateSession).toHaveBeenCalledTimes(1);
     expect(component.state).toBe('generated');
     expect(fixture.nativeElement.textContent).toContain('Recommended Practice');
+    expect(fixture.nativeElement.textContent).toContain('Continue Practice');
+    expect(fixture.nativeElement.textContent).toContain('Your generated practice is ready below.');
   });
 
   it('renders and restores three mixed questions with independent state', () => {
@@ -375,6 +379,14 @@ describe('AdaptiveWritingStudio', () => {
     expect(component.canGenerate).toBeFalse();
     component.canonicalResultState = { ...currentCanonical, evaluationStatus: 'blocked', semanticStatus: 'failed' };
     expect(component.canGenerate).toBeFalse();
+  });
+
+  it('allows adaptive practice from a current degraded transcript-based evaluation', () => {
+    component.canonicalResultState = { ...currentCanonical, correctionStatus: 'partial',
+      semanticStatus: 'failed', evaluationStatus: 'completed', processingActive: false };
+    component.skills = skills;
+    expect(component.eligibilityReason).toBe('READY');
+    expect(component.canGenerate).toBeTrue();
   });
 
   it('treats semantic retry_wait as analysis processing', () => {

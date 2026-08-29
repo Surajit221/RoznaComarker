@@ -67,7 +67,7 @@ export type BackendSubmission = {
   automaticPollingAllowed?: boolean;
   manualRetryAllowed?: boolean;
   terminal?: boolean;
-  semanticStatus?: 'pending' | 'processing' | 'retry_wait' | 'completed' | 'failed';
+  semanticStatus?: 'pending' | 'processing' | 'retry_wait' | 'completed' | 'partial' | 'failed';
   ocrStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   ocrText?: string;
   combinedOcrText?: string;

@@ -142,6 +142,8 @@ describe('StudentSubmissionPages', () => {
 
     expect(component.currentFeedback?.overallScore).toBe(91);
     expect(component.scoreState).toBe('loaded');
+    TestBed.inject(HttpTestingController).match((request) => request.url === '/private/submission.pdf')
+      .forEach((request) => request.flush(new Blob(['preview'], { type: 'application/pdf' })));
     releasePreview('blob:preview');
     await applying;
   });

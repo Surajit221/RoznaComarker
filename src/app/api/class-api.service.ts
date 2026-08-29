@@ -23,6 +23,8 @@ export type BackendClass = {
   joinCode: string;
   qrCodeUrl?: string;
   isActive: boolean;
+  status?: 'active' | 'archived';
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,6 +45,8 @@ export type BackendClassSummary = {
   endDate?: string | null;
   bannerUrl?: string;
   joinCode: string;
+  status?: 'active' | 'archived';
+  archivedAt?: string | null;
   gradingScale?: 'score_0_100' | 'grade_a_f' | 'pass_fail' | string;
   teacher: {
     id: string;
@@ -105,16 +109,16 @@ export class ClassApiService {
     };
   }
 
-  async getMyTeacherClasses(): Promise<BackendClass[]> {
+  async getMyTeacherClasses(status: 'active' | 'archived' = 'active'): Promise<BackendClass[]> {
     const apiBaseUrl = this.getApiBaseUrl();
-    const cacheKey = 'my-teacher-classes';
+    const cacheKey = `my-teacher-classes-${status}`;
     const cached = this.cache.get<BackendClass[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
     const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendClass[]>>(`${apiBaseUrl}/classes/mine`)
+      this.http.get<BackendResponse<BackendClass[]>>(`${apiBaseUrl}/classes/mine?status=${status}`)
     );
     const data = (resp?.data || []).map((c) => this.resolveBannerInClass(c));
     
@@ -215,6 +219,24 @@ export class ClassApiService {
     return resp.data;
   }
 
+  async archiveClass(classId: string): Promise<BackendClass> {
+    const resp = await firstValueFrom(this.http.patch<BackendResponse<BackendClass>>(
+      `${this.getApiBaseUrl()}/classes/${encodeURIComponent(classId)}/archive`, {}
+    ));
+    this.clearClassCache(classId);
+    this.invalidateTeacherClassesList();
+    return this.resolveBannerInClass(resp.data);
+  }
+
+  async unarchiveClass(classId: string): Promise<BackendClass> {
+    const resp = await firstValueFrom(this.http.patch<BackendResponse<BackendClass>>(
+      `${this.getApiBaseUrl()}/classes/${encodeURIComponent(classId)}/unarchive`, {}
+    ));
+    this.clearClassCache(classId);
+    this.invalidateTeacherClassesList();
+    return this.resolveBannerInClass(resp.data);
+  }
+
   async getClassStudents(
     classId: string,
     options?: { forceRefresh?: boolean }
@@ -289,6 +311,8 @@ export class ClassApiService {
 
   invalidateTeacherClassesList(): void {
     this.cache.delete('my-teacher-classes');
+    this.cache.delete('my-teacher-classes-active');
+    this.cache.delete('my-teacher-classes-archived');
   }
 
   invalidateAllClassSummaries(): void {

@@ -1,8 +1,8 @@
 import { CommonModule, Location } from '@angular/common';
-import { Component, effect, HostListener, inject, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { DeviceService } from '../../services/device.service';
-import { ChartStorage } from '../../shared/chart-storage/chart-storage';
+import { AccountUsage } from '../../components/account-usage/account-usage';
 import { AuthService } from '../../auth/auth.service';
 import { RoleService } from '../../services/role.service';
 import { SubscriptionApiService, type BackendMySubscription } from '../../api/subscription-api.service';
@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 import { NotificationApiService, type BackendNotification } from '../../api/notification-api.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
 import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
+import { CreditsApiService, type AssessmentCreditWallet, type CreditPack } from '../../api/credits-api.service';
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -29,7 +30,7 @@ function decodeJwtPayload(token: string): any | null {
 @Component({
   selector: 'app-dashboard-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterModule, ChartStorage],
+  imports: [CommonModule, RouterOutlet, RouterModule, AccountUsage],
   templateUrl: './dashboard-layout.html',
   styleUrls: ['./dashboard-layout.css'],
 })
@@ -61,48 +62,26 @@ export class DashboardLayout {
   device = inject(DeviceService);
   private auth = inject(AuthService);
   private subscriptionApi = inject(SubscriptionApiService);
+  private creditsApi = inject(CreditsApiService);
   roleService = inject(RoleService);
 
   mySubscription: BackendMySubscription | null = null;
+  creditWallet: AssessmentCreditWallet | null = null;
+  creditPacks: CreditPack[] = [];
+  showTopupDialog = false;
+  topupLoading = false;
+  topupCheckoutCode: string | null = null;
+  topupMessage: string | null = null;
   isSubscriptionLoading = false;
+  isCreditsLoading = false;
+  subscriptionLoadFailed = false;
+  creditsLoadFailed = false;
 
   teacherMenu = [
     { name: 'Dashboard', icon: 'bx bxs-widget', path: '/teacher/dashboard' },
     { name: 'My Classes', icon: 'bx bxs-graduation', path: '/teacher/my-classes' },
     { name: 'Reports', icon: 'bx bxs-report', path: '/teacher/reports' },
   ];
-
-  get storageUsedGb(): number {
-    const usedMB = this.mySubscription?.usage?.storageMB;
-    const usedGb = typeof usedMB === 'number' && Number.isFinite(usedMB) ? usedMB / 1024 : 0;
-    return Math.max(0, Number(usedGb.toFixed(2)));
-  }
-
-  get storageTotalGb(): number {
-    const limitMB =
-      this.mySubscription?.plan?.features?.storageMB ??
-      this.mySubscription?.plan?.limits?.storageMB;
-    const totalGb = typeof limitMB === 'number' && Number.isFinite(limitMB) ? limitMB / 1024 : 0;
-    return Math.max(0, Number(totalGb.toFixed(2)));
-  }
-
-  get mobileStorageUsedLabel(): string {
-    const usedMB = Math.max(0, Number(this.mySubscription?.usage?.storageMB) || 0);
-    return usedMB >= 1024 ? `${Number((usedMB / 1024).toFixed(2))} GB` : `${Number(usedMB.toFixed(2))} MB`;
-  }
-
-  get mobileStorageTotalLabel(): string {
-    const raw = this.mySubscription?.plan?.features?.storageMB ?? this.mySubscription?.plan?.limits?.storageMB;
-    const totalMB = Math.max(0, Number(raw) || 0);
-    return totalMB >= 1024 ? `${Number((totalMB / 1024).toFixed(2))} GB` : `${Number(totalMB.toFixed(2))} MB`;
-  }
-
-  get mobileStoragePercent(): number {
-    const used = Math.max(0, Number(this.mySubscription?.usage?.storageMB) || 0);
-    const rawTotal = this.mySubscription?.plan?.features?.storageMB ?? this.mySubscription?.plan?.limits?.storageMB;
-    const total = Math.max(0, Number(rawTotal) || 0);
-    return total > 0 ? Math.min(100, (used / total) * 100) : 0;
-  }
 
   get hasStripeSubscription(): boolean {
     return ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(this.mySubscription?.billing?.status || '');
@@ -126,6 +105,40 @@ export class DashboardLayout {
       } catch { /* pricing page provides a recoverable fallback */ }
     }
     await this.router.navigate(['/pricing']);
+  }
+
+  async onAddCredits(): Promise<void> {
+    if (this.topupLoading) return;
+    this.showTopupDialog = true;
+    this.topupMessage = null;
+    if (this.creditPacks.length) return;
+    this.topupLoading = true;
+    try { this.creditPacks = await this.creditsApi.getPacks(); }
+    catch { this.topupMessage = "We couldn't load credit packs. Please try again."; }
+    finally { this.topupLoading = false; }
+  }
+
+  closeTopupDialog(): void { if (!this.topupCheckoutCode) this.showTopupDialog = false; }
+
+  async purchaseCredits(pack: CreditPack): Promise<void> {
+    if (this.topupCheckoutCode) return;
+    this.topupCheckoutCode = pack.code;
+    this.topupMessage = null;
+    try {
+      const checkout = await this.creditsApi.createTopupCheckout(pack.code);
+      const url = new URL(checkout.url);
+      if (url.protocol !== 'https:' || !['checkout.stripe.com', 'buy.stripe.com'].includes(url.hostname)) throw new Error('Untrusted checkout URL');
+      window.location.assign(url.toString());
+    } catch (error: any) {
+      this.topupMessage = error?.error?.message === "This credit pack isn't available for your current plan."
+        ? error.error.message : "We couldn't start the payment. Please try again.";
+      this.topupCheckoutCode = null;
+    }
+  }
+
+  async dismissCreditWarning(): Promise<void> {
+    try { this.creditWallet = await this.creditsApi.acknowledgeNudge(); }
+    catch { /* keep the warning visible if acknowledgement was not persisted */ }
   }
 
   teacherMenuMobile = [
@@ -156,6 +169,7 @@ export class DashboardLayout {
 
   private notificationApi = inject(NotificationApiService);
   private notificationRealtime = inject(NotificationRealtimeService);
+  private realtimeEventSub: any;
 
   constructor(private router: Router, private location: Location) {
     // A. Logic Deteksi Detail Page (AppBar vs BottomNav)
@@ -195,15 +209,19 @@ export class DashboardLayout {
       this.role === 'teacher'
         ? this.subscriptionApi.getMySubscription()
         : Promise.resolve(null);
+    const creditRequest = this.role === 'teacher' ? this.creditsApi.getWallet() : Promise.resolve(null);
 
     this.isSubscriptionLoading = this.role === 'teacher';
-    const [meResult, subResult, , ] = await Promise.allSettled([
+    this.isCreditsLoading = this.role === 'teacher';
+    const [meResult, subResult, creditResult, , ] = await Promise.allSettled([
       this.auth.getMeProfile(),
       subscriptionRequest,
+      creditRequest,
       this.refreshNotificationsPreview(),
       this.refreshUnreadCount(),
     ]);
     this.isSubscriptionLoading = false;
+    this.isCreditsLoading = false;
 
     if (meResult.status === 'fulfilled') {
       const me = meResult.value;
@@ -213,9 +231,17 @@ export class DashboardLayout {
 
     if (subResult.status === 'fulfilled' && subResult.value) {
       this.mySubscription = subResult.value;
+      this.subscriptionLoadFailed = false;
     } else {
       this.mySubscription = null;
+      this.subscriptionLoadFailed = this.role === 'teacher';
     }
+    this.creditWallet = creditResult.status === 'fulfilled' ? creditResult.value : null;
+    this.creditsLoadFailed = this.role === 'teacher' && creditResult.status !== 'fulfilled';
+
+    const topupState = this.router.routerState.snapshot.root.queryParamMap.get('topup');
+    if (topupState === 'confirming') void this.confirmTopupPayment();
+    else if (topupState === 'cancelled') this.topupMessage = 'Payment was cancelled. No credits were added.';
 
     this.notificationRealtime.connect();
     this.notificationRealtime.notifications$.subscribe((n) => {
@@ -224,10 +250,58 @@ export class DashboardLayout {
         this.unreadCount = Math.max(0, Number(this.unreadCount) + 1);
       }
     });
+    this.realtimeEventSub = this.notificationRealtime.events$.subscribe((event) => {
+      if (this.role === 'teacher' && event?.type === 'credits_updated') {
+        void this.refreshAuthoritativeCredits();
+      }
+    });
   }
 
   ngOnDestroy() {
+    this.realtimeEventSub?.unsubscribe?.();
     this.notificationRealtime.disconnect();
+  }
+
+  private async refreshAuthoritativeCredits(): Promise<void> {
+    try {
+      this.creditWallet = await this.creditsApi.getWallet();
+      this.creditsLoadFailed = false;
+    } catch {
+      // Preserve the last known server value if a transient refresh fails.
+    }
+  }
+
+  async retryAccountUsage(): Promise<void> {
+    if (this.role !== 'teacher' || this.isSubscriptionLoading || this.isCreditsLoading) return;
+    this.isSubscriptionLoading = true;
+    this.isCreditsLoading = true;
+    const [subscriptionResult, creditResult] = await Promise.allSettled([
+      this.subscriptionApi.getMySubscription(), this.creditsApi.getWallet()
+    ]);
+    this.isSubscriptionLoading = false;
+    this.isCreditsLoading = false;
+    if (subscriptionResult.status === 'fulfilled') {
+      this.mySubscription = subscriptionResult.value;
+      this.subscriptionLoadFailed = false;
+    } else this.subscriptionLoadFailed = true;
+    if (creditResult.status === 'fulfilled') {
+      this.creditWallet = creditResult.value;
+      this.creditsLoadFailed = false;
+    } else this.creditsLoadFailed = true;
+  }
+
+  private async confirmTopupPayment(): Promise<void> {
+    this.showTopupDialog = true;
+    this.topupMessage = 'Payment received. Credits are being added.';
+    const before = this.creditWallet?.availableCredits;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 500 : 1500));
+      await this.refreshAuthoritativeCredits();
+      if (typeof before === 'number' && Number(this.creditWallet?.availableCredits) > before) {
+        this.topupMessage = `Credits added. ${this.creditWallet?.availableCredits} Assessment Credits are now available.`;
+        return;
+      }
+    }
   }
 
   // Helper navigasi

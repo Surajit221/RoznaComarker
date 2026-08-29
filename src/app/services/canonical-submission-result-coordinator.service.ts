@@ -21,6 +21,7 @@ type Refresh = (submissionId: string, requestSequence: number) => Promise<Result
 const DELAYS = [0, 1200, 2000, 3000, 5000];
 
 export function shouldPollCanonicalResult(c: CanonicalResultViewState): boolean {
+  if (c.terminal === true) return false;
   const activeStage = ['pending', 'processing', 'retry_wait'].includes(c.semanticStatus)
     || ['pending', 'processing'].includes(c.evaluationStatus)
     || ['pending', 'processing'].includes(c.detailedFeedbackStatus);

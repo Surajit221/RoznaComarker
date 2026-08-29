@@ -2270,6 +2270,9 @@ export class StudentSubmissionPages {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    if (this.canonicalResultState?.semanticStatus === 'partial') {
+      return 'Corrections from completed analysis sections are shown; one or more sections could not be completed.';
+    }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
     return this.canonicalResultState.correctionStatus === 'partial'
       ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
@@ -3207,7 +3210,9 @@ export class StudentSubmissionPages {
 
       this.alert.showToast('Re-evaluation started', 'success');
     } catch (err: any) {
-      this.alert.showError('Re-evaluation failed', err?.error?.message || err?.message || 'Please try again');
+      const noCredits = err?.error?.code === 'INSUFFICIENT_ASSESSMENT_CREDITS';
+      this.alert.showError(noCredits ? 'Assessment Credits used' : 'Re-evaluation failed',
+        err?.error?.message || err?.message || 'Please try again');
     } finally {
       this.isRetryingAnalysis = false;
     }
@@ -5368,7 +5373,8 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
     const state = this.canonicalResultState;
-    this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
+    this.scoreState = state.evaluationStatus === 'completed'
+      || (state.evaluationStatus === 'partial' && state.score !== null && Number.isFinite(Number(state.score))) ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
     this.aiFeedbackState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) ? 'error' : 'processing';
@@ -6039,6 +6045,7 @@ export class StudentSubmissionPages {
     void feedbackPromise.then((loaded) => {
       if (loaded && submission?._id && seq === this.applyCurrentSubmissionSeq
         && this.currentSubmission?._id === submission._id) {
+        this.applyFeedbackSectionStates(true);
         void this.markCurrentSubmissionReviewed(submission._id, seq);
       }
     });

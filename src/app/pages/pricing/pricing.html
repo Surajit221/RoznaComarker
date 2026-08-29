@@ -1,95 +1,79 @@
-<section class="pt-10 pb-16 md:pb-24">
-  <div class="max-w-7xl mx-auto px-4">
-    <div class="text-center flex flex-col gap-3">
-      <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Pricing</h1>
-      <p class="text-gray-500 text-lg md:text-xl max-w-3xl mx-auto">
-        Choose a plan that fits your classroom workflow.
-      </p>
-    </div>
+<section class="pricing-section" style="background: var(--color-white)">
+  <div class="pricing-shell">
+    <header class="pricing-header">
+      <p class="pricing-eyebrow">Plans for every classroom</p>
+      <h1>Simple, flexible pricing</h1>
+      <p>Choose the plan that fits your classroom workflow. Your Assessment Credits refresh monthly, including on yearly plans.</p>
+    </header>
+
+    @if (hasAnnualBilling) {
+      <div class="billing-tabs" role="tablist" aria-label="Billing period">
+        <button type="button" role="tab" id="billing-monthly" [attr.aria-selected]="billingPeriod === 'monthly'"
+          [class.active]="billingPeriod === 'monthly'" (click)="setBillingPeriod('monthly')">Monthly</button>
+        <button type="button" role="tab" id="billing-yearly" [attr.aria-selected]="billingPeriod === 'annual'"
+          [class.active]="billingPeriod === 'annual'" (click)="setBillingPeriod('annual')">
+          Yearly @if (maxSavingsPercent; as maxSaving) { <span class="toggle-saving">Save up to {{ maxSaving }}%</span> }
+        </button>
+      </div>
+    }
+
+    @if (errorMessage && plans.length > 0) {
+      <div class="pricing-alert" role="alert">{{ errorMessage }}</div>
+    }
 
     @if (isLoading) {
-      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[32rem]" aria-label="Loading plans">
-        @for (placeholder of [1, 2, 3]; track placeholder) {
-          <div class="bg-white border-2 border-[#E7E7E7] rounded-3xl p-6 shadow-sm animate-pulse min-h-[30rem]">
-            <div class="h-8 w-2/3 rounded bg-gray-200"></div>
-            <div class="h-5 w-full rounded bg-gray-100 mt-4"></div>
-            <div class="h-10 w-1/2 rounded bg-gray-200 mt-6"></div>
-            <div class="space-y-4 mt-8">
-              @for (row of [1, 2, 3, 4, 5, 6, 7]; track row) {
-                <div class="h-5 rounded bg-gray-100"></div>
-              }
-            </div>
-          </div>
+      <div class="pricing-grid loading-grid" aria-label="Loading plans">
+        @for (placeholder of [1, 2, 3, 4]; track placeholder) {
+          <div class="plan-card loading-card" aria-hidden="true"><div></div><div></div><div></div><div></div></div>
         }
       </div>
-    } @else if (errorMessage) {
-      <div class="mt-10 min-h-64 flex items-start justify-center text-center text-red-600" role="alert">
-        {{ errorMessage }}
-      </div>
+    } @else if (errorMessage && plans.length === 0) {
+      <div class="pricing-empty" role="alert">{{ errorMessage }}</div>
     } @else if (plans.length === 0) {
-      <div class="mt-10 min-h-64 flex items-start justify-center text-center text-gray-500">
-        No plans are currently available.
-      </div>
+      <div class="pricing-empty">No plans are currently available.</div>
     } @else {
-      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-        @for (plan of plans; track plan.slug) {
-          <article
-            class="relative bg-white border-2 rounded-3xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col min-w-0"
-            [class.border-[#FFC300]]="plan.popular"
-            [class.border-[#E7E7E7]]="!plan.popular"
-            [ngClass]="plan.slug === 'custom' ? 'md:col-span-2 lg:col-span-1' : ''"
-            [attr.data-plan-slug]="plan.slug"
-          >
-            @if (plan.popular) {
-              <div class="absolute -top-3 left-6">
-                <span
-                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-[#FFC300] text-white border-2 border-[#DBB12A] shadow-[0px_2px_0_#DBB12A]"
-                >
-                  Popular
-                </span>
-              </div>
+      <div class="pricing-grid" role="tabpanel" [attr.aria-labelledby]="billingPeriod === 'monthly' ? 'billing-monthly' : 'billing-yearly'">
+        @for (tier of tiers; track tier.key) {
+          <article class="plan-card" [class.recommended]="tier.monthly.popular || !!tier.annual?.popular" [attr.data-plan-tier]="tier.key" [attr.data-plan-slug]="selectedPlan(tier).slug">
+            @if (tier.monthly.popular || tier.annual?.popular) { <span class="popular-badge">Recommended</span> }
+
+            <div class="plan-heading">
+              <h2>{{ tier.title }}</h2>
+              <p>{{ tier.monthly.display.description }}</p>
+            </div>
+
+            <div class="price-row">
+              <span class="plan-price">{{ formatPrice(selectedPlan(tier)) }}</span>
+              <span class="plan-period">{{ formatPeriod(selectedPlan(tier)) }}</span>
+            </div>
+            @if (billingPeriod === 'annual' && savingsPercentForTier(tier); as saving) {
+              <span class="plan-saving">Save {{ saving }}% compared with monthly</span>
             }
 
-            <div class="flex flex-col gap-3">
-              <h2 class="text-2xl font-bold text-gray-800 break-words">{{ plan.display.title }}</h2>
-              <p class="text-gray-500 min-h-12">{{ plan.display.description }}</p>
-
-              <div class="flex items-end gap-2 mt-2 flex-wrap">
-                <span class="text-3xl md:text-4xl font-extrabold text-gray-800">{{ formatPrice(plan) }}</span>
-                <span class="text-gray-500 font-semibold">{{ formatPeriod(plan) }}</span>
-              </div>
+            <div class="credit-highlight">
+              <span>Assessment Credits</span>
+              <strong>{{ tier.monthly.features.essayAnalysesPerMonth === null ? 'Custom' : tier.monthly.features.essayAnalysesPerMonth }}</strong>
+              <small>{{ tier.monthly.features.essayAnalysesPerMonth === null ? 'Tailored allowance' : 'per month' }}</small>
             </div>
 
-            <div class="mt-6 flex flex-col gap-3 flex-1">
-              <ul class="flex flex-col gap-2">
-                @for (feature of featuresFor(plan); track feature.label) {
-                  <li class="flex items-start gap-2 text-gray-600 min-w-0">
-                    <span
-                      class="mt-1 w-5 h-5 rounded-full bg-[#E6F2F2] border-2 border-[#008081] flex items-center justify-center shrink-0"
-                    >
-                      <i class="bx bx-check text-[#008081]"></i>
-                    </span>
-                    <span class="break-words">{{ feature.label }}: {{ feature.value }}</span>
-                  </li>
+            <ul class="feature-list">
+              @for (feature of featuresFor(tier.monthly); track feature.label) {
+                @if (feature.label !== 'Assessment Credits/month') {
+                  <li><span class="check-icon" aria-hidden="true"><i class="bx bx-check"></i></span><span>{{ feature.label }}: {{ feature.value }}</span></li>
                 }
-              </ul>
+              }
+            </ul>
 
-              <button
-                type="button"
-                class="w-full justify-center inline-flex mt-auto"
-                [ngClass]="{
-                  'btn-info': plan.slug === 'free',
-                  'btn-primary': plan.slug === 'starter_monthly',
-                  'btn-warning': plan.slug === 'custom'
-                }"
-                [disabled]="isUpgradeDisabled(plan)"
-                [attr.aria-disabled]="isUpgradeDisabled(plan)"
-                [title]="isUpgradeDisabled(plan) ? 'Subscriptions are managed by teachers.' : null"
-                (click)="onPlanAction(plan)"
-              >
-                {{ plan.slug === 'starter_monthly' && starterActive ? 'Manage Plan' : plan.display.cta }}
-              </button>
-            </div>
+            <button type="button" class="plan-cta"
+              [ngClass]="{ 'btn-info': tier.key === 'free', 'btn-warning': tier.key === 'institution', 'btn-primary': tier.key !== 'free' && tier.key !== 'institution' }"
+              [disabled]="isUpgradeDisabled(selectedPlan(tier)) || isPreparing(selectedPlan(tier))"
+              [attr.aria-disabled]="isUpgradeDisabled(selectedPlan(tier))"
+              [attr.aria-busy]="isPreparing(selectedPlan(tier))"
+              [title]="isUpgradeDisabled(selectedPlan(tier)) ? 'Subscriptions are managed by teachers.' : null"
+              (click)="onPlanAction(selectedPlan(tier))">
+              @if (isPreparing(selectedPlan(tier))) { <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i><span>Preparing checkout...</span> }
+              @else { <span>{{ tier.key === 'starter' && starterActive ? 'Manage Plan' : selectedPlan(tier).display.cta }}</span> }
+            </button>
           </article>
         }
       </div>

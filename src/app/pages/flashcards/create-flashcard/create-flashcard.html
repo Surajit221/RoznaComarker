@@ -136,11 +136,12 @@
     <button
       class="btn-primary btn-generate"
       [disabled]="isGenerating || createForm.invalid"
+      [attr.aria-busy]="isGenerating"
       (click)="generateFlashcards()"
     >
       <span *ngIf="!isGenerating">✦ Generate Flashcards</span>
-      <span *ngIf="isGenerating" class="loading-dots">
-        <span>.</span><span>.</span><span>.</span>
+      <span *ngIf="isGenerating" class="generating-label">
+        <span class="generate-spinner" aria-hidden="true"></span> Generating flashcards...
       </span>
     </button>
   </div>

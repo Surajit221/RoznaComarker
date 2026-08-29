@@ -48,6 +48,7 @@ export interface StudentResult {
   multipleChoiceScore: number;
   fillBlanksScore: number;
   matchingScore: number;
+  trueFalseScore?: number;
 }
 
 export interface QuestionInsight {

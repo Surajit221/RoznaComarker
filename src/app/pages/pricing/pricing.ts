@@ -12,6 +12,8 @@ type PricingFeature = {
   value: string;
 };
 
+type PricingTier = { key: string; title: string; monthly: BackendPlan; annual?: BackendPlan };
+
 @Component({
   selector: 'app-pricing',
   standalone: true,
@@ -25,6 +27,14 @@ export class PricingComponent {
   plans: BackendPlan[] = [];
   readonly authenticatedRole: string | null;
   starterActive = false;
+  billingPeriod: 'monthly' | 'annual' = 'monthly';
+  private readonly preparingPlanSlugs = new Set<string>();
+  get tiers(): PricingTier[] { return this.groupPlans(this.plans); }
+  get hasAnnualBilling(): boolean { return this.tiers.some((tier) => tier.annual); }
+  get maxSavingsPercent(): number | null {
+    const savings = this.tiers.map((tier) => this.savingsPercentForTier(tier)).filter((value): value is number => value !== null);
+    return savings.length ? Math.max(...savings) : null;
+  }
 
   constructor(
     private plansApi: PlansApiService,
@@ -51,8 +61,10 @@ export class PricingComponent {
       this.errorMessage = null;
       const order = new Map([
         ['free', 0],
+        ['essential', 1],
         ['starter_monthly', 1],
-        ['custom', 2]
+        ['pro', 2],
+        ['custom', 3]
       ]);
       this.plans = (await this.plansApi.getActivePlans()).sort(
         (left, right) =>
@@ -69,20 +81,49 @@ export class PricingComponent {
   }
 
   formatPrice(plan: BackendPlan): string {
-    if (typeof plan.price !== 'number') return plan.display.priceLabel || 'Custom';
-    if (plan.price === 0) return '$0';
+    const selectedPrice = this.billingPeriod === 'annual' && typeof plan.annualPrice === 'number' ? plan.annualPrice : plan.price;
+    if (typeof selectedPrice !== 'number') return plan.display.priceLabel || 'Custom';
+    if (selectedPrice === 0) return '$0';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: plan.currency || 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(plan.price);
+    }).format(selectedPrice);
   }
 
   formatPeriod(plan: BackendPlan): string {
     return typeof plan.price === 'number' && plan.price > 0 && plan.billingInterval
-      ? `/${plan.billingInterval}`
+      ? `/${this.billingPeriod === 'annual' && (typeof plan.annualPrice === 'number' || plan.slug.endsWith('_annual')) ? 'year' : plan.billingInterval}`
       : '';
+  }
+
+  setBillingPeriod(period: 'monthly' | 'annual'): void {
+    this.billingPeriod = period;
+  }
+
+  savingsPercent(plan: BackendPlan): number | null {
+    if (typeof plan.price !== 'number' || plan.price <= 0 || typeof plan.annualPrice !== 'number') return null;
+    const annualizedMonthlyPrice = plan.price * 12;
+    if (plan.annualPrice >= annualizedMonthlyPrice) return null;
+    return Math.round(((annualizedMonthlyPrice - plan.annualPrice) / annualizedMonthlyPrice) * 100);
+  }
+
+  selectedPlan(tier: PricingTier): BackendPlan {
+    return this.billingPeriod === 'annual' && tier.annual ? tier.annual : tier.monthly;
+  }
+
+  savingsPercentForTier(tier: PricingTier): number | null {
+    if (!tier.annual || typeof tier.monthly.price !== 'number' || tier.monthly.price <= 0) return null;
+    const annualPrice = tier.annual === tier.monthly ? tier.monthly.annualPrice : tier.annual.price;
+    if (typeof annualPrice !== 'number') return null;
+    const annualizedMonthlyPrice = tier.monthly.price * 12;
+    if (annualPrice >= annualizedMonthlyPrice) return null;
+    return Math.round(((annualizedMonthlyPrice - annualPrice) / annualizedMonthlyPrice) * 100);
+  }
+
+  isPreparing(plan: BackendPlan): boolean {
+    return this.preparingPlanSlugs.has(plan.slug);
   }
 
   featuresFor(plan: BackendPlan): PricingFeature[] {
@@ -91,7 +132,7 @@ export class PricingComponent {
       { label: 'Classes', value: this.formatCapacity(plan, features.maxClasses) },
       { label: 'Students', value: this.formatCapacity(plan, features.maxStudents) },
       {
-        label: 'Essay analyses/month',
+        label: 'Assessment Credits/month',
         value: features.essayAnalysesPerMonth === null
           ? 'Custom'
           : String(features.essayAnalysesPerMonth)
@@ -121,11 +162,20 @@ export class PricingComponent {
   }
 
   isUpgradeDisabled(plan: BackendPlan): boolean {
-    return plan.slug === 'starter_monthly' && this.authenticatedRole === 'student';
+    return !['free', 'custom', 'institution'].includes(plan.slug) && this.authenticatedRole === 'student';
   }
 
   async onPlanAction(plan: BackendPlan): Promise<void> {
-    if (plan.slug === 'starter_monthly') {
+    if (this.preparingPlanSlugs.has(plan.slug)) return;
+    if (['custom', 'institution'].includes(plan.slug)) return;
+    if (plan.slug === 'free') {
+      await this.router.navigate(this.authenticatedRole ? [`/${this.authenticatedRole}/dashboard`] : ['/signup']);
+      return;
+    }
+    if (plan.purchasable !== false) {
+      this.preparingPlanSlugs.add(plan.slug);
+      this.errorMessage = null;
+      try {
       if (this.authenticatedRole !== 'teacher') {
         await this.router.navigate(this.authenticatedRole === 'student' ? ['/student/dashboard'] : ['/login']);
       } else if (this.starterActive) {
@@ -134,7 +184,14 @@ export class PricingComponent {
         if (portalUrl) window.location.assign(portalUrl);
         else this.errorMessage = 'Billing portal is temporarily unavailable.';
       } else {
-        await this.router.navigate(['/checkout/starter']);
+        const commands = plan.slug === 'starter_monthly' ? ['/checkout/starter'] : ['/checkout', plan.slug];
+        if (plan.slug === 'starter_monthly' && this.billingPeriod === 'monthly') await this.router.navigate(commands);
+        else await this.router.navigate(commands, { queryParams: { billing: this.billingPeriod } });
+      }
+      } catch {
+        this.errorMessage = "We couldn't start checkout. Please try again.";
+      } finally {
+        this.preparingPlanSlugs.delete(plan.slug);
       }
     }
   }
@@ -153,5 +210,27 @@ export class PricingComponent {
     if (storageMB === null) return 'Custom';
     if (storageMB >= 1024 && storageMB % 1024 === 0) return `${storageMB / 1024} GB`;
     return `${storageMB} MB`;
+  }
+
+  private groupPlans(plans: BackendPlan[]): PricingTier[] {
+    const grouped = new Map<string, PricingTier>();
+    for (const plan of plans) {
+      const suffix = plan.slug.match(/_(monthly|annual)$/)?.[1];
+      let key = plan.slug.replace(/_(monthly|annual)$/, '');
+      if (key === 'custom') key = 'institution';
+      const tier = grouped.get(key) || { key, title: this.tierTitle(key, plan), monthly: plan };
+      if (suffix === 'annual') tier.annual = plan;
+      else tier.monthly = plan;
+      if (!suffix && plan.annualBillingAvailable && typeof plan.annualPrice === 'number') tier.annual = plan;
+      grouped.set(key, tier);
+    }
+    const order = new Map([['free', 0], ['essential', 1], ['starter', 1], ['pro', 2], ['institution', 3]]);
+    return [...grouped.values()].sort((left, right) =>
+      (order.get(left.key) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.key) ?? Number.MAX_SAFE_INTEGER) || left.key.localeCompare(right.key));
+  }
+
+  private tierTitle(key: string, plan: BackendPlan): string {
+    const canonical = new Map([['free', 'Free'], ['essential', 'Essential'], ['starter', 'Starter'], ['pro', 'Pro'], ['institution', 'Institution']]);
+    return canonical.get(key) || plan.display.title.replace(/\s+(Monthly|Annual)$/i, '');
   }
 }

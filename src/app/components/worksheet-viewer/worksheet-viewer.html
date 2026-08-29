@@ -72,11 +72,16 @@
           <button class="wv-btn-back" (click)="closed.emit()">← Back</button>
           @if (isSavingDraft()) {
             <span class="wv-autosave-indicator wv-autosave-saving">Saving...</span>
+          } @else if (draftSaveError()) {
+            <span class="wv-autosave-indicator wv-autosave-error" role="status">Unable to save</span>
           } @else if (lastSavedAt()) {
             <span class="wv-autosave-indicator">Saved {{ lastSavedAt() | date:'shortTime' }}</span>
           }
           <button class="wv-btn-close" (click)="closed.emit()">×</button>
         </div>
+      }
+      @if (resumeMessage() && !reviewMode) {
+        <p class="wv-resume-banner">{{ resumeMessage() }}</p>
       }
       <div class="wv-header-body">
         <div class="wv-header-left">
@@ -473,7 +478,29 @@
             </div>
 
             <!-- Matching rows: left term → drop zone -->
-            <div class="wv-match-rows">
+            <div class="wv-mobile-match" aria-label="Tap to match items">
+              @for (pair of worksheet()!.activity5!.pairs; track pair.id) {
+                <section class="wv-mobile-match-card" [class.selected]="a5MobileSelectedPairId() === pair.id" [class.matched]="!!a5Matches()[pair.id]">
+                  <button type="button" class="wv-mobile-match-prompt" [attr.aria-expanded]="a5MobileSelectedPairId() === pair.id"
+                          [disabled]="reviewMode || a5Checked()" (click)="selectMobileMatchPair(pair.id)">
+                    <span class="wv-mobile-match-status">{{ a5Matches()[pair.id] ? 'Matched' : 'Unmatched' }}</span>
+                    <span>{{ pair.leftItem.text }}</span>
+                    @if (a5Matches()[pair.id]) { <strong>{{ a5Matches()[pair.id] }}</strong> }
+                  </button>
+                  @if (a5MobileSelectedPairId() === pair.id && !a5Checked()) {
+                    <div class="wv-mobile-match-choices" role="listbox" [attr.aria-label]="'Choose a match for ' + pair.leftItem.text">
+                      @for (choice of a5Bank; track choice.id) {
+                        <button type="button" role="option" class="wv-mobile-match-choice" [class.chosen]="a5Matches()[pair.id] === choice.text"
+                                [disabled]="Object.values(a5Matches()).includes(choice.text) && a5Matches()[pair.id] !== choice.text"
+                                (click)="chooseMobileMatch(pair.id, choice.text)">{{ choice.text }}</button>
+                      }
+                    </div>
+                  }
+                </section>
+              }
+            </div>
+
+            <div class="wv-match-rows wv-desktop-match">
               @for (pair of worksheet()!.activity5!.pairs; track pair.id) {
                 <div class="wv-match-row-wrap">
                   <div class="wv-match-row">
@@ -663,21 +690,26 @@
               <div class="wv-image-wrapper">
                 <img [src]="worksheet()!.activity7!.imageUrl" class="wv-label-image" alt="Label this image">
                 @for (label of worksheet()!.activity7!.labels; track label.id) {
-                  <div class="wv-label-target" 
+                  <button type="button" class="wv-label-target" 
                        [style.left]="label.x + '%'" 
                        [style.top]="label.y + '%'"
-                       [class.labeled]="a7Labels()[label.id]">
-                    <span class="wv-label-marker">•</span>
+                       [class.labeled]="a7Labels()[label.id]"
+                       [disabled]="reviewMode || a7Checked()"
+                       [attr.aria-label]="'Hotspot ' + ($index + 1) + (a7Labels()[label.id] ? ', assigned ' + a7Labels()[label.id] : ', unassigned')"
+                       (click)="assignImageLabel(label.id)">
+                    <span class="wv-label-marker">{{ $index + 1 }}</span>
                     @if (a7Labels()[label.id]) {
                       <span class="wv-label-text">{{ a7Labels()[label.id] }}</span>
                     }
-                  </div>
+                  </button>
                 }
               </div>
               <div class="wv-label-options">
                 @for (label of worksheet()!.activity7!.labels; track label.id) {
                   <button class="wv-label-option"
                           [class.used]="Object.values(a7Labels()).includes(label.text)"
+                          [class.selected]="a7SelectedLabel() === label.text"
+                          [attr.aria-pressed]="a7SelectedLabel() === label.text"
                           [disabled]="reviewMode || a7Checked() || Object.values(a7Labels()).includes(label.text)"
                           (click)="selectImageLabel(label.id, label.text)">
                     {{ label.text }}

@@ -9,7 +9,7 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   Subject,
   catchError,
@@ -39,7 +39,6 @@ import {
 } from '../../../api/worksheet-api.service';
 import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
 import { ClassApiService, type BackendClass } from '../../../api/class-api.service';
-import { environment } from '../../../../environments/environment';
 import { ErrorModal } from '../../../shared/ui/error-modal/error-modal';
 import { SuccessModal } from '../../../shared/ui/success-modal/success-modal';
 import { triggerBlobDownload } from '../../../utils/file-download.util';
@@ -57,6 +56,8 @@ import type {
   WorksheetReportData,
 } from '../../../services/worksheet-report-pdf.service';
 import { ReportPdfTemplateComponent } from './report-pdf-template/report-pdf-template.component';
+import { PdfApiService } from '../../../api/pdf-api.service';
+import { NotificationRealtimeService } from '../../../services/notification-realtime.service';
 
 interface WorksheetSectionAnalytics {
   id: string;
@@ -112,7 +113,8 @@ export class WorksheetReport implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly directReportRequest$ = new Subject<void>();
   private readonly searchRequest$ = new Subject<string>();
-  private readonly http = inject(HttpClient);
+  private readonly pdfApi = inject(PdfApiService);
+  private readonly realtime = inject(NotificationRealtimeService);
 
   worksheet: WorksheetReportWorksheet | null = null;
   submissions: WorksheetReportSubmission[] = [];
@@ -365,6 +367,14 @@ export class WorksheetReport implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initializeReportRequests();
     this.loadTeacherClasses();
+    this.realtime.connect();
+    this.realtime.notifications$.pipe(takeUntil(this.destroy$)).subscribe((notification) => {
+      if (notification?.type !== 'assignment_submitted') return;
+      const data = notification.data || {};
+      if (String(data['resourceType'] || '') !== 'worksheet') return;
+      if (String(data['worksheetId'] || '') !== this.worksheetId) return;
+      this.directReportRequest$.next();
+    });
   }
 
   ngOnDestroy(): void {
@@ -542,28 +552,36 @@ export class WorksheetReport implements OnInit, OnDestroy {
       const html2canvas = html2canvasModule.default;
       const { jsPDF } = jsPDFModule;
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        windowWidth: 794,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc: Document) => {
-          const all = clonedDoc.querySelectorAll<HTMLElement>('*');
-          all.forEach((el) => {
-            el.style.setProperty('-webkit-print-color-adjust', 'exact');
-            el.style.setProperty('print-color-adjust', 'exact');
-            el.style.setProperty('color-adjust', 'exact');
-          });
-        },
-      });
+      const reportPages = Array.from(element.querySelectorAll<HTMLElement>('.pdf-page'));
+      if (reportPages.length === 0) {
+        throw new Error('PDF pages not found');
+      }
 
-      // Hide again after capture
+      // Capture each designed page independently so content is never sliced at an
+      // arbitrary position in the middle of an analytics card.
+      const pageCanvases: HTMLCanvasElement[] = [];
+      for (const reportPage of reportPages) {
+        pageCanvases.push(await html2canvas(reportPage, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          windowWidth: 794,
+          scrollX: 0,
+          scrollY: 0,
+          onclone: (clonedDoc: Document) => {
+            const all = clonedDoc.querySelectorAll<HTMLElement>('*');
+            all.forEach((el) => {
+              el.style.setProperty('-webkit-print-color-adjust', 'exact');
+              el.style.setProperty('print-color-adjust', 'exact');
+              el.style.setProperty('color-adjust', 'exact');
+            });
+          },
+        }));
+      }
+
       element.style.visibility = 'hidden';
 
-      // Create PDF using jsPDF
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'px',
@@ -573,21 +591,12 @@ export class WorksheetReport implements OnInit, OnDestroy {
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      const imgData = canvas.toDataURL('image/png');
-
-      let position = 0;
-      let remaining = imgHeight;
-      let pageIndex = 0;
-
-      while (remaining > 0) {
+      for (let pageIndex = 0; pageIndex < pageCanvases.length; pageIndex++) {
         if (pageIndex > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, -position, imgWidth, imgHeight);
-        position += pdfHeight;
-        remaining -= pdfHeight;
-        pageIndex++;
+        const pageCanvas = pageCanvases[pageIndex];
+        const imageHeight = (pageCanvas.height * pdfWidth) / pageCanvas.width;
+        const fittedHeight = Math.min(imageHeight, pdfHeight);
+        pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, fittedHeight);
       }
 
       // Download via Blob for cross-platform support (iOS/Android/desktop)
@@ -604,6 +613,8 @@ export class WorksheetReport implements OnInit, OnDestroy {
       };
       this.cdr.markForCheck();
     } finally {
+      const element = document.getElementById('report-pdf-container');
+      if (element) element.style.visibility = 'hidden';
       this.isPdfReportDownloading = false;
       this.cdr.markForCheck();
     }
@@ -664,6 +675,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
         multipleChoiceScore: sectionScores['activity3'] || 0,
         fillBlanksScore: sectionScores['activity4'] || 0,
         matchingScore: sectionScores['activity5'] || 0,
+        trueFalseScore: sectionScores['activity6'] || 0,
       };
     });
 
@@ -673,7 +685,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
 
     // Build weak sections
     const weakSections: WeakSection[] = sections
-      .filter((section) => section.score < 70)
+      .filter((section) => section.questionCount > 0 && section.score < 70)
       .map((section) => ({ name: section.title, score: section.score }))
       .sort((a, b) => a.score - b.score)
       .slice(0, 3);
@@ -711,7 +723,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
         '70-79': scoreBands?.['70-79'] ?? 0,
         below70: scoreBands?.['below-70'] ?? scoreBands?.below70 ?? 0,
       },
-      teacherInsights: this.teacherInsights || [],
+      teacherInsights: this.filterReportTeacherInsights(this.teacherInsights || [], sections).slice(0, 4),
       sections,
       students,
       hardestQuestions,
@@ -773,6 +785,7 @@ export class WorksheetReport implements OnInit, OnDestroy {
     const allQuestions: QuestionInsight[] = [];
 
     sectionStats.forEach((stat) => {
+      if ((stat.totalQuestions || 0) <= 0) return;
       if (stat.mostMissedQuestions && Array.isArray(stat.mostMissedQuestions)) {
         stat.mostMissedQuestions.forEach((question, index) => {
           // Use question name/id with fallback to "Question [N]"
@@ -797,58 +810,19 @@ export class WorksheetReport implements OnInit, OnDestroy {
     this.downloadingSubmissionId = submission._id;
     this.cdr.markForCheck();
     try {
-      // Data is already in the submission object
-      const worksheetId = typeof submission.worksheetId === 'object'
-        ? submission.worksheetId._id
-        : submission.worksheetId;
-        
-      const student = typeof submission.studentId === 'string' ? null : submission.studentId;
-      const studentName = student?.displayName
-        || student?.email
-        || 'Student';
-      
-      // Read directly from submission fields
-      const answers = submission.activity9Answers || {};
-      const results = submission.activity9Results || {};
-      const score = submission.totalPointsEarned || 0;
-      const total = submission.totalPointsPossible || 0;
-      
-      console.log('[TEACHER PDF] worksheetId:', worksheetId);
-      console.log('[TEACHER PDF] answers:', Object.keys(answers).length);
-      console.log('[TEACHER PDF] results:', Object.keys(results).length);
-      console.log('[TEACHER PDF] score:', score, '/', total);
-      
-      // Call backend directly - no overlayPdfService needed
-      const response = await firstValueFrom(this.http.post(
-        `${environment.apiUrl}/worksheets/${worksheetId}/download-overlay`,
-        {
-          answers,
-          results,
-          studentName,
-          score,
-          total,
-          subject: '',
-          grade: ''
-        },
-        { responseType: 'blob' },
-      ));
-      
-      const blob = new Blob([response], {
-        type: 'application/pdf'
+      const studentName = this.getStudentName(submission);
+      const assignmentTitle = typeof submission.assignmentId === 'object'
+        ? submission.assignmentId?.title || this.worksheet?.title || 'worksheet'
+        : this.worksheet?.title || 'worksheet';
+      const safePart = (value: string) => value.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'report';
+      const blob = await this.pdfApi.downloadWorksheetSubmissionPdf(submission._id);
+      if (!blob || blob.size === 0) throw new Error('The server returned an empty PDF.');
+      triggerBlobDownload(blob, {
+        filename: `${safePart(studentName)}-${safePart(assignmentTitle)}-report.pdf`,
+        mimeType: 'application/pdf',
       });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${studentName.replace(/\s+/g, '-')}_results.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      console.log('[TEACHER PDF] Download complete!');
       
     } catch(error: unknown) {
-      console.error('[TEACHER PDF] Error:', error);
       this.errorModal = {
         open: true,
         title: 'PDF Failed',
@@ -902,6 +876,33 @@ export class WorksheetReport implements OnInit, OnDestroy {
         insight = insight.replace(regex, label);
       }
       return insight;
+    });
+  }
+
+  /** Presentation-only selection: suppress comparisons for sections with no questions. */
+  private filterReportTeacherInsights(
+    insights: string[],
+    sections: SectionPerformance[],
+  ): string[] {
+    const zeroSectionTerms = sections
+      .filter((section) => section.questionCount <= 0)
+      .flatMap((section) => {
+        const aliases: Record<string, string[]> = {
+          activity1: ['drag & drop', 'ordering'],
+          activity2: ['classification'],
+          activity3: ['multiple choice'],
+          activity4: ['fill in blanks'],
+          activity5: ['matching pairs', 'matching'],
+          activity6: ['true/false', 'true / false'],
+        };
+        return [section.title, section.type, ...(aliases[section.id] || [])]
+          .map((term) => term.trim().toLowerCase())
+          .filter(Boolean);
+      });
+
+    return insights.filter((insight) => {
+      const normalized = insight.toLowerCase();
+      return !zeroSectionTerms.some((term) => normalized.includes(term));
     });
   }
 

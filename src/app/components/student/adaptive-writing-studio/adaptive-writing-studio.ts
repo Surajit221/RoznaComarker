@@ -181,7 +181,7 @@ export class AdaptiveWritingStudio {
     if (this.state === 'no-weaknesses') return 'NO_WEAK_SKILLS';
     if (!canonical || canonical.processingActive || ['pending', 'processing'].includes(canonical.evaluationStatus)
       || ['pending', 'processing', 'retry_wait'].includes(canonical.semanticStatus)) return 'ANALYSIS_PROCESSING';
-    if (canonical.semanticStatus === 'failed' || ['failed', 'blocked'].includes(canonical.evaluationStatus)) return 'SEMANTIC_FAILED';
+    if (['failed', 'blocked'].includes(canonical.evaluationStatus)) return 'SEMANTIC_FAILED';
     if (!canonical.correctionSourceHash || canonical.evaluationStatus !== 'completed'
       || canonical.evaluationSourceHash !== canonical.correctionSourceHash) return 'STALE_EVALUATION';
     if (!this.weakSkills.length) return 'NO_WEAK_SKILLS';
@@ -323,8 +323,9 @@ export class AdaptiveWritingStudio {
         return;
       }
       
-      // If semantic analysis failed, show error state
-      if (semanticStatus === 'failed' || ['failed', 'blocked', 'stale'].includes(evaluationStatus)) {
+      // A completed transcript-based evaluation remains eligible when optional
+      // correction generation degraded independently.
+      if (['failed', 'blocked', 'stale'].includes(evaluationStatus)) {
         this.state = 'error';
         this.errorMessage = 'Adaptive practice is unavailable because writing analysis failed. Please retry the analysis.';
         this.cdr.markForCheck();
@@ -471,7 +472,7 @@ export class AdaptiveWritingStudio {
   }
 
   private getCanonicalUsableKey(value: CanonicalResultViewState | null): string {
-    return value && !value.processingActive && value.semanticStatus === 'completed'
+    return value && !value.processingActive && ['completed', 'partial'].includes(value.semanticStatus)
       && value.evaluationStatus === 'completed' && value.correctionSourceHash
       && value.evaluationSourceHash === value.correctionSourceHash
       ? JSON.stringify([

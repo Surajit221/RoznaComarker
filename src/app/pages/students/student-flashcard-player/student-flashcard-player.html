@@ -13,13 +13,14 @@
 </div>
 
 <!-- STUDY SCREEN -->
-<div class="sfp-screen" *ngIf="!isLoading && !hasError">
+<div class="sfp-screen" *ngIf="!isLoading && !hasError && !isCompleting">
+  <p class="sfp-resume-banner" *ngIf="resumedMessage">{{ resumedMessage }}</p>
 
   <!-- HEADER -->
   <div class="sfp-header">
-    <button class="sfp-btn-back-deck" (click)="goBackToClass()">← Back to class</button>
+    <button class="sfp-btn-back-deck" [disabled]="saveState === 'saving'" (click)="goBackToClass()">← Back to class</button>
     <h3 class="sfp-set-name">{{ set?.title }}</h3>
-    <span class="sfp-card-counter">{{ answeredCount + 1 }} / {{ cards.length }}</span>
+    <span class="sfp-card-counter">{{ displayCardNumber }} / {{ cards.length }}</span>
   </div>
 
   <!-- ── Q&A MODE ────────────────────────────────────────── -->
@@ -37,15 +38,17 @@
                         placeholder="Type your answer…"
                         [value]="studentAnswer"
                         (input)="onAnswerInput($event)"
-                        [disabled]="isGrading"
+                        [disabled]="isGrading || isFlipped"
                         rows="3"></textarea>
               <button class="sfp-btn-reveal"
                       [disabled]="isGrading || !studentAnswer.trim()"
                       [class.sfp-btn-grading]="isGrading"
+                      [attr.aria-busy]="isGrading"
                       (click)="checkAnswer()">
                 <span *ngIf="!isGrading">Check answer</span>
                 <span *ngIf="isGrading" class="sfp-grading-spinner">Grading…</span>
               </button>
+              <p class="sfp-grading-error" role="alert" *ngIf="gradingError">{{ gradingError }}</p>
             </div>
           </div>
 
@@ -65,17 +68,14 @@
                    [class.sfp-badge-wrong]="gradeResult === 'wrong'">
                 {{ gradeResult === 'correct' ? '✓ Correct!' : '✗ Incorrect' }}
               </div>
+              <p class="sfp-grade-explanation" *ngIf="gradeExplanation">{{ gradeExplanation }}</p>
               <button class="sfp-btn-next-card"
+                      [disabled]="saveState === 'saving'"
                       (click)="advanceAfterGrade(); $event.stopPropagation()">
                 Next →
               </button>
             </ng-container>
 
-            <!-- Fallback: shown only when AI call failed (gradeResult is null after flip) -->
-            <div class="sfp-self-grade-buttons" *ngIf="!gradeResult">
-              <button class="sfp-btn-wrong"  (click)="markWrong();   $event.stopPropagation()">✗ Got it wrong</button>
-              <button class="sfp-btn-correct" (click)="markCorrect(); $event.stopPropagation()">✓ Got it right</button>
-            </div>
           </div>
 
         </div>
@@ -115,13 +115,13 @@
     <!-- ACTION BUTTONS -->
     <div class="sfp-actions">
       <button class="sfp-btn-learning"
-              [disabled]="!isFlipped || isSliding"
+              [disabled]="!isFlipped || isSliding || saveState === 'saving'"
               [class.sfp-btn-disabled]="!isFlipped"
               (click)="markLearning(); $event.stopPropagation()">
         {{ template === 'concept' ? 'Need to review' : 'Still learning' }}
       </button>
       <button class="sfp-btn-know"
-              [disabled]="!isFlipped || isSliding"
+              [disabled]="!isFlipped || isSliding || saveState === 'saving'"
               [class.sfp-btn-disabled]="!isFlipped"
               (click)="markKnown(); $event.stopPropagation()">
         {{ template === 'concept' ? 'Got it' : 'I know' }}
@@ -160,7 +160,7 @@
     <span class="sfp-save-text">
       <ng-container *ngIf="saveState === 'saving'">Saving...</ng-container>
       <ng-container *ngIf="saveState === 'saved'">Saved</ng-container>
-      <ng-container *ngIf="saveState === 'error'">Save failed - will retry</ng-container>
+      <ng-container *ngIf="saveState === 'error'">Unable to save your progress. Please try again.</ng-container>
     </span>
   </div>
 

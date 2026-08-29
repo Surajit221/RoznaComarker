@@ -774,6 +774,13 @@ export class WorksheetApiService {
       activity2Revealed?: Record<string, boolean>;
       activity3Answers?: Record<string, string>;
       activity4Blanks?: Record<string, string>;
+      activity5Matches?: Record<string, string>;
+      activity6Answers?: Record<string, boolean>;
+      activity7Labels?: Record<string, string>;
+      activity8Sequences?: Record<string, string[]>;
+      currentQuestionId?: string | null;
+      currentQuestionIndex?: number;
+      expectedRevision?: number;
       progressPercentage?: number;
       timeSpent?: number;
     },
