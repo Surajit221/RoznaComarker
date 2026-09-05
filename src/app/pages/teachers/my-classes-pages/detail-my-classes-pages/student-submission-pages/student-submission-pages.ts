@@ -5394,6 +5394,7 @@ export class StudentSubmissionPages {
       this.hydrateRubricEditFormFromFeedback();
       this.hydrateRubricDesignerFromFeedback();
       this.recomputeRubricFeedbackItems();
+      await this.refreshAssessmentResult(submissionId);
       this.refreshCompletedEvaluationState(submissionId);
     }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
@@ -5404,6 +5405,33 @@ export class StudentSubmissionPages {
     if (!assignmentId || this.currentSubmission?._id !== submissionId) return;
     if (this.currentSubmission?._id === submissionId && this.assignmentId === assignmentId) {
       this.teacherDashboardState.invalidateEvaluationFreshness(assignmentId);
+    }
+  }
+
+  /** Reconciles every result artifact from persisted state after assessment completion. */
+  private async refreshAssessmentResult(submissionId: string): Promise<void> {
+    if (!this.assignmentId || this.currentSubmission?._id !== submissionId) return;
+    const list = await this.submissionApi.getSubmissionsByAssignment(this.assignmentId, Date.now());
+    if (this.currentSubmission?._id !== submissionId) return;
+    const fresh = (list || []).find((item) => item._id === submissionId);
+    if (!fresh) throw { status: 404 };
+    this.submissions = (list || []).map((item) => item._id === submissionId ? fresh : item);
+    this.currentSubmission = { ...this.currentSubmission, ...fresh };
+    for (const key of [...this.ocrCorrectionsPayloadCache.keys()]) {
+      if (key.startsWith(`${submissionId}:`)) this.ocrCorrectionsPayloadCache.delete(key);
+    }
+    this.transcriptPagesSignature = null;
+    const results = await Promise.allSettled([
+      this.loadOcrCorrections(submissionId),
+      this.loadCompleteTranscript(submissionId),
+      this.refreshWritingCorrections()
+    ]);
+    if (this.currentSubmission?._id !== submissionId) return;
+    const annotationFailure = results.some((result) => result.status === 'rejected');
+    this.transcriptState = annotationFailure && !this.transcriptPageViews.length ? 'error' : 'loaded';
+    if (annotationFailure) {
+      this.correctionsState = 'error';
+      this.correctionsError = 'Some annotation details could not be loaded. Retry.';
     }
   }
 

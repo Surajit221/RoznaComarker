@@ -102,6 +102,13 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.closeTooltip();
   }
 
+  onWordKeydown(wordId: string, event: KeyboardEvent): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    if (this.activeWordId === wordId) this.closeTooltip();
+    else this.openTooltip(wordId, event);
+  }
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.closeTooltip();
@@ -117,7 +124,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.scheduleActiveReposition();
   }
 
-  private openTooltip(wordId: string, event: MouseEvent | PointerEvent): void {
+  private openTooltip(wordId: string, event: Event): void {
     const text = this.getTooltipText(wordId);
     if (!text) return;
 

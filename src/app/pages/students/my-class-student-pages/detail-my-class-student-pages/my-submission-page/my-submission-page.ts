@@ -405,7 +405,7 @@ export class MySubmissionPage {
   private ocrPayloadInFlight = new Map<string, Promise<any>>();
   private loadTranscriptPagesSeq = 0;
   private transcriptPagesSignature: string | null = null;
-  private ocrCompletionReconciliationSubmissionId: string | null = null;
+  private ocrCompletionReconciliationKey: string | null = null;
   private canonicalDraftIdentity: string | null = null;
   private assetRevisionToken: string | null = null;
   private setUploadedFileUrlSeq = 0;
@@ -1537,7 +1537,7 @@ export class MySubmissionPage {
       this.writingCorrectionsHtml = null;
       this.transcriptPageViews = [];
       this.transcriptPagesSignature = null;
-      this.ocrCompletionReconciliationSubmissionId = null;
+      this.ocrCompletionReconciliationKey = null;
       this.hasLoadedOcrCorrections = false;
       this.assetRevisionToken = submission?.ocrJobId || submission?.submittedAt || String(Date.now());
       this.recomputeLegendAligned();
@@ -1744,7 +1744,7 @@ export class MySubmissionPage {
     this.ocrWords = [];
     this.transcriptPageViews = [];
     this.transcriptPagesSignature = null;
-    this.ocrCompletionReconciliationSubmissionId = null;
+    this.ocrCompletionReconciliationKey = null;
     this.submissionFileUrls = [];
     this.submissionFileIds = [];
     this.activeFileIndex = 0;
@@ -1946,16 +1946,43 @@ export class MySubmissionPage {
     this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
-    if (canonical.evaluationStatus === 'completed' && !this.hasLoadedOcrCorrections
-      && this.ocrCompletionReconciliationSubmissionId !== submissionId) {
-      this.ocrCompletionReconciliationSubmissionId = submissionId;
-      await Promise.allSettled([this.loadOcrCorrections(submissionId), this.loadCompleteTranscript(submissionId)]);
+    const completionKey = `${submissionId}:${(feedback as any)?.assessmentCompletedAt || canonical.evaluationSourceHash || 'completed'}`;
+    if (canonical.evaluationStatus === 'completed' && this.ocrCompletionReconciliationKey !== completionKey) {
+      this.ocrCompletionReconciliationKey = completionKey;
+      await this.refreshAssessmentResult(submissionId);
       if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
     }
     if (canonical.terminal === true || canonical.processingActive !== true || canonical.automaticPollingAllowed !== true) {
       this.isOcrPolling = false;
     }
     return { submissionId, ocrStatus: this.submission?.ocrStatus as any, canonical };
+  }
+
+  /** Reloads the persisted submission before rebuilding transcript and annotations. */
+  private async refreshAssessmentResult(submissionId: string): Promise<void> {
+    if (!this.assignmentId || this.destroyed || this.submission?._id !== submissionId) return;
+    const fresh = await this.submissionApi.getMySubmissionByAssignmentId(this.assignmentId, Date.now());
+    if (this.destroyed || this.submission?._id !== submissionId || fresh?._id !== submissionId) return;
+    this.submission = { ...this.submission, ...fresh };
+    this.applyCanonicalDraft(this.submission, false);
+    for (const key of [...this.ocrPayloadCache.keys()]) {
+      if (key.startsWith(`${submissionId}:`)) this.ocrPayloadCache.delete(key);
+    }
+    this.transcriptPagesSignature = null;
+    this.hasLoadedOcrCorrections = false;
+    const results = await Promise.allSettled([
+      this.loadOcrCorrections(submissionId),
+      this.loadCompleteTranscript(submissionId),
+      this.refreshWritingCorrections()
+    ]);
+    if (this.destroyed || this.submission?._id !== submissionId) return;
+    this.rebuildHighlightedTranscript();
+    const annotationFailure = results.some((result) => result.status === 'rejected');
+    this.transcriptState = annotationFailure && !this.transcriptPageViews.length ? 'error' : 'loaded';
+    if (annotationFailure) {
+      this.correctionsState = 'error';
+      this.ocrErrorMessage = 'Some annotation details could not be loaded. Retry.';
+    }
   }
 
   toBack() {
