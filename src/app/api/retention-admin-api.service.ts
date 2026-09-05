@@ -10,4 +10,5 @@ async operations<T>(kind:'referrals'|'bonus-rewards'|'milestones'|'institutions'
 async milestoneOperations(){return(await firstValueFrom(this.http.get<R<{counts:Array<{_id:string;count:number}>;recent:unknown[]}>>(`${environment.apiUrl}/admin/milestones`))).data}
 async ownerCandidates(search:string){return(await firstValueFrom(this.http.get<R<Array<{_id:string;email:string;displayName?:string}>>>(`${environment.apiUrl}/admin/institution-owner-candidates`,{params:{search}}))).data}
 async provisionInstitution(payload:Record<string,unknown>){return firstValueFrom(this.http.post(`${environment.apiUrl}/institutions/provision`,payload))}
-async updateInstitution(id:string,payload:Record<string,unknown>){return firstValueFrom(this.http.patch(`${environment.apiUrl}/admin/institutions/${encodeURIComponent(id)}`,payload))}}
+async updateInstitution(id:string,payload:Record<string,unknown>){return firstValueFrom(this.http.patch(`${environment.apiUrl}/admin/institutions/${encodeURIComponent(id)}`,payload))}
+async addInstitutionCredits(id:string,payload:{amount:number;reason:string;note?:string;idempotencyKey:string}){return firstValueFrom(this.http.post(`${environment.apiUrl}/admin/institutions/${encodeURIComponent(id)}/credits`,payload))}}

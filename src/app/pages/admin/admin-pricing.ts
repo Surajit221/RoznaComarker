@@ -1,28 +1,28 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CreditsApiService } from '../../api/credits-api.service';
+import { AdminPackUpdateDto, AdminPlanUpdateDto, CreditsApiService, SafePaymentProviderMetadata } from '../../api/credits-api.service';
+import { AlertService } from '../../services/alert.service';
 
-@Component({ selector: 'app-admin-pricing', standalone: true, imports: [CommonModule, FormsModule],
-  templateUrl: './admin-pricing.html', styleUrl: './admin-pricing.css' })
-export class AdminPricing {
-  private api = inject(CreditsApiService);
-  plans: any[] = []; packs: any[] = []; loading = true; saving: string | null = null; message = '';
-  messageType: 'success' | 'error' | '' = '';
-  async ngOnInit() { try { const value = await this.api.getPricingConfig(); this.plans = value.plans; this.packs = value.packs; }
-    catch { this.message = "We couldn't load pricing configuration."; this.messageType = 'error'; } finally { this.loading = false; } }
-  private planDto(plan: any) { return { name: plan.name, monthlyCredits: plan.features?.essayAnalysesPerMonth,
-    monthlyPrice: plan.price, annualPrice: plan.annualPrice, active: plan.isActive, displayOrder: plan.displayOrder,
-    recommended: plan.popular, stripeProductId: plan.stripe?.productId, stripeMonthlyPriceId: plan.stripe?.monthlyPriceId || plan.stripe?.priceId,
-    stripeAnnualPriceId: plan.stripe?.annualPriceId, softThresholdPercent: plan.assessmentCreditNudges?.softThresholdPercent,
-    warningThresholdPercent: plan.assessmentCreditNudges?.warningThresholdPercent }; }
-  private packDto(pack: any) { return { name: pack.name, credits: pack.credits, price: pack.price, currency: pack.currency,
-    active: pack.active, allowedPlans: pack.allowedPlans, displayOrder: pack.displayOrder, stripePriceId: pack.stripePriceId }; }
-  setAllowedPlans(pack: any, value: string) { pack.allowedPlans = value.split(',').map((item) => item.trim()).filter(Boolean); }
-  async savePlan(plan: any) { if (this.saving) return; this.saving = `plan:${plan.slug}`; this.message = ''; this.messageType = '';
-    try { await this.api.updatePlan(plan.slug, this.planDto(plan)); this.message = `${plan.name} saved successfully.`; this.messageType = 'success'; }
-    catch { this.message = "We couldn't save pricing changes."; this.messageType = 'error'; } finally { this.saving = null; } }
-  async savePack(pack: any) { if (this.saving) return; this.saving = `pack:${pack.code}`; this.message = ''; this.messageType = '';
-    try { await this.api.updatePack(pack.code, this.packDto(pack)); this.message = `${pack.name} saved successfully.`; this.messageType = 'success'; }
-    catch { this.message = "We couldn't save pricing changes."; this.messageType = 'error'; } finally { this.saving = null; } }
+export interface AdminPlanEditModel extends AdminPlanUpdateDto { slug:string;currency:string;kind:'canonical'|'legacy'|'institution';editable:boolean; }
+export interface AdminPackEditModel extends AdminPackUpdateDto { code:string; }
+const numberOr=(value:unknown,fallback:number)=>typeof value==='number'&&Number.isFinite(value)?value:fallback;
+const canonical=new Set(['free','essential','essential_monthly','essential_annual','pro','pro_monthly','pro_annual']);
+export function normalizePlan(raw:any):AdminPlanEditModel{const slug=String(raw?.slug||'').trim().toLowerCase(),legacyFeatures=raw?.features||{},nudges=raw?.assessmentCreditNudges||{},stripe=raw?.stripe||{};return{slug,name:String(raw?.name||'Unnamed legacy plan'),currency:String(raw?.currency||'USD'),monthlyCredits:numberOr(raw?.monthlyCredits??legacyFeatures.essayAnalysesPerMonth,0),monthlyPrice:numberOr(raw?.monthlyPrice??raw?.price,0),annualPrice:raw?.annualPrice==null?null:numberOr(raw.annualPrice,0),displayOrder:Number.isInteger(raw?.displayOrder)?Number(raw.displayOrder):0,active:Boolean(raw?.active??raw?.isActive),recommended:Boolean(raw?.recommended??raw?.popular??raw?.isPopular),softThresholdPercent:numberOr(nudges.softThresholdPercent,50),warningThresholdPercent:numberOr(nudges.warningThresholdPercent,80),stripeProductId:String(stripe.productId||''),stripeMonthlyPriceId:String(stripe.monthlyPriceId||stripe.priceId||''),stripeAnnualPriceId:String(stripe.annualPriceId||''),kind:raw?.kind||(slug==='institution'||slug==='custom'?'institution':canonical.has(slug)?'canonical':'legacy'),editable:raw?.editable??Boolean(slug)};}
+export function normalizePack(raw:any):AdminPackEditModel{return{code:String(raw?.code||'').toUpperCase(),name:String(raw?.name||''),credits:numberOr(raw?.credits,0),price:numberOr(raw?.price,0),currency:String(raw?.currency||'USD').toUpperCase(),active:Boolean(raw?.active),allowedPlans:Array.isArray(raw?.allowedPlans)?raw.allowedPlans.map(String):[],displayOrder:Number.isInteger(raw?.displayOrder)?Number(raw.displayOrder):0,stripePriceId:String(raw?.stripePriceId||'')};}
+
+@Component({selector:'app-admin-pricing',standalone:true,imports:[CommonModule,FormsModule],templateUrl:'./admin-pricing.html',styleUrl:'./admin-pricing.css'})
+export class AdminPricing{
+ private api=inject(CreditsApiService);private alerts=inject(AlertService);plans:AdminPlanEditModel[]=[];packs:AdminPackEditModel[]=[];provider:SafePaymentProviderMetadata={activePaymentProvider:'stripe',paypalEnabled:false,stripeEnabled:true};loading=true;saving=new Set<string>();message='';messageType:'success'|'error'|''='';
+ async ngOnInit(){try{await this.refresh()}catch{this.message="We couldn't load pricing configuration.";this.messageType='error'}finally{this.loading=false}}
+ private async refresh(){const value=await this.api.getPricingConfig();this.plans=value.plans.map(normalizePlan);this.packs=value.packs.map(normalizePack);if(value.provider)this.provider=value.provider}
+ planLabel(plan:AdminPlanEditModel){return plan.kind==='canonical'?'Canonical plan':plan.kind==='institution'?'Institution / custom plan':'Legacy plan'}
+ eligiblePlans(){return this.plans.filter(plan=>plan.editable&&plan.kind!=='legacy')}
+ allowed(pack:AdminPackEditModel,slug:string){return pack.allowedPlans.includes(slug)}
+ toggleAllowed(pack:AdminPackEditModel,slug:string,checked:boolean){pack.allowedPlans=checked?[...new Set([...pack.allowedPlans,slug])]:pack.allowedPlans.filter(value=>value!==slug)}
+ private planDto(plan:AdminPlanEditModel):AdminPlanUpdateDto{return{name:plan.name.trim(),monthlyCredits:Number(plan.monthlyCredits),monthlyPrice:Number(plan.monthlyPrice),annualPrice:plan.annualPrice==null?null:Number(plan.annualPrice),active:Boolean(plan.active),displayOrder:Number(plan.displayOrder),recommended:Boolean(plan.recommended),softThresholdPercent:Number(plan.softThresholdPercent),warningThresholdPercent:Number(plan.warningThresholdPercent),stripeProductId:plan.stripeProductId.trim(),stripeMonthlyPriceId:plan.stripeMonthlyPriceId.trim(),stripeAnnualPriceId:plan.stripeAnnualPriceId.trim()}}
+ private packDto(pack:AdminPackEditModel):AdminPackUpdateDto{return{name:pack.name.trim(),credits:Number(pack.credits),price:Number(pack.price),currency:pack.currency.trim().toUpperCase(),active:Boolean(pack.active),allowedPlans:[...pack.allowedPlans],displayOrder:Number(pack.displayOrder),stripePriceId:pack.stripePriceId.trim()}}
+ private planIssue(value:AdminPlanUpdateDto){if(!value.name)return'Display name is required.';if(!Number.isInteger(value.monthlyCredits)||value.monthlyCredits<0)return'Monthly Assessment Credits must be a non-negative integer.';if(!Number.isFinite(value.monthlyPrice)||value.monthlyPrice<0)return'Monthly price must be zero or greater.';if(value.annualPrice!==null&&(!Number.isFinite(value.annualPrice)||value.annualPrice<0))return'Annual price must be zero or greater.';if(!Number.isInteger(value.displayOrder)||value.displayOrder<0)return'Display order must be a non-negative integer.';if(value.softThresholdPercent<0||value.softThresholdPercent>99)return'Soft threshold must be between 0 and 99.';if(value.warningThresholdPercent<1||value.warningThresholdPercent>100)return'Warning threshold must be between 1 and 100.';if(value.softThresholdPercent>=value.warningThresholdPercent)return'Soft threshold must be lower than warning threshold.';return''}
+ async savePlan(plan:AdminPlanEditModel){const key=`plan:${plan.slug}`;if(this.saving.has(key)||!plan.editable)return;const dto=this.planDto(plan),issue=this.planIssue(dto);if(issue){this.alerts.showError('Plan settings were not saved',issue);return}this.saving.add(key);this.message='';this.messageType='';try{await this.api.updatePlan(plan.slug,dto);await this.refresh();this.message='Plan settings saved.';this.messageType='success';this.alerts.showSuccess('Plan settings saved.','The authoritative pricing configuration has been reloaded.')}catch(error:any){const errorMessage=error?.error?.message||"We couldn't save pricing changes.";this.message=errorMessage;this.messageType='error';this.alerts.showError('Plan settings were not saved',errorMessage)}finally{this.saving.delete(key)}}
+ async savePack(pack:AdminPackEditModel){const key=`pack:${pack.code}`;if(this.saving.has(key))return;const dto=this.packDto(pack);this.saving.add(key);this.message='';this.messageType='';try{await this.api.updatePack(pack.code,dto);await this.refresh();this.message='Credit pack saved.';this.messageType='success';this.alerts.showSuccess('Credit pack saved.','The authoritative credit pack catalog has been reloaded.')}catch(error:any){const errorMessage=error?.error?.message||"We couldn't save pricing changes.";this.message=errorMessage;this.messageType='error';this.alerts.showError('Credit pack was not saved',errorMessage)}finally{this.saving.delete(key)}}
 }

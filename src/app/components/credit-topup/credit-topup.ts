@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, ElementRef, HostListener, ViewChild, inject } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, ViewChild, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { CreditsApiService, type CreditPack, type CreditPaymentProvider } from '../../api/credits-api.service';
@@ -7,6 +7,7 @@ import { AccountStateService } from '../../services/account-state.service';
 import { trustedPayPalApprovalUrl, trustedStripeCheckoutUrl } from '../../utils/trusted-navigation.util';
 import { AlertService } from '../../services/alert.service';
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 
 @Component({ selector: 'app-credit-topup', standalone: true, imports: [CommonModule],
   templateUrl: './credit-topup.html', styleUrl: './credit-topup.css' })
@@ -22,7 +23,7 @@ export class CreditTopupComponent {
   attemptPackCode: string | null = null;
   private readonly alerts=inject(AlertService);private readonly ui=inject(CreditTopupUiService);private readonly destroyRef=inject(DestroyRef);private returnFocus:HTMLElement|null=null;
 
-  constructor(private credits: CreditsApiService, private accountState: AccountStateService, private route: ActivatedRoute) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open())}
+  constructor(private credits: CreditsApiService, private accountState: AccountStateService, private route: ActivatedRoute,private catalog:PricingCatalogStateService) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;this.paymentProvider=this.catalog.paymentProvider();if(this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.message='The selected credit pack is no longer available.'}})}
 
   ngOnInit(): void {
     const query = this.route.snapshot.queryParamMap;
@@ -37,9 +38,8 @@ export class CreditTopupComponent {
     if (this.loading) return;
     this.returnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;document.body.style.overflow='hidden';
     this.openState = true; this.message = null;
-    if (this.packs.length) { this.focus(); return; }
     this.loading = true;
-    try { const options = await this.credits.getPacks(); this.packs = options.packs; this.paymentProvider = options.paymentProvider; this.focus(); }
+    try { await this.catalog.refresh(); this.focus(); }
     catch { this.message = "We couldn't load credit packs. Please try again."; }
     finally { this.loading = false; }
   }

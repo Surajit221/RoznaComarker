@@ -1,8 +1,8 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
-import { Component, computed, HostListener } from '@angular/core';
+import { Component, computed, effect, HostListener } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { BackendPlan, PlansApiService } from '../../api/plans-api.service';
+import { BackendPlan } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { trustedPayPalApprovalUrl, trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
 import { AccountStateService } from '../../services/account-state.service';
@@ -12,6 +12,7 @@ import { clampedUsagePercent, preciseStoragePercent } from '../../components/acc
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
 import { CreditTopupComponent } from '../../components/credit-topup/credit-topup';
 import { BillingSelection, formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 
 @Component({
   selector: 'app-paypal-manage', standalone: true,
@@ -33,9 +34,9 @@ export class PayPalManageComponent {
   private pollCount = 0;
 
   copied = false;
-  constructor(private subscriptionApi: SubscriptionApiService, private plansApi: PlansApiService,
+  constructor(private subscriptionApi: SubscriptionApiService,
     private route: ActivatedRoute, private router: Router, private accountState: AccountStateService,
-    private viewport: ViewportScroller,private creditTopupUi:CreditTopupUiService) {}
+    private viewport: ViewportScroller,private creditTopupUi:CreditTopupUiService,private catalog:PricingCatalogStateService) {effect(()=>this.plans=this.catalog.plans())}
 
   async ngOnInit(): Promise<void> {
     const result = this.route.snapshot.data['paypalChangeResult'];
@@ -94,8 +95,8 @@ export class PayPalManageComponent {
   async load(): Promise<void> {
     this.loading = true; this.error = null;
     try {
-      const [, plans] = await Promise.all([this.accountState.refreshSubscription(), this.plansApi.getActivePlans()]);
-      this.plans = plans; await this.accountState.refreshCredits();
+      await Promise.all([this.accountState.refreshSubscription(), this.catalog.refresh()]);
+      await this.accountState.refreshCredits();
     } catch { this.error = "We couldn't load your PayPal subscription. Please try again."; }
     finally { this.loading = false; }
   }
