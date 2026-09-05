@@ -7,6 +7,9 @@
         (pointerenter)="getWordAnnotations(t.word.id).length ? onWordPointerEnter(t.word.id, $event) : null"
         (pointerleave)="getWordAnnotations(t.word.id).length ? onWordPointerLeave(t.word.id, $event) : null"
         (pointerdown)="getWordAnnotations(t.word.id).length ? onWordPointerDown(t.word.id, $event) : null"
+        (mouseenter)="getWordAnnotations(t.word.id).length ? onWordMouseEnter(t.word.id, $event) : null"
+        (mouseleave)="getWordAnnotations(t.word.id).length ? onWordMouseLeave(t.word.id) : null"
+        (click)="getWordAnnotations(t.word.id).length ? onWordClick(t.word.id, $event) : null"
         (keydown)="getWordAnnotations(t.word.id).length ? onWordKeydown(t.word.id, $event) : null"
         [attr.tabindex]="getWordAnnotations(t.word.id).length ? 0 : null"
         [attr.role]="getWordAnnotations(t.word.id).length ? 'button' : null"
@@ -23,9 +26,21 @@
   <div
     #tooltipEl
     class="transcript-tooltip"
+    [class.is-mobile]="isMobileDetail"
     role="dialog"
     aria-label="Correction details"
     [ngStyle]="tooltipStyle"
     style="white-space: pre-line;"
-  >{{ tooltipText }}</div>
+  >
+    @if (isMobileDetail && activeAnnotation) {
+      <header class="transcript-tooltip__header">
+        <div><strong>{{ activeCode }}</strong><span>{{ activeCategory }}</span></div>
+        <button type="button" aria-label="Close correction details" (click)="closeCorrectionDetail($event)">&times;</button>
+      </header>
+      @if (activeExplanation) { <section><small>Issue</small><p>{{ activeExplanation }}</p></section> }
+      @if (activeSuggestion) { <section class="transcript-tooltip__suggestion"><small>Suggested correction</small><p>{{ activeSuggestion }}</p></section> }
+    } @else {
+      {{ tooltipText }}
+    }
+  </div>
 </div>

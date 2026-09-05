@@ -203,14 +203,14 @@
                     } @else if (transcriptState === 'error') {
                     <div class="section-load-error" role="status">Unable to load the transcribed text.</div>
                     } @else {
-                    <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
-                      <div>
-                        <h2 class="text-2xl font-bold text-gray-800">
+                    <div class="result-metadata-header flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+                      <div class="result-title-block">
+                        <h2 class="result-assignment-title text-2xl font-bold text-gray-800">
                           {{ submissionTitle }}
                         </h2>
-                        <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
+                        <p class="result-author-date text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
                       </div>
-                      <div class="flex space-x-2">
+                      <div class="result-category-tags flex space-x-2">
                         <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">Education</span>
                         <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">Technology</span>
                       </div>
