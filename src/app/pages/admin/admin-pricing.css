@@ -18,6 +18,8 @@
 .card-title small { display: block; color: #64748b; overflow-wrap: anywhere; }
 .status { flex: 0 0 auto; border-radius: 999px; background: #e8f7ef; padding: .25rem .55rem; color: #17633f; font-size: .7rem; font-weight: 800; }
 .status.inactive { background: #f1f5f9; color: #64748b; }
+.badges{display:grid;justify-items:end;gap:.35rem}.plan-kind{border-radius:999px;background:#e8f0fb;padding:.25rem .55rem;color:#203864;font-size:.68rem;font-weight:800}.plan-kind.legacy{background:#fff4dd;color:#805b13}.allowed-plans{display:grid;gap:.45rem}.allowed-plans>span{font-size:.8rem;font-weight:800}.allowed-plans label{display:flex;flex-direction:row;align-items:center}.allowed-plans small{color:#64748b;font-weight:500}
+.provider-fields>strong{color:#087f80}.stripe-fields summary{cursor:pointer;color:#203864;font-weight:800}.stripe-fields[open]{display:grid;gap:.75rem}.stripe-fields[open] summary{margin-bottom:.25rem}
 .card fieldset { display: grid; gap: .75rem; min-width: 0; border-top: 1px solid #e5e7eb; padding-top: .8rem; }
 .card legend { padding-right: .5rem; color: #1f2937; font-size: .85rem; font-weight: 800; }
 .card label { display: flex; flex-direction: column; gap: .3rem; min-width: 0; font-size: .8rem; font-weight: 700; }

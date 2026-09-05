@@ -5,12 +5,13 @@ import { CreditsApiService } from '../../api/credits-api.service';
 import { AccountStateService } from '../../services/account-state.service';
 import { CreditTopupComponent } from './credit-topup';
 import { AlertService } from '../../services/alert.service';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 
 const pack: any = { name: '10 Assessment Credits', code: 'CREDITS_10', credits: 10, price: 1.99, currency: 'USD', allowedPlans: ['free'], displayOrder: 1 };
 const pack50: any = { name: '50 Assessment Credits', code: 'CREDITS_50', credits: 50, price: 4.99, currency: 'USD', allowedPlans: ['free'], displayOrder: 2 };
 
 describe('CreditTopupComponent', () => {
-  let fixture: ComponentFixture<CreditTopupComponent>; let component: CreditTopupComponent; let credits: any; let state: any;let alerts:any;
+  let fixture: ComponentFixture<CreditTopupComponent>; let component: CreditTopupComponent; let credits: any; let state: any;let alerts:any;let catalog:any;
   beforeEach(async () => {
     credits = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [pack,pack50], paymentProvider: 'paypal' }),
       createPayPalOrder: jasmine.createSpy().and.resolveTo({ approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=SAFE' }),
@@ -18,9 +19,10 @@ describe('CreditTopupComponent', () => {
       capturePayPalOrder: jasmine.createSpy().and.resolveTo({ credited: true, status: 'credited',credits:10 }), getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
     const wallet = signal<any>({ availableCredits: 25, purchasedCredits: 0 });
     state = { wallet, refreshCredits: jasmine.createSpy().and.callFake(async () => { wallet.set({ availableCredits: 35, purchasedCredits: 10 }); return wallet(); }) };
+    catalog={packs:signal<any[]>([]),paymentProvider:signal('paypal')};catalog.refresh=jasmine.createSpy().and.callFake(async()=>{const value=await credits.getPacks();catalog.packs.set(value.packs);catalog.paymentProvider.set(value.paymentProvider)});
     alerts={showSuccess:jasmine.createSpy()};await TestBed.configureTestingModule({ imports: [CreditTopupComponent], providers: [
       { provide: CreditsApiService, useValue: credits }, { provide: AccountStateService, useValue: state },
-      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },{provide:AlertService,useValue:alerts}
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },{provide:AlertService,useValue:alerts},{provide:PricingCatalogStateService,useValue:catalog}
     ] }).compileComponents();
     fixture = TestBed.createComponent(CreditTopupComponent); component = fixture.componentInstance; fixture.detectChanges();
   });
@@ -39,7 +41,7 @@ describe('CreditTopupComponent', () => {
   it('preserves the Stripe checkout path and trusted navigation', async () => {
     component.paymentProvider = 'stripe'; const navigate = spyOn<any>(component, 'navigateExternal');
     await component.purchase(pack);
-    expect(credits.createTopupCheckout).toHaveBeenCalledOnceWith('SMALL');
+    expect(credits.createTopupCheckout).toHaveBeenCalledOnceWith('CREDITS_10');
     expect(credits.createPayPalOrder).not.toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/test');
   });
@@ -59,6 +61,7 @@ describe('CreditTopupComponent', () => {
     credits.createPayPalOrder.and.rejectWith(new Error('network'));
     component.paymentProvider = 'paypal'; await component.purchase(pack); const attempt = component.attemptId;
     await component.purchase(pack);
-    expect(credits.createPayPalOrder.calls.allArgs()).toEqual([['SMALL', attempt], ['SMALL', attempt]]);
+    expect(credits.createPayPalOrder.calls.allArgs()).toEqual([['CREDITS_10', attempt], ['CREDITS_10', attempt]]);
   });
+  it('clears a selected pack when realtime catalog refresh removes it',async()=>{await component.open();component.attemptPackCode='CREDITS_10';component.attemptId='attempt';catalog.packs.set([pack50]);fixture.detectChanges();expect(component.attemptPackCode).toBeNull();expect(component.attemptId).toBeNull();expect(component.message).toContain('no longer available')});
 });

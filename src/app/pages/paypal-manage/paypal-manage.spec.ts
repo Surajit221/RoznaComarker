@@ -8,6 +8,7 @@ import { PayPalManageComponent } from './paypal-manage';
 import { AccountStateService } from '../../services/account-state.service';
 import { CreditsApiService } from '../../api/credits-api.service';
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 
 const features = { maxClasses: 20, maxStudents: 500, essayAnalysesPerMonth: 300, storageMB: 2048,
   aiFlashcards: true, aiFlashcardsLimit: null, aiWorksheets: true, aiWorksheetsLimit: null,
@@ -36,12 +37,13 @@ describe('PayPalManageComponent', () => {
     creditsApi = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [{ name: 'Small', code: 'SMALL', credits: 10, price: 5, currency: 'USD', allowedPlans: [], displayOrder: 1 }], paymentProvider: 'paypal' }),
       createPayPalOrder: jasmine.createSpy(), createTopupCheckout: jasmine.createSpy(), capturePayPalOrder: jasmine.createSpy(),
       getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
-    await TestBed.configureTestingModule({ imports: [PayPalManageComponent], providers: [
+    const catalog={plans:signal([essential,pro]),packs:signal<any[]>([{name:'Small',code:'SMALL',credits:10,price:5,currency:'USD',allowedPlans:[],displayOrder:1}]),paymentProvider:signal('paypal'),refresh:jasmine.createSpy().and.resolveTo()};await TestBed.configureTestingModule({ imports: [PayPalManageComponent], providers: [
       ...routedComponentProviders(),
       { provide: SubscriptionApiService, useValue: api },
       { provide: AccountStateService, useValue: accountState },
       { provide: CreditsApiService, useValue: creditsApi },
       { provide: PlansApiService, useValue: { getActivePlans: () => Promise.resolve([essential, pro]) } },
+      { provide: PricingCatalogStateService, useValue: catalog },
       { provide: ActivatedRoute, useValue: { snapshot: { data: {}, queryParamMap: { get: () => null } } } }
     ] }).compileComponents();
     topupUi=TestBed.inject(CreditTopupUiService);fixture = TestBed.createComponent(PayPalManageComponent); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();

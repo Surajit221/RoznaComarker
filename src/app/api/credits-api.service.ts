@@ -19,7 +19,12 @@ export interface CreditTransaction { _id: string; type: string; amount: number; 
 export interface BonusRewardHistory { _id: string; eventType: string; amount: number; grantedAt: string; }
 export interface AdminCreditWalletResponse { teacher: CreditTeacher; wallet: AssessmentCreditWallet;
   transactions: CreditTransaction[]; pagination: { page: number; limit: number; total: number; pages: number }; }
-export interface AdminPricingConfig { plans: any[]; packs: any[]; }
+export interface AdminPricingPlanDto { name:string;slug:string;monthlyPrice:number;annualPrice:number|null;currency:string;monthlyCredits:number;active:boolean;recommended:boolean;displayOrder:number;assessmentCreditNudges:{softThresholdPercent:number;warningThresholdPercent:number};stripe:{productId:string;monthlyPriceId:string;annualPriceId:string};kind?:'canonical'|'legacy'|'institution';editable?:boolean; }
+export interface AdminPricingPackDto { name:string;code:string;credits:number;price:number;currency:string;active:boolean;allowedPlans:string[];displayOrder:number;stripePriceId:string; }
+export interface AdminPlanUpdateDto { name:string;monthlyCredits:number;monthlyPrice:number;annualPrice:number|null;active:boolean;displayOrder:number;recommended:boolean;softThresholdPercent:number;warningThresholdPercent:number;stripeProductId:string;stripeMonthlyPriceId:string;stripeAnnualPriceId:string; }
+export interface AdminPackUpdateDto { name:string;credits:number;price:number;currency:string;active:boolean;allowedPlans:string[];displayOrder:number;stripePriceId:string; }
+export interface SafePaymentProviderMetadata { activePaymentProvider:CreditPaymentProvider;paypalEnabled:boolean;stripeEnabled:boolean; }
+export interface AdminPricingConfig { plans: AdminPricingPlanDto[]; packs: AdminPricingPackDto[]; provider:SafePaymentProviderMetadata; }
 
 @Injectable({ providedIn: 'root' })
 export class CreditsApiService {
@@ -83,10 +88,10 @@ export class CreditsApiService {
   async getPricingConfig(): Promise<AdminPricingConfig> {
     return firstValueFrom(this.http.get<AdminPricingConfig & { success: boolean }>(`${environment.apiUrl}/credits/admin/pricing`));
   }
-  async updatePlan(slug: string, value: any): Promise<any> {
+  async updatePlan(slug: string, value: AdminPlanUpdateDto): Promise<any> {
     return firstValueFrom(this.http.put(`${environment.apiUrl}/credits/admin/pricing/plans/${encodeURIComponent(slug)}`, value));
   }
-  async updatePack(code: string, value: any): Promise<any> {
+  async updatePack(code: string, value: AdminPackUpdateDto): Promise<any> {
     return firstValueFrom(this.http.put(`${environment.apiUrl}/credits/admin/pricing/packs/${encodeURIComponent(code)}`, value));
   }
 }

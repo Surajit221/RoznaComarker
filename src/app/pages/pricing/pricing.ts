@@ -1,12 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, effect } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 
-import { BackendPlan, PlansApiService } from '../../api/plans-api.service';
+import { BackendPlan } from '../../api/plans-api.service';
 import { AuthService } from '../../auth/auth.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
 import { formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 
 type PricingFeature = {
   label: string;
@@ -39,12 +40,12 @@ export class PricingComponent {
   }
 
   constructor(
-    private plansApi: PlansApiService,
+    private catalog: PricingCatalogStateService,
     auth: AuthService,
     private router: Router,
     private subscriptionApi: SubscriptionApiService
   ) {
-    this.authenticatedRole = auth.getBackendRole();
+    this.authenticatedRole = auth.getBackendRole();effect(()=>this.plans=this.sortPlans(this.catalog.plans()));
   }
 
   async ngOnInit(): Promise<void> {
@@ -63,19 +64,8 @@ export class PricingComponent {
     try {
       this.isLoading = true;
       this.errorMessage = null;
-      const order = new Map([
-        ['free', 0],
-        ['essential', 1],
-        ['starter_monthly', 1],
-        ['pro', 2],
-        ['custom', 3]
-      ]);
-      this.plans = (await this.plansApi.getActivePlans()).sort(
-        (left, right) =>
-          (order.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
-            (order.get(right.slug) ?? Number.MAX_SAFE_INTEGER) ||
-          left.slug.localeCompare(right.slug)
-      );
+      await this.catalog.refresh();
+      this.plans = this.sortPlans(this.catalog.plans());
     } catch {
       this.errorMessage = 'Plans are temporarily unavailable. Please try again later.';
       this.plans = [];
@@ -83,6 +73,19 @@ export class PricingComponent {
       this.isLoading = false;
     }
   }
+  private sortPlans(plans:BackendPlan[]):BackendPlan[]{const order = new Map([
+        ['free', 0],
+        ['essential', 1],
+        ['starter_monthly', 1],
+        ['pro', 2],
+        ['custom', 3]
+      ]);
+      return [...plans].sort(
+        (left, right) =>
+          (order.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
+            (order.get(right.slug) ?? Number.MAX_SAFE_INTEGER) ||
+          left.slug.localeCompare(right.slug)
+      );}
 
   formatPrice(plan: BackendPlan): string {
     return formatPlanPrice(plan, this.billingPeriod);

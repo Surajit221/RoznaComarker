@@ -6,6 +6,8 @@ import { AuthService } from '../../auth/auth.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { routedComponentProviders } from '../../../testing/standalone-test-providers';
 import { PricingComponent } from './pricing';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { signal } from '@angular/core';
 
 const features = (credits: number | null) => ({
   maxClasses: 20, maxStudents: 500, essayAnalysesPerMonth: credits, storageMB: 2048,
@@ -36,6 +38,7 @@ describe('PricingComponent', () => {
       providers: [
         ...routedComponentProviders(),
         { provide: PlansApiService, useValue: { getActivePlans: () => Promise.resolve(activePlans) } },
+        { provide: PricingCatalogStateService, useValue: { plans:signal(activePlans),refresh:()=>Promise.resolve() } },
         { provide: AuthService, useValue: { getBackendRole: () => role } },
         { provide: SubscriptionApiService, useValue: {
           getMySubscription: () => Promise.resolve(subscription),
