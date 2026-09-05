@@ -200,6 +200,29 @@ describe('MySubmissionPage', () => {
     expect((component as any).submissionApi.getMySubmissionByAssignmentId).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps activeAnnotations reference stable until its source or selected file changes', () => {
+    component.submissionFileIds = ['file-1', 'file-2'];
+    component.activeFileIndex = 0;
+    component.annotations = [
+      { _id: 'a1', fileId: 'file-1', symbol: 'AGR' },
+      { _id: 'a2', fileId: 'file-2', symbol: 'P' }
+    ] as any;
+
+    const first = component.activeAnnotations;
+    expect(component.activeAnnotations).toBe(first);
+    component.feedbackState = 'loading';
+    fixture.detectChanges();
+    expect(component.activeAnnotations).toBe(first);
+
+    component.activeFileIndex = 1;
+    const secondFile = component.activeAnnotations;
+    expect(secondFile).not.toBe(first);
+    expect(secondFile.map((annotation) => annotation._id)).toEqual(['a2']);
+
+    component.annotations = [...component.annotations];
+    expect(component.activeAnnotations).not.toBe(secondFile);
+  });
+
   it('does not start polling when reopening a completed unchanged submission', () => {
     component.submission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
     component.canonicalResultState = normalizeCanonicalResult({

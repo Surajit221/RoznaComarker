@@ -57,14 +57,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
   @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
-  private tooltipEl?: ElementRef<HTMLElement>;
-  @ViewChild('tooltipEl')
-  private set renderedTooltip(value: ElementRef<HTMLElement> | undefined) {
-    this.tooltipEl = value;
-    // The tooltip is conditionally created from activeMarker. Position from the
-    // render hook so the first hover/tap cannot race the ViewChild into null.
-    if (value && this.activeMarker && this.tooltipTarget) this.schedulePosition();
-  }
+  @ViewChild('tooltipEl', { static: true }) private tooltipEl!: ElementRef<HTMLElement>;
 
   markers: CorrectionMarker[] = [];
   underlineSegments: UnderlineSegment[] = [];
@@ -87,7 +80,6 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private previousScrollY = 0;
   private originalBodyStyle = '';
   private suppressNextFocusReopen = false;
-  private pointerFocusPending = false;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['imageUrl']) {
@@ -98,8 +90,16 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.setMediaState(this.sourceLoading ? 'fetching' : this.sourceLoadError ? 'error' : 'idle');
     }
     if (changes['annotations'] || changes['page']) {
+      const activeId = this.activeMarker?.annotation._id || null;
       this.rebuildMarkers();
-      this.closeTooltip();
+      if (!activeId) return;
+      const replacement = this.markers.find((marker) => marker.annotation._id === activeId) || null;
+      if (!replacement) {
+        this.closeTooltip();
+        return;
+      }
+      this.activeMarker = replacement;
+      if (this.tooltipTarget) this.schedulePosition();
     }
   }
 
@@ -166,13 +166,6 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
-  onMarkerPointerDown(): void {
-    this.pointerFocusPending = true;
-    queueMicrotask(() => {
-      this.pointerFocusPending = false;
-    });
-  }
-
   onMarkerLeave(marker: CorrectionMarker, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
     if (!this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) this.closeTooltip();
@@ -180,10 +173,6 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
     if (this.isMobile) return;
-    if (this.pointerFocusPending) {
-      this.pointerFocusPending = false;
-      return;
-    }
     if (this.suppressNextFocusReopen) {
       this.suppressNextFocusReopen = false;
       return;
@@ -280,8 +269,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   get originalText(): string {
-    const annotation = this.activeMarker?.annotation as (FeedbackAnnotation & { originalText?: string; text?: string }) | undefined;
-    return String(annotation?.originalText || annotation?.text || '').trim();
+    const annotation = this.activeMarker?.annotation as (FeedbackAnnotation & { originalText?: string; text?: string; quotedText?: string }) | undefined;
+    return String(annotation?.originalText || annotation?.quotedText || annotation?.text || '').trim();
   }
 
   get tip(): string {
@@ -361,15 +350,21 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private openTooltip(marker: CorrectionMarker, target: HTMLElement, pinned: boolean): void {
+    this.updateResponsiveMode();
+    const wasMobileOpen = this.isMobile && this.activeMarker !== null;
     this.activeMarker = marker;
     this.tooltipTarget = target;
     this.isPinned = pinned || this.isMobile;
-    this.tooltipStyle = { visibility: 'hidden', left: '-10000px', top: '-10000px' };
-    this.cdr.markForCheck();
     if (this.isMobile) {
-      this.lockBodyScroll();
+      this.tooltipPlacement = 'mobile';
+      this.tooltipStyle = { visibility: 'visible' };
+      if (!wasMobileOpen) this.lockBodyScroll();
+      this.cdr.detectChanges();
+      return;
     }
-    this.schedulePosition();
+    this.tooltipStyle = { visibility: 'hidden' };
+    this.cdr.detectChanges();
+    this.positionTooltip();
   }
 
   private schedulePosition(): void {
@@ -381,9 +376,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     });
   }
 
-  private positionTooltip(attempt = 0): void {
+  private positionTooltip(): void {
     const target = this.tooltipTarget;
-    const tooltip = this.tooltipEl?.nativeElement;
+    const tooltip = this.tooltipEl.nativeElement;
     if (!target || !tooltip || !this.activeMarker) return;
 
     this.updateResponsiveMode();
@@ -396,19 +391,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
     const markerRect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
-    if (!markerRect.width || !markerRect.height || !tooltipRect.width || !tooltipRect.height) {
-      // Layout may not be ready on the very first open — retry a few times
-      // instead of leaving the tooltip stuck at visibility: hidden.
-      if (attempt < 5) {
-        this.positionFrame = requestAnimationFrame(() => this.positionTooltip(attempt + 1));
-      }
-      return;
-    }
-
     const viewportWidth = document.documentElement.clientWidth;
     const viewportHeight = document.documentElement.clientHeight;
-    const width = tooltipRect.width;
-    const height = tooltipRect.height;
+    const width = tooltipRect.width || Math.min(340, Math.max(180, viewportWidth - 24));
+    const height = tooltipRect.height || Math.min(240, Math.max(96, viewportHeight - 24));
     const gap = 14;
     const pad = 12;
     const candidates: { placement: Exclude<TooltipPlacement, 'mobile'>; left: number; top: number }[] = [
