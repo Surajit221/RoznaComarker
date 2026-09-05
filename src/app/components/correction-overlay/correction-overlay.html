@@ -44,6 +44,8 @@
       (pointerdown)="onMarkerPointerDown()"
       (pointerenter)="onMarkerEnter(marker, $event)"
       (pointerleave)="onMarkerLeave(marker, $event)"
+      (mouseenter)="onMarkerMouseEnter(marker, $event)"
+      (mouseleave)="onMarkerMouseLeave(marker)"
       (focus)="onMarkerFocus(marker, $event)"
       (blur)="onMarkerBlur()"
       (click)="onMarkerClick(marker, $event)"
@@ -86,6 +88,12 @@
         <div class="correction-overlay__section">
           <span class="correction-overlay__label">What to improve</span>
           <p>{{ explanation }}</p>
+        </div>
+      }
+      @if (originalText) {
+        <div class="correction-overlay__section">
+          <span class="correction-overlay__label">Original</span>
+          <p>{{ originalText }}</p>
         </div>
       }
       @if (suggestion) {

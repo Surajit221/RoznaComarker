@@ -32,6 +32,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
   private readonly viewportScrollHandler = () => this.scheduleActiveReposition();
 
   activeWordId: string | null = null;
+  isMobileDetail = false;
+  isPinnedDetail = false;
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
 
@@ -102,11 +104,31 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.closeTooltip();
   }
 
+  onWordMouseEnter(wordId: string, event: MouseEvent): void {
+    const width = window.visualViewport?.width || document.documentElement.clientWidth || window.innerWidth;
+    if (width <= 768) return;
+    this.openTooltip(wordId, event, false);
+  }
+
+  onWordMouseLeave(wordId: string): void {
+    if (this.activeWordId === wordId && !this.isPinnedDetail) this.closeTooltip();
+  }
+
+  onWordClick(wordId: string, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.activeWordId === wordId && !this.isMobileDetail) {
+      this.closeTooltip();
+      return;
+    }
+    this.openTooltip(wordId, event, true);
+  }
+
   onWordKeydown(wordId: string, event: KeyboardEvent): void {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     if (this.activeWordId === wordId) this.closeTooltip();
-    else this.openTooltip(wordId, event);
+    else this.openTooltip(wordId, event, true);
   }
 
   @HostListener('document:keydown.escape')
@@ -124,7 +146,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.scheduleActiveReposition();
   }
 
-  private openTooltip(wordId: string, event: Event): void {
+  private openTooltip(wordId: string, event: Event, pinned = false): void {
     const text = this.getTooltipText(wordId);
     if (!text) return;
 
@@ -133,10 +155,12 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     const target = event.currentTarget as HTMLElement | null;
     if (!container || !tooltip || !target) return;
 
+    this.isMobileDetail = (window.visualViewport?.width || document.documentElement.clientWidth || window.innerWidth) <= 768;
     // Keep the overlay outside transformed/backdrop-filtered cards and clipping transcript pages.
     if (tooltip.parentElement !== document.body) document.body.appendChild(tooltip);
 
     this.activeWordId = wordId;
+    this.isPinnedDetail = pinned || this.isMobileDetail;
     this.activeTarget = target;
     this.tooltipText = text;
     this.tooltipStyle = { display: 'block', visibility: 'hidden', left: '0px', top: '0px' };
@@ -151,6 +175,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.positionFrame = null;
     this.bindViewport(null);
     this.activeWordId = null;
+    this.isMobileDetail = false;
+    this.isPinnedDetail = false;
     this.activeTarget = null;
     this.tooltipText = '';
     this.tooltipStyle = { display: 'none' };
@@ -280,6 +306,20 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
 
   getWordAnnotations(wordId: string): FeedbackAnnotation[] {
     return this.annotationsByWordId.get(wordId) || [];
+  }
+
+  get activeAnnotation(): FeedbackAnnotation | null {
+    return this.activeWordId ? (this.getWordAnnotations(this.activeWordId)[0] || null) : null;
+  }
+
+  get activeCategory(): string { return String(this.activeAnnotation?.group || 'Correction').trim(); }
+  get activeCode(): string { return String(this.activeAnnotation?.symbol || '').trim(); }
+  get activeExplanation(): string { return String(this.activeAnnotation?.message || '').trim(); }
+  get activeSuggestion(): string { return String(this.activeAnnotation?.suggestedText || '').trim(); }
+  closeCorrectionDetail(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.closeTooltip();
   }
 
   getHighlightStyle(wordId: string): Record<string, string> | null {

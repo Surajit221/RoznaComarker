@@ -196,6 +196,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   onMarkerClick(marker: CorrectionMarker, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    // VisualViewport can settle after initial render on Android Chrome. Resolve
+    // the presentation mode at activation so the first tap opens the sheet.
+    if (this.device.isMobile()) this.isMobile = true;
     const target = event.currentTarget as HTMLElement;
     if (!this.isMobile && this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) {
       this.closeTooltip();
@@ -214,6 +217,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
+    if (this.device.isMobile()) this.isMobile = true;
     this.openTooltip(marker, event.currentTarget as HTMLElement, true);
   }
 
@@ -266,6 +270,21 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   get suggestion(): string {
     return (this.activeMarker?.annotation.suggestedText || '').trim();
+  }
+
+  onMarkerMouseEnter(marker: CorrectionMarker, event: MouseEvent): void {
+    this.updateResponsiveMode();
+    if (this.isMobile || this.isPinned) return;
+    this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+  }
+
+  onMarkerMouseLeave(marker: CorrectionMarker): void {
+    if (!this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) this.closeTooltip();
+  }
+
+  get originalText(): string {
+    const annotation = this.activeMarker?.annotation as (FeedbackAnnotation & { originalText?: string; text?: string }) | undefined;
+    return String(annotation?.originalText || annotation?.text || '').trim();
   }
 
   get tip(): string {
@@ -421,7 +440,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private updateResponsiveMode(): void {
-    const next = this.device.isCompact();
+    const next = this.device.isMobile();
     if (next !== this.isMobile) {
       this.isMobile = next;
       this.cdr.markForCheck();
