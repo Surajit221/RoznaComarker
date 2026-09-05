@@ -61,14 +61,4 @@
     box-shadow: 0 -.5rem 2rem rgba(15, 23, 42, .28);
     pointer-events: auto;
   }
-  .transcript-tooltip.is-mobile { padding: 0 1rem max(1rem, env(safe-area-inset-bottom)); color: #172033; background: #fff; box-shadow: 0 0 0 100vmax rgba(15, 23, 42, .34), 0 -.5rem 2rem rgba(15, 23, 42, .28); }
-  .transcript-tooltip__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 0 .75rem; border-bottom: 1px solid #e5e7eb; }
-  .transcript-tooltip__header div { display: grid; gap: .2rem; min-width: 0; }
-  .transcript-tooltip__header strong { color: #006b6c; font-size: .8rem; }
-  .transcript-tooltip__header span { font-weight: 700; overflow-wrap: anywhere; }
-  .transcript-tooltip__header button { flex: 0 0 2.75rem; width: 2.75rem; height: 2.75rem; border: 0; border-radius: .75rem; font-size: 1.5rem; }
-  .transcript-tooltip section { padding-top: .875rem; }
-  .transcript-tooltip section small { display: block; margin-bottom: .25rem; color: #64748b; font-weight: 800; text-transform: uppercase; }
-  .transcript-tooltip section p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .transcript-tooltip__suggestion { margin-top: .875rem; padding: .75rem !important; border-left: 3px solid #008081; border-radius: .625rem; background: #f0fdfa; }
 }
