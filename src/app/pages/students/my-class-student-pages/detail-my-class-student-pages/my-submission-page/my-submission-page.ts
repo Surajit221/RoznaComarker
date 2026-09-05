@@ -405,6 +405,10 @@ export class MySubmissionPage {
   private ocrPayloadInFlight = new Map<string, Promise<any>>();
   private loadTranscriptPagesSeq = 0;
   private transcriptPagesSignature: string | null = null;
+  private activeAnnotationsSource: FeedbackAnnotation[] | null = null;
+  private activeAnnotationsFileIds: string[] | null = null;
+  private activeAnnotationsFileId: string | null = null;
+  private activeAnnotationsCache: FeedbackAnnotation[] = [];
   private ocrCompletionReconciliationKey: string | null = null;
   private canonicalDraftIdentity: string | null = null;
   private assetRevisionToken: string | null = null;
@@ -1304,7 +1308,18 @@ export class MySubmissionPage {
 
   get activeAnnotations(): FeedbackAnnotation[] {
     const fileId = this.activeFileId;
-    return fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : this.annotations;
+    if (this.activeAnnotationsSource === this.annotations
+      && this.activeAnnotationsFileIds === this.submissionFileIds
+      && this.activeAnnotationsFileId === fileId) {
+      return this.activeAnnotationsCache;
+    }
+    this.activeAnnotationsSource = this.annotations;
+    this.activeAnnotationsFileIds = this.submissionFileIds;
+    this.activeAnnotationsFileId = fileId;
+    this.activeAnnotationsCache = fileId
+      ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds)
+      : this.annotations;
+    return this.activeAnnotationsCache;
   }
 
   private applyOcrPayloadState(submissionId: string, data: any): void {

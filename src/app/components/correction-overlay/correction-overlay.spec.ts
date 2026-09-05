@@ -183,6 +183,65 @@ describe('CorrectionOverlay media loading', () => {
     expect(component.activeMarker).toBeNull();
   });
 
+  it('renders the real tooltip visibly on the first marker hover and keeps it pinned on click', () => {
+    (component as any).device.width.set(1440);
+    const [marker] = renderMarkers([{ _id: 'test-agr', symbol: 'AGR', group: 'Subject-Verb Agreement',
+      message: 'Plural subject requires plural verb form.', quotedText: 'Students sometimes spends',
+      suggestedText: 'Students sometimes spend', page: 1,
+      bboxList: [{ x: 20, y: 20, w: 12, h: 3 }] }] as FeedbackAnnotation[]);
+
+    marker.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    fixture.detectChanges();
+    const tooltip = fixture.nativeElement.querySelector('.correction-overlay__tooltip') as HTMLElement;
+    expect(component.activeMarker?.annotation._id).toBe('test-agr');
+    expect(tooltip.textContent).toContain('Plural subject requires plural verb form.');
+    expect(tooltip.textContent).toContain('Students sometimes spend');
+    expect(component.tooltipStyle['visibility']).toBe('visible');
+    expect(component.tooltipStyle['left']).not.toBe('-10000px');
+
+    marker.click();
+    fixture.detectChanges();
+    expect(component.isPinned).toBeTrue();
+    expect(component.tooltipStyle['visibility']).toBe('visible');
+  });
+
+  it('renders the mobile dialog and backdrop on the first real marker tap', () => {
+    (component as any).device.width.set(390);
+    const [marker] = renderMarkers([{ _id: 'test-mobile', symbol: 'AGR', group: 'Agreement',
+      message: 'Use plural agreement.', suggestedText: 'Students spend', page: 1,
+      bboxList: [{ x: 20, y: 20, w: 12, h: 3 }] }] as FeedbackAnnotation[]);
+
+    marker.click();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('.correction-overlay__tooltip[role="dialog"]') as HTMLElement;
+    expect(component.activeMarker?.annotation._id).toBe('test-mobile');
+    expect(dialog).toBeTruthy();
+    expect(component.tooltipStyle['visibility']).toBe('visible');
+    expect(dialog.textContent).toContain('Use plural agreement.');
+    expect(fixture.nativeElement.querySelector('.correction-overlay__backdrop')).toBeTruthy();
+  });
+
+  it('preserves an open correction across equivalent annotation input churn and closes when removed', () => {
+    (component as any).device.width.set(1440);
+    const annotation = { _id: 'stable-agr', symbol: 'AGR', group: 'Agreement', message: 'Current detail',
+      suggestedText: 'Correct form', page: 1, bboxList: [{ x: 20, y: 20, w: 12, h: 3 }] } as any;
+    const [marker] = renderMarkers([annotation]);
+    marker.click();
+    fixture.detectChanges();
+    expect(component.activeMarker?.annotation._id).toBe('stable-agr');
+
+    component.annotations = [{ ...annotation }];
+    component.ngOnChanges({ annotations: new SimpleChange([annotation], component.annotations, false) });
+    fixture.detectChanges();
+    expect(component.activeMarker?.annotation._id).toBe('stable-agr');
+    expect(component.tooltipStyle['visibility']).toBe('visible');
+
+    component.annotations = [];
+    component.ngOnChanges({ annotations: new SimpleChange([annotation], [], false) });
+    fixture.detectChanges();
+    expect(component.activeMarker).toBeNull();
+  });
+
   describe('correction interactions', () => {
     const marker = {
       annotation: {
@@ -297,7 +356,6 @@ describe('CorrectionOverlay media loading', () => {
       const target = document.createElement('button');
       const openTooltip = spyOn<any>(component, 'openTooltip').and.callThrough();
 
-      component.onMarkerPointerDown();
       component.onMarkerFocus(marker, { currentTarget: target } as unknown as FocusEvent);
       component.onMarkerClick(marker, mouseEvent(target));
 
