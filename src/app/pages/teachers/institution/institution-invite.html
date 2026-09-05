@@ -1,0 +1,5 @@
+<main class="invite-page"><section class="invite-card" aria-labelledby="invite-title"><div class="invite-mark" aria-hidden="true"><i class="bx bx-buildings"></i></div><p class="eyebrow">RoznaHub institution</p><h1 id="invite-title">Institution invitation</h1>
+  @if(done()){<div class="state success" role="status"><h2>Invitation accepted</h2><p>Opening your institution workspace…</p></div>}
+  @else if(error()){<div class="state error" role="alert"><h2>Unable to accept invitation</h2><p>{{error()}}</p></div>}
+  @else {<p class="intro">Join the institution associated with this secure invitation. Your institution administrator will manage shared assessment credits and any personal usage limit.</p><button type="button" class="accept" [disabled]="busy()" (click)="accept()">{{busy()?'Accepting…':'Accept invitation'}}</button><p class="security">This invitation is single-use and bound to the invited email address.</p>}
+</section></main>

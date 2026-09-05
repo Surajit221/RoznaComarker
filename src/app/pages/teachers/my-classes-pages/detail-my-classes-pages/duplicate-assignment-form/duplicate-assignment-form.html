@@ -1,0 +1,48 @@
+<section class="duplicate-assignment" role="dialog" aria-modal="true" aria-labelledby="duplicate-assignment-title">
+  <header>
+    <div><span class="eyebrow">Source assignment</span><h2 id="duplicate-assignment-title">Duplicate Assignment</h2></div>
+    <button type="button" class="icon-close" aria-label="Close duplicate assignment dialog" (click)="cancel()" [disabled]="isSubmitting"><i class="bx bx-x" aria-hidden="true"></i></button>
+  </header>
+  <p class="source-title">{{ sourceTitle }}</p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <fieldset [disabled]="loadingClasses || isSubmitting">
+    <label for="duplicate-target-class">Duplicate to</label>
+    <select id="duplicate-target-class" formControlName="targetClassId">
+      @if (loadingClasses) { <option value="">Loading active classes…</option> }
+      @for (item of classes; track item._id) { <option [value]="item._id">{{ item.name }}</option> }
+    </select>
+    @if (form.controls.targetClassId.touched && form.controls.targetClassId.invalid) { <small class="field-error">Choose an active class you own.</small> }
+
+    <label for="duplicate-title">Title</label>
+    <input id="duplicate-title" type="text" formControlName="title" maxlength="200" [readOnly]="isSubmitting" />
+    @if (form.controls.title.touched && form.controls.title.invalid) { <small class="field-error">Enter a title of at least 3 characters.</small> }
+
+    <label for="duplicate-deadline">Deadline</label>
+    <input id="duplicate-deadline" type="date" formControlName="deadline" [readOnly]="isSubmitting" />
+    @if (sourceDeadlineExpired) { <small class="deadline-note">The source deadline has passed. Choose a new future deadline.</small> }
+    @if (form.controls.deadline.touched && form.controls.deadline.invalid) { <small class="field-error">Choose a future deadline.</small> }
+    </fieldset>
+
+    <div class="copied-settings" aria-label="Settings copied from the source assignment">
+      <strong>Copied settings</strong>
+      <ul>
+        @if (capabilities.resourceLabel) { <li><i class="bx bx-check" aria-hidden="true"></i>{{ capabilities.resourceLabel }}</li> }
+        @if (!capabilities.writingControls) { <li><i class="bx bx-check" aria-hidden="true"></i>Assignment details</li> }
+        @if (assignment?.instructions) { <li><i class="bx bx-check" aria-hidden="true"></i>Description</li> }
+        @if (capabilities.rubric && (assignment?.rubric || assignment?.rubrics)) { <li><i class="bx bx-check" aria-hidden="true"></i>Rubric</li> }
+        <li><i class="bx bx-check" aria-hidden="true"></i>Student access</li>
+        @if (capabilities.allowResubmission && assignment?.allowResubmission) { <li><i class="bx bx-check" aria-hidden="true"></i>Resubmission settings</li> }
+        @if (capabilities.requireAdaptiveBeforeResubmission && assignment?.requireAdaptiveBeforeResubmission) { <li><i class="bx bx-check" aria-hidden="true"></i>Adaptive Learning settings</li> }
+      </ul>
+    </div>
+
+    @if (error) { <p class="submit-error" role="alert">{{ error }}</p> }
+    <footer>
+      <button type="button" class="cancel" (click)="cancel()" [disabled]="isSubmitting">Cancel</button>
+      <button type="submit" class="create" [disabled]="form.invalid || loadingClasses || isSubmitting">
+        @if (isSubmitting) { <span class="spinner" aria-hidden="true"></span>Creating… } @else { <i class="bx bx-copy" aria-hidden="true"></i>Create Duplicate }
+      </button>
+    </footer>
+  </form>
+</section>

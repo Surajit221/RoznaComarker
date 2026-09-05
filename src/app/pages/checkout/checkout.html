@@ -5,16 +5,16 @@
     <article class="card summary">
       <p class="eyebrow">PLAN SUMMARY</p>
       <h2>{{ plan?.display?.title || plan?.name || 'Starter Monthly' }}</h2>
-      <p class="price">{{ plan?.price | currency:(plan?.currency || 'USD') }} <span>/ month</span></p>
+      <p class="price">{{ summaryPrice }} <span>{{ summaryPeriod }}</span></p>
       <ul>@for (feature of features(); track feature) { <li><span>✓</span>{{ feature }}</li> }</ul>
-      <div class="billing"><strong>Billing</strong><span>Monthly subscription</span></div>
+      <div class="billing"><strong>Billing</strong><span>{{ billingDescription }}</span></div>
     </article>
     <article class="card payment">
       <h2>Secure Checkout</h2>
       @if (loading) { <div class="state" aria-live="polite"><span class="spinner"></span>Preparing secure checkout…</div> }
       @if (errorMessage) { <div class="error" role="alert">{{ errorMessage }}<button type="button" (click)="retry()">Try Again</button><a routerLink="/pricing">Return to Pricing</a></div> }
       <div id="embedded-checkout" [class.hidden]="loading || errorMessage"></div>
-      <p class="secure">🔒 Secure payment powered by Stripe</p>
+      <p class="secure">🔒 Secure payment powered by {{ paymentProvider === 'paypal' ? 'PayPal' : 'Stripe' }}</p>
       <a class="cancel-link" routerLink="/checkout/cancel">Cancel checkout</a>
     </article>
   </div>

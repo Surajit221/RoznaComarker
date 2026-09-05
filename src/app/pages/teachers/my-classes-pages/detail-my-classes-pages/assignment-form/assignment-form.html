@@ -18,25 +18,32 @@
     </div>
   </div>
 
+  @if (capabilities.showMarksToStudent || capabilities.allowResubmission) {
   <fieldset class="assignment-settings">
     <legend>Student access</legend>
+    @if (capabilities.showMarksToStudent) {
     <label class="assignment-setting">
       <span><strong>Show marks to students</strong><small>All students in this assignment can see their overall and rubric marks.</small></span>
       <input type="checkbox" formControlName="showMarksToStudent" />
     </label>
+    }
+    @if (capabilities.allowResubmission) {
     <label class="assignment-setting">
       <span><strong>Allow another draft</strong><small>All students in this assignment may replace their current draft.</small></span>
       <input type="checkbox" formControlName="allowResubmission" (change)="onAllowResubmissionChange()" />
     </label>
-    @if (classForm.get('allowResubmission')?.value === true) {
+    }
+    @if (capabilities.requireAdaptiveBeforeResubmission && classForm.get('allowResubmission')?.value === true) {
       <label class="assignment-setting assignment-setting--dependent">
         <span><strong>Require Adaptive Learning first</strong><small>Students must complete Adaptive Learning for their current draft before submitting another one.</small></span>
         <input type="checkbox" formControlName="requireAdaptiveBeforeResubmission" />
       </label>
     }
   </fieldset>
+  }
 
   <div class="grid grid-cols-2 gap-4 w-full">
+    @if (!isResourceAssignment) {
     <div class="w-full">
       <div class="flex flex-col gap-1">
         <label for="role" class="text-sm font-bold pl-2">Genre</label>
@@ -71,6 +78,7 @@
         }
       </div>
     </div>
+    }
 
     <div class="w-full">
       <div class="flex flex-col gap-1">
@@ -112,10 +120,12 @@
     </div>
   </div>
 
+  @if (!isResourceAssignment && assignment?._id) {
   <div class="grid grid-cols-1 gap-4 w-full">
     <div class="w-full">
       <div class="flex flex-col gap-1">
-
+        <label class="text-sm font-bold pl-2">Rubric</label>
+        <button type="button" class="rubric-action" (click)="openRubricDesignerDialog()">{{ rubricDesignerForModal ? 'Edit Rubric' : 'Add Rubric' }}</button>
         @if (rubricDesignerForModal) {
         <div class="text-sm text-green-600 mt-1">
           ✓ Rubric configured with {{ rubricDesignerForModal.criteria.length }} criteria and {{
@@ -125,6 +135,7 @@
       </div>
     </div>
   </div>
+  }
 
   @if(device.isDesktop()) {
   <div class="flex justify-center items-center gap-3">
@@ -143,8 +154,24 @@
   }
 </form>
 
-<!-- Rubric Designer Modal -->
+<!-- Rubric editing belongs to an already-persisted Assignment. -->
+@if (assignment?._id) {
 <app-rubric-designer-modal [open]="isRubricDialogOpen" [rubricDesigner]="rubricDesignerForModal"
-  [isSaving]="isRubricSaving" [defaultTitle]="'Assignment Rubric'" (closed)="closeRubricDesignerDialog()"
-  (save)="onRubricDesignerSave($event)">
+  [isSaving]="isRubricSaving || isSavingToLibrary" [isGenerating]="isRubricGenerating"
+  [defaultTitle]="'Assignment Rubric'" (closed)="closeRubricDesignerDialog()"
+  (save)="onRubricDesignerSave($event)" (generateAi)="onRubricGenerateAi($event)"
+  (useExisting)="openExistingRubricSelector()" (saveToLibrary)="openSaveToLibrary($event)"
+  (attachFile)="onRubricFileAttach($event)">
 </app-rubric-designer-modal>
+
+<app-rubric-library-selector [open]="isRubricSelectorOpen" (closed)="isRubricSelectorOpen = false" (selected)="useExistingRubric($event)" />
+
+<app-modal-dialog [open]="isSaveToLibraryOpen" (closed)="isSaveToLibraryOpen = false">
+  <section role="dialog" aria-modal="true" aria-labelledby="save-rubric-title" class="save-rubric-dialog">
+    <h2 id="save-rubric-title">Save Rubric</h2>
+    <label>Name<input [(ngModel)]="libraryName" [ngModelOptions]="{standalone: true}" maxlength="120" /></label>
+    <label>Description (optional)<textarea [(ngModel)]="libraryDescription" [ngModelOptions]="{standalone: true}" maxlength="1000"></textarea></label>
+    <div><button type="button" (click)="isSaveToLibraryOpen = false">Cancel</button><button type="button" class="btn-primary" [disabled]="isSavingToLibrary || !libraryName.trim()" (click)="saveCurrentRubricToLibrary()">{{ isSavingToLibrary ? 'Saving…' : 'Save Rubric' }}</button></div>
+  </section>
+</app-modal-dialog>
+}

@@ -1,10 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { AfterViewChecked, Component, inject, OnDestroy, signal } from '@angular/core';
 import { DeviceService } from '../../../services/device.service';
 import { TeacherDashboardStateService } from '../../../services/teacher-dashboard-state.service';
 import { Router } from '@angular/router';
 import type { DashboardSubmission } from '../../../models/dashboard-submission.model';
 import type { TeacherDashboardClassCard } from '../../../models/dashboard-submission.model';
+import { TeacherActivityStateService } from '../../../services/teacher-activity-state.service';
+import { TeacherActivityApiService, type ProfessionalMilestoneSummary } from '../../../api/teacher-activity-api.service';
+import { NotificationRealtimeService } from '../../../services/notification-realtime.service';
+import { Subscription } from 'rxjs';
+import { WeeklyTeacherSummaryStateService } from '../../../services/weekly-teacher-summary-state.service';
 
 @Component({
   selector: 'app-dashboard-teacher-pages',
@@ -12,11 +17,19 @@ import type { TeacherDashboardClassCard } from '../../../models/dashboard-submis
   templateUrl: './dashboard-teacher-pages.html',
   styleUrl: './dashboard-teacher-pages.css',
 })
-export class DashboardTeacherPages {
+export class DashboardTeacherPages implements AfterViewChecked, OnDestroy {
   device = inject(DeviceService);
 
   private readonly dashboardState = inject(TeacherDashboardStateService);
   private readonly router = inject(Router);
+  private readonly teacherActivity = inject(TeacherActivityStateService);
+  private readonly activityApi = inject(TeacherActivityApiService);
+  readonly milestones = signal<ProfessionalMilestoneSummary | null>(null);
+  private readonly milestoneEvents: Subscription;
+  readonly activityState$ = this.teacherActivity.state$;
+  private readonly weeklySummary = inject(WeeklyTeacherSummaryStateService);
+  readonly weeklySummaryState$ = this.weeklySummary.state$;
+  weeklyDetailsOpen = false;
 
   readonly pendingCount$ = this.dashboardState.pendingCount$;
   readonly pendingTodayCount$ = this.dashboardState.pendingTodayCount$;
@@ -25,11 +38,30 @@ export class DashboardTeacherPages {
   readonly classCards$ = this.dashboardState.classCards$;
   readonly needsAttention$ = this.dashboardState.needsAttention$;
 
+  constructor() {
+    this.milestoneEvents = inject(NotificationRealtimeService).events$.subscribe((event) => {
+      if (event?.type === 'professional_milestone_updated') void this.refreshMilestones();
+    });
+  }
+
   async ngOnInit() {
     // Refresh on each dashboard entry so evaluations completed while the teacher
     // was on another page are reflected without polling.
-    await this.dashboardState.refresh();
+    await Promise.all([this.dashboardState.refresh(), this.teacherActivity.refresh(), this.weeklySummary.refresh(), this.refreshMilestones()]);
   }
+
+  ngOnDestroy(): void { this.milestoneEvents.unsubscribe(); }
+  async refreshMilestones(): Promise<void> { try { this.milestones.set(await this.activityApi.getMilestones()); } catch { /* dashboard remains usable */ } }
+
+  ngAfterViewChecked(): void {
+    // This hook runs only after Angular has presented the current template.
+    // The service makes repeated change-detection passes idempotent per token.
+    void this.teacherActivity.acknowledgeDisplayedSummary();
+  }
+
+  retryActivity(): void { void this.teacherActivity.refresh(); }
+  retryWeeklySummary(): void { void this.weeklySummary.refresh(); }
+  toggleWeeklyDetails(): void { this.weeklyDetailsOpen = !this.weeklyDetailsOpen; }
 
   onCreateClass(): void {
     this.router.navigate(['/teacher/my-classes'], {

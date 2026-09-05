@@ -671,6 +671,26 @@
         }
       </div>
 
+      @if (shortAnswerQuestions().length) {
+        <div class="wv-card wv-activity-card">
+          <div class="wv-activity-header">
+            <div><p class="wv-section-label">WRITTEN RESPONSE</p><h3 class="wv-activity-title">Short Answer</h3>
+              <p class="wv-activity-inst">Answer each question in your own words.</p></div>
+            <span class="wv-score-badge">{{ shortAnswerCompleted() }} / {{ shortAnswerTotal() }}</span>
+          </div>
+          <div class="wv-sentences">
+            @for (q of shortAnswerQuestions(); track q.id) {
+              <div class="wv-sentence">
+                <label [for]="'short-' + q.id">{{ q.text }}</label>
+                <textarea [id]="'short-' + q.id" class="input-text w-full min-h-28" [ngModel]="shortAnswerAnswers()[q.id] || ''"
+                  (ngModelChange)="setShortAnswer(q.id, $event)"
+                  [disabled]="reviewMode || isSubmitted()"></textarea>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
       <!-- ACTIVITIES ROW 4 -->
       <div class="wv-activities-row">
 

@@ -132,6 +132,13 @@
   color: #dc2626;
 }
 
+.wer-validation-summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; padding:14px 16px; border:1px solid #f59e0b; border-radius:10px; background:#fffbeb; color:#92400e; }
+.wer-validation-summary button { border:0; border-radius:6px; padding:7px 12px; background:#92400e; color:#fff; cursor:pointer; }
+.wer-question-invalid { border:2px solid #dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.1); }
+.wer-needs-review { margin-left:auto; border-radius:999px; padding:3px 9px; background:#fee2e2; color:#991b1b; font-size:11px; font-weight:700; text-transform:uppercase; }
+.wer-inline-error { margin:10px 0 0; color:#b91c1c; font-size:13px; font-weight:600; }
+.wer-guidance-help { margin:6px 0 0; color:#6b7280; font-size:12px; line-height:1.4; }
+
 .wer-sections {
   display: flex;
   flex-direction: column;

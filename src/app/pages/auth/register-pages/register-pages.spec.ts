@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { RegisterPages } from './register-pages';
+import { provideRouter } from '@angular/router';
 
 describe('RegisterPages', () => {
   let component: RegisterPages;
@@ -8,7 +9,7 @@ describe('RegisterPages', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [RegisterPages]
+      imports: [RegisterPages], providers: [provideRouter([])]
     })
     .compileComponents();
 

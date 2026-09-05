@@ -22,6 +22,7 @@ export type BackendPlan = {
   assessmentCreditNudges?: { softThresholdPercent: number; warningThresholdPercent: number };
   purchasable?: boolean;
   annualBillingAvailable?: boolean;
+  paymentProvider?: 'stripe' | 'paypal';
   features: {
     maxClasses: number | null;
     maxStudents: number | null;

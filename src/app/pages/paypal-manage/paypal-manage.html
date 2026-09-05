@@ -1,0 +1,76 @@
+<main class="manage-shell">
+  <a routerLink="/teacher/dashboard" class="back-link">&larr; Back to dashboard</a>
+  <header><p class="eyebrow">Teacher account</p><h1>Account &amp; Plan</h1><p>Your authoritative plan, billing, credits, usage, and account benefits in one place.</p></header>
+  @if (message) { <div class="notice" role="status" aria-live="polite">{{ message }}</div> }
+  @if (error) { <div class="error" role="alert">{{ error }} <button type="button" (click)="load()">Try again</button></div> }
+  @if (loading) { <div class="loading" role="status">Loading your account&hellip;</div> }
+  @else if (subscription()) {
+    <section class="current-card" aria-labelledby="current-plan-title">
+      <div><p class="label">Current plan</p><h2 id="current-plan-title">{{ currentPlan?.display?.title || currentPlan?.name }}</h2>
+        <p class="price">{{ formatPrice(currentPlan, billing?.billingPeriod) }}<span>{{ formatPeriod(currentPlan, billing?.billingPeriod) }}</span></p></div>
+      <dl><div><dt>Provider</dt><dd>{{ billing?.provider | titlecase }}</dd></div><div><dt>Billing period</dt><dd>{{ billing?.billingPeriod | titlecase }}</dd></div>
+        <div><dt>Next billing</dt><dd>{{ formatDate(billing?.currentPeriodEnd) }}</dd></div><div><dt>Status</dt><dd>{{ billing?.subscriptionStatus || 'Free' | titlecase }}</dd></div></dl>
+      @if (billing?.pendingPlanChange) { <div class="pending" role="status"><strong>Plan change pending</strong><span>Target: {{ billing?.pendingTargetPlanCode }}</span></div> }
+      @if (billing?.pendingCancellation) { <div class="pending" role="status"><strong>Cancellation pending</strong><span>Waiting for provider confirmation</span></div> }
+      <div class="actions"><button type="button" class="primary" (click)="scrollToPlans()">{{ billing?.subscriptionId ? 'Change Plan' : 'View Plans' }}</button>
+        @if (billing?.provider === 'stripe' && billing?.customerConfigured) { <button type="button" class="secondary" (click)="manageStripe()">Manage Billing</button> }
+        @if (billing?.provider === 'paypal' && billing?.subscriptionId) { <button type="button" class="secondary danger" [disabled]="!billing?.canCancel || billing?.pendingCancellation || !!submitting" (click)="openCancel()">Cancel Subscription</button> }</div>
+    </section>
+
+    <section class="metrics-grid" aria-label="Account usage">
+      <article class="metric-card accent"><p class="label">Assessment Credits</p><strong>{{ wallet()?.availableCredits ?? 'Unavailable' }}</strong><span>available</span>
+        @if (creditPercent !== null) { <div class="meter" role="progressbar" aria-label="Monthly Assessment Credits used" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="creditPercent"><i [style.width.%]="creditPercent"></i></div> }
+        <small>{{ wallet()?.monthlyCreditsUsed ?? '—' }} / {{ wallet()?.monthlyCredits ?? '—' }} used this cycle · {{ wallet()?.purchasedCredits ?? '—' }} purchased · {{ wallet()?.bonusCredits ?? '—' }} bonus</small>
+        @if (creditUsageMessage) { <p class="credit-usage-context" data-testid="credit-usage-context" role="status">{{ creditUsageMessage }}</p> }
+        <button type="button" class="add-credits-action" aria-label="Add assessment credits" (click)="openCreditTopup()">Add Credits</button></article>
+      <article class="metric-card" data-testid="bonus-credits-section"><p class="label">Bonus Credits</p>
+        <strong>{{ wallet()?.bonusCredits ?? 0 }}</strong><span>Earned from rewards and referrals.</span>
+        <small>Bonus credits are not cleared by the monthly plan reset.</small></article>
+      <article class="metric-card"><p class="label">Storage</p><strong>{{ storageUsedLabel }}</strong><span>of {{ currentPlan?.features?.storageMB ?? currentPlan?.limits?.storageMB ?? 'Unlimited' }} MB</span>
+        @if (storagePercent !== null) { <div class="meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="storagePercent"><i [style.width.%]="storagePercent"></i></div><small>{{ storagePercentLabel }}</small> }</article>
+      <article class="metric-card"><p class="label">AI flashcards</p><strong>{{ usage?.aiFlashcards ?? 0 }}</strong><span>of {{ currentPlan?.features?.aiFlashcardsLimit ?? (currentPlan?.features?.aiFlashcards ? 'Unlimited' : 0) }}</span>
+        @if (usagePercent(usage?.aiFlashcards, currentPlan?.features?.aiFlashcardsLimit) !== null) { <div class="meter"><i [style.width.%]="usagePercent(usage?.aiFlashcards, currentPlan?.features?.aiFlashcardsLimit)"></i></div> }</article>
+      <article class="metric-card"><p class="label">AI worksheets</p><strong>{{ usage?.aiWorksheets ?? 0 }}</strong><span>of {{ currentPlan?.features?.aiWorksheetsLimit ?? (currentPlan?.features?.aiWorksheets ? 'Unlimited' : 0) }}</span>
+        @if (usagePercent(usage?.aiWorksheets, currentPlan?.features?.aiWorksheetsLimit) !== null) { <div class="meter"><i [style.width.%]="usagePercent(usage?.aiWorksheets, currentPlan?.features?.aiWorksheetsLimit)"></i></div> }</article>
+      <article class="metric-card"><p class="label">Classes</p><strong>{{ usage?.classes ?? 0 }}</strong><span>of {{ currentPlan?.features?.maxClasses ?? currentPlan?.limits?.classes ?? 'Unlimited' }}</span></article>
+      <article class="metric-card"><p class="label">Students</p><strong>{{ usage?.students ?? 0 }}</strong><span>of {{ currentPlan?.features?.maxStudents ?? currentPlan?.limits?.students ?? 'Unlimited' }}</span></article>
+      <article class="metric-card"><p class="label">Adaptive Practice</p><strong>{{ currentPlan?.features?.adaptiveLearning ? 'Included' : 'Not included' }}</strong><span>{{ currentPlan?.features?.adaptiveLearningLimit ? currentPlan?.features?.adaptiveLearningLimit + ' activities' : 'Plan entitlement' }}</span></article>
+      <article class="metric-card referral" data-testid="referral-section"><p class="label">Give 5 / Get 5</p>
+        <strong>Refer a teacher, get {{ subscription()?.referrals?.rewardCreditsEach ?? 5 }} credits each.</strong>
+        <span>Rewards unlock after their first successful AI assessment.</span>
+        @if (referralLink) { <label class="referral-link-label" for="referral-link">Your referral link</label><input id="referral-link" class="referral-link" [value]="referralLink" readonly aria-label="Your referral link"><button type="button" aria-label="Copy your referral link" (click)="copyReferralLink()">{{ copied ? 'Referral link copied' : 'Copy invite link' }}</button> }
+        <dl class="referral-stats" aria-label="Referral reward statistics">
+          <div><dt>Referred</dt><dd>{{ subscription()?.referrals?.attributed ?? subscription()?.referrals?.count ?? 0 }}</dd></div>
+          <div><dt>Qualified</dt><dd>{{ subscription()?.referrals?.qualified ?? 0 }}</dd></div>
+          <div><dt>Rewarded</dt><dd>{{ subscription()?.referrals?.rewarded ?? 0 }}</dd></div>
+          <div><dt>Bonus earned</dt><dd>{{ subscription()?.referrals?.bonusCreditsEarned ?? 0 }}</dd></div>
+        </dl>
+        @if (subscription()?.referrals?.pending) { <p class="referral-pending" role="status">{{ subscription()?.referrals?.pending }} referral pending qualification</p> }
+        @if (subscription()?.referrals?.referrals?.length) {
+          <ul class="referral-list" aria-label="Recent referrals">
+            @for (referral of subscription()?.referrals?.referrals; track referral.id) {
+              <li><span>{{ referral.name }}</span><strong>{{ referral.status === 'REVIEW_REQUIRED' ? 'Pending verification' : (referral.status | titlecase) }}</strong><time [attr.datetime]="referral.date">{{ formatDate(referral.date) }}</time></li>
+            }
+          </ul>
+        }
+      </article>
+    </section>
+
+    <section id="available-plans" class="plans-section" aria-labelledby="available-title">
+      <h2 id="available-title">Available plans</h2><p>Options reflect the configured {{ plans[0]?.paymentProvider || billing?.provider }} payment provider.</p>
+      <div class="plan-grid">@for (plan of availablePlans; track plan.slug) {
+        <article class="plan-card"><div><p class="label">{{ plan.billingInterval | titlecase }}</p><h3>{{ plan.display.title || plan.name }}</h3>
+          <p class="price">{{ formatPrice(plan) }}<span>{{ formatPeriod(plan) }}</span></p><p>{{ plan.features.essayAnalysesPerMonth ?? 'Custom' }} Assessment Credits/month</p></div>
+          <button type="button" [disabled]="billing?.provider === 'paypal' && (!!billing?.pendingPlanChange || !!billing?.pendingCancellation || !!submitting)" (click)="choosePlan(plan)">Choose {{ plan.display.title || plan.name }}</button></article>
+      } @empty { <p>No other paid plans are configured for the selected provider.</p> }</div>
+    </section>
+  }
+</main>
+
+<app-credit-topup />
+
+@if (dialog) {
+<div class="dialog-backdrop" (click)="$event.target === $event.currentTarget && closeDialog()"><section class="confirm-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="dialog === 'cancel' ? 'cancel-title' : 'change-title'" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+  @if (dialog === 'cancel') { <h2 id="cancel-title">Cancel {{ currentPlan?.display?.title || currentPlan?.name }}?</h2><p>Your subscription will be cancelled according to PayPal billing rules. Your account data remains available.</p><div class="dialog-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="closeDialog()">Keep Plan</button><button type="button" class="danger primary" [disabled]="!!submitting" (click)="confirmCancel()">{{ submitting === 'cancel' ? 'Requesting cancellation…' : 'Cancel Subscription' }}</button></div> }
+  @else { <h2 id="change-title">Confirm plan change</h2><div class="change-summary"><div><span>Current</span><strong>{{ currentPlan?.display?.title || currentPlan?.name }}</strong></div><span aria-hidden="true">&rarr;</span><div><span>New</span><strong>{{ target?.display?.title || target?.name }}</strong></div></div><p>PayPal may ask you to log in and approve the change. Your application plan changes only after provider confirmation.</p><div class="dialog-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="closeDialog()">Cancel</button><button type="button" class="primary" [disabled]="!!submitting" (click)="confirmChange()">{{ submitting === 'change' ? 'Starting PayPal…' : 'Continue with PayPal' }}</button></div> }
+</section></div> }

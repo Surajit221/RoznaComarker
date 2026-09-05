@@ -26,4 +26,22 @@ describe('MyNotificationPages', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('filters the existing notification stream without changing its order', () => {
+    const notification = (id: string, category: 'ACTION_REQUIRED' | 'STUDENT_PROGRESS' | 'REWARD') => ({
+      _id: id, recipient: 'teacher', type: 'test', category, priority: 'NORMAL' as const,
+      title: id, description: id, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+    component.notifications = [
+      notification('action', 'ACTION_REQUIRED'),
+      notification('progress', 'STUDENT_PROGRESS'),
+      notification('reward', 'REWARD')
+    ];
+
+    component.filter = 'STUDENT_PROGRESS';
+
+    expect(component.filteredNotifications.map((item) => item._id)).toEqual(['progress']);
+    component.filter = 'ALL';
+    expect(component.filteredNotifications.map((item) => item._id)).toEqual(['action', 'progress', 'reward']);
+  });
 });

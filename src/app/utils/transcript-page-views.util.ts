@@ -48,9 +48,10 @@ function annotation(correction: any, submissionId: string, wordIds: Set<string>)
 export function buildTranscriptPageViews(options: { submissionId: string; fileIds: string[]; ocrPages: any[]; corrections: any[];
   overallOcrStatus?: string }): TranscriptPageView[] {
   const order = new Map(options.fileIds.map((fileId, index) => [String(fileId), index]));
+  const currentFileIds = new Set(options.fileIds.map(String));
   const persistedOrder = new Map<any, number>();
   options.ocrPages.forEach((page, index) => persistedOrder.set(page, index));
-  const pages = [...options.ocrPages];
+  const pages = options.ocrPages.filter((page) => currentFileIds.has(id(page?.fileId)));
   for (const fileId of options.fileIds) if (!pages.some((page) => id(page?.fileId) === fileId)) pages.push({ fileId, pageNumber: 1,
     status: options.overallOcrStatus === 'failed' ? 'failed' : 'processing', words: [], text: '' });
   pages.sort((a, b) => (order.get(id(a?.fileId)) ?? Number.MAX_SAFE_INTEGER) - (order.get(id(b?.fileId)) ?? Number.MAX_SAFE_INTEGER)

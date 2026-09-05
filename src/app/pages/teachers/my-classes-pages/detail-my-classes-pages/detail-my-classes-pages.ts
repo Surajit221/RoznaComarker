@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
@@ -16,7 +17,7 @@ import {
   type BackendAssignment,
   type BackendFlashcardAssignmentSubmission,
 } from '../../../../api/assignment-api.service';
-import { RubricApiService } from '../../../../api/rubric-api.service';
+import { RubricApiService, type SavedRubric } from '../../../../api/rubric-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassStudent, type BackendClassSummary } from '../../../../api/class-api.service';
 import { SubmissionApiService } from '../../../../api/submission-api.service';
@@ -31,11 +32,17 @@ import { FlashcardAssignModal } from '../../../../components/teacher/flashcard-a
 import { WorksheetViewerComponent } from '../../../../components/worksheet-viewer/worksheet-viewer';
 import { ResourceStateService } from '../../../../services/resource-state.service';
 import { AuthService } from '../../../../auth/auth.service';
+import { DuplicateAssignmentForm, type AssignmentDuplicatedEvent } from './duplicate-assignment-form/duplicate-assignment-form';
+import { getAssignmentCapabilities } from '../../../../utils/assignment-capabilities';
+import { RubricLibrarySelector } from '../../../../components/teacher/rubric-library-selector/rubric-library-selector';
+import { RubricLibraryStateService } from '../../../../services/rubric-library-state.service';
+import { designerToRubricData, rubricDataToDesigner } from '../../../../utils/rubric-library.util';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
   imports: [
     CommonModule,
+    FormsModule,
     ModalDialog,
     AssignmentForm,
     DialogQrClasses,
@@ -49,6 +56,8 @@ import { AuthService } from '../../../../auth/auth.service';
     FlashcardAssignModal,
     WorksheetViewerComponent,
     ErrorModal,
+    DuplicateAssignmentForm,
+    RubricLibrarySelector,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
@@ -69,6 +78,7 @@ export class DetailMyClassesPages {
   showDialogQRClasses = false;
   showDialogQRAssignment = false;
   showInviteDialog = false;
+  showDuplicateDialog = false;
   device = inject(DeviceService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -80,6 +90,7 @@ export class DetailMyClassesPages {
   private qrGenerator = inject(QrGeneratorService);
   private realtime = inject(NotificationRealtimeService);
   private auth = inject(AuthService);
+  private rubricLibraryState = inject(RubricLibraryStateService);
 
   private realtimeSub: Subscription | null = null;
   private pollId: number | null = null;
@@ -97,6 +108,13 @@ export class DetailMyClassesPages {
   selectedRubricDefaultTitle = 'Rubric';
   isRubricGenerating = false;
   isRubricAttaching = false;
+  isRubricSaving = false;
+  isRubricSelectorOpen = false;
+  isSaveRubricToLibraryOpen = false;
+  isSavingRubricToLibrary = false;
+  libraryRubricName = '';
+  libraryRubricDescription = '';
+  private libraryRubricDraft: RubricDesigner | null = null;
 
   classId: string | null = null;
   isLoading = false;
@@ -156,11 +174,13 @@ export class DetailMyClassesPages {
   selectedQrAssignmentId: string | null = null;
 
   selectedAssignmentForEdit: BackendAssignment | null = null;
+  selectedAssignmentForDuplicate: BackendAssignment | null = null;
 
   private assignmentsById: Record<string, BackendAssignment> = {};
+  get assignmentRecords(): BackendAssignment[] { return Object.values(this.assignmentsById); }
 
   get assignmentDialogTitle(): string {
-    return this.selectedAssignmentForEdit ? 'Edit Assignment' : 'Create Writing Assignment';
+    return this.selectedAssignmentForEdit ? getAssignmentCapabilities(this.selectedAssignmentForEdit).editTitle : 'Create Writing Assignment';
   }
 
   assignments: Array<{
@@ -558,7 +578,7 @@ export class DetailMyClassesPages {
     }
   }
 
-  async onAssignmentCreated(_created: BackendAssignment) {
+  async onAssignmentCreated(created: BackendAssignment) {
     this.closeDialog();
     this.onCloseCreateAssignment();
     if (this.classId) {
@@ -567,18 +587,10 @@ export class DetailMyClassesPages {
     this.classApi.invalidateTeacherClassesList();
     await this.loadAssignments();
 
-    const assignmentId = _created && _created._id ? String(_created._id) : '';
-    if (!assignmentId) return;
-
-    const ok = await this.alert.showConfirm(
-      'Add rubric now?',
-      'Do you want to add a rubric for this assignment now?',
-      'Yes, add rubric',
-      'Not now'
-    );
-    if (!ok) return;
-
-    await this.openRubricForAssignment(assignmentId);
+    const assignmentId = created?._id ? String(created._id) : '';
+    if (assignmentId && getAssignmentCapabilities(created).writingControls) {
+      await this.openRubricForAssignment(assignmentId);
+    }
   }
 
   onOpenRubric(assignmentId: string) {
@@ -616,6 +628,8 @@ export class DetailMyClassesPages {
     this.selectedRubricAssignmentId = null;
     this.selectedRubricDesigner = null;
     this.isRubricGenerating = false;
+    this.isRubricSelectorOpen = false;
+    this.isSaveRubricToLibraryOpen = false;
   }
 
   async onAssignmentRubricGenerateAi(prompt: string) {
@@ -646,6 +660,8 @@ export class DetailMyClassesPages {
     if (!assignmentId) return;
     if (!designer) return;
 
+    if (this.isRubricSaving) return;
+    this.isRubricSaving = true;
     try {
       const normalizedDesigner = this.normalizeRubricDesigner(designer, this.selectedRubricDefaultTitle);
       const rubrics = this.toAssignmentRubrics(normalizedDesigner);
@@ -662,6 +678,52 @@ export class DetailMyClassesPages {
       await this.loadAssignments();
     } catch (err: any) {
       this.errorModal = { open: true, title: 'Save rubric failed', message: err?.error?.message || err?.message || 'Please try again' };
+    } finally {
+      this.isRubricSaving = false;
+    }
+  }
+
+  openExistingRubricSelector(): void {
+    this.isRubricSelectorOpen = true;
+  }
+
+  async useExistingRubric(saved: SavedRubric): Promise<void> {
+    if (this.selectedRubricDesigner) {
+      const confirmed = await this.alert.showConfirm(
+        'Replace assignment rubric?',
+        `This assignment already has a rubric. Replace it with “${saved.name}”?`
+      );
+      if (!confirmed) return;
+    }
+    this.selectedRubricDesigner = structuredClone(rubricDataToDesigner(saved.rubricData, saved.name));
+    this.isRubricSelectorOpen = false;
+    this.alert.showToast('Saved rubric copied into assignment', 'success');
+  }
+
+  openSaveRubricToLibrary(designer: RubricDesigner): void {
+    this.libraryRubricDraft = structuredClone(designer);
+    this.libraryRubricName = this.selectedRubricDefaultTitle.replace(/^Rubric:\s*/, '').trim() || 'Assignment Rubric';
+    this.libraryRubricDescription = '';
+    this.isSaveRubricToLibraryOpen = true;
+  }
+
+  async saveCurrentRubricToLibrary(): Promise<void> {
+    if (this.isSavingRubricToLibrary || !this.libraryRubricDraft || !this.libraryRubricName.trim()) return;
+    this.isSavingRubricToLibrary = true;
+    try {
+      const saved = await this.rubricApi.createSavedRubric({
+        name: this.libraryRubricName.trim(),
+        description: this.libraryRubricDescription.trim() || undefined,
+        rubricData: designerToRubricData(this.libraryRubricDraft)
+      });
+      this.rubricLibraryState.upsert(saved);
+      this.isSaveRubricToLibraryOpen = false;
+      this.libraryRubricDraft = null;
+      this.alert.showToast('Rubric saved to library', 'success');
+    } catch (err: any) {
+      this.alert.showError('Unable to save rubric', err?.error?.message || 'Please review the rubric and try again.');
+    } finally {
+      this.isSavingRubricToLibrary = false;
     }
   }
 
@@ -846,6 +908,7 @@ export class DetailMyClassesPages {
     submitted: number;
     total: number;
     lastActivity: string;
+    progress: BackendClassStudent['progress'];
   }> = [];
 
   get studentsCount(): number {
@@ -871,7 +934,8 @@ export class DetailMyClassesPages {
       status: (joined ? 'ACTIVE' : 'INVITED') as 'ACTIVE' | 'INVITED',
       submitted: 0,
       total: 0,
-      lastActivity
+      lastActivity,
+      progress: s.progress || null
     };
   }
 
@@ -1004,16 +1068,6 @@ export class DetailMyClassesPages {
   onEditAssignment(assignmentId: string) {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
-    if (found.resourceType === 'flashcard' && found.resourceId) {
-      this.router.navigate(['/flashcards', found.resourceId, 'edit'], {
-        queryParams: { returnToClassId: this.classId ?? undefined }
-      });
-      return;
-    }
-    if (found.resourceType === 'worksheet' && found.resourceId) {
-      this.router.navigate(['/worksheets', found.resourceId, 'edit']);
-      return;
-    }
     this.selectedAssignmentForEdit = found;
     this.showDialog = true;
   }
@@ -1021,16 +1075,6 @@ export class DetailMyClassesPages {
   onOpenEditAssignmentSheet(assignmentId: string) {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
-    if (found.resourceType === 'flashcard' && found.resourceId) {
-      this.router.navigate(['/flashcards', found.resourceId, 'edit'], {
-        queryParams: { returnToClassId: this.classId ?? undefined }
-      });
-      return;
-    }
-    if (found.resourceType === 'worksheet' && found.resourceId) {
-      this.router.navigate(['/worksheets', found.resourceId, 'edit']);
-      return;
-    }
     this.selectedAssignmentForEdit = found;
     this.openSheetAssignment = true;
   }
@@ -1098,6 +1142,37 @@ export class DetailMyClassesPages {
   closeDialogSubmission() {
     this.showDialogSubmission = false;
     this.selectedAssignmentId = null;
+  }
+
+  openDuplicateAssignment(assignmentId: string): void {
+    const assignment = this.assignmentsById[assignmentId];
+    if (!assignment) {
+      this.alert.showWarning('Assignment unavailable', 'Refresh the class and try again.');
+      return;
+    }
+    this.selectedAssignmentForDuplicate = assignment;
+    this.showDuplicateDialog = true;
+  }
+
+  closeDuplicateAssignment(): void {
+    this.showDuplicateDialog = false;
+    this.selectedAssignmentForDuplicate = null;
+  }
+
+  async onAssignmentDuplicated(event: AssignmentDuplicatedEvent): Promise<void> {
+    const { assignment, targetClassId } = event;
+    this.closeDuplicateAssignment();
+    this.classApi.invalidateClassSummary(targetClassId);
+    this.classApi.invalidateTeacherClassesList();
+    this.alert.showToast('Assignment duplicated successfully.', 'success');
+
+    if (targetClassId !== this.classId) {
+      await this.router.navigate(['/teacher/my-classes/detail', targetClassId]);
+      return;
+    }
+
+    this.assignmentsById = { ...this.assignmentsById, [assignment._id]: assignment };
+    this.assignments = [{ ...this.mapAssignment(assignment), total: this.studentsCount }, ...this.assignments];
   }
 
   async onSubmissionRemoved(): Promise<void> {

@@ -13,6 +13,7 @@ import { NotificationRealtimeService } from '../../services/notification-realtim
 import { RoleService } from '../../services/role.service';
 import { DashboardLayout } from './dashboard-layout';
 import { routedComponentProviders } from '../../../testing/standalone-test-providers';
+import { AccountStateService } from '../../services/account-state.service';
 
 describe('DashboardLayout subscription ownership', () => {
   let fixture: ComponentFixture<DashboardLayout>;
@@ -26,8 +27,10 @@ describe('DashboardLayout subscription ownership', () => {
     billing: any = null,
     viewport: 'desktop' | 'mobile' = 'desktop',
     unreadCount = 0,
-    realtimeNotifications = new Subject<BackendNotification>()
+    realtimeNotifications = new Subject<BackendNotification>(),
+    creditApiOverrides: Record<string, any> = {}
   ) {
+    const realtimeEvents = new Subject<any>();
     const getMySubscription = jasmine.createSpy('getMySubscription').and.resolveTo({
       plan: {
         name: 'Free',
@@ -64,6 +67,20 @@ describe('DashboardLayout subscription ownership', () => {
       usage: { classes: 0, assignments: 0, students: 0, submissions: 0, storageMB: 0 }
     });
     const createCustomerPortal = jasmine.createSpy('createCustomerPortal').and.rejectWith(new Error('stop redirect'));
+    const creditsApi = {
+      getWallet: jasmine.createSpy('getWallet').and.resolveTo({ plan: 'free', monthlyCredits: 25, monthlyCreditsUsed: 0,
+        monthlyCreditsRemaining: 25, purchasedCredits: 0, bonusCredits: 0, availableCredits: 25,
+        resetDate: '2026-09-01', billingCycleStart: '2026-08-01', billingCycleEnd: '2026-09-01',
+        usagePercent: 0, nudgeThresholds: { soft: 50, warning: 80 }, warningAcknowledged: false }),
+      getPacks: jasmine.createSpy('getPacks').and.resolveTo({ packs: [], paymentProvider: 'stripe' }),
+      createTopupCheckout: jasmine.createSpy('createTopupCheckout'),
+      createPayPalOrder: jasmine.createSpy('createPayPalOrder'),
+      capturePayPalOrder: jasmine.createSpy('capturePayPalOrder'),
+      getPayPalPurchase: jasmine.createSpy('getPayPalPurchase'),
+      cancelPayPalPurchase: jasmine.createSpy('cancelPayPalPurchase'),
+      acknowledgeNudge: jasmine.createSpy('acknowledgeNudge').and.rejectWith(new Error('not active')),
+      ...creditApiOverrides
+    };
 
     localStorage.setItem('backend_jwt', jwtFor(role));
     await TestBed.configureTestingModule({
@@ -84,13 +101,7 @@ describe('DashboardLayout subscription ownership', () => {
           }
         },
         { provide: SubscriptionApiService, useValue: { getMySubscription, createCustomerPortal } },
-        { provide: CreditsApiService, useValue: {
-          getWallet: () => Promise.resolve({ plan: 'free', monthlyCredits: 25, monthlyCreditsUsed: 0,
-            monthlyCreditsRemaining: 25, purchasedCredits: 0, bonusCredits: 0, availableCredits: 25,
-            resetDate: '2026-09-01', billingCycleStart: '2026-08-01', billingCycleEnd: '2026-09-01',
-            usagePercent: 0, nudgeThresholds: { soft: 50, warning: 80 }, warningAcknowledged: false }),
-          getPacks: () => Promise.resolve([]), acknowledgeNudge: () => Promise.reject()
-        } },
+        { provide: CreditsApiService, useValue: creditsApi },
         {
           provide: NotificationApiService,
           useValue: {
@@ -106,7 +117,7 @@ describe('DashboardLayout subscription ownership', () => {
             connect: () => undefined,
             disconnect: () => undefined,
             notifications$: realtimeNotifications.asObservable(),
-            events$: new Subject<any>().asObservable()
+            events$: realtimeEvents.asObservable()
           }
         },
         {
@@ -125,7 +136,7 @@ describe('DashboardLayout subscription ownership', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    return { getMySubscription, createCustomerPortal, realtimeNotifications };
+    return { getMySubscription, createCustomerPortal, realtimeNotifications, realtimeEvents, creditsApi };
   }
 
   afterEach(() => {
@@ -140,7 +151,7 @@ describe('DashboardLayout subscription ownership', () => {
     expect(getMySubscription).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.querySelector('app-chart-storage')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-account-usage')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('[data-testid="account-usage-button"]').textContent.trim()).toContain('Usage');
+    expect(fixture.nativeElement.querySelector('[data-testid="account-storage-indicator"]').textContent.trim()).toContain('Storage');
     expect(fixture.nativeElement.querySelector('[data-testid="assessment-credit-wallet"]')).toBeNull();
     expect(subscriptionCtas.length).toBe(1);
     expect(subscriptionCtas[0].textContent.trim()).toBe('Upgrade Plan');
@@ -151,7 +162,38 @@ describe('DashboardLayout subscription ownership', () => {
     const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     subscriptionCtas[0].click();
     await fixture.whenStable();
-    expect(navigate).toHaveBeenCalledWith(['/pricing']);
+    expect(navigate).toHaveBeenCalledWith(['/billing/paypal/manage']);
+  });
+
+  it('reacts to shared subscription and storage changes without recreating the layout', async () => {
+    await render('teacher');
+    const state = TestBed.inject(AccountStateService);
+    state.subscription.set({ ...state.subscription()!, billing: { provider: 'paypal', status: 'ACTIVE', subscriptionId: 'I-LIVE',
+      customerConfigured: true, currentPeriodEnd: null, cancelAtPeriodEnd: false, paymentIssue: false, canManageSubscription: true },
+      usage: { ...state.subscription()!.usage, storageMB: 250 } });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="subscription-cta"]').textContent.trim()).toBe('Manage Plan');
+    expect(fixture.nativeElement.querySelector('[data-testid="account-storage-indicator"]').textContent).toContain('250 MB / 500 MB');
+  });
+
+  it('receives a credit usage notification in realtime and ignores duplicate SSE delivery', async () => {
+    const { realtimeNotifications } = await render('teacher');
+    const notification = { _id: 'credit-nudge-50', type: 'credit_usage_nudge',
+      title: 'Half of your monthly credits used', description: '50 monthly credits remain.',
+      recipient: 'teacher-1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as BackendNotification;
+    realtimeNotifications.next(notification); realtimeNotifications.next(notification); fixture.detectChanges();
+    expect(fixture.componentInstance.notifications.filter((item) => item._id === notification._id)).toHaveSize(1);
+    expect(fixture.componentInstance.unreadCount).toBe(1);
+    expect(fixture.componentInstance.iconFor(notification).icon).toBe('bxs-wallet');
+  });
+
+  it('refreshes wallet and referral summary from a realtime referral reward without reloading', async () => {
+    const { realtimeEvents } = await render('teacher');
+    const state = TestBed.inject(AccountStateService);
+    const refresh = spyOn(state, 'refresh').and.resolveTo();
+    realtimeEvents.next({ type: 'credits_updated', data: { type: 'referral_reward', referralId: 'ref-1' } });
+    await fixture.whenStable();
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('does not fetch or render subscription controls for students', async () => {
@@ -174,10 +216,22 @@ describe('DashboardLayout subscription ownership', () => {
     const subscriptionCtas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
     expect(subscriptionCtas.length).toBe(1);
     expect(subscriptionCtas[0].textContent.trim()).toBe('Manage Plan');
-    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     subscriptionCtas[0].click();
     await fixture.whenStable();
-    expect(createCustomerPortal).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/billing/paypal/manage']);
+    expect(createCustomerPortal).not.toHaveBeenCalled();
+  });
+
+  it('opens native PayPal management without creating a Stripe portal', async () => {
+    const { createCustomerPortal } = await render('teacher', { provider: 'paypal', status: 'ACTIVE', paymentIssue: false,
+      subscriptionId: 'I-SAFE', canManageSubscription: true });
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const button = fixture.nativeElement.querySelector('[data-testid="subscription-cta"]');
+    expect(button.textContent.trim()).toBe('Manage Plan');
+    button.click(); await fixture.whenStable();
+    expect(navigate).toHaveBeenCalledWith(['/billing/paypal/manage']);
+    expect(createCustomerPortal).not.toHaveBeenCalled();
   });
 
   it('shows Manage Billing for a teacher with a payment issue', async () => {
@@ -187,13 +241,13 @@ describe('DashboardLayout subscription ownership', () => {
     expect(subscriptionCtas[0].textContent.trim()).toBe('Manage Billing');
   });
 
-  it('shows one compact mobile Usage row without permanent credit or storage detail', async () => {
+  it('shows one compact mobile storage row without permanent credit detail', async () => {
     await render('teacher', null, 'mobile');
     const row = fixture.nativeElement.querySelector('[data-testid="mobile-teacher-account-row"]');
     const ctas = fixture.nativeElement.querySelectorAll('[data-testid="subscription-cta"]');
     expect(row).not.toBeNull();
-    expect(row.textContent).toContain('Usage');
-    expect(row.textContent).not.toContain('0 MB / 500 MB used');
+    expect(row.textContent).toContain('Storage');
+    expect(row.textContent).toContain('0 MB / 500 MB');
     expect(fixture.nativeElement.querySelector('.mobile-credit-warning')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="mobile-assessment-credit-wallet"]')).toBeNull();
     expect(ctas.length).toBe(1);
@@ -284,4 +338,16 @@ describe('DashboardLayout subscription ownership', () => {
     fixture.nativeElement.querySelector('[data-testid="mobile-notification"] button').click();
     expect(studentNavigate).toHaveBeenCalledWith(['/', 'student', 'my-notification']);
   });
+
+  it('opens Add Credits and renders authoritative backend pack values', async () => {
+    const pack = { name: 'Occasional', code: 'TOPUP_SMALL', credits: 10, price: 4.99, currency: 'USD',
+      allowedPlans: ['free'], displayOrder: 1 };
+    const getPacks = jasmine.createSpy('getPacks').and.resolveTo({ packs: [pack], paymentProvider: 'paypal' });
+    await render('teacher', null, 'desktop', 0, new Subject<BackendNotification>(), { getPacks });
+    await fixture.componentInstance.onAddCredits(); fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(getPacks).toHaveBeenCalledTimes(1); expect(dialog.textContent).toContain('10 Credits');
+    expect(dialog.textContent).toContain('$4.99'); expect(dialog.textContent).toContain('Buy with PayPal');
+  });
+
 });

@@ -1,106 +1,12 @@
-<button #usageButton type="button" class="usage-trigger" data-testid="account-usage-button"
-  aria-haspopup="dialog" [attr.aria-expanded]="isOpen" [attr.aria-label]="usageButtonAriaLabel" (click)="open()">
-  <span class="usage-ring-badge" [class.danger]="ringIsDanger" aria-hidden="true">
-    <svg class="usage-ring" [class.danger]="ringIsDanger" [class.unavailable]="ringUsagePercent === null"
-      viewBox="0 0 24 24" focusable="false" data-testid="usage-ring">
-      <circle class="usage-ring-track" cx="12" cy="12" [attr.r]="ringRadius"></circle>
+<div class="storage-compact" data-testid="account-storage-indicator" [attr.aria-label]="ariaLabel">
+  <span class="storage-ring-badge" [class.danger]="ringIsDanger" aria-hidden="true">
+    <svg class="storage-ring" [class.unavailable]="ringUsagePercent === null" viewBox="0 0 24 24" focusable="false">
+      <circle class="storage-ring-track" cx="12" cy="12" [attr.r]="ringRadius"></circle>
       @if (ringUsagePercent !== null) {
-        <circle class="usage-ring-progress" cx="12" cy="12" [attr.r]="ringRadius"
-          [attr.stroke-dasharray]="ringCircumference" [attr.stroke-dashoffset]="ringDashOffset"></circle>
+        <circle class="storage-ring-progress" cx="12" cy="12" [attr.r]="ringRadius" [attr.stroke-dasharray]="ringCircumference" [attr.stroke-dashoffset]="ringDashOffset"></circle>
       }
     </svg>
-    <span class="usage-percent">{{ ringUsagePercent === null ? '--%' : ringUsagePercent + '%' }}</span>
+    <span class="ring-percent">{{ ringUsagePercent === null ? '—' : ringUsagePercent + '%' }}</span>
   </span>
-  <span class="usage-label">Usage</span>
-</button>
-
-@if (isOpen) {
-<div class="usage-backdrop" data-testid="account-usage-backdrop" (click)="onBackdrop($event)">
-  <section class="usage-dialog" role="dialog" aria-modal="true" aria-labelledby="account-usage-title"
-    aria-describedby="account-usage-description" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
-    <header class="usage-heading">
-      <div>
-        <p class="usage-eyebrow">Account</p>
-        <h2 id="account-usage-title">Usage &amp; Plan</h2>
-        <p id="account-usage-description">Your current plan balances and included allowances.</p>
-      </div>
-      <button type="button" class="usage-close" aria-label="Close Usage and Plan" (click)="close()">
-        <i class="bx bx-x" aria-hidden="true"></i>
-      </button>
-    </header>
-
-    @if (isLoading && !wallet && !subscription) {
-    <div class="usage-skeleton" aria-live="polite" aria-label="Loading usage information">
-      <span></span><span></span><span></span><span></span>
-    </div>
-    } @else {
-      @if (hasError) {
-      <div class="usage-error" role="status">
-        <div><strong>Usage information couldn't be loaded.</strong><span>Some details may be temporarily unavailable.</span></div>
-        <button type="button" (click)="retryUsage.emit()">Retry</button>
-      </div>
-      }
-
-      <section class="plan-summary" aria-labelledby="plan-summary-title">
-        <div><p id="plan-summary-title">Current plan</p><strong>{{ usage.planName || 'Unavailable' }}</strong></div>
-        <dl>
-          @if (usage.billingPeriod) { <div><dt>Billing period</dt><dd>{{ usage.billingPeriod | titlecase }}</dd></div> }
-          @if (usage.renewalDate) { <div><dt>Next renewal</dt><dd>{{ formatDate(usage.renewalDate) }}</dd></div> }
-        </dl>
-      </section>
-
-      <section class="usage-card credit-card" aria-labelledby="credit-usage-title">
-        <div class="card-title-row">
-          <div><p class="section-label">Assessment credits</p><h3 id="credit-usage-title">
-            {{ usage.totalAvailableCredits === null ? 'Unavailable' : usage.totalAvailableCredits + ' remaining' }}
-          </h3></div>
-          @if (usage.monthlyUsagePercent !== null) { <strong>{{ usage.monthlyUsagePercent }}% used</strong> }
-        </div>
-        @if (usage.monthlyUsagePercent !== null) {
-        <div class="usage-progress" role="progressbar" aria-label="Monthly Assessment Credits used"
-          aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="usage.monthlyUsagePercent">
-          <span [style.width.%]="usage.monthlyUsagePercent"></span>
-        </div>
-        } @else { <p class="unavailable-copy">Monthly usage is unavailable.</p> }
-        <dl class="usage-details">
-          <div><dt>Monthly allowance</dt><dd>{{ usage.monthlyAllowance ?? 'Unavailable' }}</dd></div>
-          <div><dt>Used this period</dt><dd>{{ usage.monthlyUsed ?? 'Unavailable' }}</dd></div>
-          <div title="Purchased credits do not reset with the monthly allowance."><dt>Purchased</dt><dd>{{ usage.purchasedCredits ?? 'Unavailable' }}</dd></div>
-          <div><dt>Bonus</dt><dd>{{ usage.bonusCredits ?? 'Unavailable' }}</dd></div>
-          <div class="wide"><dt>Resets</dt><dd>{{ formatDate(usage.resetDate) }}</dd></div>
-        </dl>
-
-        @if (showWarning) {
-        <div class="usage-warning" [class.exhausted]="usage.warningLevel === 'exhausted'" role="status">
-          <i class="bx bx-error-circle" aria-hidden="true"></i>
-          <div><strong>{{ usage.warningLevel === 'exhausted' ? 'No Assessment Credits remain.' : "You're at " + usage.monthlyUsagePercent + '% of your monthly Assessment Credits.' }}</strong>
-            <span>{{ usage.warningLevel === 'exhausted' ? 'Add credits or review your plan before starting another assessment.' : 'Consider adding credits or upgrading before your next class set.' }}</span>
-            <div class="warning-actions"><button type="button" (click)="requestAddCredits()">Add Credits</button><button type="button" (click)="requestPlan()">{{ planButtonLabel }}</button><button type="button" class="dismiss-action" (click)="dismissWarning.emit()">Dismiss</button></div>
-          </div>
-        </div>
-        }
-      </section>
-
-      <section class="usage-card" aria-labelledby="storage-usage-title">
-        <div class="card-title-row"><div><p class="section-label">Storage</p><h3 id="storage-usage-title">{{ formatStorage(usage.storageUsedMB) }} used</h3></div>
-          @if (usage.storageUsagePercent !== null) { <strong>{{ usage.storageUsagePercent }}%</strong> }
-        </div>
-        @if (usage.storageUsagePercent !== null) {
-        <div class="usage-progress storage" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100"
-          [attr.aria-valuenow]="usage.storageUsagePercent"><span [style.width.%]="usage.storageUsagePercent"></span></div>
-        <p class="usage-caption">{{ formatStorage(usage.storageUsedMB) }} of {{ formatStorage(usage.storageLimitMB) }}</p>
-        } @else { <p class="unavailable-copy">Storage usage is unavailable.</p> }
-      </section>
-
-      @if (otherAllowances.length) {
-      <section class="usage-card" aria-labelledby="allowances-title">
-        <p class="section-label">Plan allowances</p><h3 id="allowances-title">Included with your plan</h3>
-        <dl class="allowance-list">@for (item of otherAllowances; track item.label) { <div><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></div> }</dl>
-      </section>
-      }
-
-      <footer class="usage-footer"><button type="button" class="manage-plan-action" (click)="requestPlan()">{{ planButtonLabel }}</button></footer>
-    }
-  </section>
+  <span><strong>Storage</strong><small>{{ storageLabel }}</small></span>
 </div>
-}

@@ -6,9 +6,13 @@
 .assignment-setting small { color: #6b7280; font-size: .75rem; line-height: 1.4; }
 .assignment-setting input { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; accent-color: #008081; }
 .assignment-setting--dependent { margin-left: 1.5rem; border-left: 3px solid #b7dede; }
+.rubric-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.rubric-action { min-height: 2.65rem; border: 1px solid #008081; color: #006d6e; background: white; border-radius: .7rem; padding: .55rem .85rem; font-weight: 650; }
+.save-rubric-dialog { display: grid; gap: 1rem; }.save-rubric-dialog h2 { font-size: 1.5rem; font-weight: 750; }.save-rubric-dialog label { display: grid; gap: .35rem; font-weight: 650; }.save-rubric-dialog input,.save-rubric-dialog textarea { border: 1px solid #cbd5e1; border-radius: .7rem; padding: .7rem; font-weight: 400; }.save-rubric-dialog textarea { min-height: 5rem; }.save-rubric-dialog>div { display: flex; justify-content: flex-end; gap: .7rem; }
 
 @media (max-width: 480px) {
   .assignment-settings { padding: .8rem; }
   .assignment-setting { align-items: flex-start; }
   .assignment-setting--dependent { margin-left: 0; }
+  .rubric-actions,.save-rubric-dialog>div { flex-direction: column; }.rubric-action,.save-rubric-dialog button { width: 100%; }
 }

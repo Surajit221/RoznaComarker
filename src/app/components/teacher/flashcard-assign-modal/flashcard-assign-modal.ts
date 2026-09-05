@@ -31,6 +31,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { FlashcardApiService } from '../../../api/flashcard-api.service';
 import { AlertService } from '../../../services/alert.service';
 import type { FlashcardSet } from '../../../models/flashcard-set.model';
+import type { BackendAssignment } from '../../../api/assignment-api.service';
 import { FlashcardPreviewModal } from '../flashcard-preview-modal/flashcard-preview-modal';
 
 @Component({
@@ -46,10 +47,12 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
   @Input() classId: string | null = null;
   /** Preselect a set (e.g. when returning from create flow) */
   @Input() preselectedSetId: string | null = null;
+  @Input() existingAssignments: BackendAssignment[] = [];
 
   @Output() showChange = new EventEmitter<boolean>();
   /** Emits when the assignment was created successfully */
   @Output() assigned   = new EventEmitter<void>();
+  @Output() editExisting = new EventEmitter<string>();
 
   private readonly api     = inject(FlashcardApiService);
   private readonly alert   = inject(AlertService);
@@ -69,6 +72,7 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
 
   // Error state
   errorMessage: string | null = null;
+  duplicateAssignment: BackendAssignment | null = null;
   
   /** Minimum date for deadline picker = today */
   get minDate(): string {
@@ -118,7 +122,7 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  submit(): void {
+  submit(createAnother = false): void {
     this.errorMessage = null;
     if (this.isSubmitting) return;
     if (!this.selectedSetId) {
@@ -146,6 +150,13 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
 
     const selectedSet = this.sets.find((s) => s._id === this.selectedSetId);
     const title = selectedSet?.title ?? 'Flashcard Assignment';
+    const existing = this.existingAssignments.find((assignment) => assignment.isActive !== false
+      && assignment.resourceType === 'flashcard' && String(assignment.resourceId) === String(this.selectedSetId));
+    if (existing && !createAnother) {
+      this.duplicateAssignment = existing;
+      this.cdr.markForCheck();
+      return;
+    }
 
     this.isSubmitting = true;
     this.cdr.markForCheck();
@@ -176,6 +187,15 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
       });
   }
 
+  openExisting(): void {
+    if (!this.duplicateAssignment?._id) return;
+    const id = this.duplicateAssignment._id;
+    this.close();
+    this.editExisting.emit(id);
+  }
+
+  createAnother(): void { this.duplicateAssignment = null; this.submit(true); }
+
   private resetForm(): void {
     this.selectedSetId  = this.preselectedSetId ?? null;
     this.deadline       = '';
@@ -183,6 +203,7 @@ export class FlashcardAssignModal implements OnChanges, OnDestroy {
     this.isLoading      = false;
     this.isSubmitting   = false;
     this.errorMessage   = null;
+    this.duplicateAssignment = null;
     this.cdr.markForCheck();
   }
 

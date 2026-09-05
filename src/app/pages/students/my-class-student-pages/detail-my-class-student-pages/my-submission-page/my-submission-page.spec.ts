@@ -127,7 +127,7 @@ describe('MySubmissionPage', () => {
     expect((component.submission as any).correctionSourceHash).toBe('source-complete');
     expect(component.submission?.correctionStatistics?.grammar).toBe(37);
     component.transcriptState = 'loaded';
-    component.onTabSelected('transcribed-text');
+    component.isUploadedFile = false;
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Submitted Page 1');
     expect(fixture.nativeElement.textContent).toContain('Submitted Page 2');
@@ -240,7 +240,7 @@ describe('MySubmissionPage', () => {
     expect((component as any).ocrPayloadCache.size).toBe(0);
   });
 
-  it('keeps canonical score, grade, statistics and comments identical across viewport branches', () => {
+  it('keeps one canonical result tree and state across viewport changes', () => {
     component.canonicalResultState = normalizeCanonicalResult({
       submissionId: 'submission-1', correctionStatus: 'completed', semanticStatus: 'completed',
       evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', statisticsCompleteness: 'canonical',
@@ -250,6 +250,7 @@ describe('MySubmissionPage', () => {
     component.scoreState = 'loaded';
     component.statisticsState = 'loaded';
     component.correctionsState = 'loaded';
+    component.isUploadedFile = false;
     component.teacherComment = 'Canonical teacher comment';
     component.hasAssignmentRubric = true;
     component.feedbackForm.patchValue({ message: component.teacherComment });
@@ -262,10 +263,9 @@ describe('MySubmissionPage', () => {
         component.organizationIssuesDisplay, component.vocabularyIssuesDisplay, component.mechanicsIssuesDisplay],
       comment: component.feedbackForm.value.message
     });
-    (component.device as any).width.set(1440);
     fixture.detectChanges();
     const desktop = snapshot();
-    (component.device as any).width.set(390);
+    window.dispatchEvent(new Event('resize'));
     fixture.detectChanges();
     const mobile = snapshot();
 
@@ -275,9 +275,7 @@ describe('MySubmissionPage', () => {
     expect(fixture.nativeElement.textContent).toContain('View Rubric');
     expect(fixture.nativeElement.textContent).toContain('Teacher Comments');
     expect(fixture.nativeElement.querySelector('app-adaptive-writing-studio')).toBeTruthy();
-
-    component.onTabSelected('transcribed-text');
-    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.submission-review-page').length).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('Correction Statistics');
     expect(fixture.nativeElement.textContent).toContain('Correction Legend');
   });
@@ -289,48 +287,69 @@ describe('MySubmissionPage', () => {
       correctionStatistics: { content: 0, grammar: 5, organization: 0, vocabulary: 0, mechanics: 3 },
       evaluationStatus: 'failed', detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
     component.scoreState = 'error'; component.feedbackState = 'error'; component.aiFeedbackState = 'error';
+    component.isUploadedFile = false;
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width); fixture.detectChanges();
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange')); fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
       expect(fixture.nativeElement.textContent).not.toContain('Retry scoring');
     }
     expect((component as any).retryCanonicalAnalysis).toBeUndefined();
   });
 
-  it('passes the student annotations to the mobile correction overlay', () => {
-    (component.device as any).width.set(390);
+  it('passes only the selected page annotations to the shared correction overlay', () => {
     component.submissionFileUrls = ['image-1.jpg'];
+    component.submissionFileIds = ['file-1'];
     component.annotations = [{ _id: 'student-a-1', fileId: 'file-1' }] as any;
     fixture.detectChanges();
 
     const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay))
       .componentInstance as CorrectionOverlay;
-    expect(overlay.annotations).toBe(component.annotations);
+    expect((overlay.annotations || []).map((annotation) => annotation._id)).toEqual(['student-a-1']);
   });
 
-  it('keeps mobile thumbnails after the uploaded image and before AI feedback', () => {
-    (component.device as any).width.set(390);
+  it('keeps shared thumbnails after the uploaded image and before AI feedback', () => {
     component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
     component.submissionPreviewUrls = ['blob:image-1', 'blob:image-2'];
     fixture.detectChanges();
 
     const overlay = fixture.nativeElement.querySelector('app-correction-overlay') as HTMLElement;
-    const thumbnails = fixture.nativeElement.querySelector('.mobile-submission-thumbs') as HTMLElement;
-    const aiFeedback = fixture.nativeElement.querySelector('#ai-feedback-section-mobile') as HTMLElement;
+    const thumbnails = fixture.nativeElement.querySelector('.submission-thumbs') as HTMLElement;
+    const aiFeedback = fixture.nativeElement.querySelector('#ai-feedback-section') as HTMLElement;
 
     expect(overlay.compareDocumentPosition(thumbnails) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(thumbnails.compareDocumentPosition(aiFeedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(thumbnails.querySelectorAll('.submission-thumb').length).toBe(2);
   });
 
-  it('keeps multiple-image selection working on the student page', () => {
+  it('changes only student viewer state and preserves feedback/adaptive state on image selection', async () => {
+    const savedFeedback = { submissionId: 'submission-1', overallScore: 91 } as any;
+    const savedAdaptive = [{ skill: 'grammar', score: 91 }] as any;
+    component.submission = { _id: 'submission-1' } as any;
     component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    component.feedback = savedFeedback;
+    component.adaptiveSkillScores = savedAdaptive;
     spyOn<any>(component, 'setUploadedFileUrl').and.resolveTo();
-    spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+    const loadCorrections = spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
+    const refreshCorrections = spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+    const loadFeedback = spyOn((component as any).feedbackApi, 'getSubmissionFeedback');
 
     component.onSelectSubmissionImage(1);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(component.activeFileIndex).toBe(1);
+    expect(component.feedback).toBe(savedFeedback);
+    expect(component.adaptiveSkillScores).toBe(savedAdaptive);
+    expect(loadCorrections).not.toHaveBeenCalled();
+    expect(refreshCorrections).not.toHaveBeenCalled();
+    expect(loadFeedback).not.toHaveBeenCalled();
+
+    component.onSelectSubmissionImage(0);
+    await Promise.resolve();
+    expect(component.activeFileIndex).toBe(0);
+    expect(loadCorrections).not.toHaveBeenCalled();
+    expect(refreshCorrections).not.toHaveBeenCalled();
+    expect(loadFeedback).not.toHaveBeenCalled();
   });
 
   it('never exposes a protected raw image URL while the authenticated blob fetch is pending', async () => {
@@ -433,8 +452,8 @@ describe('MySubmissionPage', () => {
       manualRetryAllowed: true
     });
     component.scoreState = 'loaded';
-    (component.device as any).width.set(390);
-    component.onTabSelected('transcribed-text');
+    component.isUploadedFile = false;
+    window.dispatchEvent(new Event('orientationchange'));
     fixture.detectChanges();
 
     expect(component.evaluationStatusPresentation.state).toBe('stale');
@@ -465,8 +484,7 @@ describe('MySubmissionPage', () => {
     component.aiFeedbackState = 'processing';
     component.isUploadedFile = false;
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
-      if (width === 390) component.onTabSelected('transcribed-text');
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
 
       expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
@@ -494,7 +512,6 @@ describe('MySubmissionPage', () => {
       }] }
     } as any;
     component.aiFeedbackState = 'loaded';
-    (component.device as any).width.set(1440);
     fixture.detectChanges();
 
     expect(component.isCustomRubricResult).toBeTrue();
@@ -568,13 +585,11 @@ describe('MySubmissionPage', () => {
     component.feedbackState = 'loaded';
     component.aiFeedbackState = 'loaded';
 
-    for (const width of [1440, 1280, 1024, 768, 430, 390, 375, 360, 320]) {
-      (component.device as any).width.set(width);
+    for (const width of [1440, 1280, 1024, 768, 430, 412, 390, 375, 360, 320]) {
+      window.dispatchEvent(new Event(width > 768 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
 
-      const evaluation = fixture.nativeElement.querySelector(
-        width > 1024 ? '#ai-feedback-section' : '#ai-feedback-section-mobile'
-      ) as HTMLElement;
+      const evaluation = fixture.nativeElement.querySelector('#ai-feedback-section') as HTMLElement;
       const banner = evaluation.querySelector('.evaluation-marks-hidden-banner') as HTMLElement;
 
       expect(component.marksVisible).withContext(`marks visibility at ${width}px`).toBeFalse();
@@ -601,11 +616,9 @@ describe('MySubmissionPage', () => {
     (component.feedback as any).marksVisible = true;
     (component.assignment as any).showMarksToStudent = true;
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
-      const evaluation = fixture.nativeElement.querySelector(
-        width > 1024 ? '#ai-feedback-section' : '#ai-feedback-section-mobile'
-      ) as HTMLElement;
+      const evaluation = fixture.nativeElement.querySelector('#ai-feedback-section') as HTMLElement;
 
       expect(component.marksVisible).toBeTrue();
       expect(evaluation.querySelector('.evaluation-marks-hidden-banner')).toBeNull();
@@ -621,14 +634,14 @@ describe('MySubmissionPage', () => {
     component.openRubricDialog();
     expect(component.showRubricDialog).toBeFalse();
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).not.toContain('View Rubric');
     }
 
     component.hasAssignmentRubric = true;
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('View Rubric');
     }

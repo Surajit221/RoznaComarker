@@ -149,7 +149,6 @@ export class CreateFlashcard implements OnDestroy {
             visibility: 'public' as const,
             language: language ?? 'English',
           };
-          console.log('[CREATE] Sending payload:', JSON.stringify(savePayload, null, 2));
           return this.flashcardApi.createSet(savePayload);
         }),
         finalize(() => {

@@ -22,6 +22,10 @@ export class MyNotificationPages {
   openSheet = false;
 
   notifications: BackendNotification[] = [];
+  filter: 'ALL' | 'ACTION_REQUIRED' | 'STUDENT_PROGRESS' | 'REWARD' = 'ALL';
+  get filteredNotifications(): BackendNotification[] {
+    return this.filter === 'ALL' ? this.notifications : this.notifications.filter((item) => item.category === this.filter);
+  }
 
   isLoading = false;
 
@@ -30,6 +34,7 @@ export class MyNotificationPages {
 
     this.realtime.connect();
     this.realtime.notifications$.subscribe((n) => {
+      if (n?._id && this.notifications.some((item) => item._id === n._id)) return;
       this.notifications = [n, ...(this.notifications || [])];
     });
   }
@@ -82,6 +87,11 @@ export class MyNotificationPages {
     if (n?.type === 'assignment_uploaded') {
       return { icon: 'bxs-book', iconBg: 'bg-[#D7DBFF]', iconColor: 'text-[#2F2F9F]' };
     }
+    if (n?.type === 'credit_usage_nudge') {
+      return { icon: 'bxs-wallet', iconBg: 'bg-[#FFF1CC]', iconColor: 'text-[#8A5A00]' };
+    }
+    if (n?.category === 'REWARD') return { icon: 'bxs-award', iconBg: 'bg-[#FFF1CC]', iconColor: 'text-[#8A5A00]' };
+    if (n?.category === 'STUDENT_PROGRESS') return { icon: 'bxs-trending-up', iconBg: 'bg-[#B0F8D5]', iconColor: 'text-[#136C6D]' };
     return { icon: 'bxs-bell', iconBg: 'bg-[#F3F3F3]', iconColor: 'text-[#474747]' };
   }
 
@@ -108,6 +118,12 @@ export class MyNotificationPages {
     this.router.navigate(commands, {
       queryParams: route.queryParams || undefined
     });
+  }
+
+  onNotificationKeydown(event: KeyboardEvent, notification: BackendNotification) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    void this.onClickNotification(notification);
   }
 
   onCloseSheetDetailNotification() {

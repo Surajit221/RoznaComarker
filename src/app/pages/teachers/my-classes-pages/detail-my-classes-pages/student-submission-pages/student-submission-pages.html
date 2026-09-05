@@ -1,7 +1,7 @@
 <ng-container>
 
   <!-- ✅ DESKTOP -->
-  <ng-container *ngIf="device.isDesktop(); else mobileView">
+  <main class="submission-review-page">
 
     <div class="mb-6 flex flex-row justify-between items-center">
       <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
@@ -377,11 +377,11 @@
             }
             }
 
-            <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
+            <div class="teacher-comments-editor w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
               <p class="text-xl font-bold mb-1">Teacher Comments</p>
               <div class="flex flex-col gap-1">
                 <div class="w-full">
-                  <textarea formControlName="message" maxlength="5000" class="input-text w-full h-40 resize-none bg-white"
+                  <textarea formControlName="message" maxlength="5000" class="teacher-comments-editor__textarea input-text w-full h-40 resize-none bg-white"
                     [attr.aria-busy]="teacherCommentState === 'loading'"
                     placeholder="Type your message..."></textarea>
                   @if (teacherCommentState === 'loading') {
@@ -389,7 +389,7 @@
                   }
                 </div>
               </div>
-              <div class="w-full flex justify-end mt-4">
+              <div class="teacher-comments-editor__actions w-full flex justify-end mt-4">
                 <button type="button" class="btn-primary" [disabled]="isTeacherCommentSaving"
                   (click)="submitFeedback()">{{ isTeacherCommentSaving ? 'Saving…' : 'Submit' }}</button>
               </div>
@@ -401,401 +401,8 @@
       </div>
     </div>
 
-  </ng-container>
-  <!-- END DESKTOP -->
-
-  <!-- ✅ MOBILE (OUTSIDE, NOT INSIDE) -->
-  <ng-template #mobileView>
-
-    <app-app-bar-back-button [title]="classTitle" (back)="toBack()"></app-app-bar-back-button>
-
-    <div class="w-full grid grid-cols-2 gap-2 mb-3 items-start">
-      <button type="button" class="btn-info-sm w-full" [disabled]="!canGenerateAiFeedback"
-        (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback' }}</button>
-      <div class="w-full flex flex-col gap-2">
-        <button type="button" class="btn-primary-sm w-full" (click)="openSheetSubmission = true">View All
-          Submission</button>
-        <button type="button" class="btn-primary-sm w-full" [disabled]="isPdfDownloading"
-          (click)="downloadPdfForCurrentSubmission()">
-          @if (isPdfDownloading) {
-          <span class="pdf-loading">
-            <span class="pdf-spinner" aria-hidden="true"></span>
-            Generating...
-          </span>
-          } @else {
-          Download PDF
-          }
-        </button>
-        <button type="button" class="btn-warning-sm w-full" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
-      </div>
-    </div>
-
-    <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
-      <button class="btn-warning-sm" [disabled]="!canGoPrev" (click)="onPrevSubmission()"><i
-          class="bx bx-chevron-left"></i></button>
-      <div class="flex flex-col justify-center items-center">
-        <p class="font-bold text-base">{{ studentName }}</p>
-        <p class="font-bold text-xs text-gray-500">ID:{{ studentDisplayId }}</p>
-      </div>
-      <button class="btn-primary-sm" [disabled]="!canGoNext" (click)="onNextSubmission()"><i
-          class="bx bx-chevron-right"></i></button>
-    </div>
-
-    <div class="w-full flex flex-col gap-4 mb-24">
-      <div class="w-full bg-white p-4 rounded-2xl flex flex-col gap-4">
-
-        <div class="grid grid-cols-2 gap-2 justify-center items-center">
-          <button class="" [ngClass]="{ 'btn-warning-sm': activeTab === 'uploaded-file' }"
-            (click)="onTabSelected('uploaded-file')">
-            Uploaded File
-          </button>
-          <button class="" [ngClass]="{ 'btn-warning-sm': activeTab === 'transcribed-text' }"
-            (click)="onTabSelected('transcribed-text')">
-            Transcribed Text
-          </button>
-        </div>
-
-        <ng-container *ngIf="activeTab === 'uploaded-file'">
-          <div class="w-full rounded-2xl overflow-visible">
-            @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
-            <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
-              @if (pdfMediaState === 'fetching') { <div class="media-pdf-skeleton" aria-hidden="true"><div class="media-pdf-skeleton__page"><span class="media-pdf-line title"></span><span class="media-pdf-line meta"></span><span class="media-pdf-separator"></span><span class="media-pdf-line w95"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span><span class="media-pdf-line w95 group"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span></div></div><span class="sr-only" role="status">Loading submitted file</span> }
-              @else if (pdfMediaState === 'error') { <div class="section-load-error" role="alert">Unable to load this submitted PDF. <button type="button" (click)="retryUploadedPdf()">Retry</button></div> }
-              @else { <a class="btn-info-sm" [href]="essayImageUrl" target="_blank" rel="noopener">Open PDF</a> }
-            </div>
-            } @else {
-            <app-correction-overlay [imageUrl]="essayImageUrl" [sourceLoading]="imageMediaState === 'fetching'"
-              [sourceLoadError]="imageMediaState === 'error'" (retryRequested)="retryUploadedImage()"
-              [annotations]="activeAnnotations" alt="Student submission image"></app-correction-overlay>
-            <button type="button" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" (click)="openMobileLegend()">View correction legend</button>
-            }
-          </div>
-          @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
-          <div class="w-full mt-3">
-            <div class="submission-thumbs" role="tablist" aria-label="Submission images">
-              @for (url of submissionPreviewUrls; track $index) {
-              <button type="button" class="submission-thumb" [class.active]="$index === activeFileIndex"
-                (click)="onSelectSubmissionImage($index)" aria-label="View image {{ $index + 1 }}">
-                <img [src]="url" alt="Submission image {{ $index + 1 }}" loading="lazy" />
-              </button>
-              }
-            </div>
-          </div>
-          }
-          <ng-container *ngTemplateOutlet="aiFeedbackMobile"></ng-container>
-        </ng-container>
-
-        <ng-container *ngIf="activeTab === 'transcribed-text'">
-          <div class="w-full overflow-x-hidden">
-            <div class="flex flex-col gap-4">
-
-              <!-- Main Content Area -->
-              <div class="space-y-8">
-
-                <!-- Essay with Corrections -->
-                <div class="gradient-card p-2 hover-lift fade-in" [attr.aria-busy]="transcriptState === 'loading'">
-                  @if (transcriptState === 'loading') {
-                  <ng-container *ngTemplateOutlet="transcriptSkeleton"></ng-container>
-                  } @else if (transcriptState === 'error') {
-                  <div class="section-load-error" role="status">Unable to load the transcribed text.</div>
-                  } @else {
-                  <div class="flex flex-col mb-6 pb-4 border-b border-gray-200">
-                    <div>
-                      <h2 class="text-lg font-bold text-gray-800">{{ submissionTitle }}</h2>
-                      <p class="text-gray-500 mt-1">By: {{ submissionAuthor }} • {{ submissionDateText }}</p>
-                    </div>
-                    <div class="flex space-x-2 mt-2">
-                      <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">Education</span>
-                      <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">Technology</span>
-                    </div>
-                  </div>
-
-                  <!-- Essay Text with Corrections -->
-                  <div class="canonical-transcript-viewport">
-                  @if (transcriptPageViews.length) {
-                    @for (page of transcriptPageViews; track page.key) {
-                    <section class="transcript-page">
-                      @if (transcriptPageViews.length > 1) { <header>Submitted Page {{ page.displayNumber }}</header> }
-                      @if (page.status === 'ready' && page.words.length) {
-                      <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
-                        [ocrWords]="page.words" [annotations]="page.annotations"></app-tokenized-transcript>
-                      } @else if (page.status === 'ready' && page.text) {
-                      <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
-                      } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
-                      @else { <p class="text-sm text-gray-500">Preparing this page's transcript...</p> }
-                    </section>
-                    }
-                  } @else {
-                  @if (writingCorrectionsHtml) {
-                  <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans"
-                    [innerHTML]="writingCorrectionsHtml"></pre>
-                  }
-                  }
-                  </div>
-
-                  <button type="button" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer" (click)="openMobileLegend()">View correction legend</button>
-                  }
-                </div>
-
-                <ng-container *ngTemplateOutlet="aiFeedbackMobile"></ng-container>
-
-                <!-- Feedback and Suggestions -->
-                <div class="gradient-card hover-lift fade-in" [attr.aria-busy]="feedbackState === 'loading'">
-                  <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [teacher]="true" [manualRetryAllowed]="canonicalResultState?.manualRetryAllowed || false" [retrying]="isRetryingAnalysis" (retryRequested)="reEvaluateCurrentSubmission()"></app-canonical-detailed-feedback>
-                  @if (false) {
-                  <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container>
-                      } @else if (false && feedbackState === 'error') {
-                  <div class="section-load-error" role="status">Unable to load detailed feedback.</div>
-                      } @else if (false) {
-                  <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center" [class.hidden]="canonicalDetailedFeedback">
-                    <i class="fas fa-comment-dots text-blue-500 mr-3"></i>
-                    Detailed Feedback & Suggestions
-                  </h3>
-                  <div class="grid md:grid-cols-2 gap-6" [class.hidden]="canonicalDetailedFeedback">
-
-                    <!-- Areas for Improvement -->
-                    <div>
-                      <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
-                        <i class="fas fa-tools text-red-500 mr-2"></i>
-                        Areas for Improvement
-                      </h4>
-                      <div class="space-y-4">
-                        @for (item of areasForImprovement; track item.title) {
-                        <div class="suggestion-item" [ngClass]="item.borderClass">
-                          <h5 class="font-medium text-gray-800">{{ item.title }}</h5>
-                          <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
-                        </div>
-                        }
-                      </div>
-                    </div>
-
-                    <!-- Strengths -->
-                    <div>
-                      <h4 class="font-semibold text-gray-700 mb-4 flex items-center">
-                        <i class="fas fa-star text-yellow-500 mr-2"></i>
-                        Strengths
-                      </h4>
-                      <div class="space-y-4">
-                        @for (s of strengths; track s.title) {
-                        <div class="flex items-start">
-                          <i class="fas fa-check text-green-500 mt-1 mr-3"></i>
-                          <div>
-                            <h5 class="font-medium text-gray-800">{{ s.title }}</h5>
-                            <p class="text-sm text-gray-600 mt-1">{{ s.description }}</p>
-                          </div>
-                        </div>
-                        }
-                      </div>
-                    </div>
-
-                  </div>
-
-                  <!-- Action Steps -->
-                  <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200" [class.hidden]="canonicalDetailedFeedback">
-                    <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
-                      <i class="fas fa-road text-blue-500 mr-2"></i>
-                      Action Steps for Improvement
-                    </h4>
-                    <ol class="list-decimal list-inside text-gray-700 space-y-2">
-                      @for (step of actionSteps; track step) {
-                      <li>{{ step }}</li>
-                      }
-                    </ol>
-                  </div>
-                  }
-                </div>
-
-              </div>
-
-              <div class="lg:col-span-1 space-y-6">
-
-                <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="scoreState === 'loading'">
-                  @if (scoreState === 'loading') {
-                  <ng-container *ngTemplateOutlet="scoreSkeleton"></ng-container>
-                  } @else if (scoreState === 'error') {
-                  <div class="section-load-error" role="status">{{ analysisFailureMessage }}
-                    @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="reEvaluateCurrentSubmission()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
-                  </div>
-                  } @else {
-                  <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-semibold text-gray-700">Overall Score</h3>
-                    <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
-                  </div>
-                  <div class="relative w-32 h-32 mx-auto mb-4">
-                    <svg class="progress-ring w-32 h-32" width="120" height="120">
-                      <circle class="text-gray-200" stroke-width="10" stroke="currentColor" fill="transparent" r="52"
-                        cx="60" cy="60" />
-                      <circle class="progress-ring-circle text-blue-500" stroke-width="10" stroke-dasharray="326.56"
-                        stroke-dashoffset="58.78" stroke-linecap="round" stroke="currentColor" fill="transparent"
-                        r="52" cx="60" cy="60" />
-                    </svg>
-                    <div class="absolute inset-0 flex items-center justify-center">
-                      <span class="text-2xl font-bold text-gray-700">{{ gradeLabel }}</span>
-                    </div>
-                  </div>
-                  <div class="text-center text-sm text-gray-600">
-                    <p>{{ scoreSummaryText }}</p>
-                  </div>
-                  <ng-container *ngTemplateOutlet="evaluationStatusPanel"></ng-container>
-                  }
-                </div>
-
-                <!-- Correction Stats -->
-                <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
-                  <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
-                  @if (partialStatisticsMessage) { <p class="text-sm text-blue-700 mb-4" role="status">{{ partialStatisticsMessage }}</p> }
-                  @if (statisticsState === 'loading') {
-                  <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container>
-                  } @else if (statisticsState === 'processing') { <div class="text-sm text-blue-700" role="status">Still analyzing corrections…</div>
-                  } @else if (statisticsState === 'error') {
-                  <div class="section-load-error" role="status">Unable to load correction statistics.</div>
-                  } @else {
-                  <div class="space-y-4">
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <span class="text-gray-600">Content Issues</span>
-                        <span class="font-medium">{{ contentIssuesDisplay }}</span>
-                      </div>
-                      <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <span class="text-gray-600">Grammar Issues</span>
-                        <span class="font-medium">{{ grammarIssuesDisplay }}</span>
-                      </div>
-                      <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <span class="text-gray-600">Organization Issues</span>
-                        <span class="font-medium">{{ organizationIssuesDisplay }}</span>
-                      </div>
-                      <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <span class="text-gray-600">Vocabulary Issues</span>
-                        <span class="font-medium">{{ vocabularyIssuesDisplay }}</span>
-                      </div>
-                      <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <span class="text-gray-600">Mechanics Issues</span>
-                        <span class="font-medium">{{ mechanicsIssuesDisplay }}</span>
-                      </div>
-                      <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-yellow-400 rounded-full" [style.width]="mechanicsIssuesBarWidth"></div>
-                      </div>
-                    </div>
-                  </div>
-                  }
-                </div>
-
-                <!-- Correction Legend -->
-                <div class="gradient-card p-6 hover-lift">
-                  <h3 class="font-semibold text-gray-700 mb-4">Correction Legend</h3>
-                  <div class="space-y-3">
-                    @for (item of correctionLegendItems; track item.symbol) {
-                    <div class="flex items-center">
-                      <span class="correction-badge" [style.background]="toRgba(item.color, 0.28)"
-                        [style.color]="badgeTextColor(item.color)"
-                        [style.border]="'1px solid ' + badgeBorderColor(item.color)">
-                        {{ item.symbol }}
-                      </span>
-                      <span class="text-sm text-gray-600 ml-2">{{ item.label }}</span>
-                    </div>
-                    }
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-        </ng-container>
-
-      </div>
-    </div>
-
-    <!-- aiFeedbackMobile shared template -->
-    <ng-template #aiFeedbackMobile>
-      <div class="flex flex-col gap-4" id="ai-feedback-section-mobile">
-        <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-6">
-          <div class="flex flex-row justify-between items-center">
-            <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
-          </div>
-          <div class="">
-            <div class="flex flex-col gap-3">
-              @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
-              <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
-              } @else if (aiFeedbackState === 'error') {
-              <div class="section-load-error" role="status">{{ analysisFailureMessage }}</div>
-              } @else {
-              @if (isCustomRubricResult) {
-              <div class="rounded-xl bg-blue-50 px-5 py-4 text-blue-900" role="note">
-                This overall score is calculated from the assignment’s custom rubric.
-              </div>
-              }
-              @if (rubricFeedbackItems.length) {
-              @for (item of rubricFeedbackItems; track item.category) {
-              <div
-                class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-row gap-2 items-center flex-wrap">
-                    <p class="text-xl font-bold mb-1 break-words">{{ item.category }}</p>
-                    <div class="score-badge rounded-full bg-[#008081] flex items-center justify-center shrink-0">
-                      <span class="score-earned">{{ item.score | number:'1.1-1' }}</span>
-                      <span class="score-maximum"> / {{ item.maxScore }}</span>
-                    </div>
-                  </div>
-                  <p class="break-words">{{ item.description }}</p>
-                  @if (item.selectedLevel) {
-                  <p class="break-words">Selected level: {{ item.selectedLevel }}</p>
-                  }
-                </div>
-              </div>
-              }
-              } @else {
-              <div class="w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl">
-                <p class="text-gray-600">No rubric feedback available yet. Generate AI feedback or open transcribed
-                  text to compute dynamic rubric.</p>
-              </div>
-              }
-              }
-              <section class="teacher-comments-editor w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl"
-                [formGroup]="feedbackForm">
-                <p class="text-xl font-bold mb-1">Teacher Comments</p>
-                <div class="w-full min-w-0">
-                  <textarea formControlName="message" maxlength="5000"
-                    class="teacher-comments-editor__textarea input-text w-full h-40 resize-none bg-white"
-                    [attr.aria-busy]="teacherCommentState === 'loading'"
-                    placeholder="Type your message..."></textarea>
-                  @if (teacherCommentState === 'loading') {
-                  <p class="comment-loading" role="status">Loading saved teacher commentâ€¦</p>
-                  }
-                </div>
-                <div class="teacher-comments-editor__actions w-full flex justify-end mt-4">
-                  <button type="button" class="btn-primary" [disabled]="isTeacherCommentSaving"
-                    (click)="submitFeedback()">{{ isTeacherCommentSaving ? 'Savingâ€¦' : 'Submit' }}</button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      </div>
-    </ng-template>
-
-  </ng-template>
-  <!-- END MOBILE -->
+  </main>
+  <!-- END SHARED SUBMISSION REVIEW -->
 
   <ng-template #evaluationStatusPanel>
     @if (evaluationStatusPresentation.showPanel) {
@@ -877,6 +484,10 @@
     <span class="sr-only">Loading AI feedback</span>
   </ng-template>
 
+  @if ((currentSubmission?.draftNumber || 1) > 1) {
+    <app-draft-comparison [submissionId]="currentSubmission?._id || null"
+      [refreshKey]="currentSubmission?.draftNumber + ':' + (currentSubmission?.assessmentCompletedAt || currentSubmission?.evaluationSourceHash || currentSubmission?.evaluationStatus || '')"></app-draft-comparison>
+  }
   <app-adaptive-practice-progress class="block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
 
   <!-- Shared Modal Dialogs (outside desktop/mobile conditionals) -->
@@ -890,14 +501,5 @@
     <app-dialog-view-submissions [assignmentId]="assignmentId" [open]="openSheetSubmission" [navigateOnSelect]="false"
       (selected)="onSubmissionSelected($event)" (closed)="onCloseSubmission()"></app-dialog-view-submissions>
   </app-modal-dialog>
-
-  <!-- Mobile Legend Bottom Sheet -->
-  @if (isMobileLegendOpen) {
-  <div class="mobile-legend-backdrop" (click)="closeMobileLegend()" role="presentation">
-    <div class="mobile-legend-sheet" role="dialog" aria-modal="true" aria-label="Correction legend" (click)="$event.stopPropagation()">
-      <app-writing-corrections-legend class="mobile-bottom-sheet" [legend]="writingCorrectionsLegend" (closeRequested)="closeMobileLegend()"></app-writing-corrections-legend>
-    </div>
-  </div>
-  }
 
 </ng-container>

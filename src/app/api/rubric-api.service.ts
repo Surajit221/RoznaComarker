@@ -25,6 +25,21 @@ export type ParsedRubric = {
   criteria: ParsedRubricCriteria[];
 };
 
+export interface SavedRubricLevel { title: string; score: number; description: string; }
+export interface SavedRubricCriterion { name: string; weight: number; levels: SavedRubricLevel[]; }
+export interface SavedRubricData { totalPoints: number; criteria: SavedRubricCriterion[]; }
+export interface SavedRubric {
+  _id: string;
+  name: string;
+  description?: string;
+  writingType?: string;
+  rubricData: SavedRubricData;
+  sourceAssignmentId?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RubricApiService {
   constructor(private http: HttpClient) {}
@@ -78,5 +93,50 @@ export class RubricApiService {
       this.logHttpError('parseRubricTemplate', err);
       throw err;
     }
+  }
+
+  async listSavedRubrics(search = ''): Promise<SavedRubric[]> {
+    const suffix = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+    const response = await firstValueFrom(this.http.get<BackendResponse<SavedRubric[]>>(
+      `${this.getApiBaseUrl()}/rubrics${suffix}`
+    ));
+    return response.data;
+  }
+
+  async getSavedRubric(id: string): Promise<SavedRubric> {
+    const response = await firstValueFrom(this.http.get<BackendResponse<SavedRubric>>(
+      `${this.getApiBaseUrl()}/rubrics/${encodeURIComponent(id)}`
+    ));
+    return response.data;
+  }
+
+  async createSavedRubric(body: { name: string; description?: string; writingType?: string; rubricData: SavedRubricData }): Promise<SavedRubric> {
+    const response = await firstValueFrom(this.http.post<BackendResponse<SavedRubric>>(`${this.getApiBaseUrl()}/rubrics`, body));
+    return response.data;
+  }
+
+  async saveFromAssignment(assignmentId: string, body: { name: string; description?: string }): Promise<SavedRubric> {
+    const response = await firstValueFrom(this.http.post<BackendResponse<SavedRubric>>(
+      `${this.getApiBaseUrl()}/rubrics/from-assignment/${encodeURIComponent(assignmentId)}`, body
+    ));
+    return response.data;
+  }
+
+  async updateSavedRubric(id: string, body: Partial<Pick<SavedRubric, 'name' | 'description' | 'writingType' | 'rubricData'>>): Promise<SavedRubric> {
+    const response = await firstValueFrom(this.http.patch<BackendResponse<SavedRubric>>(
+      `${this.getApiBaseUrl()}/rubrics/${encodeURIComponent(id)}`, body
+    ));
+    return response.data;
+  }
+
+  async duplicateSavedRubric(id: string): Promise<SavedRubric> {
+    const response = await firstValueFrom(this.http.post<BackendResponse<SavedRubric>>(
+      `${this.getApiBaseUrl()}/rubrics/${encodeURIComponent(id)}/duplicate`, {}
+    ));
+    return response.data;
+  }
+
+  async archiveSavedRubric(id: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`${this.getApiBaseUrl()}/rubrics/${encodeURIComponent(id)}`));
   }
 }

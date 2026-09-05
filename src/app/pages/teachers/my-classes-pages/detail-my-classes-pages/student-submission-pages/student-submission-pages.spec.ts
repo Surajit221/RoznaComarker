@@ -259,8 +259,8 @@ describe('StudentSubmissionPages', () => {
     expect(component.feedbackState).toBe('loaded');
   });
 
-  it('renders exactly one editable Teacher Comments section in the mobile branch', () => {
-    (component.device as any).width.set(390);
+  it('renders exactly one shared editable Teacher Comments section', () => {
+    window.dispatchEvent(new Event('resize'));
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.teacher-comments-editor').length).toBe(1);
@@ -268,8 +268,8 @@ describe('StudentSubmissionPages', () => {
     expect(fixture.nativeElement.querySelector('.teacher-comments-editor button')?.textContent).toContain('Submit');
   });
 
-  it('keeps the mobile Teacher Comments editor available when evaluation fails', () => {
-    (component.device as any).width.set(320);
+  it('keeps the shared Teacher Comments editor available when evaluation fails', () => {
+    window.dispatchEvent(new Event('orientationchange'));
     component.aiFeedbackState = 'error';
     fixture.detectChanges();
 
@@ -277,7 +277,7 @@ describe('StudentSubmissionPages', () => {
     expect(fixture.nativeElement.querySelector('.teacher-comments-editor textarea')).toBeTruthy();
   });
 
-  it('uses one canonical state for teacher desktop and mobile templates', () => {
+  it('uses one canonical state and one functional teacher review tree', () => {
     component.canonicalResultState = normalizeCanonicalResult({
       submissionId: 'submission-1', correctionStatus: 'completed', semanticStatus: 'completed',
       evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', statisticsCompleteness: 'canonical',
@@ -291,10 +291,9 @@ describe('StudentSubmissionPages', () => {
     component.hasAssignmentRubric = true;
     const state = component.canonicalResultState;
 
-    (component.device as any).width.set(1440);
     fixture.detectChanges();
     expect(component.canonicalResultState).toBe(state);
-    (component.device as any).width.set(390);
+    window.dispatchEvent(new Event('resize'));
     fixture.detectChanges();
 
     expect(component.canonicalResultState).toBe(state);
@@ -306,6 +305,7 @@ describe('StudentSubmissionPages', () => {
     expect(fixture.nativeElement.querySelector('.teacher-comments-editor textarea')).toBeTruthy();
     expect(fixture.nativeElement.textContent).toContain('Download PDF');
     expect(fixture.nativeElement.textContent).toContain('View / Edit Rubric');
+    expect(fixture.nativeElement.querySelectorAll('.submission-review-page').length).toBe(1);
   });
 
   it('shows the same evaluation-only failure and retry label at desktop and mobile widths', () => {
@@ -314,9 +314,9 @@ describe('StudentSubmissionPages', () => {
       correctionStatistics: { content: 0, grammar: 5, organization: 0, vocabulary: 0, mechanics: 3 },
       evaluationStatus: 'failed', detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
     component.scoreState = 'error'; component.feedbackState = 'error'; component.aiFeedbackState = 'error';
+    component.isUploadedFile = false;
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
-      if (width === 390) component.onTabSelected('transcribed-text');
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
       expect(fixture.nativeElement.textContent).toContain('Retry scoring');
@@ -351,6 +351,81 @@ describe('StudentSubmissionPages', () => {
     component.activeFileIndex = 1;
 
     expect(component.activeAnnotations.map((annotation) => annotation._id)).toEqual(['a-2']);
+  });
+
+  it('changes only viewer resources when another teacher submission image is selected', async () => {
+    const savedFeedback = { submissionId: 'submission-1', overallScore: 88 } as any;
+    const savedCanonical = normalizeCanonicalResult({
+      submissionId: 'submission-1', evaluationStatus: 'completed',
+      detailedFeedbackStatus: 'completed', overallScore: 88
+    });
+    component.currentSubmission = { _id: 'submission-1', fileUrl: 'image-1.jpg' } as any;
+    component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    component.currentFeedback = savedFeedback;
+    component.canonicalResultState = savedCanonical;
+
+    const applySubmission = spyOn<any>(component, 'applyCurrentSubmission').and.resolveTo();
+    const loadImage = spyOn<any>(component, 'loadUploadedImage').and.resolveTo();
+    const loadCorrections = spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
+    const refreshCorrections = spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
+    const reEvaluate = spyOn(component, 'reEvaluateCurrentSubmission').and.resolveTo();
+    const loadFeedback = spyOn((component as any).feedbackApi, 'getSubmissionFeedback');
+    const markReviewed = spyOn((component as any).feedbackApi, 'markSubmissionReviewed');
+
+    component.onSelectSubmissionImage(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.activeFileIndex).toBe(1);
+    expect(loadImage).toHaveBeenCalledOnceWith('image-2.jpg');
+    expect(loadCorrections).not.toHaveBeenCalled();
+    expect(refreshCorrections).not.toHaveBeenCalled();
+    expect(component.currentFeedback).toBe(savedFeedback);
+    expect(component.canonicalResultState).toBe(savedCanonical);
+    expect(applySubmission).not.toHaveBeenCalled();
+    expect(reEvaluate).not.toHaveBeenCalled();
+    expect(loadFeedback).not.toHaveBeenCalled();
+    expect(markReviewed).not.toHaveBeenCalled();
+
+    component.onSelectSubmissionImage(0);
+    await Promise.resolve();
+    expect(component.activeFileIndex).toBe(0);
+    expect(loadCorrections).not.toHaveBeenCalled();
+    expect(refreshCorrections).not.toHaveBeenCalled();
+    expect(reEvaluate).not.toHaveBeenCalled();
+    expect(loadFeedback).not.toHaveBeenCalled();
+  });
+
+  it('preserves submission and evaluation state without requests across breakpoints', () => {
+    const savedSubmission = { _id: 'submission-1' } as any;
+    const savedFeedback = { submissionId: 'submission-1', overallScore: 88 } as any;
+    const savedCanonical = normalizeCanonicalResult({
+      submissionId: 'submission-1', evaluationStatus: 'completed',
+      detailedFeedbackStatus: 'completed', overallScore: 88
+    });
+    component.currentSubmission = savedSubmission;
+    component.currentFeedback = savedFeedback;
+    component.canonicalResultState = savedCanonical;
+    fixture.detectChanges();
+    TestBed.inject(HttpTestingController)
+      .expectOne((request) => request.url.includes('/adaptive-practice/teacher/submissions/submission-1/progress'))
+      .flush({ success: true, data: { submissionId: 'submission-1', skills: [] } });
+    const evaluate = spyOn(component, 'reEvaluateCurrentSubmission').and.resolveTo();
+    const feedback = spyOn((component as any).feedbackApi, 'getSubmissionFeedback');
+    const reviewed = spyOn((component as any).feedbackApi, 'markSubmissionReviewed');
+
+    for (const width of [1440, 390, 1024, 430]) {
+      window.dispatchEvent(new Event(width > 768 ? 'resize' : 'orientationchange'));
+      fixture.detectChanges();
+    }
+
+    expect(component.currentSubmission).toBe(savedSubmission);
+    expect(component.currentFeedback).toBe(savedFeedback);
+    expect(component.canonicalResultState).toBe(savedCanonical);
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(feedback).not.toHaveBeenCalled();
+    expect(reviewed).not.toHaveBeenCalled();
   });
 
   it('Generate AI Feedback triggers canonical evaluation and never assigns a legacy preview', async () => {
@@ -406,7 +481,6 @@ describe('StudentSubmissionPages', () => {
       }] }
     } as any;
     component.aiFeedbackState = 'loaded';
-    (component.device as any).width.set(1440);
     (component as any).recomputeRubricFeedbackItems();
     fixture.detectChanges();
 
@@ -533,7 +607,7 @@ describe('StudentSubmissionPages', () => {
   it('uses the existing rubric control as Create Rubric until a saved assignment rubric exists', async () => {
     component.hasAssignmentRubric = false;
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('Create Rubric');
       expect(fixture.nativeElement.textContent).not.toContain('View / Edit Rubric');
@@ -547,7 +621,6 @@ describe('StudentSubmissionPages', () => {
 
     component.closeRubricDesignerDialog();
     component.hasAssignmentRubric = true;
-    (component.device as any).width.set(1440);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('View / Edit Rubric');
     expect(fixture.nativeElement.textContent).not.toContain('Create Rubric');
@@ -585,10 +658,10 @@ describe('StudentSubmissionPages', () => {
       terminal: true
     });
     component.scoreState = 'loaded';
+    component.isUploadedFile = false;
     const reEvaluate = spyOn(component, 'reEvaluateCurrentSubmission').and.resolveTo();
 
-    (component.device as any).width.set(390);
-    component.onTabSelected('transcribed-text');
+    window.dispatchEvent(new Event('orientationchange'));
     fixture.detectChanges();
 
     expect(component.evaluationStatusPresentation.state).toBe('stale');
@@ -615,7 +688,7 @@ describe('StudentSubmissionPages', () => {
       manualRetryAllowed: true
     });
     for (const width of [1440, 390]) {
-      (component.device as any).width.set(width);
+      window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       expect(component.evaluationStatusPresentation.actionLabel)
         .toBe('Re-evaluate with current rubric');
       expect(component.evaluationStatusPresentation.showAction).toBeTrue();
@@ -638,9 +711,9 @@ describe('StudentSubmissionPages', () => {
     });
     component.scoreState = 'loaded';
     component.aiFeedbackState = 'processing';
+    component.isUploadedFile = false;
     (component as any).recomputeRubricFeedbackItems();
-    (component.device as any).width.set(390);
-    component.onTabSelected('transcribed-text');
+    window.dispatchEvent(new Event('orientationchange'));
     fixture.detectChanges();
 
     expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
@@ -665,8 +738,8 @@ describe('StudentSubmissionPages', () => {
       manualRetryAllowed: true
     });
     component.scoreState = 'loaded';
-    (component.device as any).width.set(390);
-    component.onTabSelected('transcribed-text');
+    component.isUploadedFile = false;
+    window.dispatchEvent(new Event('orientationchange'));
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Re-evaluation could not be completed.');

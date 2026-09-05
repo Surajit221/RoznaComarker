@@ -6,11 +6,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 
 
-import { DeviceService } from '../../../../../services/device.service';
 
 
 
-import { AppBarBackButton } from '../../../../../shared/app-bar-back-button/app-bar-back-button';
 
 
 
@@ -92,6 +90,7 @@ import { CanonicalDetailedFeedbackComponent } from '../../../../../components/ca
 
 
 import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
+import { TeacherActivityStateService } from '../../../../../services/teacher-activity-state.service';
 
 
 
@@ -134,6 +133,7 @@ import { DEFAULT_CORRECTION_LEGEND } from '../../../../../constants/correction-l
 import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/submission-feedback.model';
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
+import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normalizeCanonicalResult,
   type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
@@ -174,7 +174,6 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-    AppBarBackButton,
 
 
 
@@ -192,7 +191,8 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
     DialogViewSubmissions,
 
     RubricDesignerModal,
-    AdaptivePracticeProgress
+    AdaptivePracticeProgress,
+    DraftComparisonComponent
 
 
 
@@ -246,13 +246,6 @@ export class StudentSubmissionPages {
 
 
 
-  device = inject(DeviceService);
-
-
-
-  activeTab = 'uploaded-file';
-  isMobileLegendOpen = false;
-  private legendTrigger: HTMLElement | null = null;
 
 
 
@@ -301,6 +294,7 @@ export class StudentSubmissionPages {
 
 
   private teacherDashboardState = inject(TeacherDashboardStateService);
+  private teacherActivityState = inject(TeacherActivityStateService);
 
 
 
@@ -650,18 +644,6 @@ export class StudentSubmissionPages {
     } finally {
       this.isRubricUploading = false;
     }
-  }
-
-  openMobileLegend(): void {
-    this.legendTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    this.isMobileLegendOpen = true;
-  }
-
-  closeMobileLegend(): void {
-    this.isMobileLegendOpen = false;
-    const trigger = this.legendTrigger;
-    this.legendTrigger = null;
-    queueMicrotask(() => trigger?.focus());
   }
 
 
@@ -2271,7 +2253,7 @@ export class StudentSubmissionPages {
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
     if (this.canonicalResultState?.semanticStatus === 'partial') {
-      return 'Corrections from completed analysis sections are shown; one or more sections could not be completed.';
+      return 'Your score is ready, but correction analysis was only partially completed. Some correction statistics are unavailable.';
     }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
     return this.canonicalResultState.correctionStatus === 'partial'
@@ -2757,12 +2739,33 @@ export class StudentSubmissionPages {
 
     this.activeFileIndex = i;
 
-    this.ocrWords = [];
-    this.annotations = [];
-    this.correctionsError = null;
-    this.recomputeLegendAligned();
+    void this.applySelectedSubmissionImage();
+  }
 
-    void this.applyCurrentSubmission(this.currentSubmission, false);
+  /**
+   * Changes only the active file/viewer resources. Selecting another page must
+   * not re-apply the submission because that resets persisted feedback state
+   * and repeats submission-level requests (including the review marker).
+   */
+  private async applySelectedSubmissionImage(): Promise<void> {
+    const submission = this.currentSubmission;
+    const submissionId = submission?._id;
+    const rawUrl = this.activeFileUrlRaw || submission?.fileUrl || null;
+    if (!submissionId || !rawUrl) return;
+
+    this.revokeObjectUrls();
+    this.essayImageUrl = null;
+    this.pdfMediaState = 'idle';
+    this.imageMediaState = 'idle';
+
+    if (this.isProbablyPdfUrl(rawUrl)) {
+      await this.retryUploadedPdf();
+    } else if (this.isProbablyImageUrl(rawUrl)) {
+      await this.loadUploadedImage(rawUrl);
+    }
+
+    // Corrections, feedback, score, and adaptive state remain the cached
+    // submission-level state. Page selection changes presentation only.
   }
 
 
@@ -4985,7 +4988,6 @@ export class StudentSubmissionPages {
 
 
 
-      console.log('Teacher comment initialized as empty');
 
 
 
@@ -5373,6 +5375,12 @@ export class StudentSubmissionPages {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
     const state = this.canonicalResultState;
+    if (this.currentSubmission) {
+      this.currentSubmission.evaluationStatus = state.evaluationStatus as BackendSubmission['evaluationStatus'];
+      this.currentSubmission.evaluationSourceHash = state.evaluationSourceHash || undefined;
+      this.currentSubmission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.currentSubmission.assessmentCompletedAt;
+      if (state.evaluationStatus === 'completed') this.currentSubmission.ocrStatus = 'completed';
+    }
     this.scoreState = state.evaluationStatus === 'completed'
       || (state.evaluationStatus === 'partial' && state.score !== null && Number.isFinite(Number(state.score))) ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
@@ -6065,8 +6073,7 @@ export class StudentSubmissionPages {
 
 
 
-      const a: any = submission && (submission as any).assignment;
-      console.log('[SUBMISSION META] assignment.teacher', a && typeof a === 'object' ? (a.teacher || null) : null, 'assignment.createdAt', a && typeof a === 'object' ? a.createdAt : null);
+      void submission;
 
 
 
@@ -6314,6 +6321,7 @@ export class StudentSubmissionPages {
           };
         }
         this.teacherDashboardState.markReviewed(submissionId);
+        this.teacherActivityState.markReviewed(submissionId);
       }
     } catch (error) {
       console.error('[SUBMISSION REVIEW STATE ERROR]', {
@@ -6535,7 +6543,6 @@ export class StudentSubmissionPages {
 
 
 
-      console.log('TEACHER FEEDBACK LOADED:', fb);
 
 
 
@@ -6609,7 +6616,6 @@ export class StudentSubmissionPages {
 
 
 
-      console.log('TEACHER FEEDBACK LOADED:', empty);
 
 
 
@@ -6617,7 +6623,6 @@ export class StudentSubmissionPages {
 
 
 
-      console.log('Teacher comment initialized as empty');
 
 
 
@@ -6920,30 +6925,6 @@ export class StudentSubmissionPages {
 
 
 
-      console.log('[TEACHER FEEDBACK SAVED]', {
-
-
-
-        submissionId: submission._id,
-
-
-
-        teacherComments: updated.teacherComments,
-
-
-
-        length: updated.teacherComments.length,
-
-
-
-        overriddenByTeacher: base.overriddenByTeacher
-
-
-
-      });
-
-
-
       this.hydrateRubricEditFormFromFeedback();
 
 
@@ -7217,34 +7198,6 @@ export class StudentSubmissionPages {
 
 
     this.showDialog = false;
-
-
-
-  }
-
-
-
-
-
-
-
-  onTabSelected(param: string) {
-
-
-
-    this.activeTab = param;
-
-
-
-    if (param === 'transcribed-text') {
-
-
-
-      this.refreshWritingCorrections();
-
-
-
-    }
 
 
 

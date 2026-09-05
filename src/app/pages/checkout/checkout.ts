@@ -4,6 +4,8 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BackendPlan } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { loadStripeClient } from './stripe-loader';
+import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
+import { billingIntervalUnit, formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
 
 @Component({ selector: 'app-checkout', standalone: true, imports: [CommonModule, RouterModule], templateUrl: './checkout.html', styleUrl: './checkout.css' })
 export class CheckoutComponent implements OnInit, OnDestroy {
@@ -16,6 +18,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private initializationSequence = 0;
   planCode = 'starter_monthly';
   billingPeriod: 'monthly' | 'annual' = 'monthly';
+  paymentProvider: 'stripe' | 'paypal' = 'stripe';
   constructor(private subscriptions: SubscriptionApiService, private router: Router, private route: ActivatedRoute) {}
 
   async ngOnInit(): Promise<void> {
@@ -35,6 +38,15 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.embeddedCheckout?.destroy?.();
       this.embeddedCheckout = undefined;
       this.plan ??= await this.subscriptions.getCheckoutPlan(this.planCode);
+      if (billingIntervalUnit(this.plan) === 'year') this.billingPeriod = 'annual';
+      this.paymentProvider = this.plan.paymentProvider || 'stripe';
+      if (this.paymentProvider === 'paypal') {
+        const created = await this.subscriptions.createPayPalSubscription(this.planCode, checkoutAttemptId);
+        const url = trustedPayPalApprovalUrl(created.approvalUrl);
+        if (!url) throw new Error('Untrusted PayPal approval URL');
+        window.location.assign(url);
+        return;
+      }
       const stripe = await loadStripeClient();
       const embeddedCheckout = await stripe.createEmbeddedCheckoutPage({
         fetchClientSecret: async () => (await this.subscriptions.createCheckoutSession(this.planCode, checkoutAttemptId, this.billingPeriod)).clientSecret,
@@ -50,6 +62,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       const code = err?.error?.code;
       if (code === 'ALREADY_SUBSCRIBED') {
         this.errorMessage = 'A subscription is already active. Use Manage Plan to update billing.';
+      } else if (code === 'SUBSCRIPTION_REQUIRES_MANAGEMENT') {
+        this.errorMessage = 'Your PayPal subscription needs attention. Use Manage Plan to review billing.';
       } else {
         this.errorMessage = 'Secure checkout is temporarily unavailable. Please try again.';
       }
@@ -84,5 +98,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     if (f.dedicatedSupport) items.push('Dedicated Support');
     return items;
   }
+  get summaryPrice(): string { return this.plan ? formatPlanPrice(this.plan, this.billingPeriod) : '—'; }
+  get summaryPeriod(): string { return this.plan ? formatPlanPeriod(this.plan, this.billingPeriod) : ''; }
+  get billingDescription(): string { return `${this.summaryPeriod.includes('year') ? 'Yearly' : 'Monthly'} subscription`; }
   async retry(): Promise<void> { await this.initializeCheckout(); }
 }

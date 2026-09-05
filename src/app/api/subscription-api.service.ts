@@ -17,6 +17,8 @@ export type BackendSubscriptionUsage = {
   students: number;
   submissions: number;
   storageMB: number;
+  aiFlashcards?: number;
+  aiWorksheets?: number;
 };
 
 export type BackendMySubscription = {
@@ -24,13 +26,37 @@ export type BackendMySubscription = {
   planStartedAt: string | null;
   planExpiresAt: string | null;
   usage: BackendSubscriptionUsage;
+  storage?: { usedBytes: number; limitBytes: number | null; usedMb: number; limitMb: number | null; percent: number | null };
   billing: {
+    provider?: 'stripe' | 'paypal';
     customerConfigured: boolean;
     subscriptionId: string | null;
     status: string | null;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
     paymentIssue: boolean;
+    canManageSubscription?: boolean;
+    canCancel?: boolean;
+    canChangePlan?: boolean;
+    planCode?: string;
+    billingPeriod?: 'monthly' | 'annual';
+    subscriptionStatus?: string | null;
+    pendingPlanChange?: boolean;
+    pendingTargetPlanCode?: string | null;
+    pendingCancellation?: boolean;
+  } | null;
+  referrals?: {
+    code: string;
+    count: number;
+    attributed: number;
+    qualified: number;
+    rewarded: number;
+    pending: number;
+    reviewRequired: number;
+    bonusCreditsEarned: number;
+    rewardCreditsEach: number;
+    cap?: number;
+    referrals: Array<{ id: string; name: string; status: 'ATTRIBUTED' | 'QUALIFIED' | 'REWARDED' | 'REJECTED' | 'REVIEW_REQUIRED'; date: string }>;
   } | null;
 };
 
@@ -87,12 +113,46 @@ export class SubscriptionApiService {
     return resp.data;
   }
 
+  async createPayPalSubscription(planCode: string, checkoutAttemptId: string): Promise<{ subscriptionId: string; approvalUrl: string; status: string }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ subscriptionId: string; approvalUrl: string; status: string }>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/create`, { planCode, checkoutAttemptId }
+    ));
+    return resp.data;
+  }
+
   async createCustomerPortal(): Promise<{ url: string }> {
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<{ url: string }>>(
         `${this.getApiBaseUrl()}/subscription/customer-portal`, {}
       )
     );
+    return resp.data;
+  }
+
+  async cancelPayPalSubscription(): Promise<{ pending: boolean; alreadyTerminal: boolean; status: string; attemptId: string | null }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ pending: boolean; alreadyTerminal: boolean; status: string; attemptId: string | null }>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/cancel`, {}
+    ));
+    return resp.data;
+  }
+
+  async changePayPalPlan(targetPlanCode: string, changeAttemptId: string): Promise<{
+    attemptId: string; status: string; targetPlanCode: string; requiresApproval: boolean; approvalUrl: string | null;
+  }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{
+      attemptId: string; status: string; targetPlanCode: string; requiresApproval: boolean; approvalUrl: string | null;
+    }>>(`${this.getApiBaseUrl()}/subscription/paypal/change-plan`, { targetPlanCode, changeAttemptId }));
+    return resp.data;
+  }
+
+  async markPayPalPlanChangeCancelled(changeAttemptId: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/subscription/paypal/change-plan/cancelled`, { changeAttemptId }));
+  }
+
+  async claimReferral(code: string): Promise<{ applied: boolean }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ applied: boolean }>>(
+      `${this.getApiBaseUrl()}/users/me/referral`, { code }
+    ));
     return resp.data;
   }
 }

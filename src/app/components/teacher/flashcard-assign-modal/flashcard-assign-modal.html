@@ -66,6 +66,11 @@
           {{ isSubmitting ? 'Assigning…' : 'Assign to class' }}
         </button>
       </div>
+      <div class="fam-error-alert" *ngIf="duplicateAssignment">
+        <span class="fam-error-text">This flashcard set is already assigned to this class.</span>
+        <button type="button" (click)="openExisting()">Edit Existing</button>
+        <button type="button" (click)="createAnother()">Create Another Assignment</button>
+      </div>
     </ng-container>
 
     <!-- View all link -->

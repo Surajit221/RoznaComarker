@@ -21,6 +21,8 @@ export type BackendNotification = {
   recipient: string;
   actor?: any;
   type: string;
+  category?: 'ACTION_REQUIRED' | 'STUDENT_PROGRESS' | 'WORKFLOW' | 'REWARD' | 'ACCOUNT';
+  priority?: 'HIGH' | 'NORMAL' | 'LOW';
   title: string;
   description: string;
   data?: {

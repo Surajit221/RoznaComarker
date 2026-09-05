@@ -64,6 +64,11 @@
           {{ isSubmitting ? 'Assigning…' : 'Assign to class' }}
         </button>
       </div>
+      <div class="wam-empty" *ngIf="duplicateAssignment">
+        <p>This worksheet is already assigned to this class.</p>
+        <button type="button" (click)="openExisting()">Edit Existing</button>
+        <button type="button" (click)="createAnother()">Create Another Assignment</button>
+      </div>
     </ng-container>
 
     <!-- View all link -->

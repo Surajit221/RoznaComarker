@@ -209,11 +209,33 @@ export class AssignmentApiService {
     return resp.data;
   }
 
+  async generateDraftRubricDesignerFromPrompt(prompt: string, context: {
+    title: string; writingType: string; instructions: string;
+  }): Promise<RubricDesigner> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<RubricDesigner>>(
+      `${this.getApiBaseUrl()}/assignments/generate-rubric-prompt`, { prompt, ...context }
+    ));
+    return resp.data;
+  }
+
   async getAssignmentByQrToken(qrToken: string): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.get<BackendResponse<BackendAssignment>>(
         `${apiBaseUrl}/assignments/qr/${encodeURIComponent(qrToken)}`
+      )
+    );
+    return resp.data;
+  }
+
+  async duplicateAssignment(
+    id: string,
+    payload: { targetClassId: string; title: string; deadline: string }
+  ): Promise<BackendAssignment> {
+    const resp = await firstValueFrom(
+      this.http.post<BackendResponse<BackendAssignment>>(
+        `${this.getApiBaseUrl()}/assignments/${encodeURIComponent(id)}/duplicate`,
+        payload
       )
     );
     return resp.data;

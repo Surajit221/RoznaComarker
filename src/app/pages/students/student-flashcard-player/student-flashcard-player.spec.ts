@@ -598,4 +598,43 @@ describe('StudentFlashcardPlayer', () => {
     expect(component.answeredCount).toBe(2);
     expect(component.incompleteCount).toBe(3);
   });
+
+  it('advances the visible counter immediately without waiting for the progress PATCH', fakeAsync(() => {
+    component.template = 'term-def';
+    component.cards = [1, 2, 3].map(n => ({ _id: `card-${n}`, front: 'Q', back: 'A', order: n }));
+    (component as any).initializeRuntimeCards();
+    (component as any).resolvedFlashcardSetId = 'set-1';
+    spyOn((component as any).flashcardApi, 'saveProgress').and.returnValue(new Subject());
+    component.isFlipped = true;
+
+    component.markKnown();
+
+    expect(component.currentIndex).toBe(1);
+    expect(component.displayCardNumber).toBe(2);
+    tick(600);
+  }));
+
+  it('shows a retryable finalization state and retries without resetting cards', fakeAsync(() => {
+    component.template = 'term-def';
+    component.cards = [{ _id: 'card-1', front: 'Q', back: 'A', order: 0 }];
+    component.set = { _id: 'set-1', title: 'Set', cards: component.cards } as any;
+    (component as any).assignmentId = 'assignment-1';
+    (component as any).resolvedFlashcardSetId = 'set-1';
+    (component as any).initializeRuntimeCards();
+    (component as any).upsertRuntime('card-1', { completed: true, known: true });
+    const submit = spyOn((component as any).assignmentApi, 'submitFlashcardAssignment');
+    spyOn((component as any).router, 'navigate');
+    submit.and.returnValue(Promise.reject(new Error('temporary')));
+
+    (component as any).onComplete();
+    tick();
+    expect(component.finalizationFailed).toBeTrue();
+    expect(component.currentIndex).toBe(0);
+
+    submit.and.returnValue(Promise.resolve({}));
+    component.retryFinalSubmission();
+    tick();
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(component.finalizationFailed).toBeFalse();
+  }));
 });

@@ -1,0 +1,40 @@
+:host { display: contents; }
+:host ::ng-deep .rubric-dialog-panel { width: min(94vw, 1440px); height: min(90vh, 920px); max-height: 90vh; padding: 0 !important; overflow: hidden !important; }
+.rubric-editor { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; height: 100%; min-width: 0; background: #fff; }
+.rubric-editor__header, .rubric-editor__toolbar, .rubric-editor__footer { padding: 1rem 1.25rem; background: #fff; }
+.rubric-editor__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e5e7eb; }
+.rubric-editor__header h2 { margin: .15rem 0 0; font-size: clamp(1.15rem, 2vw, 1.65rem); font-weight: 750; }
+.rubric-editor__eyebrow { color: #008081; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.rubric-editor__close { width: 2.5rem; height: 2.5rem; flex: none; border-radius: 999px; font-size: 1.75rem; line-height: 1; }
+.rubric-editor__toolbar { display: flex; flex-wrap: wrap; gap: .625rem; border-bottom: 1px solid #eef2f2; }
+.rubric-tool, .rubric-file-button, .rubric-add-criterion, .rubric-level-heading button, .rubric-level-actions button, .rubric-row-action button { border: 1px solid #008081; border-radius: .7rem; padding: .55rem .8rem; color: #006b6c; background: #fff; cursor: pointer; font-weight: 650; }
+.rubric-file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.rubric-editor__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1rem 1.25rem 1.5rem; }
+.rubric-ai { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: end; margin-bottom: .75rem; }
+.rubric-ai textarea, .rubric-matrix input, .rubric-matrix textarea { width: 100%; border: 2px solid #e7e7e7; border-radius: .75rem; padding: .65rem; background: #fff; }
+.rubric-ai textarea { min-height: 5rem; resize: vertical; }
+.rubric-editor__error { margin: .5rem 0; padding: .65rem .8rem; border-radius: .65rem; background: #fef2f2; color: #b91c1c; }
+.rubric-matrix-scroll { width: 100%; overflow-x: auto; overflow-y: visible; padding-bottom: .5rem; }
+.rubric-matrix { --level-count: 4; display: grid; grid-template-columns: 220px repeat(var(--level-count), minmax(190px, 1fr)) 100px; gap: .65rem; min-width: calc(340px + (var(--level-count) * 190px)); align-items: stretch; }
+.rubric-criterion-heading { position: sticky; left: 0; z-index: 2; background: #fff; font-weight: 700; padding: .6rem; }
+.rubric-level-heading, .rubric-criterion-cell { display: flex; flex-direction: column; gap: .45rem; padding: .55rem; border-radius: .8rem; background: #f8fafc; }
+.rubric-level-heading input[type=number] { max-width: 7rem; }
+.rubric-criterion-cell { position: sticky; left: 0; z-index: 1; }
+.rubric-criterion-cell label { display: flex; gap: .4rem; align-items: center; font-size: .8rem; }
+.rubric-criterion-cell label input { width: 5rem; }
+.rubric-matrix textarea { min-height: 8rem; resize: vertical; }
+.rubric-row-action, .rubric-level-actions { display: flex; align-items: center; }
+.rubric-add-criterion { margin-top: .75rem; }
+.rubric-editor__footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid #e5e7eb; box-shadow: 0 -6px 18px rgb(15 23 42 / .05); }
+.rubric-total { font-weight: 750; color: #047857; }.rubric-total--invalid { color: #b91c1c; }
+.rubric-editor__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 640px) {
+  :host ::ng-deep .rubric-dialog-panel { width: calc(100vw - 1rem); height: calc(100dvh - 1rem); max-height: calc(100dvh - 1rem); margin: .5rem; border-radius: 1rem; }
+  .rubric-editor__header, .rubric-editor__toolbar, .rubric-editor__footer, .rubric-editor__body { padding-left: .8rem; padding-right: .8rem; }
+  .rubric-ai { grid-template-columns: 1fr; }
+  .rubric-editor__footer { align-items: stretch; flex-direction: column; }
+  .rubric-editor__actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .rubric-editor__actions button { width: 100%; }
+  .rubric-matrix { grid-template-columns: 170px repeat(var(--level-count), 180px) 84px; min-width: calc(254px + (var(--level-count) * 180px)); }
+}

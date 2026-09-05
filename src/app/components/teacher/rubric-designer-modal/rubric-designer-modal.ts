@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, Output, SimpleChanges } from '@angular/core';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { ModalDialog } from '../../../shared/modal-dialog/modal-dialog';
@@ -12,7 +12,7 @@ import type { RubricDesigner } from '../../../models/submission-feedback.model';
   templateUrl: './rubric-designer-modal.html',
   styleUrl: './rubric-designer-modal.css',
 })
-export class RubricDesignerModal {
+export class RubricDesignerModal implements OnDestroy {
   @Input() open = false;
 
   @Input() rubricDesigner: RubricDesigner | null = null;
@@ -28,6 +28,8 @@ export class RubricDesignerModal {
   @Output() save = new EventEmitter<RubricDesigner>();
   @Output() generateAi = new EventEmitter<string>();
   @Output() attachFile = new EventEmitter<File>();
+  @Output() useExisting = new EventEmitter<void>();
+  @Output() saveToLibrary = new EventEmitter<RubricDesigner>();
 
   rubricDesignerTitle = '';
   rubricLevels: Array<{ title: string; maxPoints: number | null }> = [];
@@ -35,8 +37,11 @@ export class RubricDesignerModal {
 
   readonly rubricPromptControl = new FormControl('', { nonNullable: true });
   private generationAwaitingApplication = false;
+  private bodyOverflowBeforeOpen: string | null = null;
+  validationMessage = '';
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['open']) this.syncBodyScrollLock();
     this.hydrateFromInput();
     if (this.generationAwaitingApplication && changes['rubricDesigner'] && this.hasValidGeneratedRubric(this.rubricDesigner)) {
       this.rubricPromptControl.reset('');
@@ -46,10 +51,28 @@ export class RubricDesignerModal {
 
   ngOnInit(): void {
     this.hydrateFromInput();
+    this.syncBodyScrollLock();
   }
 
+  ngOnDestroy(): void { this.releaseBodyScrollLock(); }
+
   closeDialog() {
+    this.validationMessage = '';
     this.closed.emit();
+  }
+
+  private syncBodyScrollLock(): void {
+    if (typeof document === 'undefined') return;
+    if (this.open && this.bodyOverflowBeforeOpen === null) {
+      this.bodyOverflowBeforeOpen = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    } else if (!this.open) this.releaseBodyScrollLock();
+  }
+
+  private releaseBodyScrollLock(): void {
+    if (typeof document === 'undefined' || this.bodyOverflowBeforeOpen === null) return;
+    document.body.style.overflow = this.bodyOverflowBeforeOpen;
+    this.bodyOverflowBeforeOpen = null;
   }
 
   private hydrateFromInput(): void {
@@ -170,6 +193,11 @@ export class RubricDesignerModal {
   onGenerateRubricAi() {
     if (this.isGenerating) return;
     const prompt = this.rubricPromptControl.value.trim();
+    if (!prompt) {
+      this.validationMessage = 'Describe the rubric you want to generate.';
+      return;
+    }
+    this.validationMessage = '';
     this.generationAwaitingApplication = true;
     this.generateAi.emit(prompt);
   }
@@ -200,8 +228,40 @@ export class RubricDesignerModal {
   }
 
   onSaveRubric() {
-    if (this.isRubricDesignerStateEmpty() || !this.isCriterionWeightTotalValid) return;
+    if (!this.validateCurrentRubric()) return;
     this.save.emit(this.rubricDesignerFromState);
+  }
+
+  onUseExisting(): void { this.validationMessage = ''; this.useExisting.emit(); }
+
+  onSaveToLibrary(): void {
+    if (!this.validateCurrentRubric() || this.isSaving) return;
+    this.saveToLibrary.emit(structuredClone(this.rubricDesignerFromState));
+  }
+
+  applyRubric(designer: RubricDesigner): void {
+    this.rubricDesigner = structuredClone(designer);
+    this.hydrateFromInput();
+    this.validationMessage = '';
+  }
+
+  private validateCurrentRubric(): boolean {
+    if (this.isRubricDesignerStateEmpty()) {
+      this.validationMessage = 'Add at least one complete rubric criterion.';
+      return false;
+    }
+    if (!this.isCriterionWeightTotalValid) {
+      this.validationMessage = 'Use at least three criteria with positive weights totaling 100.';
+      return false;
+    }
+    if (this.rubricLevels.some((level) => !level.title.trim() || level.maxPoints == null)
+      || this.rubricCriteriaRows.some((row) => !row.title.trim()
+        || row.cells.length !== this.rubricLevels.length || row.cells.some((cell) => !cell.trim()))) {
+      this.validationMessage = 'Complete every criterion, performance level, score, and description.';
+      return false;
+    }
+    this.validationMessage = '';
+    return true;
   }
 
   onRubricFileSelected(ev: Event) {

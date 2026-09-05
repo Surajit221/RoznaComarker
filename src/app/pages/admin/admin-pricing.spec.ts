@@ -23,7 +23,7 @@ describe('AdminPricing', () => {
     expect(fixture.nativeElement.textContent).toContain('Pricing & Assessment Credits');
     expect(fixture.nativeElement.textContent).toContain('Essential');
     expect(fixture.nativeElement.textContent).toContain('Save Plan');
-    expect(fixture.nativeElement.textContent).toContain('Save Pack');
+    expect(fixture.nativeElement.textContent).toContain('Save Credit Pack');
     expect(fixture.nativeElement.textContent).toContain('Soft threshold (%)');
     expect(api.getPricingConfig).toHaveBeenCalledTimes(1);
     await fixture.componentInstance.savePlan(fixture.componentInstance.plans[0]);
@@ -32,6 +32,20 @@ describe('AdminPricing', () => {
     expect(fixture.nativeElement.textContent).toContain('Small saved successfully.');
     expect(api.updatePlan).toHaveBeenCalledWith('essential', jasmine.objectContaining({ monthlyCredits: 100, monthlyPrice: 24.99 }));
     expect(api.updatePack).toHaveBeenCalledWith('TOPUP_SMALL', jasmine.objectContaining({ credits: 10, price: 4.99 }));
+  });
+
+  it('always gives pricing actions explicit readable labels, including saving state', async () => {
+    const api = { getPricingConfig: jasmine.createSpy().and.resolveTo({ plans: [structuredClone(plan)], packs: [structuredClone(pack)] }) };
+    await TestBed.configureTestingModule({ imports: [AdminPricing], providers: [provideRouter([]),
+      { provide: CreditsApiService, useValue: api }] }).compileComponents();
+    const fixture = TestBed.createComponent(AdminPricing); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const buttons = [...fixture.nativeElement.querySelectorAll('.admin-primary-action')] as HTMLButtonElement[];
+    expect(buttons.map(button => button.textContent?.trim())).toEqual(['Save Plan', 'Save Credit Pack']);
+    fixture.componentInstance.saving = 'plan:essential'; fixture.detectChanges();
+    expect(buttons.every(button => button.disabled)).toBeTrue();
+    expect(buttons.map(button => button.textContent?.trim())).toEqual(['Saving…', 'Save Credit Pack']);
+    fixture.componentInstance.saving = 'pack:TOPUP_SMALL'; fixture.detectChanges();
+    expect(buttons.map(button => button.textContent?.trim())).toEqual(['Save Plan', 'Saving…']);
   });
 
   it('does not overflow the page at supported phone widths', async () => {

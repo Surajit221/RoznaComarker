@@ -5,6 +5,7 @@ import { routedComponentProviders } from '../../../testing/standalone-test-provi
 import { CheckoutComponent } from './checkout';
 import { CheckoutSuccessComponent } from './checkout-success';
 import { CheckoutCancelComponent } from './checkout-cancel';
+import { AccountStateService } from '../../services/account-state.service';
 
 const starter: any = {
   name: 'Starter Monthly', slug: 'starter_monthly', price: 9.99, currency: 'USD',
@@ -112,21 +113,76 @@ describe('Stripe checkout pages', () => {
     expect(alertText).toContain('Try Again');
   });
 
+  it('does not describe a suspended PayPal subscription as active', async () => {
+    const api = {
+      getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
+      createPayPalSubscription: jasmine.createSpy().and.rejectWith({ error: { code: 'SUBSCRIPTION_REQUIRES_MANAGEMENT' } })
+    };
+    await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
+      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: api }
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(CheckoutComponent);
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+
+    const text = fixture.nativeElement.querySelector('[role="alert"]').textContent;
+    expect(text).toContain('needs attention');
+    expect(text).toContain('Manage Plan');
+    expect(text).not.toContain('already active');
+  });
+
+  for (const planCode of ['essential_monthly', 'pro_monthly']) {
+    it(`creates exactly one PayPal subscription for ${planCode} checkout`, async () => {
+      const createPayPalSubscription = jasmine.createSpy('createPayPalSubscription').and.resolveTo({
+        subscriptionId: 'I-PAYPAL',
+        approvalUrl: 'https://untrusted.example.test/approve',
+        status: 'APPROVAL_PENDING'
+      });
+      const api = {
+        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+          ...starter,
+          slug: planCode,
+          paymentProvider: 'paypal'
+        }),
+        createPayPalSubscription,
+        createCheckoutSession: jasmine.createSpy('createCheckoutSession')
+      };
+      await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
+        ...routedComponentProviders({ planCode }),
+        { provide: SubscriptionApiService, useValue: api }
+      ] }).compileComponents();
+
+      const fixture = TestBed.createComponent(CheckoutComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(api.getCheckoutPlan).toHaveBeenCalledOnceWith(planCode);
+      expect(createPayPalSubscription).toHaveBeenCalledTimes(1);
+      expect(createPayPalSubscription.calls.mostRecent().args[0]).toBe(planCode);
+      expect(createPayPalSubscription.calls.mostRecent().args[1]).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      );
+      expect(api.createCheckoutSession).not.toHaveBeenCalled();
+    });
+  }
+
   it('success page only polls the authoritative subscription endpoint', async () => {
     const getMySubscription = jasmine.createSpy().and.resolveTo({ plan: starter, billing: { status: 'active' } });
+    const refreshCredits = jasmine.createSpy().and.resolveTo({ availableCredits: 300 });
     await TestBed.configureTestingModule({ imports: [CheckoutSuccessComponent], providers: [
-      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: { getMySubscription } }
+      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: { getMySubscription } },
+      { provide: AccountStateService, useValue: { refreshSubscription: getMySubscription, refreshCredits } }
     ] }).compileComponents();
     const fixture = TestBed.createComponent(CheckoutSuccessComponent);
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     expect(getMySubscription).toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('Starter Monthly is active');
+    expect(refreshCredits).toHaveBeenCalledOnceWith();
+    expect(fixture.nativeElement.textContent).toContain('Your paid plan is active');
   });
 
   it('cancel page states that billing and subscription state are unchanged', async () => {
     await TestBed.configureTestingModule({ imports: [CheckoutCancelComponent], providers: routedComponentProviders() }).compileComponents();
     const fixture = TestBed.createComponent(CheckoutCancelComponent); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('You have not been charged');
+    expect(fixture.nativeElement.textContent).toContain('No plan changes were made');
     expect(fixture.nativeElement.textContent).toContain('has not changed');
   });
 });

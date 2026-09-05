@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="wer-header">
         <h2 class="wer-title">Review Extracted Worksheet</h2>
-        <button class="wer-close-btn" (click)="close()" aria-label="Close">
+        <button type="button" class="wer-close-btn" (click)="close()" aria-label="Close">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -49,6 +49,14 @@
             </div>
           </div>
 
+          @if (validationMessage) {
+            <div class="wer-validation-summary" role="alert">
+              <strong>{{ validationMessage }}</strong>
+              <span>Complete the highlighted answer or grading-guidance fields before confirming.</span>
+              <button type="button" (click)="reviewFirstIssue()">Review first issue</button>
+            </div>
+          }
+
           <!-- Sections -->
           <div class="wer-sections">
             @for (section of extractedStructure.sections; track section; let sectionIndex = $index) {
@@ -64,7 +72,8 @@
                 @if (expandedSections.has(sectionIndex)) {
                   <div class="wer-section-questions">
                     @for (question of section.questions; track question.id; let questionIndex = $index) {
-                      <div class="wer-question">
+                      <div #questionCard class="wer-question" [class.wer-question-invalid]="needsReview(sectionIndex, questionIndex)"
+                        [attr.data-issue-key]="sectionIndex + ':' + questionIndex">
                         <!-- View Mode -->
                         @if (editingQuestion?.id !== question.id) {
                           <div class="wer-question-view">
@@ -74,13 +83,17 @@
                                 {{ getConfidenceLabel(question.confidence) }}
                               </span>
                               <span class="wer-question-type">{{ question.type }}</span>
+                              @if (needsReview(sectionIndex, questionIndex)) { <span class="wer-needs-review">Needs review</span> }
                             </div>
                             <div class="wer-question-prompt">{{ question.prompt }}</div>
                             <div class="wer-question-meta">
                               <span class="wer-topic">Topic: {{ question.topic }}</span>
-                              <span class="wer-answer">Answer: {{ formatAnswer(question.correct_answer) }}</span>
+                              <span class="wer-answer">{{ isSubjective(question) ? 'Grading guidance:' : 'Answer:' }} {{ formatAnswer(question.correct_answer) }}</span>
                             </div>
-                            <button class="wer-edit-btn" (click)="editQuestion(sectionIndex, question)">Edit</button>
+                            @if (needsReview(sectionIndex, questionIndex)) {
+                              <p class="wer-inline-error">{{ issueMessage(question) }}</p>
+                            }
+                            <button type="button" class="wer-edit-btn" (click)="editQuestion(sectionIndex, question)">Edit</button>
                           </div>
                         } @else {
                           <!-- Edit Mode -->
@@ -115,24 +128,37 @@
                               <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion.topic">
                             </div>
                             <div class="wer-edit-row">
-                              <label class="wer-edit-label">Correct Answer:</label>
-                              @if (editingQuestion.type === 'multiple_choice' || editingQuestion.type === 'matching') {
+                              <label class="wer-edit-label">{{ isSubjective(editingQuestion) ? 'Model answer / grading guidance:' : 'Correct Answer:' }}</label>
+                              @if (editingQuestion.type === 'multiple_choice') {
                                 <div class="wer-options-edit">
                                   @for (opt of editingQuestion.options || []; track $index; let optIndex = $index) {
                                     <div class="wer-option-row">
                                       <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion.options![optIndex]">
-                                      <button class="wer-remove-option-btn" (click)="removeOption(editingQuestion, optIndex)">×</button>
+                                      <button type="button" class="wer-remove-option-btn" (click)="removeOption(editingQuestion, optIndex)">×</button>
                                     </div>
                                   }
-                                  <button class="wer-add-option-btn" (click)="addOption(editingQuestion)">+ Add Option</button>
+                                  <button type="button" class="wer-add-option-btn" (click)="addOption(editingQuestion)">+ Add Option</button>
+                                  <label class="wer-edit-label">Correct option
+                                    <select class="wer-edit-select" [(ngModel)]="editingQuestion.correct_answer">
+                                      <option value="">Select the correct option</option>
+                                      @for (opt of editingQuestion.options || []; track $index) { <option [value]="opt">{{ opt }}</option> }
+                                    </select>
+                                  </label>
                                 </div>
+                              } @else if (editingQuestion.type === 'true_false') {
+                                <select class="wer-edit-select" [(ngModel)]="editingQuestion.correct_answer">
+                                  <option value="">Select the correct answer</option><option value="true">True</option><option value="false">False</option>
+                                </select>
+                              } @else if (isSubjective(editingQuestion)) {
+                                <textarea class="wer-edit-textarea" [(ngModel)]="editingQuestion.correct_answer" rows="4"></textarea>
+                                <p class="wer-guidance-help">Used as teacher/AI grading guidance; student responses do not need to match this wording exactly.</p>
                               } @else {
                                 <input type="text" class="wer-edit-input" [(ngModel)]="editingQuestion!.correct_answer">
                               }
                             </div>
                             <div class="wer-edit-actions">
-                              <button class="wer-cancel-btn" (click)="cancelEdit()">Cancel</button>
-                              <button class="wer-save-btn" (click)="saveQuestion(sectionIndex, questionIndex)">Save</button>
+                              <button type="button" class="wer-cancel-btn" (click)="cancelEdit()">Cancel</button>
+                              <button type="button" class="wer-save-btn" (click)="saveQuestion(sectionIndex, questionIndex)">Save</button>
                             </div>
                           </div>
                           }
@@ -149,8 +175,8 @@
 
       <!-- Footer -->
       <div class="wer-footer">
-        <button class="wer-cancel-btn wer-footer-btn" (click)="close()">Cancel</button>
-        <button class="wer-confirm-btn wer-footer-btn" (click)="confirm()">Confirm & Create Worksheet</button>
+        <button type="button" class="wer-cancel-btn wer-footer-btn" (click)="close()">Cancel</button>
+        <button type="button" class="wer-confirm-btn wer-footer-btn" (click)="confirm()">Confirm & Create Worksheet</button>
       </div>
     </div>
   </div>

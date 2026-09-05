@@ -9,10 +9,11 @@ import { AlertService } from '../../../../../services/alert.service';
 import { AuthService, type BackendUser } from '../../../../../auth/auth.service';
 import { ClassApiService } from '../../../../../api/class-api.service';
 import { environment } from '../../../../../../environments/environment';
+import { StudentProgressComponent } from '../../../../../components/student-progress/student-progress';
 
 @Component({
   selector: 'app-student-profile-pages',
-  imports: [CommonModule, AppBarBackButton],
+  imports: [CommonModule, AppBarBackButton, StudentProgressComponent],
   templateUrl: './student-profile-pages.html',
   styleUrl: './student-profile-pages.css',
 })

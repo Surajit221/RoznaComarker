@@ -34,6 +34,30 @@ export type BackendClassStudent = {
   name: string;
   email: string;
   joinedAt: string | null;
+  progress?: StudentProgress | null;
+};
+
+export type StudentProgress = {
+  latestAssessedScore: number | null;
+  latestDraftImprovement: number | null;
+  assessedDraftCount: number;
+  assignmentsWithRevisions: number;
+  revisionComparisonCount: number;
+  improvedRevisionCount: number;
+  unchangedRevisionCount: number;
+  declinedRevisionCount: number;
+  averageRevisionScoreDelta: number | null;
+  totalIssuesCorrected: number;
+  strongestImprovedCategory: { name: string; delta: number } | null;
+  categoriesNeedingAttention: string[];
+  lastAssessmentDate: string | null;
+  draftHistory: Array<{
+    chainId: string;
+    assignmentId: string;
+    assignmentTitle: string | null;
+    comparisonCount: number;
+    drafts: Array<{ submissionId: string; draftNumber: number; score: number; assessedAt: string }>;
+  }>;
 };
 
 export type BackendClassSummary = {
@@ -58,11 +82,15 @@ export type BackendClassSummary = {
   submissionsCount: number;
   lastEdited: string;
 };
+export type SemesterCopyPreview = { sourceClass: { id: string; name: string; status: 'active' | 'archived'; description: string; subjectLevel: string };
+  assignments: Array<{ id: string; title: string; type: string; hasRubric: boolean; hasDeadline: boolean }> };
 
 @Injectable({ providedIn: 'root' })
 export class ClassApiService {
   private readonly classUpdatedSubject = new Subject<BackendClass>();
   readonly classUpdated$ = this.classUpdatedSubject.asObservable();
+  private readonly classDeletedSubject = new Subject<string>();
+  readonly classDeleted$ = this.classDeletedSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -137,14 +165,16 @@ export class ClassApiService {
     subjectLevel?: string | null;
     startDate?: string | null;
     endDate?: string | null;
+    institutionId?: string | null;
   }): Promise<BackendClass> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(
       this.http.post<BackendResponse<BackendClass>>(`${apiBaseUrl}/classes`, payload)
     );
     
-    // Clear cache after creating new class
-    this.cache.delete('my-teacher-classes');
+    // The list cache is status-scoped. Invalidating only the legacy key leaves
+    // `my-teacher-classes-active` stale and hides the newly-created class.
+    this.invalidateTeacherClassesList();
 
     if (resp?.data) {
       this.classUpdatedSubject.next(this.resolveBannerInClass(resp.data));
@@ -172,7 +202,7 @@ export class ClassApiService {
     );
 
     this.clearClassCache(classId);
-    this.cache.delete('my-teacher-classes');
+    this.invalidateTeacherClassesList();
     if (resp?.data) {
       this.classUpdatedSubject.next(this.resolveBannerInClass(resp.data));
     }
@@ -215,8 +245,29 @@ export class ClassApiService {
     );
 
     this.clearClassCache(classId);
-    this.cache.delete('my-teacher-classes');
+    this.invalidateTeacherClassesList();
+    this.classDeletedSubject.next(classId);
     return resp.data;
+  }
+
+  async getCopyableClasses(search = ''): Promise<BackendClass[]> {
+    const response = await firstValueFrom(this.http.get<BackendResponse<BackendClass[]>>(
+      `${this.getApiBaseUrl()}/classes/copyable`, { params: search ? { search } : {} }));
+    return response.data || [];
+  }
+
+  async getSemesterCopyPreview(classId: string): Promise<SemesterCopyPreview> {
+    const response = await firstValueFrom(this.http.get<BackendResponse<SemesterCopyPreview>>(
+      `${this.getApiBaseUrl()}/classes/${encodeURIComponent(classId)}/copy-preview`));
+    return response.data;
+  }
+
+  async copySemester(classId: string, payload: { requestId: string; newClass: { name: string; description?: string;
+    subjectLevel?: string; startDate?: string; endDate?: string }; assignmentIds: string[]; deadlineMode: 'unset' }): Promise<{ class: BackendClass; assignments: unknown[]; replayed: boolean }> {
+    const response = await firstValueFrom(this.http.post<BackendResponse<{ class: BackendClass; assignments: unknown[]; replayed: boolean }>>(
+      `${this.getApiBaseUrl()}/classes/${encodeURIComponent(classId)}/copy-semester`, payload));
+    this.invalidateTeacherClassesList(); this.classUpdatedSubject.next(this.resolveBannerInClass(response.data.class));
+    return { ...response.data, class: this.resolveBannerInClass(response.data.class) };
   }
 
   async archiveClass(classId: string): Promise<BackendClass> {
@@ -225,7 +276,9 @@ export class ClassApiService {
     ));
     this.clearClassCache(classId);
     this.invalidateTeacherClassesList();
-    return this.resolveBannerInClass(resp.data);
+    const updated = this.resolveBannerInClass(resp.data);
+    this.classUpdatedSubject.next(updated);
+    return updated;
   }
 
   async unarchiveClass(classId: string): Promise<BackendClass> {
@@ -234,7 +287,9 @@ export class ClassApiService {
     ));
     this.clearClassCache(classId);
     this.invalidateTeacherClassesList();
-    return this.resolveBannerInClass(resp.data);
+    const updated = this.resolveBannerInClass(resp.data);
+    this.classUpdatedSubject.next(updated);
+    return updated;
   }
 
   async getClassStudents(
@@ -263,6 +318,13 @@ export class ClassApiService {
     // Cache for 3 minutes
     this.cache.set(cacheKey, data, 3 * 60 * 1000);
     return data;
+  }
+
+  async getStudentProgress(classId: string, studentId: string): Promise<StudentProgress> {
+    const resp = await firstValueFrom(this.http.get<BackendResponse<StudentProgress>>(
+      `${this.getApiBaseUrl()}/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/progress`
+    ));
+    return resp.data;
   }
 
   async removeStudentFromClass(classId: string, studentId: string): Promise<void> {

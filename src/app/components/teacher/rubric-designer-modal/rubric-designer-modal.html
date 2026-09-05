@@ -1,159 +1,55 @@
-<app-modal-dialog
-  [open]="open"
-  [maxWidthClass]="'max-w-none'"
-  [panelClass]="'lg:w-[90vw]'"
-  (closed)="closeDialog()"
->
-  <div class="w-full flex flex-col gap-6">
-    <div class="w-full flex flex-col items-center justify-center">
-      <p class="text-2xl sm:text-3xl font-bold text-center text-gray-700">{{ rubricDesignerTitle }}</p>
+<app-modal-dialog [open]="open" [dismissible]="false" [maxWidthClass]="'max-w-[1440px]'"
+  [panelClass]="'rubric-dialog-panel'" (closed)="closeDialog()">
+  <section class="rubric-editor" role="dialog" aria-modal="true" aria-labelledby="rubric-editor-title">
+    <header class="rubric-editor__header">
+      <div><span class="rubric-editor__eyebrow">Rubric Editor</span><h2 id="rubric-editor-title">{{ rubricDesignerTitle }}</h2></div>
+      <button type="button" class="rubric-editor__close" aria-label="Close rubric editor" (click)="closeDialog()">×</button>
+    </header>
+    <div class="rubric-editor__toolbar">
+      <button type="button" class="rubric-tool" (click)="onUseExisting()">Use Existing</button>
+      <button type="button" class="rubric-tool" [disabled]="isSaving" (click)="onSaveToLibrary()">{{ isSaving ? 'Saving…' : 'Save to Library' }}</button>
+      <label class="rubric-file-button">Import file<input type="file" tabindex="-1"
+        accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
+        (change)="onRubricFileSelected($event)" /></label>
     </div>
-
-    <div class="w-full overflow-x-auto">
-      <div class="min-w-[980px] w-full">
-        <div
-          class="w-full grid gap-3 items-start"
-          [style.gridTemplateColumns]="'minmax(200px, 1fr) repeat(' + rubricLevels.length + ', minmax(180px, 1fr)) minmax(120px, 120px)'"
-        >
-          <div class="font-semibold text-gray-700">Grading Criteria</div>
-
+    <div class="rubric-editor__body">
+      <div class="rubric-ai">
+        <textarea rows="3" aria-label="Rubric generation prompt" [formControl]="rubricPromptControl"
+          placeholder="Describe the rubric you want to generate…" [disabled]="isGenerating"></textarea>
+        <button type="button" class="btn-info" (click)="onGenerateRubricAi()" [disabled]="isGenerating">{{ isGenerating ? 'Generating rubric…' : 'Generate with AI' }}</button>
+      </div>
+      @if (validationMessage) { <p class="rubric-editor__error" role="alert">{{ validationMessage }}</p> }
+      <div class="rubric-matrix-scroll" data-testid="rubric-matrix-scroll">
+        <div class="rubric-matrix" [style.--level-count]="rubricLevels.length">
+          <div class="rubric-criterion-heading">Grading criterion</div>
           @for (lvl of rubricLevels; track $index) {
-          <div class="w-full flex flex-col gap-2">
-            <div class="w-full flex flex-row gap-2 items-center">
-              <input type="text" class="input-text bg-white w-full" [(ngModel)]="lvl.title" placeholder="Add text here..." />
-              <button
-                type="button"
-                class="btn-danger-sm shrink-0 hidden sm:inline-flex"
-                (click)="removeRubricLevelColumn($index)"
-                [disabled]="rubricLevels.length <= 1"
-                aria-label="Delete rubric column"
-              >
-                Remove
-              </button>
+            <div class="rubric-level-heading">
+              <input type="text" [(ngModel)]="lvl.title" placeholder="Level title" />
+              <input type="number" [ngModel]="lvl.maxPoints" (ngModelChange)="lvl.maxPoints = coercePointsInput($event)" min="0" placeholder="Score" />
+              <button type="button" (click)="removeRubricLevelColumn($index)" [disabled]="rubricLevels.length <= 1">Remove level</button>
             </div>
-            <input
-              type="number"
-              class="input-text bg-white text-center max-w-[90px]"
-              [ngModel]="lvl.maxPoints"
-              (ngModelChange)="lvl.maxPoints = coercePointsInput($event)"
-              min="0"
-              step="1"
-              placeholder="10"
-            />
-            <span class="text-xs text-gray-500">Performance: {{ lvl.maxPoints ?? 0 }}%</span>
-          </div>
           }
-
-          <div class="w-full flex flex-col sm:flex-row gap-2 justify-end pt-1">
-            <button
-              type="button"
-              class="btn-danger-sm w-full sm:hidden"
-              (click)="removeRubricLevelColumn(rubricLevels.length - 1)"
-              [disabled]="rubricLevels.length <= 1"
-              aria-label="Remove last rubric column"
-            >
-              Remove
-            </button>
-            <button
-              type="button"
-              class="btn-primary w-full sm:w-auto"
-              (click)="addRubricLevelColumn()"
-              [disabled]="rubricLevels.length >= 5"
-            >
-              + Add
-            </button>
-          </div>
-
+          <div class="rubric-level-actions"><button type="button" (click)="addRubricLevelColumn()" [disabled]="rubricLevels.length >= 5">+ Level</button></div>
           @for (row of rubricCriteriaRows; track $index) {
-          <div class="w-full flex flex-col gap-2">
-            <label class="text-xs font-semibold text-gray-600">Criterion weight (points)</label>
-            <input type="number" class="input-text bg-white max-w-[130px]" [ngModel]="row.weight"
-              (ngModelChange)="row.weight = coerceWeightInput($event)" min="1" max="100" step="1" />
-            <textarea
-              class="w-full min-h-[140px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-              [(ngModel)]="row.title"
-              placeholder="Add text here..."
-            ></textarea>
-          </div>
-
-          @for (cell of row.cells; track $index) {
-          <textarea
-            class="w-full min-h-[140px] border-2 border-[#E7E7E7] rounded-2xl p-4 placeholder:text-[#E7E7E7] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-            [(ngModel)]="row.cells[$index]"
-            placeholder="Add text here..."
-          ></textarea>
-          }
-
-          <div class="w-full flex items-center justify-end pt-2">
-            <button
-              type="button"
-              class="btn-danger-sm"
-              (click)="removeRubricCriteriaRow($index)"
-              [disabled]="rubricCriteriaRows.length <= 1"
-            >
-              Remove
-            </button>
-          </div>
+            <div class="rubric-criterion-cell">
+              <input type="text" [(ngModel)]="row.title" placeholder="Criterion name" />
+              <label>Weight <input type="number" [ngModel]="row.weight" (ngModelChange)="row.weight = coerceWeightInput($event)" min="1" max="100" /></label>
+            </div>
+            @for (cell of row.cells; track $index) {
+              <textarea [(ngModel)]="row.cells[$index]" placeholder="Performance description"></textarea>
+            }
+            <div class="rubric-row-action"><button type="button" (click)="removeRubricCriteriaRow($index)" [disabled]="rubricCriteriaRows.length <= 1">Remove</button></div>
           }
         </div>
       </div>
+      <button type="button" class="rubric-add-criterion" (click)="addRubricCriteriaRow()">+ Add criterion</button>
     </div>
-
-    <div class="sticky bottom-0 -mx-6 sm:-mx-8 px-6 sm:px-8 pt-4 pb-2 bg-white border-t border-gray-100">
-      <div class="w-full flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6">
-        <div class="w-full sm:w-auto flex justify-start">
-          <button type="button" class="btn-primary w-full sm:w-auto" (click)="addRubricCriteriaRow()">+ Add</button>
-        </div>
-
-        <div class="w-full sm:flex-1 flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-2">
-          <textarea
-            rows="6"
-            wrap="soft"
-            aria-label="Rubric generation prompt"
-            class="w-full min-h-[160px] sm:flex-1 sm:min-w-[220px] resize-y overflow-x-hidden border-2 border-[#E7E7E7] rounded-2xl px-4 py-3 placeholder:text-[#B8B8B8] text-base font-normal focus:outline-none focus:border-[#008081] focus:shadow-[0px_4px_0_#008081]"
-            [formControl]="rubricPromptControl"
-            placeholder="Describe the rubric you want to generate..."
-            [disabled]="isGenerating"
-          ></textarea>
-
-          <button
-            type="button"
-            class="btn-info w-full sm:w-auto whitespace-nowrap sm:min-w-[140px]"
-            (click)="onGenerateRubricAi()"
-            [disabled]="isGenerating"
-          >
-            @if (isGenerating) { Generating Rubric... } @else { Generate Rubric Using AI }
-          </button>
-        </div>
-
-        <input
-          #rubricFileInput
-          type="file"
-          accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
-          class="hidden"
-          (change)="onRubricFileSelected($event)"
-        />
-
-        <div class="w-full sm:w-auto grid grid-cols-3 gap-2">
-          <button type="button" class="btn-danger w-full" (click)="closeDialog()">Cancel</button>
-
-          <button
-            type="button"
-            class="btn-primary w-full"
-            [disabled]="isAttaching"
-            (click)="rubricFileInput.click()"
-          >
-            @if (isAttaching) { Analyzing rubric file... } @else { Attach }
-          </button>
-
-          <div class="col-span-3 text-center text-sm" [class.text-red-600]="!isCriterionWeightTotalValid">
-            Total criterion weight: {{ totalCriterionWeight }} / 100
-          </div>
-          <button type="button" class="btn-primary w-full" [disabled]="isSaving || !isCriterionWeightTotalValid" (click)="onSaveRubric()">
-            @if (isSaving) { Saving... } @else { Save }
-          </button>
-        </div>
+    <footer class="rubric-editor__footer">
+      <div class="rubric-total" [class.rubric-total--invalid]="!isCriterionWeightTotalValid">Total: {{ totalCriterionWeight }} / 100</div>
+      <div class="rubric-editor__actions">
+        <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
+        <button type="button" class="btn-primary" [disabled]="isSaving || !isCriterionWeightTotalValid" (click)="onSaveRubric()">{{ isSaving ? 'Attaching…' : (rubricDesigner ? 'Apply Changes' : 'Attach Rubric') }}</button>
       </div>
-    </div>
-  </div>
+    </footer>
+  </section>
 </app-modal-dialog>
