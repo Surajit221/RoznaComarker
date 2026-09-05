@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../auth/auth.service';
 import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.service';
+import { SubscriptionApiService } from '../../../api/subscription-api.service';
 
 type OnboardingRole = 'teacher' | 'student';
 
@@ -18,7 +19,7 @@ export class SelectRole {
   errorMessage = '';
 
   constructor(private auth: AuthService, private postAuth: PostAuthNavigationService,
-    private route: ActivatedRoute) {}
+    private route: ActivatedRoute, private subscriptions: SubscriptionApiService) {}
 
   select(role: OnboardingRole): void {
     if (!this.isSaving) this.selectedRole = role;
@@ -30,6 +31,11 @@ export class SelectRole {
     this.errorMessage = '';
     try {
       const response = await this.auth.setMyRole(this.selectedRole);
+      const referral = sessionStorage.getItem('pending_referral_code');
+      if (referral) {
+        try { await this.subscriptions.claimReferral(referral); }
+        finally { sessionStorage.removeItem('pending_referral_code'); }
+      }
       await this.postAuth.navigate(response.user, this.route.snapshot.queryParamMap.get('returnUrl'));
     } catch (err: any) {
       if (err?.status === 401) {

@@ -1,8 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DeviceService } from '../../../../../services/device.service';
 import { CommonModule } from '@angular/common';
-import { AppBarBackButton } from '../../../../../shared/app-bar-back-button/app-bar-back-button';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { SubmissionApiService, type BackendSubmission } from '../../../../../api/submission-api.service';
@@ -36,6 +34,7 @@ import { environment } from '../../../../../../environments/environment';
 import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../../../models/submission-feedback.model';
 import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
+import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
   normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
@@ -51,7 +50,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, AppBarBackButton, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio],
+  imports: [CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
@@ -63,10 +62,6 @@ export class MySubmissionPage {
   get retryAnalysisLabel() { return canonicalRetryLabel(this.canonicalResultState); }
   adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
-  device = inject(DeviceService);
-  activeTab = 'uploaded-file';
-  isMobileLegendOpen = false;
-  private legendTrigger: HTMLElement | null = null;
 
   private route = inject(ActivatedRoute);
   private submissionApi = inject(SubmissionApiService);
@@ -398,18 +393,6 @@ export class MySubmissionPage {
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   }
 
-  openMobileLegend(): void {
-    this.legendTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    this.isMobileLegendOpen = true;
-  }
-
-  closeMobileLegend(): void {
-    this.isMobileLegendOpen = false;
-    const trigger = this.legendTrigger;
-    this.legendTrigger = null;
-    queueMicrotask(() => trigger?.focus());
-  }
-
   isOcrPolling = false;
   ocrErrorMessage: string | null = null;
   private destroyed = false;
@@ -530,20 +513,7 @@ export class MySubmissionPage {
 
     void this.setUploadedFileUrl(this.activeFileUrlRaw);
 
-    this.annotations = [];
-    this.canonicalWritingCorrections = [];
-    this.recomputeLegendAligned();
     this.rebuildOcrWords();
-
-    const submissionId = this.submission?._id;
-    if (submissionId) {
-      void this.loadOcrCorrections(submissionId).then(() => {
-        this.rebuildHighlightedTranscript();
-        return this.refreshWritingCorrections();
-      });
-    } else {
-      void this.refreshWritingCorrections();
-    }
 
     this.rebuildHighlightedTranscript();
   }
@@ -844,7 +814,7 @@ export class MySubmissionPage {
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
     if (this.canonicalResultState?.semanticStatus === 'partial') {
-      return 'Your score is ready. Corrections from completed analysis sections are shown; one or more sections could not be completed.';
+      return 'Your score is ready, but correction analysis was only partially completed. Some correction statistics are unavailable.';
     }
     if (this.canonicalResultState?.semanticStatus === 'failed'
       && this.canonicalResultState?.evaluationStatus === 'completed') {
@@ -1332,6 +1302,11 @@ export class MySubmissionPage {
     return request;
   }
 
+  get activeAnnotations(): FeedbackAnnotation[] {
+    const fileId = this.activeFileId;
+    return fileId ? annotationsForFileId(this.annotations, fileId, this.submissionFileIds) : this.annotations;
+  }
+
   private applyOcrPayloadState(submissionId: string, data: any): void {
     if (!this.submission || this.submission._id !== submissionId || !data || typeof data !== 'object') return;
     const submission = this.submission as any;
@@ -1485,7 +1460,6 @@ export class MySubmissionPage {
     const fb = this.feedback;
     if (!fb || this.isCanonicalEvaluationPending) return [];
     if (this.isCustomRubricResult) return this.customRubricFeedbackItems;
-    console.log('Dynamic AI rubric generated for submission', (this.submission as any)?._id);
     return rubricScoresToFeedbackItems((fb as any).rubricScores);
   }
 
@@ -1600,7 +1574,7 @@ export class MySubmissionPage {
   }
 
   scrollToAiFeedback() {
-    const el = document.getElementById('ai-feedback-section-mobile') || document.getElementById('ai-feedback-section');
+    const el = document.getElementById('ai-feedback-section');
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1954,6 +1928,12 @@ export class MySubmissionPage {
     if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
     this.feedback = feedback;
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
+    if (this.submission) {
+      this.submission.evaluationStatus = this.canonicalResultState.evaluationStatus as BackendSubmission['evaluationStatus'];
+      this.submission.evaluationSourceHash = this.canonicalResultState.evaluationSourceHash || undefined;
+      this.submission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.submission.assessmentCompletedAt;
+      if (this.canonicalResultState.evaluationStatus === 'completed') this.submission.ocrStatus = 'completed';
+    }
     this.adaptiveSkillScores = this.buildAdaptiveSkillScores(feedback);
     this.teacherComment = typeof feedback?.teacherComments === 'string' ? feedback.teacherComments : null;
     this.feedbackForm.patchValue({ message: this.teacherComment || '' });
@@ -1966,7 +1946,7 @@ export class MySubmissionPage {
     this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
-    if (canonical.evaluationStatus === 'completed' && this.isOcrPending && !this.hasLoadedOcrCorrections
+    if (canonical.evaluationStatus === 'completed' && !this.hasLoadedOcrCorrections
       && this.ocrCompletionReconciliationSubmissionId !== submissionId) {
       this.ocrCompletionReconciliationSubmissionId = submissionId;
       await Promise.allSettled([this.loadOcrCorrections(submissionId), this.loadCompleteTranscript(submissionId)]);
@@ -1984,10 +1964,6 @@ export class MySubmissionPage {
       return;
     }
     this.router.navigate(['/student/my-classes']);
-  }
-
-  onTabSelected(param: string) {
-    this.activeTab = param;
   }
 
   private setUploadedFileUrl(url: string | null) {

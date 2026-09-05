@@ -31,6 +31,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { WorksheetApiService, type Worksheet } from '../../../api/worksheet-api.service';
 import { ClassApiService, type BackendClass } from '../../../api/class-api.service';
 import { AlertService } from '../../../services/alert.service';
+import type { BackendAssignment } from '../../../api/assignment-api.service';
 
 @Component({
   selector: 'app-worksheet-assign-modal',
@@ -44,9 +45,11 @@ export class WorksheetAssignModal implements OnChanges, OnDestroy {
   @Input() show  = false;
   @Input() classId: string | null = null;
   @Input() preselectedWorksheetId: string | null = null;
+  @Input() existingAssignments: BackendAssignment[] = [];
 
   @Output() showChange = new EventEmitter<boolean>();
   @Output() assigned   = new EventEmitter<{ classId: string }>();
+  @Output() editExisting = new EventEmitter<string>();
 
   private readonly api      = inject(WorksheetApiService);
   private readonly router   = inject(Router);
@@ -63,6 +66,7 @@ export class WorksheetAssignModal implements OnChanges, OnDestroy {
   classes: BackendClass[] = [];
   isLoadingClasses = false;
   selectedClassId: string | null = null;
+  duplicateAssignment: BackendAssignment | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['show'] && this.show) {
@@ -95,7 +99,7 @@ export class WorksheetAssignModal implements OnChanges, OnDestroy {
     this.router.navigate(['/worksheets']);
   }
 
-  submit(): void {
+  submit(createAnother = false): void {
     if (this.isSubmitting) return;
 
     if (!this.selectedId) {
@@ -110,6 +114,13 @@ export class WorksheetAssignModal implements OnChanges, OnDestroy {
 
     const selected = this.worksheets.find((w) => w._id === this.selectedId);
     const title = selected?.title ?? 'Worksheet Assignment';
+    const existing = this.existingAssignments.find((assignment) => assignment.isActive !== false
+      && assignment.resourceType === 'worksheet' && String(assignment.resourceId) === String(this.selectedId));
+    if (existing && !createAnother) {
+      this.duplicateAssignment = existing;
+      this.cdr.markForCheck();
+      return;
+    }
 
     this.isSubmitting = true;
     this.cdr.markForCheck();
@@ -137,6 +148,15 @@ export class WorksheetAssignModal implements OnChanges, OnDestroy {
       });
   }
 
+  openExisting(): void {
+    if (!this.duplicateAssignment?._id) return;
+    const id = this.duplicateAssignment._id;
+    this.close();
+    this.editExisting.emit(id);
+  }
+
+  createAnother(): void { this.duplicateAssignment = null; this.submit(true); }
+
   private resetForm(): void {
     this.selectedId  = this.preselectedWorksheetId ?? null;
     this.worksheets  = [];
@@ -146,6 +166,7 @@ export class WorksheetAssignModal implements OnChanges, OnDestroy {
     this.classes = [];
     this.isLoadingClasses = false;
     this.selectedClassId = null;
+    this.duplicateAssignment = null;
     this.cdr.markForCheck();
   }
 

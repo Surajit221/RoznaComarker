@@ -108,6 +108,27 @@ describe('PricingComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/checkout', 'pro_annual'], { queryParams: { billing: 'annual' } });
   });
 
+  it('does not let the legacy Stripe-only purchasable flag swallow Essential or Pro button clicks', async () => {
+    const paypalPlans = plans.map((plan) => ['essential_monthly', 'pro_monthly'].includes(plan.slug)
+      ? { ...plan, purchasable: false }
+      : plan);
+    const fixture = await create(paypalPlans, 'teacher');
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+
+    for (const tier of ['essential', 'pro']) {
+      const button = card(fixture, tier).querySelector<HTMLButtonElement>('button.plan-cta')!;
+      expect(button.disabled).toBeFalse();
+      button.click();
+      await fixture.whenStable();
+    }
+
+    expect(navigate.calls.allArgs()).toEqual([
+      [['/checkout', 'essential_monthly'], { queryParams: { billing: 'monthly' } }],
+      [['/checkout', 'pro_monthly'], { queryParams: { billing: 'monthly' } }]
+    ]);
+  });
+
   it('calculates savings dynamically and omits them when annual is not cheaper', async () => {
     const fixture = await create(); const component = fixture.componentInstance;
     expect(component.savingsPercentForTier(component.tiers.find((tier) => tier.key === 'essential')!)).toBe(17);
@@ -122,6 +143,13 @@ describe('PricingComponent', () => {
     const legacy = { ...base, slug: 'starter_monthly', display: { ...base.display, cta: 'Upgrade Now' } };
     const fixture = await create([legacy], 'teacher', { billing: { status: 'active' } });
     expect(card(fixture, 'starter').textContent).toContain('Manage Plan');
+  });
+
+  it('routes active PayPal subscribers to native management instead of Stripe', async () => {
+    const fixture = await create(plans, 'teacher', { billing: { provider: 'paypal', status: 'ACTIVE' } });
+    const router = TestBed.inject(Router); const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    await fixture.componentInstance.onPlanAction(plans.find((plan) => plan.slug === 'pro_monthly')!);
+    expect(navigate).toHaveBeenCalledWith(['/billing/paypal/manage']);
   });
 
   it('prevents duplicate checkout submits while the selected CTA is loading', async () => {

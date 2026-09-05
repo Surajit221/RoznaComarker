@@ -1,3 +1,42 @@
+<ng-template #weeklySummary>
+  @if (weeklySummaryState$ | async; as weekly) {
+  <section class="weekly-summary" aria-labelledby="weekly-summary-title">
+    @if (weekly.loading && !weekly.data) {
+      <p role="status">Loading weekly summary…</p>
+    } @else if (weekly.error && !weekly.data) {
+      <p role="alert">Weekly summary could not be loaded. <button class="weekly-summary__button" type="button" (click)="retryWeeklySummary()">Try again</button></p>
+    } @else if (weekly.data; as summary) {
+      <div class="weekly-summary__header">
+        <div><h2 id="weekly-summary-title">This Week</h2><p>{{ summary.window.start | date:'mediumDate' }} – {{ summary.window.end | date:'mediumDate' }}</p></div>
+        <button class="weekly-summary__button" type="button" (click)="toggleWeeklyDetails()" [attr.aria-expanded]="weeklyDetailsOpen">{{ weeklyDetailsOpen ? 'Hide details' : 'View details' }}</button>
+      </div>
+      <p>{{ summary.headline }}</p>
+      <div class="weekly-summary__metrics">
+        <div class="weekly-summary__metric"><strong>{{ summary.activity.newSubmissions }}</strong><span>New submissions</span></div>
+        <div class="weekly-summary__metric"><strong>{{ summary.activity.revisedDrafts }}</strong><span>Revised drafts</span></div>
+        <div class="weekly-summary__metric"><strong>{{ summary.progress.studentsImproved }}</strong><span>Students improved</span></div>
+        <div class="weekly-summary__metric"><strong>{{ summary.current.waitingForReview }}</strong><span>Waiting for review now</span></div>
+      </div>
+      @if (weeklyDetailsOpen) {
+      <div class="weekly-summary__details">
+        <div class="weekly-summary__progress">
+          <span><strong>Average draft change:</strong> {{ summary.progress.averageRevisionScoreDelta === null ? 'Not available' : ((summary.progress.averageRevisionScoreDelta > 0 ? '+' : '') + summary.progress.averageRevisionScoreDelta) }}</span>
+          <span><strong>Issues corrected:</strong> {{ summary.progress.issuesCorrected }}</span>
+          <span><strong>Adaptive completions:</strong> {{ summary.activity.adaptiveCompletions }}</span>
+          <span><strong>Successful assessments:</strong> {{ summary.activity.successfulAssessments }}</span>
+        </div>
+        @if (summary.progress.strongestImprovedCategory; as category) { <p><strong>Most improved area:</strong> {{ category.name }} (+{{ category.averageDelta }} average)</p> }
+        @if (summary.classes.length) {
+        <table class="weekly-summary__classes"><caption class="sr-only">Weekly class breakdown</caption><thead><tr><th>Class</th><th>Submissions</th><th>Revisions</th><th>Improved</th><th>Waiting</th></tr></thead>
+          <tbody>@for (item of summary.classes; track item.id) { <tr><th scope="row">{{ item.name }}</th><td>{{ item.newSubmissions }}</td><td>{{ item.revisedDrafts }}</td><td>{{ item.studentsImproved }}</td><td>{{ item.waitingForReview }}</td></tr> }</tbody></table>
+        }
+      </div>
+      }
+    }
+  </section>
+  }
+</ng-template>
+
 <ng-container>
   @if(device.isDesktop()) {
   <div class="w-full min-h-screen font-sans text-[#474747]">
@@ -18,6 +57,54 @@
         </button>
       </div>
     </div>
+
+    <section class="milestone-summary" data-testid="professional-milestones" aria-labelledby="milestone-summary-title">
+      @if (milestones(); as milestoneState) {
+        <div><h2 id="milestone-summary-title">Professional Milestones</h2><p>Progress based on your completed teaching activity.</p></div>
+        @if (milestoneState.nextMilestone; as next) {
+          <div class="milestone-progress"><strong>{{ next.title }}</strong><span>{{ next.current }} / {{ next.target }}</span>
+            <div role="progressbar" [attr.aria-label]="next.title" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="next.percent"><i [style.width.%]="next.percent"></i></div></div>
+        }
+        @if (milestoneState.achieved.length) { <p class="milestone-complete"><strong>{{ milestoneState.achieved[0].title }}</strong> · Completed</p> }
+      }
+    </section>
+
+    <ng-container *ngTemplateOutlet="weeklySummary"></ng-container>
++    @if (activityState$ | async; as activity) {
+    <section class="activity-summary" aria-labelledby="activity-summary-title" aria-live="polite">
+      @if (activity.loading && !activity.data) {
+        <p class="activity-status" role="status">Loading classroom activity…</p>
+      } @else if (activity.error && !activity.data) {
+        <div class="activity-status activity-status--error" role="alert">
+          <span>Classroom activity could not be loaded.</span>
+          <button type="button" (click)="retryActivity()">Try again</button>
+        </div>
+      } @else if (activity.data; as summary) {
+        <div class="activity-heading">
+          <h2 id="activity-summary-title">{{ summary.isFirstVisit ? 'Welcome back' : 'Since your last visit' }}</h2>
+          <p>{{ summary.isFirstVisit ? 'Your activity baseline is ready for your next visit.' : ('Since ' + (summary.since | date:'medium')) }}</p>
+        </div>
+        @if (!summary.isFirstVisit && (summary.sinceLastVisit.newSubmissions || summary.sinceLastVisit.revisedDrafts || summary.sinceLastVisit.adaptiveCompletions || summary.current.waitingForReview)) {
+          <div class="activity-grid">
+            @if (summary.sinceLastVisit.newSubmissions) {
+              <div class="activity-card" [attr.aria-label]="summary.sinceLastVisit.newSubmissions + ' new submissions'"><strong>{{ summary.sinceLastVisit.newSubmissions }}</strong><span>New submissions</span></div>
+            }
+            @if (summary.sinceLastVisit.revisedDrafts) {
+              <div class="activity-card" [attr.aria-label]="summary.sinceLastVisit.revisedDrafts + ' revised drafts submitted'"><strong>{{ summary.sinceLastVisit.revisedDrafts }}</strong><span>Revised drafts</span></div>
+            }
+            @if (summary.sinceLastVisit.adaptiveCompletions) {
+              <div class="activity-card" [attr.aria-label]="summary.sinceLastVisit.adaptiveCompletions + ' Adaptive Learning completions'"><strong>{{ summary.sinceLastVisit.adaptiveCompletions }}</strong><span>Adaptive completions</span></div>
+            }
+            @if (summary.current.waitingForReview) {
+              <div class="activity-card activity-card--review" [attr.aria-label]="summary.current.waitingForReview + ' submissions waiting for review'"><strong>{{ summary.current.waitingForReview }}</strong><span>Waiting for review now</span></div>
+            }
+          </div>
+        } @else if (!summary.isFirstVisit) {
+          <p class="activity-caught-up"><i class="bx bx-check-circle" aria-hidden="true"></i> You’re all caught up.</p>
+        }
+      }
+    </section>
+    }
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
 
@@ -249,6 +336,29 @@
     </div>
 
     <div class=" flex flex-col gap-6">
+
+      <ng-container *ngTemplateOutlet="weeklySummary"></ng-container>
++      @if (activityState$ | async; as activity) {
+      <section class="activity-summary" aria-labelledby="activity-summary-mobile-title" aria-live="polite">
+        @if (activity.loading && !activity.data) {
+          <p class="activity-status" role="status">Loading classroom activity…</p>
+        } @else if (activity.error && !activity.data) {
+          <div class="activity-status activity-status--error" role="alert"><span>Classroom activity could not be loaded.</span><button type="button" (click)="retryActivity()">Try again</button></div>
+        } @else if (activity.data; as summary) {
+          <div class="activity-heading"><h2 id="activity-summary-mobile-title">{{ summary.isFirstVisit ? 'Welcome back' : 'Since your last visit' }}</h2><p>{{ summary.isFirstVisit ? 'Your activity baseline is ready for your next visit.' : ('Since ' + (summary.since | date:'medium')) }}</p></div>
+          @if (!summary.isFirstVisit && (summary.sinceLastVisit.newSubmissions || summary.sinceLastVisit.revisedDrafts || summary.sinceLastVisit.adaptiveCompletions || summary.current.waitingForReview)) {
+            <div class="activity-grid">
+              @if (summary.sinceLastVisit.newSubmissions) { <div class="activity-card" [attr.aria-label]="summary.sinceLastVisit.newSubmissions + ' new submissions'"><strong>{{ summary.sinceLastVisit.newSubmissions }}</strong><span>New submissions</span></div> }
+              @if (summary.sinceLastVisit.revisedDrafts) { <div class="activity-card" [attr.aria-label]="summary.sinceLastVisit.revisedDrafts + ' revised drafts submitted'"><strong>{{ summary.sinceLastVisit.revisedDrafts }}</strong><span>Revised drafts</span></div> }
+              @if (summary.sinceLastVisit.adaptiveCompletions) { <div class="activity-card" [attr.aria-label]="summary.sinceLastVisit.adaptiveCompletions + ' Adaptive Learning completions'"><strong>{{ summary.sinceLastVisit.adaptiveCompletions }}</strong><span>Adaptive completions</span></div> }
+              @if (summary.current.waitingForReview) { <div class="activity-card activity-card--review" [attr.aria-label]="summary.current.waitingForReview + ' submissions waiting for review'"><strong>{{ summary.current.waitingForReview }}</strong><span>Waiting for review now</span></div> }
+            </div>
+          } @else if (!summary.isFirstVisit) {
+            <p class="activity-caught-up"><i class="bx bx-check-circle" aria-hidden="true"></i> You’re all caught up.</p>
+          }
+        }
+      </section>
+      }
 
       <div class="grid grid-cols-2 gap-3">
         <div

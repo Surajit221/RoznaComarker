@@ -1,0 +1,69 @@
+<section class="draft-comparison" aria-labelledby="draft-comparison-title">
+  <div class="heading-row">
+    <div>
+      <p class="eyebrow">Writing progress</p>
+      <h2 id="draft-comparison-title">Draft comparison</h2>
+    </div>
+    @if (comparison?.available) {
+      <span class="draft-label">Draft {{ comparison?.previousDraftNumber }} to {{ comparison?.currentDraftNumber }}</span>
+    }
+  </div>
+
+  @if (loading) {
+    <p class="state" role="status">Loading draft comparison…</p>
+  } @else if (error) {
+    <div class="state state--error" role="alert">{{ error }} <button type="button" (click)="load()">Try again</button></div>
+  } @else if (comparison && !comparison.available) {
+    <p class="state">{{ comparison.message }}</p>
+  } @else if (comparison?.available) {
+    @if (comparison?.identicalContent) {
+      <p class="notice">Same content as previous draft. No score change.</p>
+    }
+    <div class="metric-grid" aria-label="Draft improvement summary">
+      <article class="metric">
+        <span>Overall score</span>
+        <strong>{{ comparison?.overall?.previousScore }} → {{ comparison?.overall?.currentScore }}</strong>
+        <small>{{ delta(comparison?.overall?.delta) }} · {{ comparison?.overall?.status | titlecase }}</small>
+      </article>
+      @if (comparison?.issuesAvailable !== false) {
+        <article class="metric metric--positive"><span>Issues corrected</span><strong>{{ comparison?.issues?.correctedCount }}</strong></article>
+        <article class="metric"><span>Issues remaining</span><strong>{{ comparison?.issues?.remainingCount }}</strong></article>
+        <article class="metric"><span>New issues</span><strong>{{ comparison?.issues?.newIssueCount }}</strong></article>
+      }
+    </div>
+    @if (comparison?.issuesAvailable === false) { <p class="notice">{{ comparison?.issuesMessage }}</p> }
+    @if (comparison?.issuesAvailable !== false && comparison?.issues?.previousCount === 0) {
+      <p class="notice issue-empty">No previous writing issues were detected.</p>
+    }
+
+    <h3>Rubric category changes</h3>
+    @if (comparison?.rubricMessage) { <p class="notice">{{ comparison?.rubricMessage }}</p> }
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">Category</th><th scope="col">Previous</th><th scope="col">Current</th><th scope="col">Change</th></tr></thead>
+        <tbody>
+          @for (item of comparison?.rubricCategories || []; track item.categoryId || item.name) {
+            <tr>
+              <th scope="row">{{ item.name }}</th>
+              <td>{{ item.previousScore == null ? '—' : item.previousScore }}</td>
+              <td>{{ item.currentScore == null ? '—' : item.currentScore }}</td>
+              <td>@if (item.available) { {{ delta(item.delta) }} } @else { <span class="not-comparable">Not comparable<span class="sr-only">: {{ item.reason }}</span></span> }</td>
+            </tr>
+          } @empty { <tr><td colspan="4">No rubric category scores are available.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+
+    @if (comparison?.previousText || comparison?.currentText) {
+      <h3>Draft text</h3>
+      <div class="text-tabs" role="tablist" aria-label="Choose draft text">
+        <button type="button" role="tab" [attr.aria-selected]="activeText === 'previous'" (click)="activeText = 'previous'">Previous draft</button>
+        <button type="button" role="tab" [attr.aria-selected]="activeText === 'current'" (click)="activeText = 'current'">Current draft</button>
+      </div>
+      <div class="text-grid">
+        <article [class.mobile-hidden]="activeText !== 'previous'"><h4>Previous draft</h4><p>{{ comparison?.previousText || 'No transcript available.' }}</p></article>
+        <article [class.mobile-hidden]="activeText !== 'current'"><h4>Current draft</h4><p>{{ comparison?.currentText || 'No transcript available.' }}</p></article>
+      </div>
+    }
+  }
+</section>

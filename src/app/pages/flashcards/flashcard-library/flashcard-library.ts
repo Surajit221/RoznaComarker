@@ -232,7 +232,6 @@ export class FlashcardLibrary implements OnInit, OnDestroy {
   moveSet(_set: FlashcardSet | null): void { this.activeMenuSetId = null; }
 
   /** Placeholder: create folder */
-  createFolder(): void { /* TODO: folder creation modal */ }
 
   /** TrackBy for set rows */
   trackById(_: number, set: FlashcardSet): string { return set._id; }

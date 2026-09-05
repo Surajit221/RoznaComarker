@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { AuthService } from '../../../auth/auth.service';
 import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.service';
 import { SelectRole } from './select-role';
+import { SubscriptionApiService } from '../../../api/subscription-api.service';
 
 describe('SelectRole', () => {
   let fixture: ComponentFixture<SelectRole>;
@@ -19,6 +20,7 @@ describe('SelectRole', () => {
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: PostAuthNavigationService, useValue: postAuth },
+        { provide: SubscriptionApiService, useValue: { claimReferral: jasmine.createSpy().and.resolveTo({ applied: true }) } },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } }
       ]
     }).compileComponents();

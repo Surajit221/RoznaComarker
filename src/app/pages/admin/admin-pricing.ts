@@ -1,10 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
 import { CreditsApiService } from '../../api/credits-api.service';
 
-@Component({ selector: 'app-admin-pricing', standalone: true, imports: [CommonModule, FormsModule, RouterModule],
+@Component({ selector: 'app-admin-pricing', standalone: true, imports: [CommonModule, FormsModule],
   templateUrl: './admin-pricing.html', styleUrl: './admin-pricing.css' })
 export class AdminPricing {
   private api = inject(CreditsApiService);

@@ -66,4 +66,13 @@ describe('complete transcript page views', () => {
     expect(views[0].annotations.map((item) => item._id)).toEqual(['draft-2-correction']);
     expect(views[0].annotations[0].wordIds).toEqual(['draft-2-word']);
   });
+
+  it('never renders historical OCR pages outside the live current-file list', () => {
+    const views = buildTranscriptPageViews({ submissionId: 'same-submission', fileIds: ['d2-1', 'd2-2'],
+      ocrPages: [page('d1-1', 'Old one'), page('d1-2', 'Old two'),
+        page('d2-1', 'New one'), page('d2-2', 'New two')], corrections: [] });
+    expect(views.map((view) => view.key)).toEqual(['d2-1:1', 'd2-2:1']);
+    expect(views.map((view) => view.displayNumber)).toEqual([1, 2]);
+    expect(views.map((view) => view.text)).toEqual(['New one', 'New two']);
+  });
 });

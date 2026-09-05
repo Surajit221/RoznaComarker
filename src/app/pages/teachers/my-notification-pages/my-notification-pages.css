@@ -1,0 +1,5 @@
+.notification-filters { display: flex; flex-wrap: wrap; gap: .5rem; max-width: 100%; }
+.notification-filters button { border: 2px solid #d8dde5; border-radius: 999px; padding: .45rem .75rem; background: #fff; color: #203864; font-weight: 700; }
+.notification-filters button[aria-pressed="true"] { border-color: #136c6d; background: #e6f2f2; }
+.notification-filters button:focus-visible { outline: 3px solid #ffc300; outline-offset: 2px; }
+@media (max-width: 430px) { .notification-filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: .25rem; } .notification-filters button { flex: 0 0 auto; } }

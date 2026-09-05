@@ -1,0 +1,42 @@
+<section class="library">
+  <header class="library__header"><div><h1>Reusable Rubrics</h1><p>Save and reuse grading criteria across assignments.</p></div><button type="button" class="primary" (click)="newRubric()"><i class="bx bx-plus"></i> New Rubric</button></header>
+  <label class="search"><span class="sr-only">Search rubric names</span><i class="bx bx-search"></i><input [ngModel]="query()" (ngModelChange)="query.set($event)" placeholder="Search rubrics..." /></label>
+  @if (state.loading()) { <p role="status">Loading rubric library…</p> }
+  @if (state.error()) { <div class="error" role="alert">{{ state.error() }} <button type="button" (click)="state.load()">Retry</button></div> }
+  <div class="rubric-grid">
+    @for (rubric of filtered(); track rubric._id) {
+      <article class="rubric-card">
+        <div class="rubric-card__body"><span class="type">{{ rubric.writingType || 'General' }}</span><h2>{{ rubric.name }}</h2><p>{{ rubric.description || 'Reusable assignment rubric' }}</p>
+          <div class="meta"><span>{{ rubric.rubricData.criteria.length }} criteria</span><span>{{ rubric.rubricData.totalPoints }} points</span><span>Updated {{ updatedLabel(rubric) }}</span></div></div>
+        <div class="rubric-card__actions">
+          <button type="button" aria-label="Use rubric in an assignment" (click)="use(rubric)">Use</button>
+          <button type="button" aria-label="Preview rubric" (click)="preview = rubric">Preview</button>
+          <button type="button" aria-label="Edit rubric" (click)="edit(rubric)">Edit</button>
+          <button type="button" aria-label="Duplicate rubric" (click)="duplicate(rubric)">Duplicate</button>
+          <button type="button" class="danger" aria-label="Archive rubric" (click)="archive(rubric)">Archive</button>
+        </div>
+      </article>
+    } @empty { @if (!state.loading()) { <div class="empty"><i class="bx bx-list-check"></i><h2>No saved rubrics yet</h2><p>Create one here or save a rubric from an assignment.</p></div> } }
+  </div>
+</section>
+
+<app-modal-dialog [open]="detailsOpen" (closed)="detailsOpen = false">
+  <section role="dialog" aria-modal="true" aria-labelledby="rubric-details-title" class="details">
+    <h2 id="rubric-details-title">{{ editing ? 'Edit Saved Rubric' : 'New Saved Rubric' }}</h2>
+    <p>Changes apply to this saved rubric and future uses. Existing assignments are unchanged.</p>
+    <label>Name <input [(ngModel)]="name" maxlength="120" /></label>
+    <label>Description <textarea [(ngModel)]="description" maxlength="1000"></textarea></label>
+    <label>Writing type <input [(ngModel)]="writingType" maxlength="120" /></label>
+    <button type="button" class="editor-button" (click)="detailsOpen = false; designerOpen = true">{{ workingDesigner ? 'Edit Criteria and Levels' : 'Create Criteria and Levels' }}</button>
+    @if (workingDesigner) { <p class="configured">{{ workingDesigner.criteria.length }} criteria configured • {{ workingDesigner.totalPoints || 100 }} points</p> }
+    <div class="dialog-actions"><button type="button" (click)="detailsOpen = false">Cancel</button><button type="button" class="primary" [disabled]="saving || !name.trim() || !workingDesigner" (click)="save()">{{ saving ? 'Saving…' : 'Save Rubric' }}</button></div>
+  </section>
+</app-modal-dialog>
+
+<app-rubric-designer-modal [open]="designerOpen" [rubricDesigner]="workingDesigner" [defaultTitle]="name || 'Saved Rubric'" (closed)="designerOpen = false; detailsOpen = true" (save)="onDesignerSave($event)" />
+
+<app-modal-dialog [open]="!!preview" (closed)="preview = null">
+  @if (preview) { <section role="dialog" aria-modal="true" aria-labelledby="rubric-preview-title" class="preview"><h2 id="rubric-preview-title">{{ preview.name }}</h2><p>{{ preview.description }}</p>
+    <div class="preview-table">@for (criterion of preview.rubricData.criteria; track criterion.name) { <article><h3>{{ criterion.name }} <span>{{ criterion.weight }}%</span></h3><ul>@for (level of criterion.levels; track level.title) { <li><strong>{{ level.title }}</strong> ({{ level.score }}): {{ level.description }}</li> }</ul></article> }</div>
+    <button type="button" class="primary" (click)="preview = null">Close</button></section> }
+</app-modal-dialog>

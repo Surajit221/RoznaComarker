@@ -5,7 +5,7 @@
  * Allows inline editing of questions, answers, types, and topics before publishing.
  * Flags low-confidence items that need manual verification.
  */
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -39,6 +39,7 @@ export interface ExtractedStructure {
   styleUrl: './worksheet-extract-review.css',
 })
 export class WorksheetExtractReviewComponent {
+  @ViewChildren('questionCard') questionCards!: QueryList<ElementRef<HTMLElement>>;
   @Input() isOpen = false;
   @Input() extractedStructure: ExtractedStructure | null = null;
   @Input() fileName = '';
@@ -58,6 +59,49 @@ export class WorksheetExtractReviewComponent {
 
   editingQuestion: ExtractedQuestion | null = null;
   expandedSections: Set<number> = new Set();
+  invalidQuestions = new Set<string>();
+  validationMessage = '';
+
+  private issueKey(sectionIndex: number, questionIndex: number): string { return `${sectionIndex}:${questionIndex}`; }
+
+  private normalized(value: unknown): string {
+    return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  }
+
+  validationIssue(question: ExtractedQuestion): 'missingCorrectAnswer' | 'missingGradingGuidance' | 'invalidOptions' | null {
+    const answer = Array.isArray(question.correct_answer)
+      ? question.correct_answer.map(value => String(value).trim()).filter(Boolean)
+      : String(question.correct_answer ?? '').trim();
+    if (!answer || (Array.isArray(answer) && !answer.length)) {
+      return question.type === 'short_answer' || question.type === 'essay'
+        ? 'missingGradingGuidance'
+        : 'missingCorrectAnswer';
+    }
+    if (question.type === 'multiple_choice') {
+      const sourceOptions = question.options || [];
+      const options = sourceOptions.map(value => String(value).trim());
+      const normalizedOptions = options.map(value => this.normalized(value));
+      if (options.length < 2 || options.length > 8 || normalizedOptions.some(value => !value) ||
+          new Set(normalizedOptions).size !== options.length) return 'invalidOptions';
+      if (normalizedOptions.filter(option => option === this.normalized(answer)).length !== 1) return 'missingCorrectAnswer';
+    }
+    if (question.type === 'true_false' && !['true', 'false'].includes(this.normalized(answer))) return 'missingCorrectAnswer';
+    return null;
+  }
+
+  needsReview(sectionIndex: number, questionIndex: number): boolean {
+    return this.invalidQuestions.has(this.issueKey(sectionIndex, questionIndex));
+  }
+
+  isSubjective(question: ExtractedQuestion): boolean {
+    return question.type === 'short_answer' || question.type === 'essay';
+  }
+
+  issueMessage(question: ExtractedQuestion): string {
+    return this.validationIssue(question) === 'missingGradingGuidance'
+      ? 'Add grading guidance or a model answer.'
+      : 'Select or enter the correct answer.';
+  }
 
   get lowConfidenceCount(): number {
     if (!this.extractedStructure) return 0;
@@ -82,13 +126,18 @@ export class WorksheetExtractReviewComponent {
   }
 
   editQuestion(sectionIndex: number, question: ExtractedQuestion): void {
-    this.editingQuestion = { ...question };
+    this.editingQuestion = { ...question, options: question.options ? [...question.options] : undefined,
+      correct_answer: Array.isArray(question.correct_answer) ? [...question.correct_answer] : question.correct_answer };
   }
 
   saveQuestion(sectionIndex: number, questionIndex: number): void {
     if (!this.extractedStructure || !this.editingQuestion) return;
     
-    this.extractedStructure.sections[sectionIndex].questions[questionIndex] = { ...this.editingQuestion };
+    const corrected = { ...this.editingQuestion, options: this.editingQuestion.options ? [...this.editingQuestion.options] : undefined };
+    if (!this.validationIssue(corrected) && corrected.confidence === 'low') corrected.confidence = 'high';
+    this.extractedStructure.sections[sectionIndex].questions[questionIndex] = corrected;
+    this.invalidQuestions.delete(this.issueKey(sectionIndex, questionIndex));
+    if (!this.invalidQuestions.size) this.validationMessage = '';
     this.editingQuestion = null;
   }
 
@@ -138,23 +187,37 @@ export class WorksheetExtractReviewComponent {
     this.closed.emit();
     this.editingQuestion = null;
     this.expandedSections.clear();
+    this.invalidQuestions.clear();
+    this.validationMessage = '';
   }
 
   confirm(): void {
     if (!this.extractedStructure) return;
     
-    // Validate that all questions have answers
-    const missingAnswers = this.extractedStructure.sections.reduce((count, section) => {
-      return count + section.questions.filter(q => !q.correct_answer || q.correct_answer === '').length;
-    }, 0);
-
-    if (missingAnswers > 0) {
-      alert(`${missingAnswers} question(s) are missing correct answers. Please fill them in before confirming.`);
+    this.invalidQuestions.clear();
+    this.extractedStructure.sections.forEach((section, sectionIndex) => section.questions.forEach((question, questionIndex) => {
+      if (this.validationIssue(question)) this.invalidQuestions.add(this.issueKey(sectionIndex, questionIndex));
+    }));
+    if (this.invalidQuestions.size > 0) {
+      this.validationMessage = `${this.invalidQuestions.size} question${this.invalidQuestions.size === 1 ? '' : 's'} need your review.`;
+      this.reviewFirstIssue();
       return;
     }
 
     this.confirmed.emit(this.extractedStructure);
     this.close();
+  }
+
+  reviewFirstIssue(): void {
+    const firstKey = this.invalidQuestions.values().next().value as string | undefined;
+    if (!firstKey) return;
+    const [sectionIndex, questionIndex] = firstKey.split(':').map(Number);
+    this.expandedSections.add(sectionIndex);
+    setTimeout(() => {
+      const card = this.questionCards?.find(item => item.nativeElement.dataset['issueKey'] === firstKey)?.nativeElement;
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (card?.querySelector('button.wer-edit-btn') as HTMLButtonElement | null)?.focus();
+    });
   }
 
   onBackdropClick(event: MouseEvent): void {

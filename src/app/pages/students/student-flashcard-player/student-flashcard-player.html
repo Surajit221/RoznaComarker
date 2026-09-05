@@ -14,6 +14,10 @@
 
 <!-- STUDY SCREEN -->
 <div class="sfp-screen" *ngIf="!isLoading && !hasError && !isCompleting">
+  <div class="sfp-finalization-error" role="alert" *ngIf="finalizationFailed">
+    <p>Your flashcard study progress is saved, but we couldn't finalize the assignment submission.</p>
+    <button class="sfp-btn-retry" type="button" (click)="retryFinalSubmission()">Retry Submission</button>
+  </div>
   <p class="sfp-resume-banner" *ngIf="resumedMessage">{{ resumedMessage }}</p>
 
   <!-- HEADER -->

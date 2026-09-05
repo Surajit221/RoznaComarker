@@ -1,0 +1,24 @@
+<app-modal-dialog [open]="open" maxWidthClass="max-w-[760px]" (closed)="closed.emit()">
+  <section role="dialog" aria-modal="true" aria-labelledby="rubric-selector-title" class="selector">
+    <div class="selector__header">
+      <div><h2 id="rubric-selector-title">Choose a Rubric</h2><p>A copy will be added to this assignment.</p></div>
+      <button type="button" class="icon-button" aria-label="Close rubric selector" (click)="closed.emit()"><i class="bx bx-x"></i></button>
+    </div>
+    <label class="search"><span class="sr-only">Search rubrics</span><input [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Search rubrics..." /></label>
+    @if (state.loading()) { <p role="status">Loading saved rubrics…</p> }
+    @if (state.error()) { <p class="error" role="alert">{{ state.error() }}</p> }
+    <div class="selector__list">
+      @for (rubric of filtered(); track rubric._id) {
+        <article class="rubric-option">
+          <div><h3>{{ rubric.name }}</h3><p>{{ criterionCount(rubric) }} criteria • {{ rubric.rubricData.totalPoints }} points</p></div>
+          <div class="actions"><button type="button" class="secondary" (click)="preview.set(rubric)">Preview</button><button type="button" class="primary" (click)="use(rubric)">Use Rubric</button></div>
+          @if (preview()?._id === rubric._id) {
+            <div class="preview"><strong>{{ rubric.description || 'Rubric preview' }}</strong>
+              <ul>@for (criterion of rubric.rubricData.criteria; track criterion.name) { <li>{{ criterion.name }} — {{ criterion.weight }}%</li> }</ul>
+            </div>
+          }
+        </article>
+      } @empty { @if (!state.loading()) { <p>No saved rubrics match your search.</p> } }
+    </div>
+  </section>
+</app-modal-dialog>

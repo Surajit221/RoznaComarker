@@ -9,6 +9,7 @@ import { MyNotificationPages } from './my-notification-pages/my-notification-pag
 import { MyProfilePages } from './my-profile-pages/my-profile-pages';
 import { ReportPages } from './report-pages/report-pages';
 import { TeacherGuard } from '../../auth/teacher.guard';
+import { RubricLibraryPage } from './rubric-library/rubric-library';
 export const TEACHER_ROUTE: Routes = [
   {
     path: 'teacher',
@@ -20,6 +21,8 @@ export const TEACHER_ROUTE: Routes = [
       { path: 'my-notification', component: MyNotificationPages },
       { path: 'my-profile', component: MyProfilePages },
       { path: 'reports', component: ReportPages },
+      { path: 'rubrics', component: RubricLibraryPage },
+      { path: 'institution', loadComponent: () => import('./institution/institution').then((m) => m.InstitutionPage) },
       { path: 'my-classes/detail/student-profile/:studentId', component: StudentProfilePages },
       { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages },
       { path: 'my-classes/detail/:slug', component: DetailMyClassesPages },

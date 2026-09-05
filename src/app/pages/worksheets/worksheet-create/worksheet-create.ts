@@ -33,6 +33,15 @@ import { WorksheetExtractReviewComponent, type ExtractedStructure } from '../../
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
+export function countWorksheetActivityQuestions(activities: any[]): number {
+  return (activities || []).reduce((total, activity) => {
+    const data = activity?.data || {};
+    if (activity?.type === 'fillBlanks') return total + (data.sentences?.length || 0);
+    if (activity?.type === 'matching') return total + (data.pairs?.length || 0);
+    return total + (data.questions?.length || 0);
+  }, 0);
+}
+
 const GRADE_MAP: Record<string, string[]> = {
   'Early Learning': ['Pre-K', 'K'],
   Elementary: ['1st', '2nd', '3rd', '4th', '5th'],
@@ -140,6 +149,9 @@ export class WorksheetCreatePage implements OnDestroy {
 
   /* ── Extract Worksheet Structure (New Flow) ───────────────────────── */
   extractFileStructure(): void {
+    // The disabled button protects normal UI interaction; this guard also
+    // protects keyboard/programmatic double invocation before the request ends.
+    if (this.isGenerating) return;
     if (!this.selectedFile) {
       this.errorModal = {
         open: true,
@@ -172,10 +184,17 @@ export class WorksheetCreatePage implements OnDestroy {
           this.cdr.markForCheck();
         },
         error: (error: any) => {
+          const messages: Record<string, string> = {
+            WORKSHEET_DOCX_PARSE_FAILED: "We couldn't read this Word document. Please try another .docx file.",
+            WORKSHEET_TEXT_INSUFFICIENT: 'No readable worksheet text was found in this document.',
+            WORKSHEET_DOCX_TEXT_EMPTY: 'No readable worksheet text was found in this Word document.',
+            WORKSHEET_TEXT_LOW_QUALITY: 'No readable worksheet text was found in this document.',
+            AI_OUTPUT_VALIDATION_FAILED: "We could read the document, but couldn't structure all worksheet questions reliably. Please review the document formatting or try again.",
+          };
           this.errorModal = {
             open: true,
             title: 'Extraction Failed',
-            message: error.error?.message || error.message || 'Failed to extract worksheet structure.'
+            message: error.error?.message || messages[error.error?.code] || error.message || 'Failed to extract worksheet structure.'
           };
           this.isGenerating = false;
           this.cdr.markForCheck();
@@ -184,6 +203,14 @@ export class WorksheetCreatePage implements OnDestroy {
   }
 
   onExtractReviewConfirmed(structure: ExtractedStructure): void {
+    const sourceQuestionCount = structure.sections.reduce((total, section) => total + section.questions.length, 0);
+    const convertedQuestionCount = countWorksheetActivityQuestions(this.extractedActivities || []);
+    if (sourceQuestionCount !== convertedQuestionCount) {
+      console.error('[WORKSHEET_QUESTION_COUNT_MISMATCH]', { sourceQuestionCount, convertedQuestionCount });
+      this.errorModal = { open: true, title: 'Worksheet conversion failed',
+        message: `The extracted worksheet could not be saved safely (${sourceQuestionCount} source questions, ${convertedQuestionCount} converted). Please try extraction again.` };
+      return;
+    }
     // Convert the confirmed structure to a draft format using stored activities
     this.draft = {
       title: structure.title,
@@ -481,12 +508,6 @@ export class WorksheetCreatePage implements OnDestroy {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
 
-    console.log('[FILE UPLOAD] File selected:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    });
-
     // Validate file type — extended to include images for Gemini vision
     const allowedTypes = [
       'application/pdf',
@@ -743,6 +764,13 @@ export class WorksheetCreatePage implements OnDestroy {
     // Ensure activities array is included if present in draft
     if (this.draft.activities && Array.isArray(this.draft.activities)) {
       worksheetData.activities = this.draft.activities;
+    }
+
+    if (this.draft.generationSource === 'uploaded_extracted' && this.extractedStructure) {
+      worksheetData.sourceQuestionCount = this.extractedStructure.sections.reduce(
+        (total, section) => total + section.questions.length,
+        0
+      );
     }
 
     // Include answerKey if this is an extracted worksheet

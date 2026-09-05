@@ -127,7 +127,6 @@ export class UnsplashImageModal implements OnChanges, OnDestroy {
 
       const elapsed = Math.round(performance.now() - t0);
       console.timeEnd(`[UNSPLASH MODAL] Search "${q}"`);
-      console.log(`[UNSPLASH MODAL] Rendered ${this.images.length} images in ${elapsed} ms`);
 
       if (this.images.length === 0) {
         this.error = `No images found for "${q}". Try a different keyword.`;

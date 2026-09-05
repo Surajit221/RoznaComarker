@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -12,14 +12,22 @@ import { AlertService } from '../../../../../services/alert.service';
 import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
 import { RubricDesignerModal } from '../../../../../components/teacher/rubric-designer-modal/rubric-designer-modal';
 import type { RubricDesigner } from '../../../../../models/submission-feedback.model';
+import { FormsModule } from '@angular/forms';
+import { RubricLibrarySelector } from '../../../../../components/teacher/rubric-library-selector/rubric-library-selector';
+import { ModalDialog } from '../../../../../shared/modal-dialog/modal-dialog';
+import { RubricApiService, type SavedRubric } from '../../../../../api/rubric-api.service';
+import { RubricLibraryStateService } from '../../../../../services/rubric-library-state.service';
+import { designerToRubricData, rubricDataToDesigner } from '../../../../../utils/rubric-library.util';
+import { getAssignmentCapabilities } from '../../../../../utils/assignment-capabilities';
 
 @Component({
   selector: 'app-assignment-form',
-  imports: [CommonModule, ReactiveFormsModule, RubricDesignerModal],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RubricDesignerModal, RubricLibrarySelector, ModalDialog],
   templateUrl: './assignment-form.html',
   styleUrl: './assignment-form.css',
 })
 export class AssignmentForm {
+  @ViewChild(RubricDesignerModal) rubricEditor?: RubricDesignerModal;
   classForm: FormGroup;
   @Input() classId: string | null = null;
   @Input() assignment: BackendAssignment | null = null;
@@ -29,11 +37,22 @@ export class AssignmentForm {
   device = inject(DeviceService);
   private assignmentApi = inject(AssignmentApiService);
   private alert = inject(AlertService);
+  private rubricApi = inject(RubricApiService);
+  private rubricLibraryState = inject(RubricLibraryStateService);
 
   isSubmitting = false;
   isRubricDialogOpen = false;
   rubricDesignerForModal: RubricDesigner | null = null;
   isRubricSaving = false;
+  isRubricGenerating = false;
+  isRubricSelectorOpen = false;
+  isSaveToLibraryOpen = false;
+  isSavingToLibrary = false;
+  libraryName = '';
+  libraryDescription = '';
+  private libraryRubricDraft: RubricDesigner | null = null;
+  get capabilities() { return getAssignmentCapabilities(this.assignment); }
+  get isResourceAssignment(): boolean { return !this.capabilities.writingControls; }
 
   constructor(private fb: FormBuilder) {
     this.classForm = this.createForm();
@@ -51,6 +70,17 @@ export class AssignmentForm {
 
   private applyAssignmentToForm(): void {
     const a = this.assignment;
+    const writingTypeControl = this.classForm.get('writingType');
+    const messageControl = this.classForm.get('message');
+    if (!getAssignmentCapabilities(a).writingControls) {
+      writingTypeControl?.clearValidators();
+      messageControl?.setValidators([Validators.maxLength(500)]);
+    } else {
+      writingTypeControl?.setValidators([Validators.required]);
+      messageControl?.setValidators([Validators.required, Validators.minLength(10), Validators.maxLength(500)]);
+    }
+    writingTypeControl?.updateValueAndValidity({ emitEvent: false });
+    messageControl?.updateValueAndValidity({ emitEvent: false });
     if (a) {
       const deadline = a.deadline ? new Date(a.deadline) : null;
       const dateOnly = deadline && !Number.isNaN(deadline.getTime()) ? deadline.toISOString().split('T')[0] : '';
@@ -81,7 +111,7 @@ export class AssignmentForm {
       requireAdaptiveBeforeResubmission: false
     });
     
-    // Reset rubric for new assignment
+    // A new assignment must be persisted before any rubric workflow starts.
     this.rubricDesignerForModal = null;
   }
 
@@ -152,16 +182,16 @@ export class AssignmentForm {
         title,
         deadline,
         instructions,
-        writingType,
-        showMarksToStudent: this.classForm.value.showMarksToStudent === true,
-        allowResubmission: this.classForm.value.allowResubmission === true,
-        requireAdaptiveBeforeResubmission:
-          this.classForm.value.allowResubmission === true
-          && this.classForm.value.requireAdaptiveBeforeResubmission === true
       };
+      if (this.capabilities.showMarksToStudent) payload.showMarksToStudent = this.classForm.value.showMarksToStudent === true;
+      if (this.capabilities.allowResubmission) payload.allowResubmission = this.classForm.value.allowResubmission === true;
+      if (this.capabilities.requireAdaptiveBeforeResubmission) payload.requireAdaptiveBeforeResubmission =
+        this.classForm.value.allowResubmission === true && this.classForm.value.requireAdaptiveBeforeResubmission === true;
+      if (!this.isResourceAssignment) payload.writingType = writingType;
       
-      // Include rubric if it exists
-      if (this.rubricDesignerForModal) {
+      // Existing assignments retain their rubric edit support. Creation never
+      // sends a draft rubric: the parent opens the persisted-assignment editor.
+      if (this.assignment?._id && this.rubricDesignerForModal) {
         payload.rubrics = {
           totalPoints: 100,
           criteria: this.rubricDesignerForModal.criteria.map(c => ({
@@ -216,6 +246,85 @@ export class AssignmentForm {
 
   openRubricDesignerDialog() {
     this.isRubricDialogOpen = true;
+  }
+
+  openExistingRubricSelector(): void { this.isRubricSelectorOpen = true; }
+
+  async useExistingRubric(saved: SavedRubric): Promise<void> {
+    if (this.rubricDesignerForModal) {
+      const confirmed = await this.alert.showConfirm(
+        'Replace assignment rubric?',
+        `This assignment already has a rubric. Replace it with “${saved.name}”? Existing graded work follows the current assignment update rules.`
+      );
+      if (!confirmed) return;
+    }
+    const imported = rubricDataToDesigner(saved.rubricData, saved.name);
+    this.rubricDesignerForModal = structuredClone(imported);
+    this.rubricEditor?.applyRubric(imported);
+    this.isRubricSelectorOpen = false;
+    this.alert.showToast('Saved rubric copied into assignment', 'success');
+  }
+
+  openSaveToLibrary(designer?: RubricDesigner): void {
+    const current = designer || this.rubricDesignerForModal;
+    if (!current) return;
+    this.libraryRubricDraft = structuredClone(current);
+    this.libraryName = (this.assignment?.title || this.classForm.value.className || 'Assignment Rubric').trim();
+    this.libraryDescription = '';
+    this.isSaveToLibraryOpen = true;
+  }
+
+  async saveCurrentRubricToLibrary(): Promise<void> {
+    const rubricToSave = this.libraryRubricDraft || this.rubricDesignerForModal;
+    if (this.isSavingToLibrary || !rubricToSave || !this.libraryName.trim()) return;
+    this.isSavingToLibrary = true;
+    try {
+      const saved = await this.rubricApi.createSavedRubric({
+        name: this.libraryName.trim(),
+        description: this.libraryDescription.trim() || undefined,
+        writingType: this.classForm.value.writingType || this.assignment?.writingType || undefined,
+        rubricData: designerToRubricData(rubricToSave)
+      });
+      this.rubricLibraryState.upsert(saved);
+      this.isSaveToLibraryOpen = false;
+      this.libraryRubricDraft = null;
+      this.alert.showToast('Rubric saved to library', 'success');
+    } catch (error: any) {
+      this.alert.showError('Unable to save rubric', error?.error?.message || 'Please review the rubric and try again.');
+    } finally { this.isSavingToLibrary = false; }
+  }
+
+  async onRubricGenerateAi(prompt: string): Promise<void> {
+    if (this.isRubricGenerating) return;
+    this.isRubricGenerating = true;
+    try {
+      const context = {
+        title: String(this.classForm.value.className || '').trim(),
+        writingType: String(this.classForm.value.writingType || '').trim(),
+        instructions: String(this.classForm.value.message || '').trim()
+      };
+      const designer = this.assignment?._id
+        ? await this.assignmentApi.generateRubricDesignerFromPrompt(this.assignment._id, prompt)
+        : await this.assignmentApi.generateDraftRubricDesignerFromPrompt(prompt, context);
+      this.rubricDesignerForModal = structuredClone(designer);
+      this.rubricEditor?.applyRubric(designer);
+    } catch (error: any) {
+      this.alert.showError('Generate Rubric failed', error?.error?.message || error?.message || 'Please try again.');
+    } finally { this.isRubricGenerating = false; }
+  }
+
+  async onRubricFileAttach(file: File): Promise<void> {
+    if (!this.assignment?._id) {
+      this.alert.showError('Import unavailable', 'Save the assignment before importing a rubric file.');
+      return;
+    }
+    try {
+      const updated = await this.assignmentApi.uploadRubricFile(this.assignment._id, file);
+      this.loadRubricFromAssignment(updated);
+      if (this.rubricDesignerForModal) this.rubricEditor?.applyRubric(this.rubricDesignerForModal);
+    } catch (error: any) {
+      this.alert.showError('Unable to import rubric', error?.error?.message || 'Please try again.');
+    }
   }
 
   closeRubricDesignerDialog() {

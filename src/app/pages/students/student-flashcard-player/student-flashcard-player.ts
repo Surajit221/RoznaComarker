@@ -95,6 +95,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
   private completionStarted = false;
   private runtimeByCardId = new Map<string, RuntimeCardProgress>();
   resumedMessage = '';
+  finalizationFailed = false;
 
   private getCanonicalCardId(card: FlashCard | null | undefined): string {
     return String((card as any)?._id ?? (card as any)?.id ?? (card as any)?.cardId ?? '');
@@ -411,7 +412,11 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
 
     if (nextIndex >= this.cards.length) return;
 
-    // Save progress with the NEXT index (where student will be after animation)
+    // Move the authoritative in-memory cursor immediately. Persistence is asynchronous
+    // and must never make the visible player wait on, or reconcile from, a save response.
+    this.currentIndex = nextIndex;
+
+    // Save progress with the NEXT index (where student is now)
     // This ensures resume puts them on the correct card
     this.saveProgressWithNextIndex(nextIndex);
 
@@ -423,7 +428,6 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     setTimeout(() => {
-      this.currentIndex = nextIndex;
       this.slideOutClass = '';
       this.slideInClass = 'slide-in-right';
       this.cdr.markForCheck();
@@ -640,6 +644,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
     if (this.completionStarted) return;
     this.completionStarted = true;
     this.isCompleting = true;
+    this.finalizationFailed = false;
     this.cdr.markForCheck();
     const elapsed = Math.round((Date.now() - this.startTime.getTime()) / 1000);
 
@@ -697,6 +702,7 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
         .catch(() => {
           this.completionStarted = false;
           this.isCompleting = false;
+          this.finalizationFailed = true;
           this.saveState = 'error';
           this.cdr.markForCheck();
         });
@@ -705,6 +711,11 @@ export class StudentFlashcardPlayer implements OnInit, OnDestroy {
 
     this.navigateToResults(score, total, elapsed, resolvedSetId, mergedCardResults,
       allCards, correctCount, needsReviewCount, incompleteCount);
+  }
+
+  retryFinalSubmission(): void {
+    if (!this.assignmentId || this.isCompleting) return;
+    this.onComplete();
   }
 
   private navigateToResults(

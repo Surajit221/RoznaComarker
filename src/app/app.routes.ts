@@ -1,12 +1,23 @@
 import { Routes } from '@angular/router';
 import { TeacherGuard } from './auth/teacher.guard';
 import { AdminGuard } from './auth/admin.guard';
+import { AdminLayout } from './layouts/admin-layout/admin-layout';
 
 export const routes: Routes = [
-  { path: 'admin/credits', canActivate: [AdminGuard], loadComponent: () =>
-    import('./pages/admin/admin-credits').then((m) => m.AdminCredits) },
-  { path: 'admin/pricing', canActivate: [AdminGuard], loadComponent: () =>
-    import('./pages/admin/admin-pricing').then((m) => m.AdminPricing) },
+  { path: 'institution/invites/:token', canActivate: [TeacherGuard], loadComponent: () =>
+    import('./pages/teachers/institution/institution-invite').then((m) => m.InstitutionInvitePage) },
+  {
+    path: 'admin',
+    canActivate: [AdminGuard],
+    component: AdminLayout,
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'credits' },
+      { path: 'credits', loadComponent: () => import('./pages/admin/admin-credits').then((m) => m.AdminCredits) },
+      { path: 'pricing', loadComponent: () => import('./pages/admin/admin-pricing').then((m) => m.AdminPricing) },
+      { path: 'retention', loadComponent: () => import('./pages/admin/admin-retention').then((m) => m.AdminRetention) },
+      { path: 'retention-operations', loadComponent: () => import('./pages/admin/admin-retention-operations').then((m) => m.AdminRetentionOperations) },
+    ],
+  },
   {
     path: 'checkout/starter',
     canActivate: [TeacherGuard],
@@ -22,6 +33,16 @@ export const routes: Routes = [
     canActivate: [TeacherGuard],
     loadComponent: () => import('./pages/checkout/checkout-cancel').then((m) => m.CheckoutCancelComponent),
   },
+  { path: 'billing/paypal/success', canActivate: [TeacherGuard], loadComponent: () =>
+    import('./pages/checkout/checkout-success').then((m) => m.CheckoutSuccessComponent) },
+  { path: 'billing/paypal/cancel', canActivate: [TeacherGuard], loadComponent: () =>
+    import('./pages/checkout/checkout-cancel').then((m) => m.CheckoutCancelComponent) },
+  { path: 'billing/paypal/manage', canActivate: [TeacherGuard], loadComponent: () =>
+    import('./pages/paypal-manage/paypal-manage').then((m) => m.PayPalManageComponent) },
+  { path: 'billing/paypal/change-plan/success', canActivate: [TeacherGuard], data: { paypalChangeResult: 'success' }, loadComponent: () =>
+    import('./pages/paypal-manage/paypal-manage').then((m) => m.PayPalManageComponent) },
+  { path: 'billing/paypal/change-plan/cancel', canActivate: [TeacherGuard], data: { paypalChangeResult: 'cancel' }, loadComponent: () =>
+    import('./pages/paypal-manage/paypal-manage').then((m) => m.PayPalManageComponent) },
   {
     path: 'checkout/:planCode',
     canActivate: [TeacherGuard],

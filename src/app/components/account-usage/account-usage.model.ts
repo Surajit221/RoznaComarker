@@ -30,6 +30,7 @@ export function clampedUsagePercent(used: unknown, limit: unknown): number | nul
   if (safeUsed === null || safeLimit === null || safeLimit === 0) return null;
   return Math.min(100, Math.max(0, Math.round((safeUsed / safeLimit) * 100)));
 }
+export function preciseStoragePercent(usedBytes:unknown,limitBytes:unknown,usedMb:unknown,limitMb:unknown):number|null{const used=finiteNonNegative(usedBytes),limit=finiteNonNegative(limitBytes);const raw=used!==null&&limit!==null&&limit>0?used/limit*100:(()=>{const u=finiteNonNegative(usedMb),l=finiteNonNegative(limitMb);return u!==null&&l!==null&&l>0?u/l*100:null})();return raw===null?null:Math.min(100,Math.max(0,raw<1?Number(raw.toFixed(2)):Number(raw.toFixed(1))))}
 
 export function monthlyCreditUsage(wallet: Partial<AssessmentCreditWallet> | null): {
   allowance: number | null; remaining: number | null; used: number | null; percent: number | null;
@@ -72,7 +73,7 @@ export function buildAccountUsageViewModel(
     resetDate: wallet?.resetDate || null,
     storageUsedMB,
     storageLimitMB,
-    storageUsagePercent: clampedUsagePercent(storageUsedMB, storageLimitMB),
+    storageUsagePercent: preciseStoragePercent(subscription?.storage?.usedBytes,subscription?.storage?.limitBytes,storageUsedMB,storageLimitMB),
     warningLevel
   };
 }

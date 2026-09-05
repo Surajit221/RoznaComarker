@@ -40,4 +40,15 @@ describe('AssignmentApiService stale evaluation workflow', () => {
     } });
     expect((await startPromise).startedCount).toBe(2);
   });
+
+  it('posts only reviewed duplicate overrides once', async () => {
+    const payload = { targetClassId: 'class-2', title: 'Essay - Copy', deadline: '2027-01-02T23:59:59.999Z' };
+    const promise = service.duplicateAssignment('assignment/one', payload);
+    const req = http.expectOne(`${environment.apiUrl}/assignments/assignment%2Fone/duplicate`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush({ success: true, data: { _id: 'duplicate-1', ...payload } });
+    expect((await promise)._id).toBe('duplicate-1');
+    expect(http.match(`${environment.apiUrl}/assignments/assignment%2Fone/duplicate`).length).toBe(0);
+  });
 });

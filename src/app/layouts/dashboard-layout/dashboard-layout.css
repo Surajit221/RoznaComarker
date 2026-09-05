@@ -13,7 +13,7 @@
 .desktop-plan-button:hover { background: #2c436e; }
 .desktop-plan-button:focus-visible, .mobile-plan-button:focus-visible { outline: 3px solid rgb(0 128 129 / 28%); outline-offset: 2px; }
 .topup-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: rgb(15 23 42 / 55%); }
-.topup-dialog { width: min(100%, 38rem); max-height: calc(100dvh - 2rem); overflow-y: auto; border-radius: 1.25rem; background: #fff; padding: 1.25rem; color: #374151; box-shadow: 0 20px 50px rgb(15 23 42 / 25%); }
+.topup-dialog { width: min(100%, 38rem); max-height: calc(100dvh - 2rem); overflow: auto; overflow-wrap: anywhere; border-radius: 1.25rem; background: #fff; padding: 1.25rem; color: #374151; box-shadow: 0 20px 50px rgb(15 23 42 / 25%); }
 .topup-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .topup-heading h2 { font-size: 1.5rem; font-weight: 800; color: #1f2937; }
 .topup-heading p, .topup-pack small { color: #6b7280; }
@@ -23,7 +23,7 @@
 .topup-pack { min-width: 0; display: flex; flex-direction: column; gap: .5rem; border: 2px solid #e7e7e7; border-radius: 1rem; padding: 1rem; }
 .topup-pack h3 { font-weight: 700; }
 .topup-pack strong { color: #008081; font-size: 1.35rem; }
-.topup-pack .btn-primary { width: 100%; min-height: 2.75rem; margin-top: .5rem; justify-content: center; }
+.topup-pack .btn-primary { width: 100%; min-height: 2.75rem; margin-top: .5rem; justify-content: center; touch-action: manipulation; }
 @media (max-width: 430px) { .topup-backdrop { padding: .5rem; } .topup-dialog { padding: 1rem; border-radius: 1rem; } .topup-grid { grid-template-columns: 1fr; } }
 
 .mobile-notification-button {

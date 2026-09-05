@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-register-pages',
@@ -8,9 +8,11 @@ import { Router } from '@angular/router';
   styleUrl: './register-pages.css',
 })
 export class RegisterPages {
-  constructor(private router: Router) {}
+  constructor(private router: Router, private route: ActivatedRoute) {}
 
   ngOnInit() {
+    const referral = this.route.snapshot.queryParamMap.get('ref')?.trim();
+    if (referral) sessionStorage.setItem('pending_referral_code', referral);
     this.router.navigate(['/login']);
   }
 }

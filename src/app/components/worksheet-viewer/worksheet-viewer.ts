@@ -29,6 +29,7 @@ import { WorksheetPdfRenderService } from '../worksheet-pdf-template/worksheet-p
 import { AssignmentStateService } from '../../services/assignment-state.service';
 import { AuthService } from '../../auth/auth.service';
 import { environment } from '../../../environments/environment';
+const debugLog = (...args: unknown[]) => { if (!environment.production) console.log(...args); };
 
 export function setCanonicalMatch(matches: Record<string, string>, pairId: string, rightText: string): Record<string, string> {
   const next = { ...matches };
@@ -162,6 +163,19 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
   a6Answers = signal<Record<string, boolean>>({});
   a6Checked = signal(false);
 
+  /* Extracted subjective questions retain the existing shortAnswer activity. */
+  shortAnswerAnswers = signal<Record<string, string>>({});
+  shortAnswerQuestions = computed(() => ((this.worksheet() as any)?.activities || [])
+    .filter((activity: any) => activity?.type === 'shortAnswer')
+    .flatMap((activity: any) => activity?.data?.questions || []));
+  shortAnswerTotal = computed(() => this.shortAnswerQuestions().length);
+  shortAnswerCompleted = computed(() => Object.values(this.shortAnswerAnswers()).filter(answer => answer?.trim()).length);
+
+  setShortAnswer(questionId: string, answer: string): void {
+    this.shortAnswerAnswers.update(answers => ({ ...answers, [questionId]: answer }));
+    this.triggerAutosave();
+  }
+
   /* ── Activity 7: Image Label ─────────────────── */
   a7Labels = signal<Record<string, string>>({});
   a7SelectedLabel = signal<string | null>(null);
@@ -289,7 +303,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
 
   totalScore    = computed(() => this.a1Score() + this.a2Score() + this.a3Score() + this.a4Score() + this.a5Score() + this.a6Score() + this.a7Score() + this.a8Score() + this.a9Score());
   totalPossible = computed(() => {
-    return this.a1Total() + this.a2Total() + this.a3Total() + this.a4Total() + this.a5Total() + this.a6Total() + this.a7Total() + this.a8Total() + this.a9Total();
+    return this.a1Total() + this.a2Total() + this.a3Total() + this.a4Total() + this.a5Total() + this.a6Total() + this.a7Total() + this.a8Total() + this.a9Total() + this.shortAnswerTotal();
   });
 
   completedActivities = computed(() => {
@@ -300,6 +314,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     if (this.a4Checked()) n++;
     if (this.a5Checked()) n++;
     if (Object.keys(this.a6Answers()).length >= this.a6Total() && this.a6Total() > 0) n++;
+    if (Object.keys(this.shortAnswerAnswers()).filter(key => this.shortAnswerAnswers()[key]?.trim()).length >= this.shortAnswerTotal() && this.shortAnswerTotal() > 0) n++;
     if (this.a7Checked()) n++;
     if (this.a8Checked()) n++;
     if (this.a9Checked()) n++;
@@ -319,6 +334,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     if (ws.activity7) n++;
     if (ws.activity8) n++;
     if (ws.activity9) n++;
+    if (this.shortAnswerTotal() > 0) n++;
     return n || 4;
   });
 
@@ -372,13 +388,20 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     for (const act of acts) {
       if (!act?.type) continue;
       const slot = TYPE_TO_SLOT[act.type];
-      if (!slot || patch[slot]) continue;  // skip unknown types or already mapped
+      if (!slot) continue;
+      const incoming = act.data ?? {};
+      if (patch[slot]) {
+        const collectionKey = act.type === 'fillBlanks' ? 'sentences' : act.type === 'matching' ? 'pairs' : 'questions';
+        patch[slot][collectionKey] = [...(patch[slot][collectionKey] || []), ...(incoming[collectionKey] || [])];
+        if (act.type === 'fillBlanks') patch[slot].wordBank = [...new Set([...(patch[slot].wordBank || []), ...(incoming.wordBank || [])])];
+        continue;
+      }
       patch[slot] = {
         title:        act.title        ?? '',
         instructions: act.instructions ?? '',
-        ...(act.data ?? {}),
+        ...incoming,
       };
-      console.log(`[NORMALIZE] ${act.type} → ${slot}`, patch[slot]);
+      debugLog(`[NORMALIZE] ${act.type} → ${slot}`, patch[slot]);
     }
 
     return { ...ws, ...patch };
@@ -486,10 +509,10 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
         const ws: Worksheet = this.sanitizeActivity4BlankIds(
           this.normalizeActivitiesArrayToLegacy(res?.data ?? res)
         ) as Worksheet;
-        console.log('[WORKSHEET DATA]', ws);
-        console.log('[ACTIVITIES]', (ws as any).activities);
-        console.log('[ACTIVITIES COUNT]', (ws as any).activities?.length);
-        console.log('[activity1]', (ws as any).activity1, '[activity2]', (ws as any).activity2,
+        debugLog('[WORKSHEET DATA]', ws);
+        debugLog('[ACTIVITIES]', (ws as any).activities);
+        debugLog('[ACTIVITIES COUNT]', (ws as any).activities?.length);
+        debugLog('[activity1]', (ws as any).activity1, '[activity2]', (ws as any).activity2,
                     '[activity3]', (ws as any).activity3, '[activity4]', (ws as any).activity4);
         this.worksheet.set(ws);
         if (ws.theme) this.applyTheme(ws.theme);
@@ -725,17 +748,17 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     // Activity 9: restore overlay worksheet data from preloaded inputs or submission
     if (this.preloadedA9Answers) {
       this.a9Answers.set(this.preloadedA9Answers);
-      console.log('[HYDRATE A9] Restored answers:', this.preloadedA9Answers);
+      debugLog('[HYDRATE A9] Restored answers:', this.preloadedA9Answers);
     }
     if (this.preloadedA9Results) {
       this.a9Results.set(this.preloadedA9Results);
       this.a9Checked.set(true);
-      console.log('[HYDRATE A9] Restored results:', this.preloadedA9Results);
-      console.log('[HYDRATE A9] Computed score after restore:', this.a9Score(), '/', this.a9Total());
+      debugLog('[HYDRATE A9] Restored results:', this.preloadedA9Results);
+      debugLog('[HYDRATE A9] Computed score after restore:', this.a9Score(), '/', this.a9Total());
     }
     if (this.preloadedA9Feedbacks) {
       this.a9Feedbacks.set(this.preloadedA9Feedbacks);
-      console.log('[HYDRATE A9] Restored feedbacks:', this.preloadedA9Feedbacks);
+      debugLog('[HYDRATE A9] Restored feedbacks:', this.preloadedA9Feedbacks);
     }
 
     if (this.reviewMeta?.studentName) this.studentNameValue = this.reviewMeta.studentName;
@@ -997,9 +1020,9 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
 
   /* ── Activity 9: Overlay Worksheet Methods ─────────── */
   onA9Input(fieldId: string, value: string): void {
-    console.log('[A9 INPUT]', fieldId, '=', value);
+    debugLog('[A9 INPUT]', fieldId, '=', value);
     this.a9Answers.update((answers) => ({ ...answers, [fieldId]: value }));
-    console.log('[A9 ANSWERS]', this.a9Answers());
+    debugLog('[A9 ANSWERS]', this.a9Answers());
     this.cdr.markForCheck();
     this.triggerAutosave();
   }
@@ -1008,16 +1031,16 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     const fields = this.worksheet()?.activity9?.fields ?? [];
     const answers = this.a9Answers();
 
-    console.log('[ACTIVITY9] Current answers:', answers);
-    console.log('[ACTIVITY9] Answer count:', Object.keys(answers).length);
-    console.log('[ACTIVITY9] Non-empty answers:', Object.values(answers).filter(a => a?.trim()).length);
+    debugLog('[ACTIVITY9] Current answers:', answers);
+    debugLog('[ACTIVITY9] Answer count:', Object.keys(answers).length);
+    debugLog('[ACTIVITY9] Non-empty answers:', Object.values(answers).filter(a => a?.trim()).length);
 
     // Check if any answers were given
     const hasAnswers = Object.values(answers).some(a => a && a.trim() !== '');
 
     if (!hasAnswers) {
       // Show warning - no answers to check
-      console.log('[ACTIVITY9] No answers to check');
+      debugLog('[ACTIVITY9] No answers to check');
       return;
     }
 
@@ -1047,7 +1070,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
         this.a9Feedbacks.set(response.feedbacks || {});
         this.a9Checked.set(true);
 
-        console.log('[ACTIVITY9] AI evaluation complete:', response.score, '/', response.total);
+        debugLog('[ACTIVITY9] AI evaluation complete:', response.score, '/', response.total);
         console.error('🟢 CHECK COMPLETE - answers stored:', JSON.stringify(this.a9Answers()));
         console.error('🟢 CHECK COMPLETE - results:', JSON.stringify(this.a9Results()));
 
@@ -1138,7 +1161,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
       checked: this.a9Checked()
     };
 
-    console.log('[DRAFT SAVE] Saving activity9Data:', {
+    debugLog('[DRAFT SAVE] Saving activity9Data:', {
       answerCount: Object.keys(activity9Data.answers).length,
       resultCount: Object.keys(activity9Data.results).length,
       score: activity9Data.score,
@@ -1159,7 +1182,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
         `${environment.apiUrl}/worksheets/${worksheetId}/draft`,
         draftPayload
       ).toPromise();
-      console.log('[DRAFT SAVE] Activity9 data saved to draft');
+      debugLog('[DRAFT SAVE] Activity9 data saved to draft');
     } catch(e) {
       console.error('[DRAFT SAVE] Failed:', e);
     }
@@ -1177,7 +1200,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     let score = this.a9Score();
     let total = this.a9Total();
 
-    console.log('[DOWNLOAD] Current answers:', Object.keys(answers).length);
+    debugLog('[DOWNLOAD] Current answers:', Object.keys(answers).length);
 
     // Get student name
     const studentName = document.querySelector<HTMLInputElement>(
@@ -1289,7 +1312,7 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
     // Auto-check activity9 answers before submitting if not yet checked
     const ws = this.worksheet();
     if (ws?.activity9 && !this.a9Checked()) {
-      console.log('[SUBMIT] Auto-checking activity9 answers before submission');
+      debugLog('[SUBMIT] Auto-checking activity9 answers before submission');
       await this.checkActivity9();
       // Wait for AI evaluation to complete
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -1357,6 +1380,10 @@ export class WorksheetViewerComponent implements OnInit, OnDestroy {
         isCorrect: ans === q.correctAnswer,
       });
     });
+
+    this.shortAnswerQuestions().forEach((q: any) => answers.push({
+      questionId: q.id, sectionId: 'shortAnswer', studentAnswer: this.shortAnswerAnswers()[q.id] || '', isCorrect: false
+    }));
 
     // For overlay worksheets (activity9), use AI evaluation score
     // For regular worksheets, use computed score from activities 1-6

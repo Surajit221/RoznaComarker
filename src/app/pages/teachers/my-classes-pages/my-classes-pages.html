@@ -14,6 +14,7 @@
         />
       </div>
       <button type="button" class="btn-warning" (click)="onRefresh()">Refresh</button>
+      <button type="button" class="btn-warning" (click)="openSemesterCopy()">Copy Previous Semester</button>
       <button type="submit" class="btn-primary" (click)="onAddClasses()">Create New Class</button>
     </div>
   </div>
@@ -31,7 +32,7 @@
         <p class="text-gray-500">Loading your classes...</p>
       </div>
     </div>
-    } @else if (filteredClasses.length === 0 && searchTerm) {
+    } @else if (filteredClasses().length === 0 && searchTerm) {
     <div class="col-span-4 flex justify-center items-center py-12">
       <div class="text-center">
         <i class="bx bx-search text-4xl text-gray-300 mb-4"></i>
@@ -39,7 +40,7 @@
         <p class="text-gray-400 text-sm">Try a different search term</p>
       </div>
     </div>
-    } @else if (classes.length === 0) {
+    } @else if (classes().length === 0) {
     <div class="col-span-4 flex justify-center items-center py-12">
       <div class="text-center">
         <i class="bx bx-book-open text-4xl text-gray-300 mb-4"></i>
@@ -48,7 +49,7 @@
       </div>
     </div>
     } @else {
-    @for (item of filteredClasses; track item.id) {
+    @for (item of filteredClasses(); track item.id) {
     <app-my-classes-card
       [id]="item.id"
       [image]="item.image"
@@ -112,6 +113,7 @@
     <div class="flex flex-col gap-2">
       <div class="w-full flex flex-row justify-between items-center">
         <p class="text-2xl font-bold">My Classes</p>
+        <button type="button" class="btn-warning-sm" (click)="openSemesterCopy()">Copy Semester</button>
       </div>
       <div class="flex w-full rounded-xl bg-gray-100 p-1" role="tablist" aria-label="Class status">
         <button type="button" class="min-h-11 flex-1 rounded-lg px-3 font-semibold" [class.bg-white]="selectedStatus === 'active'" [class.text-[#136C6D]]="selectedStatus === 'active'" (click)="selectStatus('active')">Active</button>
@@ -137,7 +139,7 @@
         <p class="text-gray-500">Loading your classes...</p>
       </div>
     </div>
-    } @else if (filteredClasses.length === 0 && searchTerm) {
+    } @else if (filteredClasses().length === 0 && searchTerm) {
     <div class="flex justify-center items-center py-12">
       <div class="text-center">
         <i class="bx bx-search text-4xl text-gray-300 mb-4"></i>
@@ -145,7 +147,7 @@
         <p class="text-gray-400 text-sm">Try a different search term</p>
       </div>
     </div>
-    } @else if (classes.length === 0) {
+    } @else if (classes().length === 0) {
     <div class="flex justify-center items-center py-12">
       <div class="text-center">
         <i class="bx bx-book-open text-4xl text-gray-300 mb-4"></i>
@@ -154,7 +156,7 @@
       </div>
     </div>
     } @else {
-    @for (item of filteredClasses; track item.id) {
+    @for (item of filteredClasses(); track item.id) {
     <app-my-classes-card
       [id]="item.id"
       [image]="item.image"
@@ -213,3 +215,37 @@
   </app-modal-dialog>
   }
 </ng-container>
+
+<app-modal-dialog [open]="showSemesterCopy" (closed)="closeSemesterCopy()" maxWidthClass="max-w-[720px]">
+  <section class="semester-copy" role="dialog" aria-modal="true" aria-labelledby="semester-copy-title">
+    <h2 id="semester-copy-title">Copy Previous Semester</h2>
+    <p>Create a clean active class. Students, submissions, results, feedback, progress, and old deadlines are never copied.</p>
+    @if (copyError) { <p class="semester-copy__error" role="alert">{{ copyError }}</p> }
+    <label>Previous class
+      <select [ngModel]="copySourceId" (ngModelChange)="chooseCopySource($event)" [disabled]="copyLoading || copySubmitting">
+        <option value="">Choose a class</option>
+        @for (source of copySources; track source._id) { <option [value]="source._id">{{ source.name }} ({{ source.status || 'active' }})</option> }
+      </select>
+    </label>
+    @if (copyPreview) {
+      <div class="semester-copy__fields">
+        <label>New class name<input [(ngModel)]="copyName" [disabled]="copySubmitting"></label>
+        <label>Subject / level<input [(ngModel)]="copySubjectLevel" [disabled]="copySubmitting"></label>
+        <label>Start date<input type="date" [(ngModel)]="copyStartDate" [disabled]="copySubmitting"></label>
+        <label>End date<input type="date" [(ngModel)]="copyEndDate" [disabled]="copySubmitting"></label>
+      </div>
+      <label>Description<textarea [(ngModel)]="copyDescription" [disabled]="copySubmitting"></textarea></label>
+      <fieldset><legend>Assignments to copy</legend>
+        <label class="semester-copy__check"><input type="checkbox" [checked]="allCopyAssignmentsSelected" [indeterminate]="someCopyAssignmentsSelected" (change)="toggleAllCopyAssignments($any($event.target).checked)"> Select all</label>
+        <div class="semester-copy__assignments">
+          @for (assignment of copyPreview.assignments; track assignment.id) {
+            <label class="semester-copy__check"><input type="checkbox" [checked]="selectedCopyAssignments.has(assignment.id)" (change)="toggleCopyAssignment(assignment.id, $any($event.target).checked)">
+              <span><strong>{{ assignment.title }}</strong><small>{{ assignment.type }} · Deadline will be unset</small></span></label>
+          }
+        </div>
+      </fieldset>
+    }
+    <div class="semester-copy__actions"><button type="button" class="btn-warning" (click)="closeSemesterCopy()" [disabled]="copySubmitting">Cancel</button>
+      <button type="button" class="btn-primary" (click)="submitSemesterCopy()" [disabled]="copySubmitting || !copySourceId || !copyName.trim()">{{ copySubmitting ? 'Creating…' : 'Create New Semester' }}</button></div>
+  </section>
+</app-modal-dialog>

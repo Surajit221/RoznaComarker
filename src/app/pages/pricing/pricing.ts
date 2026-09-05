@@ -6,6 +6,7 @@ import { BackendPlan, PlansApiService } from '../../api/plans-api.service';
 import { AuthService } from '../../auth/auth.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
+import { formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
 
 type PricingFeature = {
   label: string;
@@ -27,6 +28,7 @@ export class PricingComponent {
   plans: BackendPlan[] = [];
   readonly authenticatedRole: string | null;
   starterActive = false;
+  activeProvider: 'stripe' | 'paypal' = 'stripe';
   billingPeriod: 'monthly' | 'annual' = 'monthly';
   private readonly preparingPlanSlugs = new Set<string>();
   get tiers(): PricingTier[] { return this.groupPlans(this.plans); }
@@ -50,7 +52,9 @@ export class PricingComponent {
     if (this.authenticatedRole === 'teacher') {
       try {
         const subscription = await this.subscriptionApi.getMySubscription();
-        this.starterActive = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(subscription.billing?.status || '');
+        this.activeProvider = subscription.billing?.provider || 'stripe';
+        this.starterActive = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused', 'suspended']
+          .includes(String(subscription.billing?.status || '').toLowerCase());
       } catch { /* public pricing remains usable */ }
     }
   }
@@ -81,21 +85,11 @@ export class PricingComponent {
   }
 
   formatPrice(plan: BackendPlan): string {
-    const selectedPrice = this.billingPeriod === 'annual' && typeof plan.annualPrice === 'number' ? plan.annualPrice : plan.price;
-    if (typeof selectedPrice !== 'number') return plan.display.priceLabel || 'Custom';
-    if (selectedPrice === 0) return '$0';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: plan.currency || 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(selectedPrice);
+    return formatPlanPrice(plan, this.billingPeriod);
   }
 
   formatPeriod(plan: BackendPlan): string {
-    return typeof plan.price === 'number' && plan.price > 0 && plan.billingInterval
-      ? `/${this.billingPeriod === 'annual' && (typeof plan.annualPrice === 'number' || plan.slug.endsWith('_annual')) ? 'year' : plan.billingInterval}`
-      : '';
+    return formatPlanPeriod(plan, this.billingPeriod);
   }
 
   setBillingPeriod(period: 'monthly' | 'annual'): void {
@@ -172,13 +166,16 @@ export class PricingComponent {
       await this.router.navigate(this.authenticatedRole ? [`/${this.authenticatedRole}/dashboard`] : ['/signup']);
       return;
     }
-    if (plan.purchasable !== false) {
-      this.preparingPlanSlugs.add(plan.slug);
-      this.errorMessage = null;
-      try {
+    this.preparingPlanSlugs.add(plan.slug);
+    this.errorMessage = null;
+    try {
       if (this.authenticatedRole !== 'teacher') {
         await this.router.navigate(this.authenticatedRole === 'student' ? ['/student/dashboard'] : ['/login']);
       } else if (this.starterActive) {
+        if (this.activeProvider === 'paypal') {
+          await this.router.navigate(['/billing/paypal/manage']);
+          return;
+        }
         const portal = await this.subscriptionApi.createCustomerPortal();
         const portalUrl = trustedStripePortalUrl(portal.url);
         if (portalUrl) window.location.assign(portalUrl);
@@ -188,11 +185,10 @@ export class PricingComponent {
         if (plan.slug === 'starter_monthly' && this.billingPeriod === 'monthly') await this.router.navigate(commands);
         else await this.router.navigate(commands, { queryParams: { billing: this.billingPeriod } });
       }
-      } catch {
-        this.errorMessage = "We couldn't start checkout. Please try again.";
-      } finally {
-        this.preparingPlanSlugs.delete(plan.slug);
-      }
+    } catch {
+      this.errorMessage = "We couldn't start checkout. Please try again.";
+    } finally {
+      this.preparingPlanSlugs.delete(plan.slug);
     }
   }
 

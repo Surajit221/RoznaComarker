@@ -25,11 +25,10 @@ describe('RubricDesignerModal', () => {
 
     const textarea = fixture.nativeElement.querySelector('textarea[aria-label="Rubric generation prompt"]') as HTMLTextAreaElement;
     expect(textarea).toBeTruthy();
-    expect(textarea.rows).toBe(6);
-    expect(textarea.classList.contains('w-full')).toBeTrue();
-    expect(textarea.classList.contains('min-h-[160px]')).toBeTrue();
-    expect(textarea.classList.contains('resize-y')).toBeTrue();
-    expect(textarea.classList.contains('overflow-x-hidden')).toBeTrue();
+    expect(textarea.rows).toBe(3);
+    expect(textarea.closest('.rubric-editor__body')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.rubric-matrix-scroll')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.rubric-editor__footer')).toBeTruthy();
 
     const prompt = 'Assess the central argument.\nCheck supporting evidence.\nReward clear organization.';
     const emitted: string[] = [];
@@ -41,6 +40,36 @@ describe('RubricDesignerModal', () => {
 
     expect(fixture.componentInstance.rubricPromptControl.value).toBe(prompt);
     expect(emitted).toEqual([prompt]);
+  });
+
+  it('shows an actionable validation error instead of silently ignoring an empty AI prompt', async () => {
+    await TestBed.configureTestingModule({ imports: [RubricDesignerModal] }).compileComponents();
+    const fixture = TestBed.createComponent(RubricDesignerModal);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    const generated: string[] = [];
+    fixture.componentInstance.generateAi.subscribe(value => generated.push(value));
+
+    fixture.componentInstance.onGenerateRubricAi();
+    fixture.detectChanges();
+
+    expect(generated).toEqual([]);
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
+      .toContain('Describe the rubric you want to generate.');
+  });
+
+  it('emits the current unsaved editor snapshot for Save to Library', () => {
+    const component = new RubricDesignerModal();
+    component.rubricDesigner = validRubric;
+    component.ngOnInit();
+    component.rubricCriteriaRows[0].cells[0] = 'Current editor text';
+    const emitted: any[] = [];
+    component.saveToLibrary.subscribe(value => emitted.push(value));
+
+    component.onSaveToLibrary();
+
+    expect(emitted[0].criteria[0].cells[0]).toBe('Current editor text');
+    expect(emitted[0]).not.toBe(validRubric);
   });
 
   it('clears the prompt only after a valid generated rubric is applied', () => {

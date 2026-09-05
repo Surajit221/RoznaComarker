@@ -60,7 +60,7 @@ export class NotificationRealtimeService {
       }
     });
 
-    for (const type of ['credits_updated', 'assignment_report_updated']) {
+    for (const type of ['credits_updated', 'assignment_report_updated', 'teacher_activity_invalidated', 'institution_updated']) {
       this.source.addEventListener(type, (ev: MessageEvent) => {
         try {
           this.eventSubject.next({ type, data: JSON.parse(ev.data) });

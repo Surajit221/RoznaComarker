@@ -36,7 +36,6 @@ export class UnsplashService {
     const cached = this.cache.get(key);
 
     if (cached && Date.now() - cached.ts < this.CACHE_TTL) {
-      console.log(`[UNSPLASH] Cache HIT "${query}" — ${cached.data.length} images (instant)`);
       return of({ success: true, data: cached.data });
     }
 
@@ -51,7 +50,6 @@ export class UnsplashService {
         timeout(this.API_TIMEOUT),
         tap((res) => {
           console.timeEnd(`[UNSPLASH] API "${query}"`);
-          console.log(`[UNSPLASH] Received ${res.data?.length ?? 0} images for "${query}"`);
           if (res.success && res.data?.length) {
             this.cache.set(key, { data: res.data, ts: Date.now() });
           }

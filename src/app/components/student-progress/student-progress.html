@@ -1,0 +1,34 @@
+<section class="progress" aria-labelledby="student-progress-title">
+  <h2 id="student-progress-title">Writing improvement</h2>
+  @if (loading) { <p role="status">Loading progress…</p> }
+  @else if (error) { <p role="alert" class="error">{{ error }}</p> }
+  @else if (progress) {
+    @if (!progress.assessedDraftCount) { <p>No assessed drafts are available yet.</p> }
+    @else {
+      <div class="summary">
+        <div><span>Latest score</span><strong>{{ progress.latestAssessedScore }}</strong></div>
+        <div><span>Average draft improvement</span><strong>{{ delta(progress.averageRevisionScoreDelta) }}</strong></div>
+        <div><span>Revised assignments</span><strong>{{ progress.assignmentsWithRevisions }}</strong></div>
+        <div><span>Issues corrected</span><strong>{{ progress.totalIssuesCorrected }}</strong></div>
+      </div>
+      <div class="insights">
+        <p><strong>Revision outcomes:</strong> {{ progress.improvedRevisionCount }} improved, {{ progress.unchangedRevisionCount }} unchanged, {{ progress.declinedRevisionCount }} declined</p>
+        <p><strong>Strongest improvement:</strong> {{ progress.strongestImprovedCategory?.name || 'Not enough comparable rubric data' }}@if (progress.strongestImprovedCategory) { ({{ delta(progress.strongestImprovedCategory.delta) }}) }</p>
+        <p><strong>Needs attention:</strong> {{ progress.categoriesNeedingAttention.length ? progress.categoriesNeedingAttention.join(', ') : 'No declining comparable categories' }}</p>
+      </div>
+      <h3>Assessment history</h3>
+      <div class="history-groups">
+        @for (chain of progress.draftHistory; track chain.chainId; let assignmentIndex = $index) {
+          <section class="history-group" [attr.aria-labelledby]="'assignment-history-' + assignmentIndex">
+            <h4 [id]="'assignment-history-' + assignmentIndex">{{ chain.assignmentTitle || ('Assignment ' + (assignmentIndex + 1)) }}</h4>
+            <ol>
+              @for (draft of chain.drafts; track draft.submissionId + '-' + draft.draftNumber) {
+                <li><span>Draft {{ draft.draftNumber }}</span><strong>{{ draft.score }}</strong><time [attr.datetime]="draft.assessedAt">{{ draft.assessedAt | date:'mediumDate' }}</time></li>
+              }
+            </ol>
+          </section>
+        }
+      </div>
+    }
+  }
+</section>

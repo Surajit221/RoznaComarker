@@ -32,6 +32,7 @@ import { triggerBlobDownload } from '../../../utils/file-download.util';
 import { AlertService } from '../../../services/alert.service';
 import { AuthService } from '../../../auth/auth.service';
 import { environment } from '../../../../environments/environment';
+const debugLog = (...args: unknown[]) => { if (!environment.production) console.log(...args); };
 
 interface ResultState {
   submission: WorksheetSubmission;
@@ -561,20 +562,20 @@ export class StudentWorksheetResultsPage implements OnInit {
       const score = this.displayScore;
       const total = this.displayTotal;
 
-      console.log('[STUDENT PDF FRONTEND] === ANSWERS OBJECT INSPECTION ===');
-      console.log('[STUDENT PDF FRONTEND] typeof answers:', typeof answers);
-      console.log('[STUDENT PDF FRONTEND] answers instanceof Map:', answers instanceof Map);
-      console.log('[STUDENT PDF FRONTEND] Object.keys(answers):', Object.keys(answers));
-      console.log('[STUDENT PDF FRONTEND] answers count:', Object.keys(answers).length);
-      console.log('[STUDENT PDF FRONTEND] full answers object:', JSON.stringify(answers, null, 2));
-      console.log('[STUDENT PDF FRONTEND] score:', score, '/', total);
+      debugLog('[STUDENT PDF FRONTEND] === ANSWERS OBJECT INSPECTION ===');
+      debugLog('[STUDENT PDF FRONTEND] typeof answers:', typeof answers);
+      debugLog('[STUDENT PDF FRONTEND] answers instanceof Map:', answers instanceof Map);
+      debugLog('[STUDENT PDF FRONTEND] Object.keys(answers):', Object.keys(answers));
+      debugLog('[STUDENT PDF FRONTEND] answers count:', Object.keys(answers).length);
+      debugLog('[STUDENT PDF FRONTEND] full answers object:', JSON.stringify(answers, null, 2));
+      debugLog('[STUDENT PDF FRONTEND] score:', score, '/', total);
 
       // Log field-level answer lookup
       const fields = this.worksheet.activity9?.fields || [];
-      console.log('[STUDENT PDF FRONTEND] === FIELD-LEVEL ANSWER LOOKUP ===');
-      console.log('[STUDENT PDF FRONTEND] total fields:', fields.length);
+      debugLog('[STUDENT PDF FRONTEND] === FIELD-LEVEL ANSWER LOOKUP ===');
+      debugLog('[STUDENT PDF FRONTEND] total fields:', fields.length);
       fields.forEach(field => {
-        console.log('[STUDENT PDF FRONTEND] field lookup:', {
+        debugLog('[STUDENT PDF FRONTEND] field lookup:', {
           fieldId: field.id,
           answer: answers?.[field.id],
           hasAnswer: field.id in answers,

@@ -63,6 +63,8 @@ export type BackendSubmission = {
   correctionCurrent?: boolean;
   transcriptLayoutVersion?: string;
   evaluationStatus?: 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale';
+  evaluationSourceHash?: string;
+  assessmentCompletedAt?: string;
   processingActive?: boolean;
   automaticPollingAllowed?: boolean;
   manualRetryAllowed?: boolean;
@@ -76,6 +78,36 @@ export type BackendSubmission = {
   feedback?: string;
   createdAt: string;
   updatedAt: string;
+  draftNumber?: number;
+};
+
+export type DraftComparisonCategory = {
+  categoryId?: string | null;
+  name: string;
+  previousScore: number | null;
+  currentScore: number | null;
+  delta: number | null;
+  maxScore: number | null;
+  available: boolean;
+  reason?: string;
+};
+
+export type DraftComparison = {
+  available: boolean;
+  code?: 'FIRST_DRAFT' | 'CURRENT_UNASSESSED' | 'PREVIOUS_UNASSESSED' | 'MARKS_HIDDEN' | string;
+  message?: string;
+  previousDraftNumber?: number;
+  currentDraftNumber?: number;
+  overall?: { previousScore: number; currentScore: number; delta: number; status: 'IMPROVED' | 'DECLINED' | 'UNCHANGED' };
+  rubricCategories?: DraftComparisonCategory[];
+  rubricChanged?: boolean;
+  rubricMessage?: string | null;
+  issuesAvailable?: boolean;
+  issuesMessage?: string | null;
+  issues?: { previousCount: number; currentCount: number; correctedCount: number; remainingCount: number; newIssueCount: number } | null;
+  previousText?: string;
+  currentText?: string;
+  identicalContent?: boolean;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -188,5 +220,12 @@ export class SubmissionApiService {
     await firstValueFrom(this.http.post(
       `${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/evaluation/retry`, {}
     ));
+  }
+
+  async getDraftComparison(submissionId: string): Promise<DraftComparison> {
+    const resp = await firstValueFrom(this.http.get<BackendResponse<DraftComparison>>(
+      `${this.getApiBaseUrl()}/submissions/${encodeURIComponent(submissionId)}/draft-comparison`
+    ));
+    return resp.data;
   }
 }

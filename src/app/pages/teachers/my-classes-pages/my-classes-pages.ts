@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MyClassesCard } from '../../../components/teacher/my-classes-card/my-classes-card';
 import { ModalDialog } from '../../../shared/modal-dialog/modal-dialog';
 import { MyClassesForm } from './my-classes-form/my-classes-form';
@@ -13,11 +14,15 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-my-classes-pages',
-  imports: [CommonModule, MyClassesCard, ModalDialog, MyClassesForm, BottomsheetDialog],
+  imports: [CommonModule, FormsModule, MyClassesCard, ModalDialog, MyClassesForm, BottomsheetDialog],
   templateUrl: './my-classes-pages.html',
   styleUrl: './my-classes-pages.css',
 })
 export class MyClassesPages {
+  showSemesterCopy = false; copySources: BackendClass[] = []; copyPreview: any = null; copySourceId = '';
+  copyName = ''; copyDescription = ''; copySubjectLevel = ''; copyStartDate = ''; copyEndDate = '';
+  selectedCopyAssignments = new Set<string>(); copyLoading = false; copySubmitting = false; copyError = '';
+  private copyRequestId = '';
   showDialog = false;
   device = inject(DeviceService);
   openSheet = false;
@@ -41,7 +46,7 @@ export class MyClassesPages {
 
   isLoading = false;
   searchTerm = '';
-  filteredClasses: Array<{
+  private readonly classCards = signal<Array<{
     id: string;
     image: string;
     title: string;
@@ -52,20 +57,16 @@ export class MyClassesPages {
     lastEdited: string;
     status: 'active' | 'archived';
     archivedAt: string | null;
-  }> = [];
+  }>>([]);
 
-  classes: Array<{
-    id: string;
-    image: string;
-    title: string;
-    students: number;
-    assignments: number;
-    submissions: number;
-    description: string;
-    lastEdited: string;
-    status: 'active' | 'archived';
-    archivedAt: string | null;
-  }> = [];
+  readonly classes = this.classCards.asReadonly();
+  private readonly appliedSearchTerm = signal('');
+  readonly filteredClasses = computed(() => {
+    const term = this.appliedSearchTerm().toLowerCase().trim();
+    if (!term) return this.classCards();
+    return this.classCards().filter((cls) => cls.title.toLowerCase().includes(term) ||
+      cls.description.toLowerCase().includes(term));
+  });
 
   async ngOnInit() {
     await this.loadClasses();
@@ -76,6 +77,9 @@ export class MyClassesPages {
       .subscribe((updated) => {
         void this.onExternalClassUpdated(updated);
       });
+    this.classApi.classDeleted$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((id) => this.removeClassById(id));
 
     const shouldOpenCreate = this.route.snapshot.queryParamMap.get('create') === '1';
     if (shouldOpenCreate) {
@@ -94,30 +98,29 @@ export class MyClassesPages {
     this.classesById.set(updated._id, updated);
 
     if (updated.isActive === false) {
-      this.classes = (this.classes || []).filter((x) => x.id !== updated._id);
-      this.filteredClasses = (this.filteredClasses || []).filter((x) => x.id !== updated._id);
+      this.classCards.update((items) => items.filter((x) => x.id !== updated._id));
       if (this.selectedClass?._id === updated._id) {
         this.selectedClass = null;
       }
       return;
     }
 
-    const idx = (this.classes || []).findIndex((x) => x.id === updated._id);
-    if (idx < 0) {
-      if (this.showEditDialog || this.showDeleteDialog) {
-        if (this.selectedClass?._id === updated._id) {
-          this.selectedClass = updated;
-        }
-      }
+    const updatedStatus = updated.status || 'active';
+    if (updatedStatus !== this.selectedStatus) {
+      this.classCards.update((items) => items.filter((x) => x.id !== updated._id));
       return;
     }
 
+    const upsertCard = (nextItem: ReturnType<MyClassesPages['mapClassToCardItemFallback']>) =>
+      this.classCards.update((items) => {
+        const idx = items.findIndex((item) => item.id === updated._id);
+        return idx < 0 ? [nextItem, ...items] : items.map((item, index) => index === idx ? nextItem : item);
+      });
+    // Render the authoritative POST/event payload immediately. Summary counts
+    // enrich the same card afterward but are not a prerequisite for visibility.
+    upsertCard(this.mapClassToCardItemFallback(updated));
     const nextItem = await this.mapClassToCardItem(updated);
-    const next = [...this.classes];
-    next[idx] = nextItem;
-    this.classes = next;
-
-    this.filterClasses(this.searchTerm);
+    upsertCard(nextItem);
 
     if (this.selectedClass?._id === updated._id) {
       this.selectedClass = updated;
@@ -150,16 +153,7 @@ export class MyClassesPages {
   }
 
   private filterClasses(searchTerm: string) {
-    if (!searchTerm || searchTerm.trim() === '') {
-      this.filteredClasses = [...this.classes];
-      return;
-    }
-
-    const term = searchTerm.toLowerCase().trim();
-    this.filteredClasses = this.classes.filter(cls => 
-      cls.title.toLowerCase().includes(term) ||
-      cls.description.toLowerCase().includes(term)
-    );
+    this.appliedSearchTerm.set(searchTerm);
   }
 
   private async mapClassToCardItem(c: BackendClass) {
@@ -179,20 +173,21 @@ export class MyClassesPages {
         archivedAt: c.archivedAt || null
       };
     } catch (err) {
-      // Fallback if summary fails
-      return {
-        id: c._id,
-        image: c.bannerUrl || '',
-        title: c.name,
-        students: 0,
-        assignments: 0,
-        submissions: 0,
-        description: c.description || '',
-        lastEdited: '',
-        status: c.status || 'active',
-        archivedAt: c.archivedAt || null
-      };
+      return this.mapClassToCardItemFallback(c);
     }
+  }
+
+  private removeClassById(id: string): void {
+    if (!id) return;
+    this.classesById.delete(id);
+    this.classCards.update((items) => items.filter((item) => item.id !== id));
+    if (this.selectedClass?._id === id) this.selectedClass = null;
+  }
+
+  private mapClassToCardItemFallback(c: BackendClass) {
+    return { id: c._id, image: c.bannerUrl || '', title: c.name, students: 0,
+      assignments: 0, submissions: 0, description: c.description || '', lastEdited: '',
+      status: c.status || 'active', archivedAt: c.archivedAt || null };
   }
 
   async loadClasses() {
@@ -215,8 +210,8 @@ export class MyClassesPages {
         uniqueById.set(item.id, item);
       }
 
-      this.classes = Array.from(uniqueById.values());
-      this.filteredClasses = [...this.classes];
+      this.classCards.set(Array.from(uniqueById.values()));
+      this.appliedSearchTerm.set(this.searchTerm);
     } catch (err: any) {
       this.alert.showError('Failed to load classes', err?.message || 'Please try again');
     } finally {
@@ -224,12 +219,45 @@ export class MyClassesPages {
     }
   }
 
-  async onClassCreated(_created: BackendClass) {
-    await this.loadClasses();
+  async onClassCreated(created: BackendClass) {
+    // POST /classes returns the authoritative class. Upsert it directly so the
+    // UI does not depend on a route reload or a second list fetch.
+    this.selectedStatus = 'active';
+    this.searchTerm = '';
+    this.appliedSearchTerm.set('');
+    await this.onExternalClassUpdated(created);
   }
 
   onAddClasses() {
     this.showDialog = true;
+  }
+
+  async openSemesterCopy(): Promise<void> {
+    this.showSemesterCopy = true; this.copyError = ''; this.copyLoading = true;
+    try { this.copySources = await this.classApi.getCopyableClasses(); } catch { this.copyError = 'Previous classes could not be loaded.'; }
+    finally { this.copyLoading = false; }
+  }
+  closeSemesterCopy(): void { if (!this.copySubmitting) this.showSemesterCopy = false; }
+  async chooseCopySource(id: string): Promise<void> {
+    this.copySourceId = id; this.copyPreview = null; this.copyError = ''; this.copyLoading = true;
+    try { this.copyPreview = await this.classApi.getSemesterCopyPreview(id); this.copyName = `${this.copyPreview.sourceClass.name} - New Semester`;
+      this.copyDescription = this.copyPreview.sourceClass.description; this.copySubjectLevel = this.copyPreview.sourceClass.subjectLevel;
+      this.selectedCopyAssignments = new Set(this.copyPreview.assignments.map((x: any) => x.id)); this.copyRequestId = crypto.randomUUID(); }
+    catch { this.copyError = 'The class preview could not be loaded.'; } finally { this.copyLoading = false; }
+  }
+  toggleCopyAssignment(id: string, checked: boolean): void { const next = new Set(this.selectedCopyAssignments); checked ? next.add(id) : next.delete(id); this.selectedCopyAssignments = next; }
+  toggleAllCopyAssignments(checked: boolean): void { this.selectedCopyAssignments = new Set(checked ? this.copyPreview?.assignments.map((x: any) => x.id) || [] : []); }
+  get allCopyAssignmentsSelected(): boolean { return Boolean(this.copyPreview?.assignments.length) && this.selectedCopyAssignments.size === this.copyPreview.assignments.length; }
+  get someCopyAssignmentsSelected(): boolean { return this.selectedCopyAssignments.size > 0 && !this.allCopyAssignmentsSelected; }
+  async submitSemesterCopy(): Promise<void> {
+    if (this.copySubmitting || !this.copySourceId || !this.copyName.trim()) return; this.copySubmitting = true; this.copyError = '';
+    try { const result = await this.classApi.copySemester(this.copySourceId, { requestId: this.copyRequestId,
+      newClass: { name: this.copyName.trim(), description: this.copyDescription, subjectLevel: this.copySubjectLevel,
+        ...(this.copyStartDate ? { startDate: this.copyStartDate } : {}), ...(this.copyEndDate ? { endDate: this.copyEndDate } : {}) },
+      assignmentIds: [...this.selectedCopyAssignments], deadlineMode: 'unset' });
+      await this.onClassCreated(result.class); this.showSemesterCopy = false; await this.router.navigate(['/teacher/my-classes/detail', result.class._id]);
+    } catch (error: any) { this.copyError = error?.error?.message || 'The new semester could not be created. Your selections are preserved.'; }
+    finally { this.copySubmitting = false; }
   }
 
   async selectStatus(status: 'active' | 'archived') {
@@ -256,7 +284,6 @@ export class MyClassesPages {
       await this.classApi.archiveClass(id);
       this.alert.showSuccess('Class archived', 'All class history has been kept');
       this.closeArchiveDialog();
-      await this.loadClasses();
     } catch (err: any) {
       this.alert.showError('Failed to archive class', err?.error?.message || err?.message || 'Please try again');
     }
@@ -268,7 +295,6 @@ export class MyClassesPages {
     try {
       await this.classApi.unarchiveClass(payload.id);
       this.alert.showSuccess('Class restored', `${payload.title} is active again`);
-      await this.loadClasses();
     } catch (err: any) {
       const message = err?.error?.code === 'ACTIVE_CLASS_LIMIT_REACHED'
         ? "You've reached your active class limit. Archive another class or upgrade your plan before restoring this class."
@@ -311,9 +337,9 @@ export class MyClassesPages {
     if (!id) return;
     try {
       await this.classApi.deleteClass(id);
+      this.removeClassById(id);
       this.alert.showSuccess('Class deleted', 'Your class has been removed');
       this.closeDeleteDialog();
-      await this.loadClasses();
     } catch (err: any) {
       this.alert.showError('Failed to delete class', err?.message || 'Please try again');
     }
