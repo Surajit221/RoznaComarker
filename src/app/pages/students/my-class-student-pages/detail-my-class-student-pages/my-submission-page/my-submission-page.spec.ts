@@ -150,7 +150,7 @@ describe('MySubmissionPage', () => {
     expect(component.transcriptPageViews).toEqual([]);
   });
 
-  it('canonical polling requests feedback only and never refreshes submission or OCR resources', async () => {
+  it('keeps intermediate polling scoped to feedback until completion', async () => {
     component.submission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
     const submissionRefresh = spyOn((component as any).submissionApi, 'getMySubmissionByAssignmentId');
     const ocr = spyOn<any>(component, 'loadOcrCorrections');
@@ -172,9 +172,14 @@ describe('MySubmissionPage', () => {
 
   it('performs only one OCR reconciliation when completed feedback overtakes stale local OCR state', async () => {
     const http = TestBed.inject(HttpTestingController);
+    component.assignmentId = 'assignment-1';
     component.submission = { _id: 'submission-1', ocrStatus: 'processing' } as any;
     component.submissionFileIds = ['file-1'];
     spyOn<any>(component, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
+    spyOn((component as any).submissionApi, 'getMySubmissionByAssignmentId').and.resolveTo({
+      _id: 'submission-1', assignment: 'assignment-1', ocrStatus: 'completed', correctionSourceHash: 'source-final'
+    } as any);
+    spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
     spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
       submissionId: 'submission-1', overallScore: 67, evaluationStatus: 'completed', correctionStatus: 'completed',
       detailedFeedbackStatus: 'completed', processingActive: false, automaticPollingAllowed: false, terminal: true
@@ -192,6 +197,7 @@ describe('MySubmissionPage', () => {
     expect(component.feedback?.overallScore).toBe(67);
     expect(component.ocrStatus).toBe('completed');
     expect(component.transcriptPageViews[0].status).toBe('ready');
+    expect((component as any).submissionApi.getMySubmissionByAssignmentId).toHaveBeenCalledTimes(1);
   });
 
   it('does not start polling when reopening a completed unchanged submission', () => {

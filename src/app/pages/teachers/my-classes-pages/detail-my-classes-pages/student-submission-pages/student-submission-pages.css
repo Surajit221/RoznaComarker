@@ -278,8 +278,18 @@
   max-width: 100%;
   overflow-x: hidden;
 }
+.submission-review-page *, .submission-review-page *::before, .submission-review-page *::after { box-sizing: border-box; }
+.submission-review-page .canonical-transcript-viewport,
+.submission-review-page article, .submission-review-page section,
+.submission-review-page .gradient-card { width: 100%; max-width: 100%; min-width: 0; }
+.submission-review-page .canonical-transcript-viewport,
+.submission-review-page pre, .submission-review-page p,
+.submission-review-page blockquote { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.mobile-correction-legend { display: none; }
+.mobile-correction-legend summary { cursor: pointer; font-weight: 700; color: #374151; min-height: 2.75rem; align-content: center; }
 
 @media (max-width: 768px) {
+  .submission-review-page { padding-inline: .5rem; }
   .submission-review-page > .mb-6,
   .submission-review-page .bg-white > .flex-row.justify-between.items-center {
     flex-direction: column;
@@ -295,4 +305,20 @@
   .submission-review-page .bg-white.p-6 { padding: 1rem; }
   .submission-review-page .gradient-card { min-width: 0; }
   .submission-review-page pre { max-width: 100%; overflow-wrap: anywhere; }
+  .submission-review-page .bg-\[\#F3F3F3\] { padding: .75rem; }
+  .submission-review-page .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+  .submission-review-page .text-2xl { font-size: 1.25rem; line-height: 1.55rem; }
+  .submission-review-page .text-xl { font-size: 1.0625rem; line-height: 1.45rem; }
+  .submission-review-page .p-6, .submission-review-page .px-6 { padding-left: 1rem; padding-right: 1rem; }
+  .submission-review-page .flex-row { min-width: 0; flex-wrap: wrap; }
+  .desktop-correction-legend { display: none; }
+  .mobile-correction-legend { display: block; }
+  .score-badge { min-width: 0; max-width: 100%; }
+}
+
+@media (max-width: 430px) {
+  .submission-review-page { padding-inline: .375rem; }
+  .submission-review-page .rounded-3xl { border-radius: 1rem; }
+  .submission-review-page .gradient-card { padding: .875rem; border-radius: .875rem; }
+  .submission-review-page button, .submission-review-page a.btn-info { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 }

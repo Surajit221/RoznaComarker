@@ -176,7 +176,7 @@ describe('StudentSubmissionPages', () => {
     await applying;
   });
 
-  it('polls only feedback and never reloads correction or transcript resources', async () => {
+  it('keeps intermediate polling scoped to feedback until completion', async () => {
     component.currentSubmission = { _id: 'submission-1', ocrStatus: 'completed' } as any;
     const ocr = spyOn<any>(component, 'loadOcrCorrections');
     const transcript = spyOn<any>(component, 'loadCompleteTranscript');
@@ -537,7 +537,7 @@ describe('StudentSubmissionPages', () => {
     ]);
     expect(component.aiFeedbackState).toBe('loaded');
     expect(invalidate).toHaveBeenCalledOnceWith('assignment-1');
-    expect((component as any).submissionApi.getSubmissionsByAssignment).not.toHaveBeenCalled();
+    expect((component as any).submissionApi.getSubmissionsByAssignment).toHaveBeenCalledOnceWith('assignment-1', jasmine.any(Number));
   });
 
   it('shows completed score rows while detailed feedback is still processing', async () => {

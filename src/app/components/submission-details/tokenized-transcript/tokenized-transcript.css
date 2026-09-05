@@ -26,6 +26,7 @@
 .correction-highlight:hover {
   background: rgba(255, 193, 7, 0.3);
 }
+.correction-highlight:focus-visible { outline: 3px solid rgba(0, 128, 129, .35); outline-offset: 2px; }
 
 .transcript-tooltip {
   position: absolute;
@@ -45,4 +46,19 @@
   z-index: 9999;
   backdrop-filter: blur(10px);
   pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .tokenized-transcript { overflow-wrap: anywhere; word-break: break-word; line-height: 1.65; }
+  .transcript-tooltip {
+    position: fixed !important;
+    inset: auto .5rem max(.5rem, env(safe-area-inset-bottom)) .5rem !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: min(48dvh, 24rem) !important;
+    overflow-y: auto;
+    border-radius: 1rem;
+    box-shadow: 0 -.5rem 2rem rgba(15, 23, 42, .28);
+    pointer-events: auto;
+  }
 }

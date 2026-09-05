@@ -7,6 +7,11 @@
         (pointerenter)="getWordAnnotations(t.word.id).length ? onWordPointerEnter(t.word.id, $event) : null"
         (pointerleave)="getWordAnnotations(t.word.id).length ? onWordPointerLeave(t.word.id, $event) : null"
         (pointerdown)="getWordAnnotations(t.word.id).length ? onWordPointerDown(t.word.id, $event) : null"
+        (keydown)="getWordAnnotations(t.word.id).length ? onWordKeydown(t.word.id, $event) : null"
+        [attr.tabindex]="getWordAnnotations(t.word.id).length ? 0 : null"
+        [attr.role]="getWordAnnotations(t.word.id).length ? 'button' : null"
+        [attr.aria-expanded]="getWordAnnotations(t.word.id).length ? activeWordId === t.word.id : null"
+        [attr.aria-label]="getWordAnnotations(t.word.id).length ? 'View correction for ' + t.word.text : null"
       >
         {{ t.word.text }}
       </span>
@@ -18,6 +23,8 @@
   <div
     #tooltipEl
     class="transcript-tooltip"
+    role="dialog"
+    aria-label="Correction details"
     [ngStyle]="tooltipStyle"
     style="white-space: pre-line;"
   >{{ tooltipText }}</div>

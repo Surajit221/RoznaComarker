@@ -171,7 +171,7 @@
                   </div>
 
                   <!-- Correction Legend -->
-                  <div class="gradient-card p-6 hover-lift">
+                  <div class="gradient-card p-6 hover-lift desktop-correction-legend">
                     <h3 class="font-semibold text-gray-700 mb-4">Correction Legend</h3>
                     <div class="space-y-3">
                       @for (item of correctionLegendItems; track item.symbol) {
@@ -186,6 +186,10 @@
                       }
                     </div>
                   </div>
+                  <details class="mobile-correction-legend gradient-card p-4">
+                    <summary>View correction legend</summary>
+                    <app-writing-corrections-legend class="block mt-3" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend>
+                  </details>
 
                 </div>
 
