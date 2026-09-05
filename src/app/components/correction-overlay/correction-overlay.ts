@@ -57,7 +57,14 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
   @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
-  @ViewChild('tooltipEl') private tooltipEl?: ElementRef<HTMLElement>;
+  private tooltipEl?: ElementRef<HTMLElement>;
+  @ViewChild('tooltipEl')
+  private set renderedTooltip(value: ElementRef<HTMLElement> | undefined) {
+    this.tooltipEl = value;
+    // The tooltip is conditionally created from activeMarker. Position from the
+    // render hook so the first hover/tap cannot race the ViewChild into null.
+    if (value && this.activeMarker && this.tooltipTarget) this.schedulePosition();
+  }
 
   markers: CorrectionMarker[] = [];
   underlineSegments: UnderlineSegment[] = [];
@@ -270,16 +277,6 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   get suggestion(): string {
     return (this.activeMarker?.annotation.suggestedText || '').trim();
-  }
-
-  onMarkerMouseEnter(marker: CorrectionMarker, event: MouseEvent): void {
-    this.updateResponsiveMode();
-    if (this.isMobile || this.isPinned) return;
-    this.openTooltip(marker, event.currentTarget as HTMLElement, false);
-  }
-
-  onMarkerMouseLeave(marker: CorrectionMarker): void {
-    if (!this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) this.closeTooltip();
   }
 
   get originalText(): string {
