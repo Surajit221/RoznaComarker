@@ -107,6 +107,10 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
     try {
       const response = await this.subscriptionApi.getChangePlanContext(this.targetPlanCode, this.changeAttemptId);
       this.context = response;
+      // Use canonical changeAttemptId from backend response
+      if (response.changeAttemptId) {
+        this.changeAttemptId = response.changeAttemptId;
+      }
     } catch (err: any) {
       this.error = err?.error?.message || 'Unable to load plan change context.';
     }

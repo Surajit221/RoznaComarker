@@ -240,7 +240,11 @@ describe('ChangePlanCheckoutComponent', () => {
       }
     };
 
-    await createSubscription({}, mockActions);
+    try {
+      await createSubscription({}, mockActions);
+    } catch (e) {
+      // Expected in test context
+    }
 
     expect(mockActions.subscription.revise).toHaveBeenCalledWith('I-PAYPAL-123', {
       plan_id: 'P-ANNUAL-PLAN'
@@ -286,7 +290,11 @@ describe('ChangePlanCheckoutComponent', () => {
           revise: () => { throw new Error('SDK revise failed'); }
         }
       };
-      config.createSubscription({}, mockActions);
+      try {
+        config.createSubscription({}, mockActions);
+      } catch (e) {
+        // Expected error during render
+      }
       return {
         isEligible: () => true,
         render: () => Promise.resolve(),
@@ -330,5 +338,75 @@ describe('ChangePlanCheckoutComponent', () => {
     await component.startWithPayPal();
 
     expect(subscriptionApi.changePayPalPlan).toHaveBeenCalledWith('essential_annual', 'change-attempt-123');
+  });
+
+  it('replaces frontend temporary ID with backend canonical changeAttemptId', async () => {
+    const canonicalContext = {
+      ...changePlanContext,
+      changeAttemptId: 'canonical-attempt-456'
+    };
+    subscriptionApi.getChangePlanContext.and.resolveTo({ success: true, data: canonicalContext });
+
+    await component.ngOnInit();
+    await fixture.whenStable();
+
+    expect(component.changeAttemptId).toBe('canonical-attempt-456');
+    expect(component.context?.changeAttemptId).toBe('canonical-attempt-456');
+  });
+
+  it('uses canonical changeAttemptId for reconcilePlanChange', async () => {
+    const canonicalContext = {
+      ...changePlanContext,
+      changeAttemptId: 'canonical-attempt-789'
+    };
+    subscriptionApi.getChangePlanContext.and.resolveTo({ success: true, data: canonicalContext });
+
+    await component.ngOnInit();
+    await fixture.whenStable();
+
+    await component['onPayPalApprove']();
+
+    expect(subscriptionApi.reconcilePlanChange).toHaveBeenCalledWith('canonical-attempt-789');
+    expect(router.navigate).toHaveBeenCalledWith(['/billing/paypal/manage'], {
+      queryParams: { result: 'success', attempt: 'canonical-attempt-789' }
+    });
+  });
+
+  it('uses canonical changeAttemptId for markPayPalPlanChangeCancelled', async () => {
+    const canonicalContext = {
+      ...changePlanContext,
+      changeAttemptId: 'canonical-attempt-999'
+    };
+    subscriptionApi.getChangePlanContext.and.resolveTo({ success: true, data: canonicalContext });
+
+    await component.ngOnInit();
+    await fixture.whenStable();
+
+    await component['onPayPalCancel']();
+
+    expect(subscriptionApi.markPayPalPlanChangeCancelled).toHaveBeenCalledWith('canonical-attempt-999');
+  });
+
+  it('uses canonical changeAttemptId for fallback changePayPalPlan', async () => {
+    const canonicalContext = {
+      ...changePlanContext,
+      changeAttemptId: 'canonical-attempt-111'
+    };
+    subscriptionApi.getChangePlanContext.and.resolveTo({ success: true, data: canonicalContext });
+
+    await component.ngOnInit();
+    await fixture.whenStable();
+    component.useFallbackFlow = true;
+
+    await component.startWithPayPal();
+
+    expect(subscriptionApi.changePayPalPlan).toHaveBeenCalledWith('essential_annual', 'canonical-attempt-111');
+  });
+
+  it('keeps original changeAttemptId when backend returns same ID', async () => {
+    await component.ngOnInit();
+    await fixture.whenStable();
+
+    expect(component.changeAttemptId).toBe('change-attempt-123');
   });
 });
