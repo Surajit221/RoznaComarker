@@ -43,6 +43,8 @@ export type BackendMySubscription = {
     subscriptionStatus?: string | null;
     pendingPlanChange?: boolean;
     pendingTargetPlanCode?: string | null;
+    pendingChangeAttemptId?: string | null;
+    pendingChangeApprovalUrl?: string | null;
     pendingCancellation?: boolean;
   } | null;
   referrals?: {
@@ -113,11 +115,15 @@ export class SubscriptionApiService {
     return resp.data;
   }
 
-  async createPayPalSubscription(planCode: string, checkoutAttemptId: string): Promise<{ subscriptionId: string; approvalUrl: string; status: string }> {
-    const resp = await firstValueFrom(this.http.post<BackendResponse<{ subscriptionId: string; approvalUrl: string; status: string }>>(
+  async createPayPalSubscription(planCode: string, checkoutAttemptId: string): Promise<{ checkoutAttemptId: string; subscriptionId: string; approvalUrl: string; status: string }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ checkoutAttemptId: string; subscriptionId: string; approvalUrl: string; status: string }>>(
       `${this.getApiBaseUrl()}/subscription/paypal/create`, { planCode, checkoutAttemptId }
     ));
     return resp.data;
+  }
+  async reconcilePayPalSubscription(checkoutAttemptId:string):Promise<{attemptId:string;subscriptionId:string;status:string;active:boolean}>{
+    const resp=await firstValueFrom(this.http.post<BackendResponse<{attemptId:string;subscriptionId:string;status:string;active:boolean}>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/reconcile`,{checkoutAttemptId}));return resp.data;
   }
 
   async createCustomerPortal(): Promise<{ url: string }> {
@@ -147,6 +153,49 @@ export class SubscriptionApiService {
 
   async markPayPalPlanChangeCancelled(changeAttemptId: string): Promise<void> {
     await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/subscription/paypal/change-plan/cancelled`, { changeAttemptId }));
+  }
+
+  async reconcilePayPalManagement(): Promise<{ status: string; pendingCancellation: boolean; cancelledOrTerminal: boolean }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ status: string; pendingCancellation: boolean; cancelledOrTerminal: boolean }>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/reconcile-management`, {}
+    ));
+    return resp.data;
+  }
+
+  async getChangePlanContext(targetPlanCode: string, changeAttemptId: string): Promise<{
+    changeAttemptId: string;
+    providerSubscriptionId: string;
+    targetPayPalPlanId: string;
+    targetPlanCode: string;
+    currency: string;
+    targetPlanName: string;
+    targetPlanPrice: number;
+    targetBillingInterval: string;
+  }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{
+      changeAttemptId: string;
+      providerSubscriptionId: string;
+      targetPayPalPlanId: string;
+      targetPlanCode: string;
+      currency: string;
+      targetPlanName: string;
+      targetPlanPrice: number;
+      targetBillingInterval: string;
+    }>>(`${this.getApiBaseUrl()}/subscription/paypal/change-plan/context`, { targetPlanCode, changeAttemptId }));
+    if (!resp.success) {
+      throw new Error(resp.message || 'Failed to fetch plan change context');
+    }
+    return resp.data;
+  }
+
+  async reconcilePlanChange(changeAttemptId: string): Promise<{ status: string; targetPlanCode: string; providerStatus: string }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ status: string; targetPlanCode: string; providerStatus: string }>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/change-plan/reconcile`, { changeAttemptId }
+    ));
+    if (!resp.success) {
+      throw new Error(resp.message || 'Failed to reconcile plan change');
+    }
+    return resp.data;
   }
 
   async claimReferral(code: string): Promise<{ applied: boolean }> {

@@ -1,0 +1,81 @@
+<div class="change-plan-checkout-container">
+  <div class="checkout-card">
+    <h1>Change Your Plan</h1>
+    <p class="subtitle">Review your plan change before proceeding</p>
+
+    <div *ngIf="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading plan information...</p>
+    </div>
+
+    <div *ngIf="error" class="error-state">
+      <div class="error-icon">⚠️</div>
+      <p>{{ error }}</p>
+      <button class="btn btn-secondary" (click)="cancel()">Back to Account & Plan</button>
+    </div>
+
+    <div *ngIf="data && !loading && !error" class="plan-comparison">
+      <div class="plan-card current-plan">
+        <div class="plan-header">
+          <span class="plan-label">Current</span>
+          <h2>{{ data.currentPlan.name }}</h2>
+        </div>
+        <div class="plan-price">
+          <span class="price">{{ currentPlanPrice }}</span>
+          <span class="period">{{ currentPlanPeriod }}</span>
+        </div>
+      </div>
+
+      <div class="arrow-indicator">
+        <span>→</span>
+      </div>
+
+      <div class="plan-card target-plan">
+        <div class="plan-header">
+          <span class="plan-label new">New</span>
+          <h2>{{ data.targetPlan.name }}</h2>
+        </div>
+        <div class="plan-price">
+          <span class="price">{{ data.targetPrice }}</span>
+          <span class="period">{{ targetPlanPeriod }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="data && !loading && !error" class="payment-method-section">
+      <h3>Payment / Approval Method</h3>
+      <p class="helper-text">PayPal securely manages your recurring subscription change.</p>
+
+      <div class="payment-buttons">
+        <div id="paypal-button-container"></div>
+        <div id="card-button-container"></div>
+        
+        <div *ngIf="useFallbackFlow" class="fallback-buttons">
+          <button 
+            class="btn btn-primary paypal-btn"
+            (click)="startWithPayPal()"
+            [disabled]="submitting">
+            <span *ngIf="submitting" class="btn-spinner"></span>
+            <span *ngIf="!submitting">Continue with PayPal</span>
+          </button>
+
+          <button 
+            class="btn btn-secondary card-btn"
+            (click)="startWithCard()"
+            [disabled]="submitting">
+            <span *ngIf="submitting" class="btn-spinner"></span>
+            <span *ngIf="!submitting">Debit or Credit Card via PayPal</span>
+          </button>
+        </div>
+      </div>
+
+      <p class="card-helper">
+        Card availability is determined by PayPal during secure approval.
+      </p>
+    </div>
+
+    <div *ngIf="data && !loading && !error" class="cancel-section">
+      <button class="btn btn-link" (click)="cancel()">Cancel and return to Account & Plan</button>
+    </div>
+  </div>
+</div>

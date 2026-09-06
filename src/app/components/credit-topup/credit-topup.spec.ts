@@ -6,23 +6,27 @@ import { AccountStateService } from '../../services/account-state.service';
 import { CreditTopupComponent } from './credit-topup';
 import { AlertService } from '../../services/alert.service';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { PayPalSdkLoaderService } from '../../services/paypal-sdk-loader.service';
 
 const pack: any = { name: '10 Assessment Credits', code: 'CREDITS_10', credits: 10, price: 1.99, currency: 'USD', allowedPlans: ['free'], displayOrder: 1 };
 const pack50: any = { name: '50 Assessment Credits', code: 'CREDITS_50', credits: 50, price: 4.99, currency: 'USD', allowedPlans: ['free'], displayOrder: 2 };
 
 describe('CreditTopupComponent', () => {
-  let fixture: ComponentFixture<CreditTopupComponent>; let component: CreditTopupComponent; let credits: any; let state: any;let alerts:any;let catalog:any;
+  let fixture: ComponentFixture<CreditTopupComponent>; let component: CreditTopupComponent; let credits: any; let state: any;let alerts:any;let catalog:any;let sdk:any;let buttonOptions:any[];
   beforeEach(async () => {
     credits = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [pack,pack50], paymentProvider: 'paypal' }),
-      createPayPalOrder: jasmine.createSpy().and.resolveTo({ approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=SAFE' }),
+      createPayPalOrder: jasmine.createSpy().and.resolveTo({ orderId:'ORDER',approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=SAFE' }),
       createTopupCheckout: jasmine.createSpy().and.resolveTo({ url: 'https://checkout.stripe.com/c/pay/test', sessionId: 'cs_test' }),
       capturePayPalOrder: jasmine.createSpy().and.resolveTo({ credited: true, status: 'credited',credits:10 }), getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
+    credits.getPayPalCapabilities=jasmine.createSpy().and.resolveTo({provider:'paypal',environment:'sandbox',clientId:'safe-client',browserToken:'safe-browser-token',paypalCheckout:true,advancedCardPayments:true,cardTopups:true,cardSubscriptions:false});
+    credits.createPayPalCardOrder=jasmine.createSpy().and.resolveTo({orderId:'ORDER',status:'approval_pending'});
+    buttonOptions=[];sdk={release:jasmine.createSpy()};sdk.loadButtons=jasmine.createSpy().and.resolveTo({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>{buttonOptions.push(options);return{isEligible:()=>true,render:jasmine.createSpy().and.resolveTo(),close:jasmine.createSpy()}}});
     const wallet = signal<any>({ availableCredits: 25, purchasedCredits: 0 });
     state = { wallet, refreshCredits: jasmine.createSpy().and.callFake(async () => { wallet.set({ availableCredits: 35, purchasedCredits: 10 }); return wallet(); }) };
     catalog={packs:signal<any[]>([]),paymentProvider:signal('paypal')};catalog.refresh=jasmine.createSpy().and.callFake(async()=>{const value=await credits.getPacks();catalog.packs.set(value.packs);catalog.paymentProvider.set(value.paymentProvider)});
     alerts={showSuccess:jasmine.createSpy()};await TestBed.configureTestingModule({ imports: [CreditTopupComponent], providers: [
       { provide: CreditsApiService, useValue: credits }, { provide: AccountStateService, useValue: state },
-      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },{provide:AlertService,useValue:alerts},{provide:PricingCatalogStateService,useValue:catalog}
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },{provide:AlertService,useValue:alerts},{provide:PricingCatalogStateService,useValue:catalog},{provide:PayPalSdkLoaderService,useValue:sdk}
     ] }).compileComponents();
     fixture = TestBed.createComponent(CreditTopupComponent); component = fixture.componentInstance; fixture.detectChanges();
   });
@@ -64,4 +68,9 @@ describe('CreditTopupComponent', () => {
     expect(credits.createPayPalOrder.calls.allArgs()).toEqual([['CREDITS_10', attempt], ['CREDITS_10', attempt]]);
   });
   it('clears a selected pack when realtime catalog refresh removes it',async()=>{await component.open();component.attemptPackCode='CREDITS_10';component.attemptId='attempt';catalog.packs.set([pack50]);fixture.detectChanges();expect(component.attemptPackCode).toBeNull();expect(component.attemptId).toBeNull();expect(component.message).toContain('no longer available')});
+  it('renders eligible PayPal and Card funding buttons with no raw card state',async()=>{await component.open();await component.selectPack(pack);fixture.detectChanges();expect(component.paypalButtonEligible).toBeTrue();expect(component.cardButtonEligible).toBeTrue();expect(buttonOptions.map(value=>value.fundingSource)).toEqual(['paypal','card']);expect(fixture.nativeElement.querySelector('#paypal-card-number')).toBeNull();expect(component).not.toEqual(jasmine.objectContaining({cardNumber:jasmine.anything(),cvv:jasmine.anything(),expiry:jasmine.anything()}));});
+  it('hides only ineligible Card funding and preserves PayPal',async()=>{sdk.loadButtons.and.resolveTo({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>({isEligible:()=>options.fundingSource==='paypal',render:jasmine.createSpy().and.resolveTo(),close:jasmine.createSpy()})});await component.open();await component.selectPack(pack);fixture.detectChanges();expect(component.paypalButtonEligible).toBeTrue();expect(component.cardButtonEligible).toBeFalse();expect(fixture.nativeElement.querySelector('#paypal-topup-button')).toBeTruthy();expect(fixture.nativeElement.querySelector('#paypal-topup-card-button')).toBeNull();});
+  it('funding callbacks create and capture the same durable attempt once',async()=>{await component.open();await component.selectPack(pack);const orderId=await buttonOptions[1].createOrder();expect(orderId).toBe('ORDER');const attempt=component.attemptId;await Promise.all([buttonOptions[1].onApprove(),buttonOptions[1].onApprove()]);expect(credits.createPayPalOrder).toHaveBeenCalledOnceWith('CREDITS_10',attempt);expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(1);expect(state.refreshCredits).toHaveBeenCalledTimes(1);});
+  it('cancellation clears attempt state for fresh checkout',async()=>{await component.open();await component.selectPack(pack);const attempt=component.attemptId;await (component as any).cancelFundingPurchase();expect(component.attemptId).toBeNull();expect(component.attemptPackCode).toBeNull();expect(component.checkoutCode).toBeNull();});
+  it('switching packs destroys old buttons and creates new ones',async()=>{await component.open();await component.selectPack(pack);const firstOptions=buttonOptions.length;expect(firstOptions).toBeGreaterThan(0);await component.selectPack(pack50);fixture.detectChanges();await fixture.whenStable();const secondOptions=buttonOptions.length;expect(secondOptions).toBeGreaterThan(0);});
 });

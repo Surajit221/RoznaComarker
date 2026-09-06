@@ -33,6 +33,11 @@ export const routes: Routes = [
     canActivate: [TeacherGuard],
     loadComponent: () => import('./pages/checkout/checkout-cancel').then((m) => m.CheckoutCancelComponent),
   },
+  {
+    path: 'checkout/change-plan',
+    canActivate: [TeacherGuard],
+    loadComponent: () => import('./pages/checkout/change-plan-checkout').then((m) => m.ChangePlanCheckoutComponent),
+  },
   { path: 'billing/paypal/success', canActivate: [TeacherGuard], loadComponent: () =>
     import('./pages/checkout/checkout-success').then((m) => m.CheckoutSuccessComponent) },
   { path: 'billing/paypal/cancel', canActivate: [TeacherGuard], loadComponent: () =>

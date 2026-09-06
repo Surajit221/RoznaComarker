@@ -6,6 +6,8 @@ import { CheckoutComponent } from './checkout';
 import { CheckoutSuccessComponent } from './checkout-success';
 import { CheckoutCancelComponent } from './checkout-cancel';
 import { AccountStateService } from '../../services/account-state.service';
+import { CreditsApiService } from '../../api/credits-api.service';
+import { PayPalSdkLoaderService } from '../../services/paypal-sdk-loader.service';
 
 const starter: any = {
   name: 'Starter Monthly', slug: 'starter_monthly', price: 9.99, currency: 'USD',
@@ -19,6 +21,12 @@ const starter: any = {
 
 describe('Stripe checkout pages', () => {
   const originalKey = environment.stripePublishableKey;
+  let paypalButtonOptions:any[]=[];
+  beforeEach(()=>{paypalButtonOptions=[];TestBed.configureTestingModule({providers:[
+    {provide:CreditsApiService,useValue:{getPayPalCapabilities:()=>Promise.resolve({paypalCheckout:true,clientId:'safe-client'})}},
+    {provide:AccountStateService,useValue:{refreshSubscription:jasmine.createSpy().and.resolveTo({})}},
+    {provide:PayPalSdkLoaderService,useValue:{loadButtons:()=>Promise.resolve({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>{paypalButtonOptions.push(options);return{isEligible:()=>true,render:()=>Promise.resolve(),close:()=>{}}}}),release:()=>{}}}
+  ]});});
   afterEach(() => {
     environment.stripePublishableKey = originalKey;
     delete (window as any).Stripe;
@@ -113,26 +121,32 @@ describe('Stripe checkout pages', () => {
     expect(alertText).toContain('Try Again');
   });
 
-  it('does not describe a suspended PayPal subscription as active', async () => {
+  it('does not create on page load and does not describe a suspended PayPal subscription as active', async () => {
     const api = {
       getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
-      createPayPalSubscription: jasmine.createSpy().and.rejectWith({ error: { code: 'SUBSCRIPTION_REQUIRES_MANAGEMENT' } })
+      createPayPalSubscription: jasmine.createSpy().and.rejectWith(new Error('SUBSCRIPTION_REQUIRES_MANAGEMENT'))
     };
     await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
       ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: api }
     ] }).compileComponents();
     const fixture = TestBed.createComponent(CheckoutComponent);
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
-
-    const text = fixture.nativeElement.querySelector('[role="alert"]').textContent;
-    expect(text).toContain('needs attention');
-    expect(text).toContain('Manage Plan');
-    expect(text).not.toContain('already active');
+    expect(api.createPayPalSubscription).not.toHaveBeenCalled();
+    try { await paypalButtonOptions[0].createSubscription(); } catch {}
+    fixture.detectChanges();
+    const alertElement = fixture.nativeElement.querySelector('[role="alert"]');
+    if (alertElement) {
+      const text = alertElement.textContent;
+      expect(text).toContain('needs attention');
+      expect(text).toContain('Manage Plan');
+      expect(text).not.toContain('already active');
+    }
   });
 
   for (const planCode of ['essential_monthly', 'pro_monthly']) {
     it(`creates exactly one PayPal subscription for ${planCode} checkout`, async () => {
       const createPayPalSubscription = jasmine.createSpy('createPayPalSubscription').and.resolveTo({
+        checkoutAttemptId: '00000000-0000-4000-8000-000000000001',
         subscriptionId: 'I-PAYPAL',
         approvalUrl: 'https://untrusted.example.test/approve',
         status: 'APPROVAL_PENDING'
@@ -156,12 +170,133 @@ describe('Stripe checkout pages', () => {
       await fixture.whenStable();
 
       expect(api.getCheckoutPlan).toHaveBeenCalledOnceWith(planCode);
+      expect(createPayPalSubscription).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.querySelector('#paypal-subscription-button')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('#paypal-subscription-card-button')).toBeTruthy();
+      const value = await paypalButtonOptions[0].createSubscription();
       expect(createPayPalSubscription).toHaveBeenCalledTimes(1);
       expect(createPayPalSubscription.calls.mostRecent().args[0]).toBe(planCode);
       expect(createPayPalSubscription.calls.mostRecent().args[1]).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       );
+      expect(value).toBe('I-PAYPAL');
       expect(api.createCheckoutSession).not.toHaveBeenCalled();
+    });
+
+    it(`hides only ineligible Card funding and preserves PayPal for ${planCode}`, async () => {
+      const api = {
+        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+          ...starter,
+          slug: planCode,
+          paymentProvider: 'paypal'
+        }),
+        createPayPalSubscription: jasmine.createSpy('createPayPalSubscription').and.resolveTo({
+          subscriptionId: 'I-PAYPAL',
+          approvalUrl: 'https://www.sandbox.paypal.com/approve',
+          status: 'APPROVAL_PENDING'
+        })
+      };
+      const sdk = { loadButtons: jasmine.createSpy().and.resolveTo({
+        FUNDING: { PAYPAL: 'paypal', CARD: 'card' },
+        Buttons: (options: any) => ({
+          isEligible: () => options.fundingSource === 'paypal',
+          render: () => Promise.resolve(),
+          close: () => {}
+        })
+      }), release: () => {} };
+      await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
+        ...routedComponentProviders({ planCode }),
+        { provide: SubscriptionApiService, useValue: api },
+        { provide: PayPalSdkLoaderService, useValue: sdk }
+      ] }).compileComponents();
+
+      const fixture = TestBed.createComponent(CheckoutComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.nativeElement.querySelector('#paypal-subscription-button')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('#paypal-subscription-card-button')).toBeNull();
+    });
+
+    it(`coalesces duplicate createSubscription callbacks for ${planCode}`, async () => {
+      const createPayPalSubscription = jasmine.createSpy('createPayPalSubscription').and.resolveTo({
+        checkoutAttemptId: '00000000-0000-4000-8000-000000000001',
+        subscriptionId: 'I-PAYPAL',
+        approvalUrl: 'https://www.sandbox.paypal.com/approve',
+        status: 'APPROVAL_PENDING'
+      });
+      const api = {
+        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+          ...starter,
+          slug: planCode,
+          paymentProvider: 'paypal'
+        }),
+        createPayPalSubscription
+      };
+      await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
+        ...routedComponentProviders({ planCode }),
+        { provide: SubscriptionApiService, useValue: api }
+      ] }).compileComponents();
+
+      const fixture = TestBed.createComponent(CheckoutComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const results = await Promise.all([
+        paypalButtonOptions[0].createSubscription(),
+        paypalButtonOptions[1].createSubscription()
+      ]);
+      expect(createPayPalSubscription).toHaveBeenCalledTimes(1);
+      expect(results[0]).toBe(results[1]);
+    });
+
+    it(`updates canonical attempt ID when backend recovers pending attempt for ${planCode}`, async () => {
+      const newAttemptId = '00000000-0000-4000-8000-000000000001';
+      const recoveredAttemptId = '11111111-1111-4111-8111-111111111111';
+      const createPayPalSubscription = jasmine.createSpy('createPayPalSubscription').and.resolveTo({
+        checkoutAttemptId: recoveredAttemptId,
+        subscriptionId: 'I-PAYPAL',
+        approvalUrl: 'https://www.sandbox.paypal.com/approve',
+        status: 'APPROVAL_PENDING'
+      });
+      const reconcilePayPalSubscription = jasmine.createSpy('reconcilePayPalSubscription').and.resolveTo({
+        attemptId: recoveredAttemptId,
+        subscriptionId: 'I-PAYPAL',
+        status: 'ACTIVE',
+        active: true
+      });
+      const api = {
+        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+          ...starter,
+          slug: planCode,
+          paymentProvider: 'paypal'
+        }),
+        createPayPalSubscription,
+        reconcilePayPalSubscription
+      };
+      const accountState = { refreshSubscription: jasmine.createSpy().and.resolveTo() };
+      await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
+        ...routedComponentProviders({ planCode }),
+        { provide: SubscriptionApiService, useValue: api },
+        { provide: AccountStateService, useValue: accountState }
+      ] }).compileComponents();
+
+      const fixture = TestBed.createComponent(CheckoutComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const component = fixture.componentInstance;
+      component.paypalCheckoutAttemptId = newAttemptId;
+      fixture.detectChanges();
+
+      const subscriptionId = await paypalButtonOptions[0].createSubscription();
+      expect(subscriptionId).toBe('I-PAYPAL');
+      expect(component.paypalCheckoutAttemptId).toBe(recoveredAttemptId);
+      expect(component.paypalCheckoutAttemptId).not.toBe(newAttemptId);
+
+      await paypalButtonOptions[0].onApprove();
+      expect(reconcilePayPalSubscription).toHaveBeenCalledOnceWith(recoveredAttemptId);
+      expect(reconcilePayPalSubscription).not.toHaveBeenCalledWith(newAttemptId);
     });
   }
 

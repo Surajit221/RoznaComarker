@@ -1,11 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BackendPlan } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { loadStripeClient } from './stripe-loader';
-import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
 import { billingIntervalUnit, formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
+import { CreditsApiService } from '../../api/credits-api.service';
+import { AccountStateService } from '../../services/account-state.service';
+import { PayPalSdkLoaderService, type PayPalButtonInstance, type PayPalSdkConfig } from '../../services/paypal-sdk-loader.service';
 
 @Component({ selector: 'app-checkout', standalone: true, imports: [CommonModule, RouterModule], templateUrl: './checkout.html', styleUrl: './checkout.css' })
 export class CheckoutComponent implements OnInit, OnDestroy {
@@ -19,12 +21,19 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   planCode = 'starter_monthly';
   billingPeriod: 'monthly' | 'annual' = 'monthly';
   paymentProvider: 'stripe' | 'paypal' = 'stripe';
-  constructor(private subscriptions: SubscriptionApiService, private router: Router, private route: ActivatedRoute) {}
+  paypalSubmitting = false;
+  paypalButtonEligible=false;cardButtonEligible=false;
+  paypalCheckoutAttemptId: string | null = null;
+  private paypalButtons:PayPalButtonInstance[]=[];private paypalSdkConfig?:PayPalSdkConfig;
+  private paypalSubscriptionCreatePromise: Promise<string> | null = null;
+  constructor(private subscriptions: SubscriptionApiService, private router: Router, private route: ActivatedRoute,
+    private credits:CreditsApiService,private accountState:AccountStateService,private paypalSdk:PayPalSdkLoaderService,private cdr:ChangeDetectorRef) {}
 
   async ngOnInit(): Promise<void> {
     this.planCode = String(this.route.snapshot.paramMap.get('planCode') || 'starter_monthly').toLowerCase();
     this.billingPeriod = this.route.snapshot.queryParamMap.get('billing') === 'annual' ? 'annual' : 'monthly';
     await this.initializeCheckout();
+    if(this.paymentProvider==='paypal'&&!this.errorMessage)await this.mountPayPalButtons();
   }
 
   private async initializeCheckout(): Promise<void> {
@@ -41,10 +50,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       if (billingIntervalUnit(this.plan) === 'year') this.billingPeriod = 'annual';
       this.paymentProvider = this.plan.paymentProvider || 'stripe';
       if (this.paymentProvider === 'paypal') {
-        const created = await this.subscriptions.createPayPalSubscription(this.planCode, checkoutAttemptId);
-        const url = trustedPayPalApprovalUrl(created.approvalUrl);
-        if (!url) throw new Error('Untrusted PayPal approval URL');
-        window.location.assign(url);
+        this.paypalCheckoutAttemptId = checkoutAttemptId;
         return;
       }
       const stripe = await loadStripeClient();
@@ -72,11 +78,28 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.initializing = false;
     }
   }
+  private async mountPayPalButtons():Promise<void>{if(!this.plan||!this.paypalCheckoutAttemptId)return;
+    try{const capability=await this.credits.getPayPalCapabilities();if(!capability.paypalCheckout||!capability.clientId)throw new Error('PAYPAL_SDK_LOAD_FAILED');
+      this.paypalSdkConfig={clientId:capability.clientId,currency:this.plan.currency||'USD',mode:'subscription'};
+      const sdk=await this.paypalSdk.loadButtons(this.paypalSdkConfig);const options=(fundingSource:unknown)=>({fundingSource,
+        createSubscription:async()=>{if(this.paypalSubscriptionCreatePromise)return this.paypalSubscriptionCreatePromise;this.paypalSubscriptionCreatePromise=(async()=>{const created=await this.subscriptions.createPayPalSubscription(this.planCode,this.paypalCheckoutAttemptId!);const subscriptionId=String(created?.subscriptionId||'').trim();const canonicalAttemptId=String(created?.checkoutAttemptId||'').trim();if(!subscriptionId)throw new Error('PAYPAL_SUBSCRIPTION_ID_MISSING');if(!canonicalAttemptId||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(canonicalAttemptId))throw new Error('PAYPAL_CHECKOUT_ATTEMPT_ID_INVALID');this.paypalCheckoutAttemptId=canonicalAttemptId;return subscriptionId;})().finally(()=>{this.paypalSubscriptionCreatePromise=null;});return this.paypalSubscriptionCreatePromise;},
+        onApprove:async()=>{this.paypalSubmitting=true;try{const delays=[0,750,1500,1500,2000];let active=false;for(let i=0;i<delays.length;i++){if(i>0)await new Promise(r=>setTimeout(r,delays[i]));const result=await this.subscriptions.reconcilePayPalSubscription(this.paypalCheckoutAttemptId!);if(result.active){active=true;break;}}await this.accountState.refreshSubscription();if(active)await this.router.navigate(['/checkout/success'],{queryParams:{provider:'paypal'}});else this.errorMessage='PayPal approved the checkout and is still confirming your subscription. Your plan will update automatically once confirmation completes.';}catch{this.errorMessage='We could not confirm your subscription. Please retry from Manage Plan.';}finally{this.paypalSubmitting=false;}},
+        onCancel:()=>{this.errorMessage='Subscription approval was cancelled. Your plan has not changed.';},
+        onError:()=>{this.errorMessage='Secure checkout is temporarily unavailable. Please try again.';}});
+      const paypal=sdk.Buttons(options(sdk.FUNDING.PAYPAL));const card=sdk.Buttons(options(sdk.FUNDING.CARD));this.paypalButtons=[paypal,card];
+      this.paypalButtonEligible=paypal.isEligible();this.cardButtonEligible=card.isEligible();
+      if(typeof ngDevMode!=='undefined'&&ngDevMode)console.info('[PayPal Subscription]',{cardFundingEligible:this.cardButtonEligible});
+      this.cdr.detectChanges();await Promise.resolve();
+      await Promise.all([...(this.paypalButtonEligible?[paypal.render('#paypal-subscription-button')]:[]),...(this.cardButtonEligible?[card.render('#paypal-subscription-card-button')]:[])]);
+      if(!this.paypalButtonEligible&&!this.cardButtonEligible)this.errorMessage='Secure checkout is temporarily unavailable. Please try again.';
+    }catch{this.errorMessage='Secure checkout is temporarily unavailable. Please try again.';this.cdr.detectChanges();}}
   ngOnDestroy(): void {
     this.destroyed = true;
     this.initializationSequence += 1;
     this.embeddedCheckout?.destroy?.();
     this.embeddedCheckout = undefined;
+    for(const button of this.paypalButtons)button.close?.();this.paypalButtons=[];
+    if(this.paypalSdkConfig)this.paypalSdk.release(this.paypalSdkConfig);
   }
   features(): string[] {
     const f = this.plan?.features;
@@ -101,5 +124,5 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   get summaryPrice(): string { return this.plan ? formatPlanPrice(this.plan, this.billingPeriod) : '—'; }
   get summaryPeriod(): string { return this.plan ? formatPlanPeriod(this.plan, this.billingPeriod) : ''; }
   get billingDescription(): string { return `${this.summaryPeriod.includes('year') ? 'Yearly' : 'Monthly'} subscription`; }
-  async retry(): Promise<void> { await this.initializeCheckout(); }
+  async retry(): Promise<void> { await this.initializeCheckout();if(this.paymentProvider==='paypal'&&!this.errorMessage)await this.mountPayPalButtons(); }
 }

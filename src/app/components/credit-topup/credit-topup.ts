@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, ElementRef, HostListener, ViewChild, effect, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, HostListener, ViewChild, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { CreditsApiService, type CreditPack, type CreditPaymentProvider } from '../../api/credits-api.service';
@@ -8,6 +8,7 @@ import { trustedPayPalApprovalUrl, trustedStripeCheckoutUrl } from '../../utils/
 import { AlertService } from '../../services/alert.service';
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { PayPalSdkLoaderService, type PayPalButtonInstance, type PayPalSdkConfig } from '../../services/paypal-sdk-loader.service';
 
 @Component({ selector: 'app-credit-topup', standalone: true, imports: [CommonModule],
   templateUrl: './credit-topup.html', styleUrl: './credit-topup.css' })
@@ -21,9 +22,14 @@ export class CreditTopupComponent {
   paymentProvider: CreditPaymentProvider = 'stripe';
   attemptId: string | null = null;
   attemptPackCode: string | null = null;
+  selectedPack: CreditPack | null = null;
+  paypalButtonEligible=false;cardButtonEligible=false;fundingLoading=false;
+  private paypalButton?:PayPalButtonInstance;private cardButton?:PayPalButtonInstance;private sdkConfig?:PayPalSdkConfig;
+  private paypalClientId='';private capturePromise?:Promise<void>;
   private readonly alerts=inject(AlertService);private readonly ui=inject(CreditTopupUiService);private readonly destroyRef=inject(DestroyRef);private returnFocus:HTMLElement|null=null;
 
-  constructor(private credits: CreditsApiService, private accountState: AccountStateService, private route: ActivatedRoute,private catalog:PricingCatalogStateService) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;this.paymentProvider=this.catalog.paymentProvider();if(this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.message='The selected credit pack is no longer available.'}})}
+  constructor(private credits: CreditsApiService, private accountState: AccountStateService, private route: ActivatedRoute,
+    private catalog:PricingCatalogStateService, private paypalSdk:PayPalSdkLoaderService, private cdr:ChangeDetectorRef) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;this.paymentProvider=this.catalog.paymentProvider();if(this.selectedPack&&!next.some(pack=>pack.code===this.selectedPack?.code))this.selectedPack=null;if(this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.destroyFundingButtons();this.message='The selected credit pack is no longer available.'}})}
 
   ngOnInit(): void {
     const query = this.route.snapshot.queryParamMap;
@@ -39,12 +45,14 @@ export class CreditTopupComponent {
     this.returnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;document.body.style.overflow='hidden';
     this.openState = true; this.message = null;
     this.loading = true;
-    try { await this.catalog.refresh(); this.focus(); }
+    try { await this.catalog.refresh(); await this.loadCapabilities(); this.focus(); }
     catch { this.message = "We couldn't load credit packs. Please try again."; }
     finally { this.loading = false; }
   }
 
-  close(): void { if (!this.checkoutCode) { this.openState=false;this.attemptId=null;this.attemptPackCode=null;document.body.style.overflow='';const target=this.returnFocus;this.returnFocus=null;setTimeout(()=>target?.focus()); } }
+  close(): void { if (!this.checkoutCode) { this.destroyFundingButtons();this.openState=false;this.attemptId=null;this.attemptPackCode=null;this.selectedPack=null;document.body.style.overflow='';const target=this.returnFocus;this.returnFocus=null;setTimeout(()=>target?.focus()); } }
+
+  async selectPack(pack:CreditPack):Promise<void>{if(this.checkoutCode)return;this.destroyFundingButtons();this.selectedPack=pack;this.message=null;this.cdr.detectChanges();await this.mountFundingButtons();}
 
   async purchase(pack: CreditPack): Promise<void> {
     if (this.checkoutCode) return;
@@ -66,6 +74,27 @@ export class CreditTopupComponent {
       this.checkoutCode = null;
     }
   }
+
+  private async loadCapabilities():Promise<void>{
+    if(this.paymentProvider!=='paypal')return;
+    try{const capability=await this.credits.getPayPalCapabilities();if(capability.paypalCheckout)this.paypalClientId=capability.clientId;
+    }catch{/* PayPal redirect checkout remains available */}
+  }
+  private ensureAttempt(pack:CreditPack):string{if(!this.attemptId||this.attemptPackCode!==pack.code){this.attemptId=crypto.randomUUID();this.attemptPackCode=pack.code;}return this.attemptId;}
+  private async mountFundingButtons():Promise<void>{const pack=this.selectedPack;if(!pack||!this.paypalClientId||this.paymentProvider!=='paypal')return;
+    this.fundingLoading=true;this.sdkConfig={clientId:this.paypalClientId,currency:pack.currency,mode:'capture'};
+    try{const sdk=await this.paypalSdk.loadButtons(this.sdkConfig);const options=(fundingSource:unknown)=>({fundingSource,
+      createOrder:async()=>{const order=await this.credits.createPayPalOrder(pack.code,this.ensureAttempt(pack));if(!order.orderId)throw new Error('ORDER_CREATE_FAILED');return order.orderId;},
+      onApprove:()=>this.completeFundingPurchase(),onCancel:()=>this.cancelFundingPurchase(),onError:()=>{this.checkoutCode=null;this.message='Secure checkout could not be completed. Please try again.';}});
+      this.paypalButton=sdk.Buttons(options(sdk.FUNDING.PAYPAL));this.cardButton=sdk.Buttons(options(sdk.FUNDING.CARD));
+      this.paypalButtonEligible=this.paypalButton.isEligible();this.cardButtonEligible=this.cardButton.isEligible();this.cdr.detectChanges();await Promise.resolve();
+      await Promise.all([...(this.paypalButtonEligible?[this.paypalButton.render('#paypal-topup-button')]:[]),...(this.cardButtonEligible?[this.cardButton.render('#paypal-topup-card-button')]:[])]);
+      if(!this.paypalButtonEligible&&!this.cardButtonEligible)this.message='PayPal checkout is temporarily unavailable.';
+    }catch{this.message='PayPal checkout is temporarily unavailable.';}finally{this.fundingLoading=false;this.cdr.detectChanges();}}
+  private completeFundingPurchase():Promise<void>{if(this.capturePromise)return this.capturePromise;const attempt=this.attemptId;if(!attempt)return Promise.reject(new Error('ORDER_CAPTURE_FAILED'));
+    this.checkoutCode=this.selectedPack?.code||'paypal';this.capturePromise=(async()=>{const result=await this.credits.capturePayPalOrder(attempt);if(!result.credited)throw new Error(result.message||'ORDER_CAPTURE_FAILED');await this.refreshWallet();this.message=`Credits added. ${this.accountState.wallet()?.availableCredits} Assessment Credits are now available.`;this.alerts.showSuccess('Credits added',`${result.credits} purchased Assessment Credits were added to your account.`);})().catch(()=>{this.message='We could not confirm the payment yet. Please try again.';}).finally(()=>{this.checkoutCode=null;this.capturePromise=undefined;});return this.capturePromise;}
+  private async cancelFundingPurchase():Promise<void>{if(this.attemptId)try{await this.credits.cancelPayPalPurchase(this.attemptId);}catch{}this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.message='Payment was cancelled. No credits were added.';}
+  private destroyFundingButtons():void{this.paypalButton?.close?.();this.cardButton?.close?.();this.paypalButton=undefined;this.cardButton=undefined;this.paypalButtonEligible=false;this.cardButtonEligible=false;if(this.sdkConfig)this.paypalSdk.release(this.sdkConfig);this.sdkConfig=undefined;}
 
   private async refreshWallet(): Promise<void> { await this.accountState.refreshCredits(); }
   private async confirmStripe(): Promise<void> {
@@ -108,5 +137,5 @@ export class CreditTopupComponent {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
   @HostListener('document:keydown.escape') onEscape(): void { if (this.openState) this.close(); }
-  ngOnDestroy():void{document.body.style.overflow=''}
+  ngOnDestroy():void{this.destroyFundingButtons();document.body.style.overflow=''}
 }
