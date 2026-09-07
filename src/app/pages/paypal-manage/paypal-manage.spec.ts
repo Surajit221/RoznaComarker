@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 import { PlansApiService } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { routedComponentProviders } from '../../../testing/standalone-test-providers';
@@ -9,6 +10,7 @@ import { AccountStateService } from '../../services/account-state.service';
 import { CreditsApiService } from '../../api/credits-api.service';
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
 
 const features = { maxClasses: 20, maxStudents: 500, essayAnalysesPerMonth: 300, storageMB: 2048,
   aiFlashcards: true, aiFlashcardsLimit: null, aiWorksheets: true, aiWorksheetsLimit: null,
@@ -29,7 +31,8 @@ describe('PayPalManageComponent', () => {
     api = { getMySubscription: jasmine.createSpy().and.resolveTo(subscription),
       cancelPayPalSubscription: jasmine.createSpy().and.resolveTo({ pending: true }),
       changePayPalPlan: jasmine.createSpy().and.resolveTo({ requiresApproval: false, status: 'provider_pending', targetPlanCode: 'pro_monthly' }),
-      markPayPalPlanChangeCancelled: jasmine.createSpy().and.resolveTo() };
+      markPayPalPlanChangeCancelled: jasmine.createSpy().and.resolveTo(),
+      reconcilePayPalManagement: jasmine.createSpy().and.resolveTo({ status: 'ACTIVE', pendingCancellation: true, cancelledOrTerminal: false }) };
     const subscriptionSignal = signal<any>(subscription); const walletSignal = signal<any>({ availableCredits: 42 });
     accountState = { refreshSubscription: jasmine.createSpy().and.callFake(() => Promise.resolve(subscriptionSignal())),
       refreshCredits: jasmine.createSpy().and.callFake(() => Promise.resolve(walletSignal())), refreshIfStale: jasmine.createSpy().and.resolveTo(),
@@ -37,7 +40,8 @@ describe('PayPalManageComponent', () => {
     creditsApi = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [{ name: 'Small', code: 'SMALL', credits: 10, price: 5, currency: 'USD', allowedPlans: [], displayOrder: 1 }], paymentProvider: 'paypal' }),
       createPayPalOrder: jasmine.createSpy(), createTopupCheckout: jasmine.createSpy(), capturePayPalOrder: jasmine.createSpy(),
       getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
-    const catalog={plans:signal([essential,pro]),packs:signal<any[]>([{name:'Small',code:'SMALL',credits:10,price:5,currency:'USD',allowedPlans:[],displayOrder:1}]),paymentProvider:signal('paypal'),refresh:jasmine.createSpy().and.resolveTo()};await TestBed.configureTestingModule({ imports: [PayPalManageComponent], providers: [
+    const catalog={plans:signal([essential,pro]),packs:signal<any[]>([{name:'Small',code:'SMALL',credits:10,price:5,currency:'USD',allowedPlans:[],displayOrder:1}]),paymentProvider:signal('paypal'),refresh:jasmine.createSpy().and.resolveTo()};
+    await TestBed.configureTestingModule({ imports: [PayPalManageComponent, RouterTestingModule], providers: [
       ...routedComponentProviders(),
       { provide: SubscriptionApiService, useValue: api },
       { provide: AccountStateService, useValue: accountState },
@@ -47,6 +51,7 @@ describe('PayPalManageComponent', () => {
       { provide: ActivatedRoute, useValue: { snapshot: { data: {}, queryParamMap: { get: () => null } } } }
     ] }).compileComponents();
     topupUi=TestBed.inject(CreditTopupUiService);fixture = TestBed.createComponent(PayPalManageComponent); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+
   });
 
   it('renders current plan, status, comparison, and mobile-safe plan cards', () => {
@@ -76,20 +81,17 @@ describe('PayPalManageComponent', () => {
     const attemptId = fixture.componentInstance.changeAttemptId;
     expect(fixture.nativeElement.querySelector('[role="dialog"]').textContent).toContain('only after provider confirmation');
     await fixture.componentInstance.confirmChange();
-    expect(api.changePayPalPlan).toHaveBeenCalledWith('pro_monthly', attemptId);
+    expect(api.changePayPalPlan).not.toHaveBeenCalled();
     expect(fixture.componentInstance.subscription()?.plan.slug).toBe('essential_monthly');
   });
 
   it('reuses one attempt ID after a transient failure', async () => {
-    api.changePayPalPlan.and.rejectWith(new Error('network'));
     fixture.componentInstance.choosePlan(pro);
     const attemptId = fixture.componentInstance.changeAttemptId;
     await fixture.componentInstance.confirmChange();
-    api.changePayPalPlan.and.resolveTo({ requiresApproval: false, status: 'provider_pending', targetPlanCode: 'pro_monthly' });
-    await fixture.componentInstance.confirmChange();
-    expect(api.changePayPalPlan.calls.allArgs()).toEqual([
-      ['pro_monthly', attemptId], ['pro_monthly', attemptId]
-    ]);
+    fixture.componentInstance.choosePlan(pro);
+    const secondAttemptId = fixture.componentInstance.changeAttemptId;
+    expect(secondAttemptId).toBe(attemptId);
   });
 
   it('changing the target or explicitly abandoning the dialog creates a new operation identity', () => {
@@ -102,14 +104,12 @@ describe('PayPalManageComponent', () => {
   });
 
   it('double-click submission cannot create two revise attempts', async () => {
-    let resolve!: (value: any) => void;
-    api.changePayPalPlan.and.returnValue(new Promise((done) => { resolve = done; }));
     fixture.componentInstance.choosePlan(pro);
     const first = fixture.componentInstance.confirmChange();
     const second = fixture.componentInstance.confirmChange();
-    expect(api.changePayPalPlan).toHaveBeenCalledTimes(1);
-    resolve({ requiresApproval: false, status: 'provider_pending', targetPlanCode: 'pro_monthly' });
     await Promise.all([first, second]);
+    // Navigation happens, not API call
+    expect(api.changePayPalPlan).not.toHaveBeenCalled();
   });
 
   it('reacts to shared subscription and wallet mutations without reinitializing', () => {
@@ -203,5 +203,214 @@ describe('PayPalManageComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('Pending verification');
     for (const width of [320, 360, 375, 390, 412, 430]) { host.style.width = `${width}px`; expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth); }
+  });
+
+  it('renders pending plan change with friendly display name and recovery actions', () => {
+    accountState.subscription.set({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: 'change-attempt-123',
+      pendingChangeApprovalUrl: 'https://www.sandbox.paypal.com/approve'
+    } });
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Plan change pending');
+    expect(text).toContain('Target: Pro Monthly');
+    expect(text).not.toContain('Target: pro_monthly');
+    expect(fixture.nativeElement.querySelector('.pending-actions')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.pending-actions button:nth-child(1)').textContent).toContain('Resume Plan Change');
+    expect(fixture.nativeElement.querySelector('.pending-actions button:nth-child(2)').textContent).toContain('Cancel Pending Change');
+  });
+
+  it('cancelPendingPlanChange calls markPayPalPlanChangeCancelled and refreshes state', async () => {
+    accountState.subscription.set({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: 'change-attempt-123'
+    } });
+    fixture.detectChanges();
+    await fixture.componentInstance.cancelPendingPlanChange();
+    expect(api.markPayPalPlanChangeCancelled).toHaveBeenCalledWith('change-attempt-123');
+    expect(accountState.refreshSubscription).toHaveBeenCalled();
+    expect(api.cancelPayPalSubscription).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.subscription()?.plan.slug).toBe('essential_monthly');
+    expect(fixture.componentInstance.message).toContain('Pending plan change cancelled');
+  });
+
+  it('duplicate cancel click produces one request', async () => {
+    accountState.subscription.set({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: 'change-attempt-123'
+    } });
+    fixture.detectChanges();
+    const first = fixture.componentInstance.cancelPendingPlanChange();
+    const second = fixture.componentInstance.cancelPendingPlanChange();
+    await Promise.all([first, second]);
+    expect(api.markPayPalPlanChangeCancelled).toHaveBeenCalledTimes(1);
+  });
+
+  it('missing pendingChangeAttemptId shows safe error and no request', async () => {
+    accountState.subscription.set({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: null
+    } });
+    fixture.detectChanges();
+    await fixture.componentInstance.cancelPendingPlanChange();
+    expect(api.markPayPalPlanChangeCancelled).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.error).toContain('No pending plan change attempt found');
+  });
+
+  it('resumePendingPlanChange uses stored approval URL when available', async () => {
+    accountState.subscription.set({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: 'change-attempt-123',
+      pendingChangeApprovalUrl: 'https://untrusted.example.com/approve'
+    } });
+    fixture.detectChanges();
+    await fixture.componentInstance.resumePendingPlanChange();
+    expect(fixture.componentInstance.error).toContain('Untrusted PayPal approval URL');
+    expect(api.changePayPalPlan).not.toHaveBeenCalled();
+  });
+
+  it('resumePendingPlanChange reuses changeAttemptId when no approval URL', async () => {
+    api.changePayPalPlan.and.resolveTo({ requiresApproval: false, status: 'provider_pending', targetPlanCode: 'pro_monthly' });
+    accountState.subscription.set({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: 'change-attempt-123',
+      pendingChangeApprovalUrl: null
+    } });
+    fixture.detectChanges();
+    await fixture.componentInstance.resumePendingPlanChange();
+    expect(api.changePayPalPlan).toHaveBeenCalledWith('pro_monthly', 'change-attempt-123');
+    expect(fixture.componentInstance.message).toContain('Plan change pending');
+  });
+
+  it('PayPal cancel result refreshes subscription and clears pending state', async () => {
+    TestBed.resetTestingModule();
+    const subscriptionSignal = signal<any>({ ...subscription, billing: {
+      ...subscription.billing,
+      pendingPlanChange: true,
+      pendingTargetPlanCode: 'pro_monthly',
+      pendingChangeAttemptId: 'change-attempt-123'
+    } });
+    accountState = { refreshSubscription: jasmine.createSpy().and.callFake(() => Promise.resolve(subscriptionSignal())),
+      refreshCredits: jasmine.createSpy().and.callFake(() => Promise.resolve(signal<any>({ availableCredits: 42 }))), refreshIfStale: jasmine.createSpy().and.resolveTo(),
+      subscription: subscriptionSignal, wallet: signal<any>({ availableCredits: 42 }) };
+    await TestBed.configureTestingModule({ imports: [PayPalManageComponent], providers: [
+      ...routedComponentProviders(),
+      { provide: SubscriptionApiService, useValue: api },
+      { provide: AccountStateService, useValue: accountState },
+      { provide: CreditsApiService, useValue: creditsApi },
+      { provide: PricingCatalogStateService, useValue: { plans: signal([essential, pro]), refresh: jasmine.createSpy().and.resolveTo() } },
+      { provide: ActivatedRoute, useValue: { snapshot: { data: { paypalChangeResult: 'cancel' }, queryParamMap: { get: () => 'change-attempt-123' } } } }
+    ] }).compileComponents();
+    fixture = TestBed.createComponent(PayPalManageComponent);
+    await fixture.componentInstance.ngOnInit();
+    await fixture.whenStable();
+    expect(api.markPayPalPlanChangeCancelled).toHaveBeenCalledWith('change-attempt-123');
+    expect(accountState.refreshSubscription).toHaveBeenCalled();
+  });
+
+  it('cancel -> already terminal -> no reconciliation polling', async () => {
+    api.cancelPayPalSubscription.and.resolveTo({ pending: false, alreadyTerminal: true, status: 'CANCELLED', attemptId: null });
+    fixture.componentInstance.openCancel();
+    await fixture.componentInstance.confirmCancel();
+    expect(fixture.componentInstance.message).toContain('already cancelled');
+    expect(accountState.refreshSubscription).toHaveBeenCalled();
+    expect(api.reconcilePayPalManagement).not.toHaveBeenCalled();
+  });
+
+  it('cancel -> pending -> bounded reconciliation attempts', fakeAsync(() => {
+    api.cancelPayPalSubscription.and.resolveTo({ pending: true, alreadyTerminal: false, status: 'ACTIVE', attemptId: 'cancel-123' });
+    api.reconcilePayPalManagement.and.resolveTo({ status: 'ACTIVE', pendingCancellation: true, cancelledOrTerminal: false });
+    fixture.componentInstance.openCancel();
+    fixture.componentInstance.confirmCancel();
+    tick(0);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(1);
+    tick(1000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(2);
+    tick(2000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(3);
+    tick(3000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(4);
+    tick(5000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(5);
+    tick(5000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(5);
+    expect(fixture.componentInstance.message).toContain('PayPal is still confirming it');
+    discardPeriodicTasks();
+  }));
+
+  it('reconciliation becomes terminal on attempt 2 -> stops immediately', fakeAsync(() => {
+    api.cancelPayPalSubscription.and.resolveTo({ pending: true, alreadyTerminal: false, status: 'ACTIVE', attemptId: 'cancel-123' });
+    api.reconcilePayPalManagement.and.returnValues(
+      Promise.resolve({ status: 'ACTIVE', pendingCancellation: true, cancelledOrTerminal: false }),
+      Promise.resolve({ status: 'CANCELLED', pendingCancellation: false, cancelledOrTerminal: true })
+    );
+    fixture.componentInstance.openCancel();
+    fixture.componentInstance.confirmCancel();
+    tick(0);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(1);
+    tick(1000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.message).toContain('cancelled');
+    tick(2000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(2);
+    discardPeriodicTasks();
+  }));
+
+  it('duplicate cancel click sends one request', async () => {
+    api.cancelPayPalSubscription.and.resolveTo({ pending: true, alreadyTerminal: false, status: 'ACTIVE', attemptId: 'cancel-123' });
+    api.reconcilePayPalManagement.and.resolveTo({ status: 'CANCELLED', pendingCancellation: false, cancelledOrTerminal: true });
+    fixture.componentInstance.openCancel();
+    const first = fixture.componentInstance.confirmCancel();
+    const second = fixture.componentInstance.confirmCancel();
+    await Promise.all([first, second]);
+    expect(api.cancelPayPalSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it('component destroy cancels pending timers', fakeAsync(() => {
+    api.cancelPayPalSubscription.and.resolveTo({ pending: true, alreadyTerminal: false, status: 'ACTIVE', attemptId: 'cancel-123' });
+    api.reconcilePayPalManagement.and.resolveTo({ status: 'ACTIVE', pendingCancellation: true, cancelledOrTerminal: false });
+    fixture.componentInstance.openCancel();
+    fixture.componentInstance.confirmCancel();
+    tick(0);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(1);
+    fixture.componentInstance.ngOnDestroy();
+    tick(1000);
+    expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(1);
+    discardPeriodicTasks();
+  }));
+
+  it('selecting Essential Annual does NOT immediately navigate to PayPal', async () => {
+    fixture.componentInstance.choosePlan(pro);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.dialog).toBe('change');
+    expect(fixture.componentInstance.target).toBe(pro);
+    expect(fixture.componentInstance.changeAttemptId).toBeTruthy();
+  });
+
+  it('confirmChange navigates to internal change-plan checkout instead of PayPal', async () => {
+    const routerSpy = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    routerSpy.navigate = jasmine.createSpy('navigate');
+
+    fixture.componentInstance.choosePlan(pro);
+    fixture.detectChanges();
+    await fixture.componentInstance.confirmChange();
+
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/checkout/change-plan'], {
+      queryParams: { target: 'pro_monthly', attempt: jasmine.any(String) }
+    });
+    expect(api.changePayPalPlan).not.toHaveBeenCalled();
   });
 });

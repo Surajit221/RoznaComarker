@@ -10,7 +10,7 @@
         <p class="price">{{ formatPrice(currentPlan, billing?.billingPeriod) }}<span>{{ formatPeriod(currentPlan, billing?.billingPeriod) }}</span></p></div>
       <dl><div><dt>Provider</dt><dd>{{ billing?.provider | titlecase }}</dd></div><div><dt>Billing period</dt><dd>{{ billing?.billingPeriod | titlecase }}</dd></div>
         <div><dt>Next billing</dt><dd>{{ formatDate(billing?.currentPeriodEnd) }}</dd></div><div><dt>Status</dt><dd>{{ billing?.subscriptionStatus || 'Free' | titlecase }}</dd></div></dl>
-      @if (billing?.pendingPlanChange) { <div class="pending" role="status"><strong>Plan change pending</strong><span>Target: {{ billing?.pendingTargetPlanCode }}</span></div> }
+      @if (billing?.pendingPlanChange) { <div class="pending" role="status"><strong>Plan change pending</strong><span>Target: {{ getTargetPlanDisplayName() }}</span><div class="pending-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="resumePendingPlanChange()">Resume Plan Change</button><button type="button" class="secondary danger" [disabled]="!!submitting" (click)="cancelPendingPlanChange()">Cancel Pending Change</button></div></div> }
       @if (billing?.pendingCancellation) { <div class="pending" role="status"><strong>Cancellation pending</strong><span>Waiting for provider confirmation</span></div> }
       <div class="actions"><button type="button" class="primary" (click)="scrollToPlans()">{{ billing?.subscriptionId ? 'Change Plan' : 'View Plans' }}</button>
         @if (billing?.provider === 'stripe' && billing?.customerConfigured) { <button type="button" class="secondary" (click)="manageStripe()">Manage Billing</button> }
@@ -58,6 +58,7 @@
 
     <section id="available-plans" class="plans-section" aria-labelledby="available-title">
       <h2 id="available-title">Available plans</h2><p>Options reflect the configured {{ plans[0]?.paymentProvider || billing?.provider }} payment provider.</p>
+      @if((plans[0]?.paymentProvider || billing?.provider)==='paypal'){<p>Continue with PayPal to create the recurring subscription securely. Eligible debit or credit card funding is offered by PayPal during its hosted approval flow.</p>}
       <div class="plan-grid">@for (plan of availablePlans; track plan.slug) {
         <article class="plan-card"><div><p class="label">{{ plan.billingInterval | titlecase }}</p><h3>{{ plan.display.title || plan.name }}</h3>
           <p class="price">{{ formatPrice(plan) }}<span>{{ formatPeriod(plan) }}</span></p><p>{{ plan.features.essayAnalysesPerMonth ?? 'Custom' }} Assessment Credits/month</p></div>

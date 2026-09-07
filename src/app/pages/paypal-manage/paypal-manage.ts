@@ -32,6 +32,9 @@ export class PayPalManageComponent {
   error: string | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private pollCount = 0;
+  private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconcileAttempt = 0;
+  private readonly RECONCILE_DELAYS = [0, 1000, 2000, 3000, 5000];
 
   copied = false;
   constructor(private subscriptionApi: SubscriptionApiService,
@@ -43,7 +46,7 @@ export class PayPalManageComponent {
     if (result === 'cancel') {
       this.message = 'Plan change cancelled. Your existing subscription remains unchanged.';
       const attempt = this.route.snapshot.queryParamMap.get('attempt');
-      if (attempt) { try { await this.subscriptionApi.markPayPalPlanChangeCancelled(attempt); } catch { /* plan remains unchanged */ } }
+      if (attempt) { try { await this.subscriptionApi.markPayPalPlanChangeCancelled(attempt); await this.accountState.refreshSubscription(); } catch { /* plan remains unchanged */ } }
     }
     if (result === 'success') this.message = 'PayPal approval received. Confirming your new plan…';
     await this.load();
@@ -55,7 +58,10 @@ export class PayPalManageComponent {
     if (result === 'success' || this.subscription()?.billing?.pendingPlanChange || this.subscription()?.billing?.pendingCancellation) this.schedulePoll();
   }
 
-  ngOnDestroy(): void { if (this.pollTimer) clearTimeout(this.pollTimer); }
+  ngOnDestroy(): void {
+    if (this.pollTimer) clearTimeout(this.pollTimer);
+    if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
+  }
 
   get billing() { return this.subscription()?.billing; }
   get currentPlan() { return this.subscription()?.plan; }
@@ -77,6 +83,12 @@ export class PayPalManageComponent {
   get storagePercent(): number | null { return preciseStoragePercent(this.subscription()?.storage?.usedBytes,this.subscription()?.storage?.limitBytes,this.usage?.storageMB,this.currentPlan?.features?.storageMB??this.currentPlan?.limits?.storageMB); }
   get storagePercentLabel():string{return this.storagePercent===null?'':`${this.storagePercent}% used`}
   get storageUsedLabel(): string { const bytes=Number(this.subscription()?.storage?.usedBytes);const mb=Number(this.usage?.storageMB||0);if(Number.isFinite(bytes)&&bytes>0&&bytes<1024*1024)return`${Math.max(1,Math.round(bytes/1024))} KB`;return`${Number(mb.toFixed(2))} MB`; }
+  getTargetPlanDisplayName(): string {
+    const targetCode = this.billing?.pendingTargetPlanCode;
+    if (!targetCode) return targetCode || '';
+    const targetPlan = this.plans.find(p => p.slug === targetCode);
+    return targetPlan?.display?.title || targetPlan?.name || targetCode;
+  }
   usagePercent(used: number | undefined, limit: number | null | undefined): number | null { return clampedUsagePercent(used, limit); }
   get availablePlans(): BackendPlan[] {
     return this.plans.filter((plan) => (plan.paymentProvider === 'paypal' ? plan.purchasable === true : plan.purchasable !== false) && plan.price !== null && plan.price > 0 &&
@@ -117,28 +129,23 @@ export class PayPalManageComponent {
     try {
       const result = await this.subscriptionApi.cancelPayPalSubscription();
       this.dialog = null;
-      this.message = result.alreadyTerminal ? 'Your PayPal subscription is already cancelled.' :
-        'Cancellation requested. Waiting for PayPal to confirm your subscription status.';
-      this.schedulePoll();
+      if (result.alreadyTerminal) {
+        this.message = 'Your PayPal subscription is already cancelled.';
+        await this.accountState.refreshSubscription();
+        return;
+      }
+      this.message = 'Cancellation requested. Waiting for PayPal to confirm your subscription status.';
+      this.reconcileAttempt = 0;
+      this.scheduleReconcile();
     } catch (error: any) { this.error = error?.error?.message || "We couldn't request cancellation. Please try again."; }
     finally { this.submitting = null; }
   }
   async confirmChange(): Promise<void> {
     if (!this.target || !this.changeAttemptId || this.submitting) return;
-    this.submitting = 'change'; this.error = null;
-    try {
-      const result = await this.subscriptionApi.changePayPalPlan(this.target.slug, this.changeAttemptId);
-      if (result.requiresApproval) {
-        const url = trustedPayPalApprovalUrl(result.approvalUrl);
-        if (!url) throw new Error('Untrusted PayPal approval URL');
-        this.message = 'Redirecting to PayPal for approval…';
-        window.location.assign(url); return;
-      }
-      this.dialog = null;
-      this.message = 'Plan change pending. PayPal is confirming your new plan.';
-      this.schedulePoll();
-    } catch (error: any) { this.error = error?.error?.message || "We couldn't start the plan change. Please try again."; }
-    finally { this.submitting = null; }
+    this.dialog = null;
+    this.router.navigate(['/checkout/change-plan'], {
+      queryParams: { target: this.target.slug, attempt: this.changeAttemptId }
+    });
   }
   private schedulePoll(): void {
     if (this.pollTimer || this.pollCount >= 20) return;
@@ -156,6 +163,35 @@ export class PayPalManageComponent {
       this.schedulePoll();
     }, 3000);
   }
+  private async scheduleReconcile(): Promise<void> {
+    if (this.reconcileAttempt >= this.RECONCILE_DELAYS.length) {
+      this.message = 'Cancellation requested. PayPal is still confirming it. You can safely leave this page.';
+      await this.accountState.refreshSubscription();
+      return;
+    }
+    const delay = this.RECONCILE_DELAYS[this.reconcileAttempt];
+    this.reconcileTimer = setTimeout(async () => {
+      this.reconcileTimer = null;
+      this.reconcileAttempt += 1;
+      try {
+        const result = await this.subscriptionApi.reconcilePayPalManagement();
+        if (result.cancelledOrTerminal) {
+          await this.accountState.refreshSubscription();
+          this.message = 'Your PayPal subscription is cancelled.';
+          return;
+        }
+        if (!result.pendingCancellation) {
+          await this.accountState.refreshSubscription();
+          this.message = 'Your subscription status has been updated.';
+          return;
+        }
+        this.scheduleReconcile();
+      } catch {
+        await this.accountState.refreshSubscription();
+        this.scheduleReconcile();
+      }
+    }, delay);
+  }
   scrollToPlans(): void { this.viewport.scrollToAnchor('available-plans'); }
   openCreditTopup(): void { this.creditTopupUi.open(); }
   async manageStripe(): Promise<void> {
@@ -171,4 +207,67 @@ export class PayPalManageComponent {
     await this.accountState.refreshIfStale();
   }
   @HostListener('document:keydown.escape') onEscape(): void { this.closeDialog(); }
+  async cancelPendingPlanChange(): Promise<void> {
+    if (this.submitting) return;
+    const attemptId = this.billing?.pendingChangeAttemptId;
+    if (!attemptId) {
+      this.error = 'No pending plan change attempt found.';
+      return;
+    }
+    this.submitting = 'change'; this.error = null;
+    try {
+      await this.subscriptionApi.markPayPalPlanChangeCancelled(attemptId);
+      await this.accountState.refreshSubscription();
+      this.message = 'Pending plan change cancelled. Your current subscription is unchanged.';
+    } catch (error: any) {
+      this.error = error?.error?.message || "We couldn't cancel the pending plan change. Please try again.";
+    } finally {
+      this.submitting = null;
+    }
+  }
+  async resumePendingPlanChange(): Promise<void> {
+    if (this.submitting) return;
+    const approvalUrl = this.billing?.pendingChangeApprovalUrl;
+    const attemptId = this.billing?.pendingChangeAttemptId;
+    if (!attemptId) {
+      this.error = 'No pending plan change attempt found.';
+      return;
+    }
+    if (approvalUrl) {
+      const url = trustedPayPalApprovalUrl(approvalUrl);
+      if (!url) {
+        this.error = 'Untrusted PayPal approval URL.';
+        return;
+      }
+      this.message = 'Redirecting to PayPal for approval…';
+      if (typeof window !== 'undefined' && window.location && window.location.assign) {
+        window.location.assign(url);
+      }
+      return;
+    }
+    const targetCode = this.billing?.pendingTargetPlanCode;
+    if (!targetCode) {
+      this.error = 'Target plan not found for pending change.';
+      return;
+    }
+    this.submitting = 'change'; this.error = null;
+    try {
+      const result = await this.subscriptionApi.changePayPalPlan(targetCode, attemptId);
+      if (result.requiresApproval) {
+        const url = trustedPayPalApprovalUrl(result.approvalUrl);
+        if (!url) throw new Error('Untrusted PayPal approval URL');
+        this.message = 'Redirecting to PayPal for approval…';
+        if (typeof window !== 'undefined' && window.location && window.location.assign) {
+          window.location.assign(url);
+        }
+        return;
+      }
+      this.message = 'Plan change pending. PayPal is confirming your new plan.';
+      this.schedulePoll();
+    } catch (error: any) {
+      this.error = error?.error?.message || "We couldn't resume the plan change. Please try again.";
+    } finally {
+      this.submitting = null;
+    }
+  }
 }

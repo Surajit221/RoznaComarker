@@ -1,6 +1,6 @@
 <main class="checkout-page">
   <header class="brand"><img src="img/logo.png" alt="Rozna Co-Marker logo"><span>Rozna Co-Marker</span></header>
-  <section class="heading"><h1>Complete your upgrade</h1><p>Upgrade to Starter Monthly</p></section>
+  <section class="heading"><h1>Complete your upgrade</h1><p>Upgrade to {{ plan?.display?.title || plan?.name || 'your selected plan' }}</p></section>
   <div class="checkout-grid">
     <article class="card summary">
       <p class="eyebrow">PLAN SUMMARY</p>
@@ -13,7 +13,15 @@
       <h2>Secure Checkout</h2>
       @if (loading) { <div class="state" aria-live="polite"><span class="spinner"></span>Preparing secure checkout…</div> }
       @if (errorMessage) { <div class="error" role="alert">{{ errorMessage }}<button type="button" (click)="retry()">Try Again</button><a routerLink="/pricing">Return to Pricing</a></div> }
-      <div id="embedded-checkout" [class.hidden]="loading || errorMessage"></div>
+      @if(!loading && paymentProvider==='paypal'){
+        <section class="paypal-methods" aria-labelledby="paypal-method-title">
+          <h3 id="paypal-method-title">Payment methods</h3>
+          @if(paypalButtonEligible){<div id="paypal-subscription-button" class="paypal-funding-button"></div>}
+          @if(cardButtonEligible){<div id="paypal-subscription-card-button" class="paypal-funding-button"></div>}
+          <p>Powered by PayPal</p>
+        </section>
+      }
+      <div id="embedded-checkout" [class.hidden]="loading || errorMessage || paymentProvider==='paypal'"></div>
       <p class="secure">🔒 Secure payment powered by {{ paymentProvider === 'paypal' ? 'PayPal' : 'Stripe' }}</p>
       <a class="cancel-link" routerLink="/checkout/cancel">Cancel checkout</a>
     </article>
