@@ -185,12 +185,13 @@ export class SubmissionApiService {
     }
   }
 
-  async getSubmissionsByAssignment(assignmentId: string, _cacheBustToken?: string | number | null): Promise<BackendSubmission[]> {
+  async getSubmissionsByAssignment(assignmentId: string, cacheBustToken?: string | number | null): Promise<BackendSubmission[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission[]>>(
-          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}`
+          `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}`,
+          { params: cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) } }
         )
       );
       return resp?.data || [];
@@ -222,9 +223,10 @@ export class SubmissionApiService {
     ));
   }
 
-  async getDraftComparison(submissionId: string): Promise<DraftComparison> {
+  async getDraftComparison(submissionId: string, cacheBustToken?: string | number | null): Promise<DraftComparison> {
     const resp = await firstValueFrom(this.http.get<BackendResponse<DraftComparison>>(
-      `${this.getApiBaseUrl()}/submissions/${encodeURIComponent(submissionId)}/draft-comparison`
+      `${this.getApiBaseUrl()}/submissions/${encodeURIComponent(submissionId)}/draft-comparison`,
+      { params: cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) } }
     ));
     return resp.data;
   }

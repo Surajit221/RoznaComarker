@@ -50,4 +50,83 @@ describe('SubmissionApiService canonical reads', () => {
     req.flush({ success: true, message: 'Submission removed successfully.' });
     await removal;
   });
+
+  describe('BUG 2: Cache-busting for draft comparison', () => {
+    it('getSubmissionsByAssignment must send _refresh query param when cacheBustToken is provided', async () => {
+      const submissions = service.getSubmissionsByAssignment('assignment-1', 'refresh-token-123');
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/assignment/assignment-1`
+        && request.params.get('_refresh') === 'refresh-token-123'
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: [{ _id: 'submission-1' }] });
+      await submissions;
+    });
+
+    it('getSubmissionsByAssignment must NOT send _refresh when cacheBustToken is null', async () => {
+      const submissions = service.getSubmissionsByAssignment('assignment-1', null);
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/assignment/assignment-1`
+        && request.params.get('_refresh') === null
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: [{ _id: 'submission-1' }] });
+      await submissions;
+    });
+
+    it('getSubmissionsByAssignment must NOT send _refresh when cacheBustToken is undefined', async () => {
+      const submissions = service.getSubmissionsByAssignment('assignment-1', undefined);
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/assignment/assignment-1`
+        && request.params.get('_refresh') === null
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: [{ _id: 'submission-1' }] });
+      await submissions;
+    });
+
+    it('getDraftComparison must send _refresh query param when cacheBustToken is provided', async () => {
+      const comparison = service.getDraftComparison('submission-1', 'refresh-token-456');
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/submission-1/draft-comparison`
+        && request.params.get('_refresh') === 'refresh-token-456'
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: { previousScore: 80, currentScore: 85 } });
+      await comparison;
+    });
+
+    it('getDraftComparison must NOT send _refresh when cacheBustToken is null', async () => {
+      const comparison = service.getDraftComparison('submission-1', null);
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/submission-1/draft-comparison`
+        && request.params.get('_refresh') === null
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: { previousScore: 80, currentScore: 85 } });
+      await comparison;
+    });
+
+    it('getDraftComparison must NOT send _refresh when cacheBustToken is undefined', async () => {
+      const comparison = service.getDraftComparison('submission-1', undefined);
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/submission-1/draft-comparison`
+        && request.params.get('_refresh') === null
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: { previousScore: 80, currentScore: 85 } });
+      await comparison;
+    });
+
+    it('cache-bust token must be converted to string in query param', async () => {
+      const submissions = service.getSubmissionsByAssignment('assignment-1', 12345);
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/assignment/assignment-1`
+        && request.params.get('_refresh') === '12345'
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: [{ _id: 'submission-1' }] });
+      await submissions;
+    });
+  });
 });

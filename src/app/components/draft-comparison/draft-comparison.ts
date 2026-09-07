@@ -31,7 +31,7 @@ export class DraftComparisonComponent implements OnChanges {
     if (!submissionId) { this.loading = false; return; }
     this.loading = true;
     try {
-      const result = await this.submissionApi.getDraftComparison(submissionId);
+      const result = await this.submissionApi.getDraftComparison(submissionId, this.refreshKey);
       if (version === this.requestVersion) this.comparison = result;
     } catch {
       if (version === this.requestVersion) this.error = 'Draft comparison could not be loaded. Please try again.';
