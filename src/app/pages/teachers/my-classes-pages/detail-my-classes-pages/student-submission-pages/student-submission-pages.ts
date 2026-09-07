@@ -305,6 +305,7 @@ export class StudentSubmissionPages {
   private readonly defaultCorrectionLegend: any = DEFAULT_CORRECTION_LEGEND;
   hasAssignmentRubric = false;
   private assignmentRubricPresenceId: string | null = null;
+  draftComparisonRefreshKey = 0;
 
 
 
@@ -5432,6 +5433,10 @@ export class StudentSubmissionPages {
     if (annotationFailure) {
       this.correctionsState = 'error';
       this.correctionsError = 'Some annotation details could not be loaded. Retry.';
+    }
+    // Increment draft comparison refresh key when assessment completes
+    if (fresh.evaluationStatus === 'completed') {
+      this.draftComparisonRefreshKey += 1;
     }
   }
 

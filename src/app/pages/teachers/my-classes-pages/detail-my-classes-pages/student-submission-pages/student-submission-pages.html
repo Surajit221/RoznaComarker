@@ -490,7 +490,7 @@
 
   @if ((currentSubmission?.draftNumber || 1) > 1) {
     <app-draft-comparison [submissionId]="currentSubmission?._id || null"
-      [refreshKey]="currentSubmission?.draftNumber + ':' + (currentSubmission?.assessmentCompletedAt || currentSubmission?.evaluationSourceHash || currentSubmission?.evaluationStatus || '')"></app-draft-comparison>
+      [refreshKey]="(currentSubmission?.draftNumber || 1) + ':' + draftComparisonRefreshKey"></app-draft-comparison>
   }
   <app-adaptive-practice-progress class="block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
 
