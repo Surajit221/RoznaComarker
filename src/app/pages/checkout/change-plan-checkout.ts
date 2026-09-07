@@ -1,8 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+  inject
+} from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BackendPlan } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
+import { CreditsApiService } from '../../api/credits-api.service';
 import { AccountStateService } from '../../services/account-state.service';
 import { PayPalSdkLoaderService, PayPalButtonInstance, PayPalButtonsSdk } from '../../services/paypal-sdk-loader.service';
 import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
@@ -46,12 +53,19 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   paypalButton: PayPalButtonInstance | null = null;
   cardButton: PayPalButtonInstance | null = null;
   useFallbackFlow = false;
+  paypalButtonEligible = false;
+  cardButtonEligible = false;
+  cardRuntimeFailed = false;
+  cardErrorMessage: string | null = null;
+  private paypalButtonsRendered = false;
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private subscriptionApi = inject(SubscriptionApiService);
+  private creditsApi = inject(CreditsApiService);
   private accountState = inject(AccountStateService);
   private paypalSdkLoader = inject(PayPalSdkLoaderService);
+  private cdr = inject(ChangeDetectorRef);
 
   async ngOnInit(): Promise<void> {
     this.targetPlanCode = this.route.snapshot.queryParamMap.get('target');
@@ -119,10 +133,17 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   private async renderPayPalButtons(): Promise<void> {
     if (!this.context || this.error) return;
 
+    if (this.paypalButtonsRendered) return;
+
     try {
-      const clientId = 'test';
+      const capability = await this.creditsApi.getPayPalCapabilities();
+
+      if (!capability.paypalCheckout || !capability.clientId) {
+        throw new Error('PAYPAL_CHECKOUT_UNAVAILABLE');
+      }
+
       this.paypalSdk = await this.paypalSdkLoader.loadButtons({
-        clientId,
+        clientId: capability.clientId,
         currency: this.context.currency,
         mode: 'subscription'
       });
@@ -133,7 +154,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
       }
 
       const paypalButtonConfig = {
-        fundingSource: (this.paypalSdk as any).FUNDING.PAYPAL,
+        fundingSource: this.paypalSdk.FUNDING.PAYPAL,
         createSubscription: (data: any, actions: any) => {
           try {
             return actions.subscription.revise(
@@ -159,7 +180,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
       };
 
       const cardButtonConfig = {
-        fundingSource: (this.paypalSdk as any).FUNDING.CARD,
+        fundingSource: this.paypalSdk.FUNDING.CARD,
         createSubscription: (data: any, actions: any) => {
           try {
             return actions.subscription.revise(
@@ -167,8 +188,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
               { plan_id: this.context!.targetPayPalPlanId }
             );
           } catch (err) {
-            console.error('PayPal SDK revise failed for card, falling back to backend flow', err);
-            this.fallbackToBackendFlow();
+            this.handleCardRuntimeError(err);
             throw err;
           }
         },
@@ -179,25 +199,66 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
           await this.onPayPalCancel();
         },
         onError: (err: any) => {
-          console.error('PayPal card button error, falling back to backend flow', err);
-          this.fallbackToBackendFlow();
+          this.handleCardRuntimeError(err);
         }
       };
 
       const paypalBtn = this.paypalSdk.Buttons(paypalButtonConfig);
-      if (paypalBtn.isEligible()) {
+      const cardBtn = this.paypalSdk.Buttons(cardButtonConfig);
+
+      this.paypalButtonEligible = paypalBtn.isEligible();
+      this.cardButtonEligible = cardBtn.isEligible();
+
+      if (this.paypalButtonEligible) {
         this.paypalButton = paypalBtn;
+      }
+
+      if (this.cardButtonEligible) {
+        this.cardButton = cardBtn;
+      }
+
+      /*
+       * Force Angular to render/update the host elements before PayPal mounts.
+       */
+      this.cdr.detectChanges();
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+
+      if (this.paypalButtonEligible) {
+        const paypalHost = document.getElementById(
+          'paypal-button-container'
+        );
+
+        if (!paypalHost) {
+          throw new Error('PAYPAL_BUTTON_HOST_MISSING');
+        }
+
         await paypalBtn.render('#paypal-button-container');
       }
 
-      const cardBtn = this.paypalSdk.Buttons(cardButtonConfig);
-      if (cardBtn.isEligible()) {
-        this.cardButton = cardBtn;
+      if (this.cardButtonEligible) {
+        const cardHost = document.getElementById(
+          'card-button-container'
+        );
+
+        if (!cardHost) {
+          throw new Error('PAYPAL_CARD_HOST_MISSING');
+        }
+
         await cardBtn.render('#card-button-container');
       }
+
+      this.paypalButtonsRendered = true;
     } catch (err: any) {
-      console.error('Failed to render PayPal buttons, falling back to backend flow', err);
-      this.fallbackToBackendFlow();
+      console.error(
+        'Failed to initialize PayPal plan-change checkout',
+        err
+      );
+
+      this.error =
+        'Unable to load PayPal payment options. Please try again.';
     }
   }
 
@@ -207,7 +268,31 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
     this.cardButton?.close?.();
     this.paypalButton = null;
     this.cardButton = null;
+    this.paypalButtonsRendered = false;
     this.useFallbackFlow = true;
+  }
+
+  private handleCardRuntimeError(err: any): void {
+    // Log sanitized error diagnostics in development
+    if (typeof window !== 'undefined' && (window as any).__DEV__) {
+      const safeCode = err?.code || 'UNKNOWN';
+      const safeMessage = err?.message || 'No message provided';
+      console.warn('[PayPal Plan Change Card]', {
+        stage: 'revise',
+        code: safeCode,
+        message: safeMessage
+      });
+    }
+
+    // Hide only the Card button, preserve PayPal button
+    this.cardButton?.close?.();
+    this.cardButton = null;
+    this.cardRuntimeFailed = true;
+    this.cardErrorMessage = 'Debit or credit card payment is not available for this subscription change. Please continue with PayPal.';
+
+    // Do NOT call fallbackToBackendFlow for Card errors
+    // Do NOT destroy PayPal SDK
+    // Do NOT cancel the plan-change attempt
   }
 
   private async onPayPalApprove(): Promise<void> {
@@ -228,6 +313,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   private async onPayPalCancel(): Promise<void> {
     try {
       await this.subscriptionApi.markPayPalPlanChangeCancelled(this.changeAttemptId!);
+      await this.accountState.refreshSubscription();
       this.router.navigate(['/billing/paypal/manage']);
     } catch (err: any) {
       this.error = 'Plan change was cancelled. Please refresh to see your current plan.';
@@ -269,17 +355,36 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.paypalButton?.close?.();
     this.cardButton?.close?.();
-    this.paypalSdkLoader.release({ clientId: '', currency: 'USD', mode: 'subscription' });
+
+    this.paypalButton = null;
+    this.cardButton = null;
+    this.paypalButtonsRendered = false;
+  }
+
+  get currentBillingPeriod(): 'monthly' | 'annual' {
+    if (!this.data) return 'monthly';
+
+    return this.data.currentPlan.billingInterval === 'year'
+      ? 'annual'
+      : 'monthly';
   }
 
   get currentPlanPrice(): string {
     if (!this.data) return '—';
-    return formatPlanPrice(this.data.currentPlan, this.data.billingPeriod);
+
+    return formatPlanPrice(
+      this.data.currentPlan,
+      this.currentBillingPeriod
+    );
   }
 
   get currentPlanPeriod(): string {
     if (!this.data) return '';
-    return formatPlanPeriod(this.data.currentPlan, this.data.billingPeriod);
+
+    return formatPlanPeriod(
+      this.data.currentPlan,
+      this.currentBillingPeriod
+    );
   }
 
   get targetPlanPeriod(): string {
