@@ -32,6 +32,21 @@ export class PricingComponent {
   billingPeriod: 'monthly' | 'annual' = 'monthly';
   private readonly preparingPlanSlugs = new Set<string>();
   readonly subscription = computed(() => this.accountState.subscription());
+  get starterActive(): boolean {
+    const status = String(this.subscription()?.billing?.status || '').toLowerCase();
+    return [
+      'active',
+      'trialing',
+      'past_due',
+      'unpaid',
+      'incomplete',
+      'paused',
+      'suspended'
+    ].includes(status);
+  }
+  get activeProvider(): 'stripe' | 'paypal' {
+    return this.subscription()?.billing?.provider === 'paypal' ? 'paypal' : 'stripe';
+  }
   get tiers(): PricingTier[] { return this.groupPlans(this.plans); }
   get hasAnnualBilling(): boolean { return this.tiers.some((tier) => tier.annual); }
   get maxSavingsPercent(): number | null {
@@ -172,25 +187,19 @@ export class PricingComponent {
     try {
       if (this.authenticatedRole !== 'teacher') {
         await this.router.navigate(this.authenticatedRole === 'student' ? ['/student/dashboard'] : ['/login']);
-      } else {
-        const subscription = this.subscription();
-        const isActive = subscription && ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused', 'suspended']
-          .includes(String(subscription.billing?.status || '').toLowerCase());
-        const provider = subscription?.billing?.provider || 'stripe';
-        if (isActive) {
-          if (provider === 'paypal') {
-            await this.router.navigate(['/billing/paypal/manage']);
-            return;
-          }
-          const portal = await this.subscriptionApi.createCustomerPortal();
-          const portalUrl = trustedStripePortalUrl(portal.url);
-          if (portalUrl) window.location.assign(portalUrl);
-          else this.errorMessage = 'Billing portal is temporarily unavailable.';
-        } else {
-          const commands = plan.slug === 'starter_monthly' ? ['/checkout/starter'] : ['/checkout', plan.slug];
-          if (plan.slug === 'starter_monthly' && this.billingPeriod === 'monthly') await this.router.navigate(commands);
-          else await this.router.navigate(commands, { queryParams: { billing: this.billingPeriod } });
+      } else if (this.starterActive) {
+        if (this.activeProvider === 'paypal') {
+          await this.router.navigate(['/billing/paypal/manage']);
+          return;
         }
+        const portal = await this.subscriptionApi.createCustomerPortal();
+        const portalUrl = trustedStripePortalUrl(portal.url);
+        if (portalUrl) window.location.assign(portalUrl);
+        else this.errorMessage = 'Billing portal is temporarily unavailable.';
+      } else {
+        const commands = plan.slug === 'starter_monthly' ? ['/checkout/starter'] : ['/checkout', plan.slug];
+        if (plan.slug === 'starter_monthly' && this.billingPeriod === 'monthly') await this.router.navigate(commands);
+        else await this.router.navigate(commands, { queryParams: { billing: this.billingPeriod } });
       }
     } catch {
       this.errorMessage = "We couldn't start checkout. Please try again.";
