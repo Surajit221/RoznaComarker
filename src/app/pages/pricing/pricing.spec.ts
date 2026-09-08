@@ -7,6 +7,7 @@ import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { routedComponentProviders } from '../../../testing/standalone-test-providers';
 import { PricingComponent } from './pricing';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { AccountStateService } from '../../services/account-state.service';
 import { signal } from '@angular/core';
 
 const features = (credits: number | null) => ({
@@ -32,7 +33,12 @@ const plans: BackendPlan[] = [
 ];
 
 describe('PricingComponent', () => {
-  async function create(activePlans = plans, role: string | null = null, subscription: any = { billing: null }): Promise<ComponentFixture<PricingComponent>> {
+  async function create(activePlans = plans, role: string | null = null, subscription: any = { billing: null }): Promise<{ fixture: ComponentFixture<PricingComponent>, getMySubscription: jasmine.Spy }> {
+    const getMySubscription = jasmine.createSpy('getMySubscription').and.resolveTo(subscription);
+    const accountState = {
+      subscription: signal(subscription),
+      refreshSubscriptionIfStale: jasmine.createSpy('refreshSubscriptionIfStale').and.resolveTo(subscription)
+    };
     await TestBed.configureTestingModule({
       imports: [PricingComponent],
       providers: [
@@ -41,13 +47,14 @@ describe('PricingComponent', () => {
         { provide: PricingCatalogStateService, useValue: { plans:signal(activePlans),refresh:()=>Promise.resolve() } },
         { provide: AuthService, useValue: { getBackendRole: () => role } },
         { provide: SubscriptionApiService, useValue: {
-          getMySubscription: () => Promise.resolve(subscription),
+          getMySubscription,
           createCustomerPortal: () => Promise.resolve({ url: 'https://billing.stripe.test' })
-        } }
+        } },
+        { provide: AccountStateService, useValue: accountState }
       ]
     }).compileComponents();
     const fixture = TestBed.createComponent(PricingComponent); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
-    return fixture;
+    return { fixture, getMySubscription };
   }
 
   function card(fixture: ComponentFixture<PricingComponent>, tier: string): HTMLElement {
@@ -55,7 +62,7 @@ describe('PricingComponent', () => {
   }
 
   it('selects monthly by default and shows monthly Essential and Pro pricing', async () => {
-    const fixture = await create();
+    const { fixture } = await create();
     expect(fixture.componentInstance.billingPeriod).toBe('monthly');
     expect(fixture.nativeElement.querySelectorAll('[data-plan-tier]').length).toBe(4);
     expect(fixture.nativeElement.textContent).not.toContain('Essential Annual');
@@ -72,7 +79,7 @@ describe('PricingComponent', () => {
   });
 
   it('switches the same Essential and Pro cards to yearly prices', async () => {
-    const fixture = await create();
+    const { fixture } = await create();
     const cardsBefore = fixture.nativeElement.querySelectorAll('[data-plan-tier]').length;
     fixture.componentInstance.setBillingPeriod('annual'); fixture.detectChanges();
     expect(card(fixture, 'essential').textContent).toContain('$99.00');
@@ -83,7 +90,7 @@ describe('PricingComponent', () => {
   });
 
   it('keeps Free unchanged and Institution custom across billing periods', async () => {
-    const fixture = await create();
+    const { fixture } = await create();
     fixture.componentInstance.setBillingPeriod('annual'); fixture.detectChanges();
     expect(card(fixture, 'free').textContent).toContain('$0');
     expect(card(fixture, 'free').textContent).toContain('25');
@@ -92,7 +99,7 @@ describe('PricingComponent', () => {
   });
 
   it('maps monthly and yearly Essential CTAs to its canonical backend plan and billing interval', async () => {
-    const fixture = await create(plans, 'teacher'); const router = TestBed.inject(Router);
+    const { fixture } = await create(plans, 'teacher'); const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     await fixture.componentInstance.onPlanAction(fixture.componentInstance.selectedPlan(fixture.componentInstance.tiers.find((tier) => tier.key === 'essential')!));
     expect(navigate).toHaveBeenCalledWith(['/checkout', 'essential_monthly'], { queryParams: { billing: 'monthly' } });
@@ -102,7 +109,7 @@ describe('PricingComponent', () => {
   });
 
   it('maps monthly and yearly Pro CTAs to its canonical backend plan and billing interval', async () => {
-    const fixture = await create(plans, 'teacher'); const router = TestBed.inject(Router);
+    const { fixture } = await create(plans, 'teacher'); const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     await fixture.componentInstance.onPlanAction(fixture.componentInstance.selectedPlan(fixture.componentInstance.tiers.find((tier) => tier.key === 'pro')!));
     expect(navigate).toHaveBeenCalledWith(['/checkout', 'pro_monthly'], { queryParams: { billing: 'monthly' } });
@@ -115,7 +122,7 @@ describe('PricingComponent', () => {
     const paypalPlans = plans.map((plan) => ['essential_monthly', 'pro_monthly'].includes(plan.slug)
       ? { ...plan, purchasable: false }
       : plan);
-    const fixture = await create(paypalPlans, 'teacher');
+    const { fixture } = await create(paypalPlans, 'teacher');
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
 
@@ -133,7 +140,7 @@ describe('PricingComponent', () => {
   });
 
   it('calculates savings dynamically and omits them when annual is not cheaper', async () => {
-    const fixture = await create(); const component = fixture.componentInstance;
+    const { fixture } = await create(); const component = fixture.componentInstance;
     expect(component.savingsPercentForTier(component.tiers.find((tier) => tier.key === 'essential')!)).toBe(17);
     const proTier = component.tiers.find((tier) => tier.key === 'pro')!;
     expect(component.savingsPercentForTier({ ...proTier, annual: { ...proTier.annual!, price: 300 } })).toBeNull();
@@ -144,19 +151,19 @@ describe('PricingComponent', () => {
   it('preserves the current-plan management state', async () => {
     const base = plans.find((plan) => plan.slug === 'essential_monthly')!;
     const legacy = { ...base, slug: 'starter_monthly', display: { ...base.display, cta: 'Upgrade Now' } };
-    const fixture = await create([legacy], 'teacher', { billing: { status: 'active' } });
+    const { fixture } = await create([legacy], 'teacher', { billing: { status: 'active' } });
     expect(card(fixture, 'starter').textContent).toContain('Manage Plan');
   });
 
   it('routes active PayPal subscribers to native management instead of Stripe', async () => {
-    const fixture = await create(plans, 'teacher', { billing: { provider: 'paypal', status: 'ACTIVE' } });
+    const { fixture } = await create(plans, 'teacher', { billing: { provider: 'paypal', status: 'ACTIVE' } });
     const router = TestBed.inject(Router); const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     await fixture.componentInstance.onPlanAction(plans.find((plan) => plan.slug === 'pro_monthly')!);
     expect(navigate).toHaveBeenCalledWith(['/billing/paypal/manage']);
   });
 
   it('prevents duplicate checkout submits while the selected CTA is loading', async () => {
-    const fixture = await create(plans, 'teacher'); const router = TestBed.inject(Router);
+    const { fixture } = await create(plans, 'teacher'); const router = TestBed.inject(Router);
     let resolve!: (value: boolean) => void; const pending = new Promise<boolean>((done) => { resolve = done; });
     const navigate = spyOn(router, 'navigate').and.returnValue(pending); const essential = plans.find((plan) => plan.slug === 'essential_monthly')!;
     const first = fixture.componentInstance.onPlanAction(essential); fixture.detectChanges();
@@ -168,7 +175,7 @@ describe('PricingComponent', () => {
   });
 
   it('shows friendly errors without exposing raw checkout failures', async () => {
-    const fixture = await create(plans, 'teacher'); const router = TestBed.inject(Router);
+    const { fixture } = await create(plans, 'teacher'); const router = TestBed.inject(Router);
     spyOn(router, 'navigate').and.rejectWith(new Error('Stripe secret and internal payload'));
     await fixture.componentInstance.onPlanAction(plans.find((plan) => plan.slug === 'essential_monthly')!); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain("We couldn't start checkout");
@@ -176,10 +183,15 @@ describe('PricingComponent', () => {
   });
 
   it('renders without page-level overflow at supported responsive widths', async () => {
-    const fixture = await create(); const host = fixture.nativeElement as HTMLElement;
+    const { fixture } = await create(); const host = fixture.nativeElement as HTMLElement;
     for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1440]) {
       host.style.width = `${width}px`;
       expect(host.scrollWidth).withContext(`${width}px viewport`).toBeLessThanOrEqual(host.clientWidth);
     }
+  });
+
+  it('pricing page does not independently call /subscription/me if account state is fresh', async () => {
+    const { getMySubscription } = await create(plans, 'teacher', { billing: { provider: 'stripe', status: 'active' } });
+    expect(getMySubscription).not.toHaveBeenCalled();
   });
 });

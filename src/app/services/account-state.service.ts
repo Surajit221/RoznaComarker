@@ -12,7 +12,9 @@ export class AccountStateService {
   readonly creditsLoading = signal(false);
   readonly subscriptionError = signal(false);
   readonly creditsError = signal(false);
-  readonly refreshedAt = signal(0);
+  private subscriptionRefreshedAt = 0;
+  private creditsRefreshedAt = 0;
+  private institutionRefreshedAt = 0;
   private subscriptionRequest: Promise<BackendMySubscription | null> | null = null;
   private creditsRequest: Promise<AssessmentCreditWallet | null> | null = null;
   private institutionRequest: Promise<InstitutionContext | null> | null = null;
@@ -21,7 +23,7 @@ export class AccountStateService {
 
   refreshInstitution(): Promise<InstitutionContext | null> {
     if (this.institutionRequest) return this.institutionRequest;
-    this.institutionRequest = this.institutions.getMine().then(value => { this.institution.set(value); return value; })
+    this.institutionRequest = this.institutions.getMine().then(value => { this.institution.set(value); this.institutionRefreshedAt = Date.now(); return value; })
       .catch(() => this.institution()).finally(() => { this.institutionRequest = null; });
     return this.institutionRequest;
   }
@@ -30,7 +32,7 @@ export class AccountStateService {
     if (this.subscriptionRequest) return this.subscriptionRequest;
     this.subscriptionLoading.set(true);
     this.subscriptionRequest = this.subscriptions.getMySubscription()
-      .then((value) => { this.subscription.set(value); this.subscriptionError.set(false); this.refreshedAt.set(Date.now()); return value; })
+      .then((value) => { this.subscription.set(value); this.subscriptionError.set(false); this.subscriptionRefreshedAt = Date.now(); return value; })
       .catch(() => { this.subscriptionError.set(true); return this.subscription(); })
       .finally(() => { this.subscriptionLoading.set(false); this.subscriptionRequest = null; });
     return this.subscriptionRequest;
@@ -40,14 +42,42 @@ export class AccountStateService {
     if (this.creditsRequest) return this.creditsRequest;
     this.creditsLoading.set(true);
     this.creditsRequest = this.credits.getWallet()
-      .then((value) => { this.wallet.set(value); this.creditsError.set(false); this.refreshedAt.set(Date.now()); return value; })
+      .then((value) => { this.wallet.set(value); this.creditsError.set(false); this.creditsRefreshedAt = Date.now(); return value; })
       .catch(() => { this.creditsError.set(true); return this.wallet(); })
       .finally(() => { this.creditsLoading.set(false); this.creditsRequest = null; });
     return this.creditsRequest;
   }
 
+  refreshSubscriptionIfStale(maxAgeMs = 30_000): Promise<BackendMySubscription | null> {
+    if (this.subscriptionRequest) return this.subscriptionRequest;
+    if (this.subscription() && Date.now() - this.subscriptionRefreshedAt < maxAgeMs) {
+      return Promise.resolve(this.subscription());
+    }
+    return this.refreshSubscription();
+  }
+
+  refreshCreditsIfStale(maxAgeMs = 30_000): Promise<AssessmentCreditWallet | null> {
+    if (this.creditsRequest) return this.creditsRequest;
+    if (this.wallet() && Date.now() - this.creditsRefreshedAt < maxAgeMs) {
+      return Promise.resolve(this.wallet());
+    }
+    return this.refreshCredits();
+  }
+
+  refreshInstitutionIfStale(maxAgeMs = 60_000): Promise<InstitutionContext | null> {
+    if (this.institutionRequest) return this.institutionRequest;
+    if (this.institution() && Date.now() - this.institutionRefreshedAt < maxAgeMs) {
+      return Promise.resolve(this.institution());
+    }
+    return this.refreshInstitution();
+  }
+
   async refresh(): Promise<void> { await Promise.all([this.refreshSubscription(), this.refreshCredits(), this.refreshInstitution()]); }
-  async refreshIfStale(maxAgeMs = 15_000): Promise<void> {
-    if (Date.now() - this.refreshedAt() >= maxAgeMs) await this.refresh();
+  async refreshIfStale(subscriptionMaxAgeMs = 30_000, creditsMaxAgeMs = 30_000, institutionMaxAgeMs = 60_000): Promise<void> {
+    await Promise.all([
+      this.refreshSubscriptionIfStale(subscriptionMaxAgeMs),
+      this.refreshCreditsIfStale(creditsMaxAgeMs),
+      this.refreshInstitutionIfStale(institutionMaxAgeMs)
+    ]);
   }
 }

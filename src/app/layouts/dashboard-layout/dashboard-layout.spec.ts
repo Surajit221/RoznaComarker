@@ -350,4 +350,26 @@ describe('DashboardLayout subscription ownership', () => {
     expect(dialog.textContent).toContain('$4.99'); expect(dialog.textContent).toContain('Buy with PayPal');
   });
 
+  it('DashboardLayout startup does not trigger duplicate account requests', async () => {
+    const { getMySubscription, creditsApi } = await render('teacher');
+    expect(getMySubscription).toHaveBeenCalledTimes(1);
+    expect(creditsApi.getWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('focus event within TTL does not refetch', async () => {
+    const { getMySubscription, creditsApi } = await render('teacher');
+    await fixture.componentInstance.refreshAccountOnFocus();
+    expect(getMySubscription).toHaveBeenCalledTimes(1);
+    expect(creditsApi.getWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('focus event after TTL refetches', async () => {
+    const { getMySubscription, creditsApi } = await render('teacher');
+    const state = TestBed.inject(AccountStateService);
+    await state.refreshIfStale(0);
+    await fixture.componentInstance.refreshAccountOnFocus();
+    expect(getMySubscription).toHaveBeenCalledTimes(2);
+    expect(creditsApi.getWallet).toHaveBeenCalledTimes(2);
+  });
+
 });
