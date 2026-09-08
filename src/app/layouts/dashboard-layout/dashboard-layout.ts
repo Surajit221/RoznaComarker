@@ -156,9 +156,9 @@ export class DashboardLayout {
     this.mainMenu = this.role === 'student' ? this.studentMenu : this.teacherMenu;
     this.mainMenuMobile = this.role === 'student' ? this.studentMenuMobile : this.teacherMenuMobile;
 
-    const subscriptionRequest = this.role === 'teacher' ? this.accountState.refreshSubscription() : Promise.resolve(null);
-    const creditRequest = this.role === 'teacher' ? this.accountState.refreshCredits() : Promise.resolve(null);
-    const institutionRequest = this.role === 'teacher' ? this.accountState.refreshInstitution() : Promise.resolve(null);
+    const subscriptionRequest = this.role === 'teacher' ? this.accountState.refreshSubscriptionIfStale() : Promise.resolve(null);
+    const creditRequest = this.role === 'teacher' ? this.accountState.refreshCreditsIfStale() : Promise.resolve(null);
+    const institutionRequest = this.role === 'teacher' ? this.accountState.refreshInstitutionIfStale() : Promise.resolve(null);
 
     const [meResult, subResult, creditResult, institutionResult, , ] = await Promise.allSettled([
       this.auth.getMeProfile(),
@@ -214,7 +214,7 @@ export class DashboardLayout {
   @HostListener('window:focus')
   async refreshAccountOnFocus(): Promise<void> {
     if (this.role !== 'teacher') return;
-    await this.accountState.refreshIfStale();
+    await this.accountState.refreshIfStale(60_000);
   }
 
   // Helper navigasi

@@ -107,8 +107,8 @@ export class PayPalManageComponent {
   async load(): Promise<void> {
     this.loading = true; this.error = null;
     try {
-      await Promise.all([this.accountState.refreshSubscription(), this.catalog.refresh()]);
-      await this.accountState.refreshCredits();
+      await Promise.all([this.accountState.refreshSubscriptionIfStale(), this.catalog.refresh()]);
+      await this.accountState.refreshCreditsIfStale();
     } catch { this.error = "We couldn't load your PayPal subscription. Please try again."; }
     finally { this.loading = false; }
   }

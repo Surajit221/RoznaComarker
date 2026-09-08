@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect } from '@angular/core';
+import { Component, computed, effect } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 
 import { BackendPlan } from '../../api/plans-api.service';
@@ -8,6 +8,7 @@ import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
 import { formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { AccountStateService } from '../../services/account-state.service';
 
 type PricingFeature = {
   label: string;
@@ -28,10 +29,9 @@ export class PricingComponent {
   errorMessage: string | null = null;
   plans: BackendPlan[] = [];
   readonly authenticatedRole: string | null;
-  starterActive = false;
-  activeProvider: 'stripe' | 'paypal' = 'stripe';
   billingPeriod: 'monthly' | 'annual' = 'monthly';
   private readonly preparingPlanSlugs = new Set<string>();
+  readonly subscription = computed(() => this.accountState.subscription());
   get tiers(): PricingTier[] { return this.groupPlans(this.plans); }
   get hasAnnualBilling(): boolean { return this.tiers.some((tier) => tier.annual); }
   get maxSavingsPercent(): number | null {
@@ -43,7 +43,8 @@ export class PricingComponent {
     private catalog: PricingCatalogStateService,
     auth: AuthService,
     private router: Router,
-    private subscriptionApi: SubscriptionApiService
+    private subscriptionApi: SubscriptionApiService,
+    private accountState: AccountStateService
   ) {
     this.authenticatedRole = auth.getBackendRole();effect(()=>this.plans=this.sortPlans(this.catalog.plans()));
   }
@@ -52,10 +53,7 @@ export class PricingComponent {
     await this.loadPlans();
     if (this.authenticatedRole === 'teacher') {
       try {
-        const subscription = await this.subscriptionApi.getMySubscription();
-        this.activeProvider = subscription.billing?.provider || 'stripe';
-        this.starterActive = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused', 'suspended']
-          .includes(String(subscription.billing?.status || '').toLowerCase());
+        await this.accountState.refreshSubscriptionIfStale();
       } catch { /* public pricing remains usable */ }
     }
   }
@@ -174,19 +172,25 @@ export class PricingComponent {
     try {
       if (this.authenticatedRole !== 'teacher') {
         await this.router.navigate(this.authenticatedRole === 'student' ? ['/student/dashboard'] : ['/login']);
-      } else if (this.starterActive) {
-        if (this.activeProvider === 'paypal') {
-          await this.router.navigate(['/billing/paypal/manage']);
-          return;
-        }
-        const portal = await this.subscriptionApi.createCustomerPortal();
-        const portalUrl = trustedStripePortalUrl(portal.url);
-        if (portalUrl) window.location.assign(portalUrl);
-        else this.errorMessage = 'Billing portal is temporarily unavailable.';
       } else {
-        const commands = plan.slug === 'starter_monthly' ? ['/checkout/starter'] : ['/checkout', plan.slug];
-        if (plan.slug === 'starter_monthly' && this.billingPeriod === 'monthly') await this.router.navigate(commands);
-        else await this.router.navigate(commands, { queryParams: { billing: this.billingPeriod } });
+        const subscription = this.subscription();
+        const isActive = subscription && ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused', 'suspended']
+          .includes(String(subscription.billing?.status || '').toLowerCase());
+        const provider = subscription?.billing?.provider || 'stripe';
+        if (isActive) {
+          if (provider === 'paypal') {
+            await this.router.navigate(['/billing/paypal/manage']);
+            return;
+          }
+          const portal = await this.subscriptionApi.createCustomerPortal();
+          const portalUrl = trustedStripePortalUrl(portal.url);
+          if (portalUrl) window.location.assign(portalUrl);
+          else this.errorMessage = 'Billing portal is temporarily unavailable.';
+        } else {
+          const commands = plan.slug === 'starter_monthly' ? ['/checkout/starter'] : ['/checkout', plan.slug];
+          if (plan.slug === 'starter_monthly' && this.billingPeriod === 'monthly') await this.router.navigate(commands);
+          else await this.router.navigate(commands, { queryParams: { billing: this.billingPeriod } });
+        }
       }
     } catch {
       this.errorMessage = "We couldn't start checkout. Please try again.";

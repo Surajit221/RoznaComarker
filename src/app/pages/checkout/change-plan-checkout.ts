@@ -86,7 +86,11 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = null;
     try {
-      const subscription = await this.subscriptionApi.getMySubscription();
+      const subscription = await this.accountState.refreshSubscriptionIfStale();
+      if (!subscription) {
+        this.error = 'Unable to determine your current plan. Please try again.';
+        return;
+      }
       const currentPlan = subscription.plan;
 
       if (!currentPlan) {
