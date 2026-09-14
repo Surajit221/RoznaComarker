@@ -17,7 +17,7 @@
       </div>
     }
 
-    @if (errorMessage && plans.length > 0) {
+    @if (errorMessage && plans().length > 0) {
       <div class="pricing-alert" role="alert">{{ errorMessage }}</div>
     }
 
@@ -27,9 +27,9 @@
           <div class="plan-card loading-card" aria-hidden="true"><div></div><div></div><div></div><div></div></div>
         }
       </div>
-    } @else if (errorMessage && plans.length === 0) {
+    } @else if (errorMessage && plans().length === 0) {
       <div class="pricing-empty" role="alert">{{ errorMessage }}</div>
-    } @else if (plans.length === 0) {
+    } @else if (plans().length === 0) {
       <div class="pricing-empty">No plans are currently available.</div>
     } @else {
       <div class="pricing-grid" role="tabpanel" [attr.aria-labelledby]="billingPeriod === 'monthly' ? 'billing-monthly' : 'billing-yearly'">

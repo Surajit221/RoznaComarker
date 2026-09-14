@@ -28,7 +28,7 @@ describe('AdminPricing', () => {
 
   it('has readable keyboard-native buttons and disables only the card being saved', async () => {
     const fixture = await create({ getPricingConfig: jasmine.createSpy().and.resolveTo({ plans: [structuredClone(plan)], packs: [structuredClone(pack)] }) });
-    const buttons = [...fixture.nativeElement.querySelectorAll('.admin-primary-action')] as HTMLButtonElement[];
+    const buttons = [...fixture.nativeElement.querySelectorAll('form .admin-primary-action')] as HTMLButtonElement[];
     expect(buttons.map(button => button.textContent?.trim())).toEqual(['Save Plan', 'Save Credit Pack']); expect(buttons.every(button => button.type === 'submit')).toBeTrue();
     fixture.componentInstance.saving.add('plan:essential'); fixture.detectChanges(); expect(buttons.map(button => button.disabled)).toEqual([true, false]);
     expect(buttons.map(button => button.textContent?.trim())).toEqual(['Saving...', 'Save Credit Pack']);
@@ -55,5 +55,5 @@ describe('AdminPricing', () => {
   });
   it('keeps separate card edit models isolated',()=>{const first=normalizePlan(plan as any),second=normalizePlan({...plan,slug:'pro_monthly',name:'Pro Monthly'} as any);first.name='Changed';expect(second.name).toBe('Pro Monthly')});
   it('shows PayPal guidance while hiding normal Stripe inputs',async()=>{const api={getPricingConfig:jasmine.createSpy().and.resolveTo({plans:[structuredClone(plan)],packs:[structuredClone(pack)],provider:{activePaymentProvider:'paypal',paypalEnabled:true,stripeEnabled:false}})};const fixture=await create(api);const text=fixture.nativeElement.textContent;expect(text).toContain('PayPal subscription plan references');expect(text).toContain('PayPal top-ups use the Orders API');expect(fixture.nativeElement.querySelector('input[name^="product-"]')).toBeNull();expect(fixture.nativeElement.querySelector('input[name^="pack-stripe-"]')).toBeNull();expect(text).not.toMatch(/client secret|webhook secret/i)});
-  it('shows Stripe configuration when Stripe is active',async()=>{const api={getPricingConfig:jasmine.createSpy().and.resolveTo({plans:[structuredClone(plan)],packs:[structuredClone(pack)],provider:{activePaymentProvider:'stripe',paypalEnabled:false,stripeEnabled:true}})};const fixture=await create(api);expect(fixture.nativeElement.querySelectorAll('.stripe-fields input').length).toBe(4)});
+  it('never exposes Stripe configuration through the pricing UI',async()=>{const api={getPricingConfig:jasmine.createSpy().and.resolveTo({plans:[structuredClone(plan)],packs:[structuredClone(pack)],provider:{activePaymentProvider:'paypal',paypalEnabled:true,stripeEnabled:false}})};const fixture=await create(api);expect(fixture.nativeElement.querySelectorAll('.stripe-fields input').length).toBe(0);expect(fixture.nativeElement.textContent).toContain('PayPal')});
 });

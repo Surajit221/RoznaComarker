@@ -44,7 +44,7 @@ describe('PricingComponent', () => {
       providers: [
         ...routedComponentProviders(),
         { provide: PlansApiService, useValue: { getActivePlans: () => Promise.resolve(activePlans) } },
-        { provide: PricingCatalogStateService, useValue: { plans:signal(activePlans),refresh:()=>Promise.resolve() } },
+        { provide: PricingCatalogStateService, useValue: { plans:signal(activePlans),refreshPlans:()=>Promise.resolve() } },
         { provide: AuthService, useValue: { getBackendRole: () => role } },
         { provide: SubscriptionApiService, useValue: {
           getMySubscription,

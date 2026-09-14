@@ -36,9 +36,10 @@ describe('PayPalManageComponent', () => {
     const subscriptionSignal = signal<any>(subscription); const walletSignal = signal<any>({ availableCredits: 42 });
     accountState = { refreshSubscription: jasmine.createSpy().and.callFake(() => Promise.resolve(subscriptionSignal())),
       refreshCredits: jasmine.createSpy().and.callFake(() => Promise.resolve(walletSignal())), refreshIfStale: jasmine.createSpy().and.resolveTo(),
+      refreshSubscriptionIfStale: jasmine.createSpy().and.resolveTo(subscriptionSignal()), refreshCreditsIfStale: jasmine.createSpy().and.resolveTo(walletSignal()),
       subscription: subscriptionSignal, wallet: walletSignal };
     creditsApi = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [{ name: 'Small', code: 'SMALL', credits: 10, price: 5, currency: 'USD', allowedPlans: [], displayOrder: 1 }], paymentProvider: 'paypal' }),
-      createPayPalOrder: jasmine.createSpy(), createTopupCheckout: jasmine.createSpy(), capturePayPalOrder: jasmine.createSpy(),
+      createPayPalOrder: jasmine.createSpy(), capturePayPalOrder: jasmine.createSpy(),
       getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
     const catalog={plans:signal([essential,pro]),packs:signal<any[]>([{name:'Small',code:'SMALL',credits:10,price:5,currency:'USD',allowedPlans:[],displayOrder:1}]),paymentProvider:signal('paypal'),refresh:jasmine.createSpy().and.resolveTo()};
     await TestBed.configureTestingModule({ imports: [PayPalManageComponent, RouterTestingModule], providers: [
@@ -56,22 +57,34 @@ describe('PayPalManageComponent', () => {
 
   it('renders current plan, status, comparison, and mobile-safe plan cards', () => {
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Essential Monthly'); expect(text).toContain('Pro Monthly'); expect(text).toContain('Active');
+    expect(text).toContain('Essential Monthly'); expect(text).toContain('Pro'); expect(text).toContain('Active');
     const host = fixture.nativeElement as HTMLElement;
     for (const width of [320, 360, 375, 390, 412, 430]) { host.style.width = `${width}px`; expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth); }
   });
 
-  it('uses the PayPal-specific availability result without Stripe metadata and does not mutate the hash', () => {
-    fixture.componentInstance.plans = [{ ...pro, paymentProvider: 'paypal', purchasable: true }];
-    fixture.detectChanges();
-    expect(fixture.componentInstance.availablePlans.map((plan) => plan.slug)).toEqual(['pro_monthly']);
+  it('uses the shared catalog tiers without mutating the hash', () => {
+    expect(fixture.componentInstance.tiers.map((tier) => tier.key)).toEqual(['essential', 'pro']);
     expect(fixture.nativeElement.querySelector('a[href="#available-plans"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('.actions .primary').tagName).toBe('BUTTON');
   });
 
+  it('keeps payment-provider implementation details out of the rendered account page', () => {
+    const text = fixture.nativeElement.textContent;
+    expect(text).not.toContain('Provider');
+    expect(text).not.toContain('PayPal');
+    expect(text).not.toContain('Stripe');
+  });
+
+  it('keeps the current-plan CTA disabled and the compact feature list scannable', () => {
+    const currentButton = fixture.nativeElement.querySelector('[data-plan-slug="essential_monthly"] .plan-cta') as HTMLButtonElement | null;
+    expect(currentButton?.disabled).toBeTrue();
+    expect(currentButton?.textContent).toContain('Current plan');
+    expect(fixture.nativeElement.querySelectorAll('[data-plan-slug="pro_monthly"] .feature-list li').length).toBe(6);
+  });
+
   it('requires confirmation and cancellation does not mutate the frontend plan', async () => {
     fixture.componentInstance.openCancel(); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="dialog"]').textContent).toContain('Your account data remains available');
+    expect(fixture.nativeElement.querySelector('[role="dialog"]').textContent).toContain('Your account data will remain available');
     await fixture.componentInstance.confirmCancel();
     expect(api.cancelPayPalSubscription).toHaveBeenCalled(); expect(fixture.componentInstance.subscription()?.plan.slug).toBe('essential_monthly');
   });
@@ -79,7 +92,7 @@ describe('PayPalManageComponent', () => {
   it('shows a next-cycle confirmation and submits only the internal target code', async () => {
     fixture.componentInstance.choosePlan(pro); fixture.detectChanges();
     const attemptId = fixture.componentInstance.changeAttemptId;
-    expect(fixture.nativeElement.querySelector('[role="dialog"]').textContent).toContain('only after provider confirmation');
+    expect(fixture.nativeElement.querySelector('[role="dialog"]').textContent).toContain('only after payment confirmation');
     await fixture.componentInstance.confirmChange();
     expect(api.changePayPalPlan).not.toHaveBeenCalled();
     expect(fixture.componentInstance.subscription()?.plan.slug).toBe('essential_monthly');
@@ -276,7 +289,7 @@ describe('PayPalManageComponent', () => {
     } });
     fixture.detectChanges();
     await fixture.componentInstance.resumePendingPlanChange();
-    expect(fixture.componentInstance.error).toContain('Untrusted PayPal approval URL');
+    expect(fixture.componentInstance.error).toContain('could not be verified');
     expect(api.changePayPalPlan).not.toHaveBeenCalled();
   });
 
@@ -305,6 +318,7 @@ describe('PayPalManageComponent', () => {
     } });
     accountState = { refreshSubscription: jasmine.createSpy().and.callFake(() => Promise.resolve(subscriptionSignal())),
       refreshCredits: jasmine.createSpy().and.callFake(() => Promise.resolve(signal<any>({ availableCredits: 42 }))), refreshIfStale: jasmine.createSpy().and.resolveTo(),
+      refreshSubscriptionIfStale: jasmine.createSpy().and.resolveTo(subscriptionSignal()), refreshCreditsIfStale: jasmine.createSpy().and.resolveTo(),
       subscription: subscriptionSignal, wallet: signal<any>({ availableCredits: 42 }) };
     await TestBed.configureTestingModule({ imports: [PayPalManageComponent], providers: [
       ...routedComponentProviders(),
@@ -347,7 +361,7 @@ describe('PayPalManageComponent', () => {
     expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(5);
     tick(5000);
     expect(api.reconcilePayPalManagement).toHaveBeenCalledTimes(5);
-    expect(fixture.componentInstance.message).toContain('PayPal is still confirming it');
+    expect(fixture.componentInstance.message).toContain('Confirmation is still pending');
     discardPeriodicTasks();
   }));
 

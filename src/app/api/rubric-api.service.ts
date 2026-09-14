@@ -17,10 +17,11 @@ type TemplateParseResponse<T> = {
 };
 
 export type ParsedRubricLevel = { name: string; score: number };
-export type ParsedRubricCriteria = { title: string; descriptions: string[] };
+export type ParsedRubricCriteria = { title: string; weight?: number; descriptions: string[] };
 
 export type ParsedRubric = {
   title: string;
+  totalPoints?: number;
   levels: ParsedRubricLevel[];
   criteria: ParsedRubricCriteria[];
 };

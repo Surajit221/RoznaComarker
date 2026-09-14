@@ -16,14 +16,13 @@ describe('CreditTopupComponent', () => {
   beforeEach(async () => {
     credits = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [pack,pack50], paymentProvider: 'paypal' }),
       createPayPalOrder: jasmine.createSpy().and.resolveTo({ orderId:'ORDER',approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=SAFE' }),
-      createTopupCheckout: jasmine.createSpy().and.resolveTo({ url: 'https://checkout.stripe.com/c/pay/test', sessionId: 'cs_test' }),
       capturePayPalOrder: jasmine.createSpy().and.resolveTo({ credited: true, status: 'credited',credits:10 }), getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
     credits.getPayPalCapabilities=jasmine.createSpy().and.resolveTo({provider:'paypal',environment:'sandbox',clientId:'safe-client',browserToken:'safe-browser-token',paypalCheckout:true,advancedCardPayments:true,cardTopups:true,cardSubscriptions:false});
     credits.createPayPalCardOrder=jasmine.createSpy().and.resolveTo({orderId:'ORDER',status:'approval_pending'});
     buttonOptions=[];sdk={release:jasmine.createSpy()};sdk.loadButtons=jasmine.createSpy().and.resolveTo({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>{buttonOptions.push(options);return{isEligible:()=>true,render:jasmine.createSpy().and.resolveTo(),close:jasmine.createSpy()}}});
     const wallet = signal<any>({ availableCredits: 25, purchasedCredits: 0 });
     state = { wallet, refreshCredits: jasmine.createSpy().and.callFake(async () => { wallet.set({ availableCredits: 35, purchasedCredits: 10 }); return wallet(); }) };
-    catalog={packs:signal<any[]>([]),paymentProvider:signal('paypal')};catalog.refresh=jasmine.createSpy().and.callFake(async()=>{const value=await credits.getPacks();catalog.packs.set(value.packs);catalog.paymentProvider.set(value.paymentProvider)});
+    catalog={packs:signal<any[]>([]),paymentProvider:signal('paypal')};catalog.refreshCreditPacks=jasmine.createSpy().and.callFake(async()=>{const value=await credits.getPacks();catalog.packs.set(value.packs);catalog.paymentProvider.set(value.paymentProvider)});
     alerts={showSuccess:jasmine.createSpy()};await TestBed.configureTestingModule({ imports: [CreditTopupComponent], providers: [
       { provide: CreditsApiService, useValue: credits }, { provide: AccountStateService, useValue: state },
       { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },{provide:AlertService,useValue:alerts},{provide:PricingCatalogStateService,useValue:catalog},{provide:PayPalSdkLoaderService,useValue:sdk}
@@ -42,14 +41,6 @@ describe('CreditTopupComponent', () => {
     expect(navigate).toHaveBeenCalledWith('https://www.sandbox.paypal.com/checkoutnow?token=SAFE');
   });
 
-  it('preserves the Stripe checkout path and trusted navigation', async () => {
-    component.paymentProvider = 'stripe'; const navigate = spyOn<any>(component, 'navigateExternal');
-    await component.purchase(pack);
-    expect(credits.createTopupCheckout).toHaveBeenCalledOnceWith('CREDITS_10');
-    expect(credits.createPayPalOrder).not.toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/test');
-  });
-
   it('successful PayPal capture refreshes shared wallet once without granting locally', async () => {
     await (component as any).confirmPayPal('attempt'); fixture.detectChanges();
     expect(credits.capturePayPalOrder).toHaveBeenCalledOnceWith('attempt');
@@ -63,7 +54,7 @@ describe('CreditTopupComponent', () => {
 
   it('reuses a stable PayPal attempt after a transient create failure', async () => {
     credits.createPayPalOrder.and.rejectWith(new Error('network'));
-    component.paymentProvider = 'paypal'; await component.purchase(pack); const attempt = component.attemptId;
+    await component.purchase(pack); const attempt = component.attemptId;
     await component.purchase(pack);
     expect(credits.createPayPalOrder.calls.allArgs()).toEqual([['CREDITS_10', attempt], ['CREDITS_10', attempt]]);
   });

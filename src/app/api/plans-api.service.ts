@@ -68,6 +68,7 @@ export class PlansApiService {
       this.http.get<BackendResponse<BackendPlan[]>>(`${apiBaseUrl}/plans`)
     );
 
-    return resp?.data || [];
+    if (!resp?.success || !Array.isArray(resp.data)) throw new Error('Invalid public plan catalog response.');
+    return resp.data;
   }
 }

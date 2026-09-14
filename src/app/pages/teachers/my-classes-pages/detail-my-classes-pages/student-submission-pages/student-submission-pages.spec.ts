@@ -31,6 +31,54 @@ describe('StudentSubmissionPages', () => {
     expect(component).toBeTruthy();
   });
 
+  it('preserves weights and totalPoints through assignment save and reload without a score override', async () => {
+    component.currentSubmission = { _id: 'submission-1', assignment: 'assignment-1' } as any;
+    const designer = { title: 'Essay', totalPoints: 100, levels: [{ title: 'Strong', maxPoints: 4 }, { title: 'Developing', maxPoints: 1 }],
+      criteria: [{ title: 'Content', weight: 70, cells: ['Strong ideas', 'Develop ideas'] },
+        { title: 'Organization', weight: 30, cells: ['Clear order', 'Improve order'] }] };
+    const save = spyOn((component as any).assignmentApi, 'updateAssignmentRubrics').and.resolveTo({ _id: 'assignment-1' });
+    const override = spyOn((component as any).feedbackApi, 'upsertSubmissionFeedback');
+    spyOn<any>(component, 'hydrateRubricDesignerFromAssignmentThenFeedback').and.resolveTo();
+    spyOn<any>(component, 'refreshRetriedAnalysis').and.resolveTo();
+    await component.onRubricDesignerSave(designer);
+    const payload = save.calls.mostRecent().args[1] as any;
+    expect(payload.rubrics.totalPoints).toBe(100);
+    expect(payload.rubrics.criteria.map((row: any) => row.weight)).toEqual([70, 30]);
+    const loaded = (component as any).parseRubricDesignerFromRubricsField(payload.rubrics);
+    expect(loaded.totalPoints).toBe(100);
+    expect(loaded.criteria.map((row: any) => row.weight)).toEqual([70, 30]);
+    expect(override).not.toHaveBeenCalled();
+  });
+
+  it('does not cache a processing OCR response or a 202 response', async () => {
+    component.currentSubmission = { _id: 'submission-1', correctionSourceHash: 'hash' } as any;
+    const http = TestBed.inject(HttpTestingController);
+    for (const status of [202, 200]) {
+      const result = (component as any).getOcrCorrectionsPayload('submission-1');
+      http.expectOne(req => req.url.endsWith('/submission-1/ocr-corrections'))
+        .flush({ data: { ocrStatus: 'completed', correctionStatus: 'processing' } }, { status, statusText: 'OK' });
+      await result;
+      expect((component as any).ocrCorrectionsPayloadCache.size).toBe(0);
+    }
+  });
+
+  it('rejects a stale poll before changing feedback or score state', async () => {
+    component.currentSubmission = { _id: 'submission-1' } as any;
+    const prior = component.canonicalResultState;
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({ evaluationStatus: 'completed', overallScore: 95 });
+    spyOn((component as any).resultCoordinator, 'isCurrentRequest').and.returnValue(false);
+    await expectAsync((component as any).refreshRetriedAnalysis('submission-1', 1)).toBeRejected();
+    expect(component.canonicalResultState).toBe(prior);
+    expect(component.currentSubmission?.evaluationStatus).toBeUndefined();
+  });
+
+  it('keeps a partial evaluation out of final score presentation', async () => {
+    component.currentSubmission = { _id: 'submission-1' } as any;
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({ evaluationStatus: 'partial', overallScore: 95 });
+    await (component as any).refreshRetriedAnalysis('submission-1');
+    expect(component.scoreState).toBe('processing');
+  });
+
   it('does not pass the protected raw submission URL to the teacher image overlay', () => {
     component.currentSubmission = { fileUrl: '/files/submissions/private.jpg' } as any;
     component.submissionFileUrls = ['/files/submissions/private.jpg'];
@@ -202,7 +250,7 @@ describe('StudentSubmissionPages', () => {
     const requests = http.match((request) => request.url.includes('/submissions/submission-1/ocr-corrections'));
     expect(requests.length).toBe(1);
     expect(requests[0].request.urlWithParams).not.toContain('fileId=');
-    requests[0].flush({ success: true, data: { ocr: [], corrections: [] } });
+    requests[0].flush({ success: true, data: { ocr: [], corrections: [], ocrStatus: 'completed', correctionStatus: 'completed' } });
     await Promise.all([first, second]);
 
     await (component as any).getOcrCorrectionsPayload('submission-1');
@@ -777,5 +825,29 @@ describe('StudentSubmissionPages', () => {
     expect(component.currentFeedback?.overriddenByTeacher).toBeTrue();
     TestBed.inject(HttpTestingController).match(() => true)
       .forEach((request) => request.flush({ success: true, data: {} }));
+  });
+
+  it('does not signal draft comparison refresh for evaluation-only completion', () => {
+    (component as any).signalDraftComparisonCompletion({
+      _id: 'submission-1', evaluationStatus: 'completed', evaluationSourceHash: 'source-1'
+    });
+
+    expect(component.draftComparisonRefreshKey).toBe(0);
+  });
+
+  it('signals draft comparison once per stable finalized assessment identity', () => {
+    const finalized = {
+      _id: 'submission-1', evaluationStatus: 'completed', assessmentStatus: 'complete',
+      assessmentCompletedAt: '2026-09-13T10:00:00.000Z', evaluationSourceHash: 'source-1'
+    };
+
+    (component as any).signalDraftComparisonCompletion(finalized);
+    (component as any).signalDraftComparisonCompletion({ ...finalized });
+    expect(component.draftComparisonRefreshKey).toBe(1);
+
+    (component as any).signalDraftComparisonCompletion({
+      ...finalized, assessmentCompletedAt: '2026-09-13T10:01:00.000Z'
+    });
+    expect(component.draftComparisonRefreshKey).toBe(2);
   });
 });

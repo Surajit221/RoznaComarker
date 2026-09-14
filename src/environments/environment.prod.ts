@@ -11,7 +11,8 @@ export const environment = {
   apiBaseUrl: `${backendOrigin}/api`,
 
   FRONTEND_URL: 'https://comarkers.roznahub.com',
-  stripePublishableKey: 'pk_test_51S66M5CASwM322wGxv3xd7JSih56mVkbEEsQ2MRBzpXBi9EUFDo2uR6rLxFzlQgXj4bSRIf1fq5aQHZ4b7e3gBeh00L6EKmwKe',
+  // Dormant legacy subscription checkout compatibility; Assessment Credit purchases use PayPal.
+  stripePublishableKey: '',
 
   firebase: {
     apiKey: 'AIzaSyAFT9-mTYIg6YUX6W6-Yn4I_FM4eJVOcgM',

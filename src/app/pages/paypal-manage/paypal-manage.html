@@ -8,12 +8,11 @@
     <section class="current-card" aria-labelledby="current-plan-title">
       <div><p class="label">Current plan</p><h2 id="current-plan-title">{{ currentPlan?.display?.title || currentPlan?.name }}</h2>
         <p class="price">{{ formatPrice(currentPlan, billing?.billingPeriod) }}<span>{{ formatPeriod(currentPlan, billing?.billingPeriod) }}</span></p></div>
-      <dl><div><dt>Provider</dt><dd>{{ billing?.provider | titlecase }}</dd></div><div><dt>Billing period</dt><dd>{{ billing?.billingPeriod | titlecase }}</dd></div>
+      <dl><div><dt>Billing period</dt><dd>{{ billing?.subscriptionId ? (billing?.billingPeriod | titlecase) : 'Not applicable' }}</dd></div>
         <div><dt>Next billing</dt><dd>{{ formatDate(billing?.currentPeriodEnd) }}</dd></div><div><dt>Status</dt><dd>{{ billing?.subscriptionStatus || 'Free' | titlecase }}</dd></div></dl>
       @if (billing?.pendingPlanChange) { <div class="pending" role="status"><strong>Plan change pending</strong><span>Target: {{ getTargetPlanDisplayName() }}</span><div class="pending-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="resumePendingPlanChange()">Resume Plan Change</button><button type="button" class="secondary danger" [disabled]="!!submitting" (click)="cancelPendingPlanChange()">Cancel Pending Change</button></div></div> }
-      @if (billing?.pendingCancellation) { <div class="pending" role="status"><strong>Cancellation pending</strong><span>Waiting for provider confirmation</span></div> }
+      @if (billing?.pendingCancellation) { <div class="pending" role="status"><strong>Cancellation pending</strong><span>Waiting for confirmation</span></div> }
       <div class="actions"><button type="button" class="primary" (click)="scrollToPlans()">{{ billing?.subscriptionId ? 'Change Plan' : 'View Plans' }}</button>
-        @if (billing?.provider === 'stripe' && billing?.customerConfigured) { <button type="button" class="secondary" (click)="manageStripe()">Manage Billing</button> }
         @if (billing?.provider === 'paypal' && billing?.subscriptionId) { <button type="button" class="secondary danger" [disabled]="!billing?.canCancel || billing?.pendingCancellation || !!submitting" (click)="openCancel()">Cancel Subscription</button> }</div>
     </section>
 
@@ -57,13 +56,31 @@
     </section>
 
     <section id="available-plans" class="plans-section" aria-labelledby="available-title">
-      <h2 id="available-title">Available plans</h2><p>Options reflect the configured {{ plans[0]?.paymentProvider || billing?.provider }} payment provider.</p>
-      @if((plans[0]?.paymentProvider || billing?.provider)==='paypal'){<p>Continue with PayPal to create the recurring subscription securely. Eligible debit or credit card funding is offered by PayPal during its hosted approval flow.</p>}
-      <div class="plan-grid">@for (plan of availablePlans; track plan.slug) {
-        <article class="plan-card"><div><p class="label">{{ plan.billingInterval | titlecase }}</p><h3>{{ plan.display.title || plan.name }}</h3>
-          <p class="price">{{ formatPrice(plan) }}<span>{{ formatPeriod(plan) }}</span></p><p>{{ plan.features.essayAnalysesPerMonth ?? 'Custom' }} Assessment Credits/month</p></div>
-          <button type="button" [disabled]="billing?.provider === 'paypal' && (!!billing?.pendingPlanChange || !!billing?.pendingCancellation || !!submitting)" (click)="choosePlan(plan)">Choose {{ plan.display.title || plan.name }}</button></article>
-      } @empty { <p>No other paid plans are configured for the selected provider.</p> }</div>
+      <div class="plans-heading"><h2 id="available-title">Available plans</h2><p>Choose the plan that best fits your classroom. Changes are completed securely during checkout.</p></div>
+      @if (hasAnnualBilling) {
+        <div class="billing-tabs" role="tablist" aria-label="Billing period">
+          <button type="button" role="tab" id="account-billing-monthly" [attr.aria-selected]="billingPeriod === 'monthly'" [class.active]="billingPeriod === 'monthly'" (click)="setBillingPeriod('monthly')">Monthly</button>
+          <button type="button" role="tab" id="account-billing-yearly" [attr.aria-selected]="billingPeriod === 'annual'" [class.active]="billingPeriod === 'annual'" (click)="setBillingPeriod('annual')">Yearly @if (maxSavingsPercent; as saving) { <span class="toggle-saving">Save up to {{ saving }}%</span> }</button>
+        </div>
+      }
+      @if (catalogLoading) { <div class="pricing-empty" role="status">Loading available plans…</div> }
+      @else if (catalogError) { <div class="pricing-empty" role="alert">{{ catalogError }} <button type="button" (click)="load()">Try again</button></div> }
+      @else if (!tiers.length) { <div class="pricing-empty">No other plans are currently available.</div> }
+      @else {
+        <div class="pricing-grid" role="tabpanel" [attr.aria-labelledby]="billingPeriod === 'monthly' ? 'account-billing-monthly' : 'account-billing-yearly'">
+          @for (tier of tiers; track tier.key) {
+            <article class="plan-card" [class.recommended]="tier.monthly.popular || !!tier.annual?.popular" [class.current]="isCurrentPlan(selectedPlan(tier))" [class.institution]="tier.key === 'institution'" [attr.data-plan-tier]="tier.key" [attr.data-plan-slug]="selectedPlan(tier).slug">
+              @if (tier.monthly.popular || tier.annual?.popular) { <span class="popular-badge">Recommended</span> }
+              <div class="plan-heading"><h3>{{ tier.title }}</h3><p>{{ tier.monthly.display.description }}</p></div>
+              <div class="price-row"><span class="plan-price">{{ formatPrice(selectedPlan(tier), billingPeriod) }}</span><span class="plan-period">{{ formatPeriod(selectedPlan(tier), billingPeriod) }}</span></div>
+              @if (billingPeriod === 'annual' && savingsPercentForTier(tier); as saving) { <span class="plan-saving">Save {{ saving }}% compared with monthly</span> }
+              <div class="credit-highlight"><span>Assessment Credits</span><strong>{{ tier.monthly.features.essayAnalysesPerMonth === null ? 'Custom' : tier.monthly.features.essayAnalysesPerMonth }}</strong><small>{{ tier.monthly.features.essayAnalysesPerMonth === null ? 'Tailored allowance' : 'per month' }}</small></div>
+              <ul class="feature-list">@for (feature of featuresFor(tier.monthly); track feature.label) {@if (feature.label !== 'Assessment Credits/month') { <li><span class="check-icon" aria-hidden="true"><i class="bx bx-check"></i></span><span>{{ feature.label }}: {{ feature.value }}</span></li> }}</ul>
+              <button type="button" class="plan-cta" [class.current-plan-cta]="isCurrentPlan(selectedPlan(tier))" [class.institution-cta]="tier.key === 'institution'" [class.primary]="!isCurrentPlan(selectedPlan(tier)) && tier.key !== 'institution'" [disabled]="isPlanActionDisabled(selectedPlan(tier))" [attr.aria-disabled]="isPlanActionDisabled(selectedPlan(tier))" (click)="choosePlan(selectedPlan(tier))">{{ isCurrentPlan(selectedPlan(tier)) ? 'Current plan' : (tier.key === 'institution' ? selectedPlan(tier).display.cta : 'Choose ' + tier.title) }}</button>
+            </article>
+          }
+        </div>
+      }
     </section>
   }
 </main>
@@ -72,6 +89,6 @@
 
 @if (dialog) {
 <div class="dialog-backdrop" (click)="$event.target === $event.currentTarget && closeDialog()"><section class="confirm-dialog" role="dialog" aria-modal="true" [attr.aria-labelledby]="dialog === 'cancel' ? 'cancel-title' : 'change-title'" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
-  @if (dialog === 'cancel') { <h2 id="cancel-title">Cancel {{ currentPlan?.display?.title || currentPlan?.name }}?</h2><p>Your subscription will be cancelled according to PayPal billing rules. Your account data remains available.</p><div class="dialog-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="closeDialog()">Keep Plan</button><button type="button" class="danger primary" [disabled]="!!submitting" (click)="confirmCancel()">{{ submitting === 'cancel' ? 'Requesting cancellation…' : 'Cancel Subscription' }}</button></div> }
-  @else { <h2 id="change-title">Confirm plan change</h2><div class="change-summary"><div><span>Current</span><strong>{{ currentPlan?.display?.title || currentPlan?.name }}</strong></div><span aria-hidden="true">&rarr;</span><div><span>New</span><strong>{{ target?.display?.title || target?.name }}</strong></div></div><p>PayPal may ask you to log in and approve the change. Your application plan changes only after provider confirmation.</p><div class="dialog-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="closeDialog()">Cancel</button><button type="button" class="primary" [disabled]="!!submitting" (click)="confirmChange()">{{ submitting === 'change' ? 'Starting PayPal…' : 'Continue with PayPal' }}</button></div> }
+  @if (dialog === 'cancel') { <h2 id="cancel-title">Cancel {{ currentPlan?.display?.title || currentPlan?.name }}?</h2><p>Your subscription will be cancelled according to the current billing terms. Your account data will remain available.</p><div class="dialog-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="closeDialog()">Keep Plan</button><button type="button" class="danger primary" [disabled]="!!submitting" (click)="confirmCancel()">{{ submitting === 'cancel' ? 'Requesting cancellation…' : 'Cancel Subscription' }}</button></div> }
+  @else { <h2 id="change-title">Confirm plan change</h2><div class="change-summary"><div><span>Current</span><strong>{{ currentPlan?.display?.title || currentPlan?.name }}</strong></div><span aria-hidden="true">&rarr;</span><div><span>New</span><strong>{{ target?.display?.title || target?.name }}</strong></div></div><p>Review the plan change below. You may be asked to approve the change securely during checkout. Your plan updates only after payment confirmation.</p><div class="dialog-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="closeDialog()">Cancel</button><button type="button" class="primary" [disabled]="!!submitting" (click)="confirmChange()">{{ submitting === 'change' ? 'Preparing…' : 'Continue' }}</button></div> }
 </section></div> }

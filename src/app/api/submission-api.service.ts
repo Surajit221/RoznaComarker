@@ -61,9 +61,11 @@ export type BackendSubmission = {
   };
   correctionStatus?: 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale';
   correctionCurrent?: boolean;
+  correctionSourceHash?: string;
   transcriptLayoutVersion?: string;
   evaluationStatus?: 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale';
   evaluationSourceHash?: string;
+  assessmentStatus?: 'pending' | 'processing' | 'complete' | 'completed' | 'failed';
   assessmentCompletedAt?: string;
   processingActive?: boolean;
   automaticPollingAllowed?: boolean;

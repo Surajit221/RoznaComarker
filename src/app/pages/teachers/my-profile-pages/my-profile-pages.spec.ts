@@ -20,7 +20,7 @@ describe('MyProfilePages', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
     await Promise.resolve();
-    TestBed.inject(HttpTestingController).expectOne('http://localhost:5000/api/classes/mine')
+    TestBed.inject(HttpTestingController).expectOne('http://localhost:5000/api/classes/mine?status=active')
       .flush({ success: true, data: [] });
   });
 

@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
+import { HttpResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 
 import { MySubmissionPage } from './my-submission-page';
@@ -176,8 +177,10 @@ describe('MySubmissionPage', () => {
     component.submission = { _id: 'submission-1', ocrStatus: 'processing' } as any;
     component.submissionFileIds = ['file-1'];
     spyOn<any>(component, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
+    spyOn<any>(component, 'refreshSubmissionPreviewUrls').and.resolveTo();
     spyOn((component as any).submissionApi, 'getMySubmissionByAssignmentId').and.resolveTo({
-      _id: 'submission-1', assignment: 'assignment-1', ocrStatus: 'completed', correctionSourceHash: 'source-final'
+      _id: 'submission-1', assignment: 'assignment-1', ocrStatus: 'completed', correctionSourceHash: 'source-final',
+      files: [{ _id: 'file-1', url: '/files/submissions/file-1.jpg' }]
     } as any);
     spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
     spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
@@ -185,6 +188,8 @@ describe('MySubmissionPage', () => {
       detailedFeedbackStatus: 'completed', processingActive: false, automaticPollingAllowed: false, terminal: true
     });
     const completed = (component as any).refreshCanonicalResult('submission-1', 1);
+    await Promise.resolve();
+    await Promise.resolve();
     await Promise.resolve();
     http.expectOne((candidate) => candidate.url.includes('/ocr-corrections')).flush({ success: true, data: {
       processing: false, ocrStatus: 'completed', correctionStatus: 'completed', correctionSourceHash: 'source-final',
@@ -348,6 +353,7 @@ describe('MySubmissionPage', () => {
     expect(overlay.compareDocumentPosition(thumbnails) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(thumbnails.compareDocumentPosition(aiFeedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(thumbnails.querySelectorAll('.submission-thumb').length).toBe(2);
+    expect([...thumbnails.querySelectorAll('img')].every((image) => image.getAttribute('loading') === 'lazy')).toBeTrue();
   });
 
   it('changes only student viewer state and preserves feedback/adaptive state on image selection', async () => {
@@ -361,6 +367,9 @@ describe('MySubmissionPage', () => {
     const loadCorrections = spyOn<any>(component, 'loadOcrCorrections').and.resolveTo(true);
     const refreshCorrections = spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
     const loadFeedback = spyOn((component as any).feedbackApi, 'getSubmissionFeedback');
+
+    component.onSelectSubmissionImage(0);
+    expect((component as any).setUploadedFileUrl).not.toHaveBeenCalled();
 
     component.onSelectSubmissionImage(1);
     await Promise.resolve();
@@ -431,6 +440,48 @@ describe('MySubmissionPage', () => {
 
     expect(component.uploadedFileUrl).toBe('blob:b');
     expect(revoke).toHaveBeenCalledWith('blob:a');
+  });
+
+  it('loads many private thumbnails independently and reuses an unchanged preview signature', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    const create = spyOn(URL, 'createObjectURL').and.callFake((source) =>
+      `blob:${source instanceof Blob ? source.size : 0}`);
+    const urls = Array.from({ length: 6 }, (_, index) => `/files/submissions/${index}.jpg`);
+    const pending = (component as any).refreshSubmissionPreviewUrls(urls);
+    for (let index = 0; index < urls.length; index += 1) {
+      const request = http.expectOne((candidate) => candidate.url.endsWith(urls[index]));
+      if (index === 2) request.error(new ProgressEvent('network-error'));
+      else request.event(new HttpResponse({ status: 200, body: new Blob([String(index)]) }));
+    }
+    await pending;
+    expect(component.submissionPreviewUrls).toHaveSize(6);
+    expect(component.submissionPreviewUrls[2]).toBe('');
+    expect(component.submissionPreviewUrls.filter(Boolean)).toHaveSize(5);
+    expect(create).toHaveBeenCalledTimes(5);
+
+    await (component as any).refreshSubmissionPreviewUrls([...urls]);
+    http.expectNone(() => true);
+    expect(create).toHaveBeenCalledTimes(5);
+
+    await (component as any).setUploadedFileUrl(urls[0]);
+    http.expectNone(() => true);
+    expect(create).toHaveBeenCalledTimes(6);
+
+    const retry = (component as any).setUploadedFileUrl(urls[0], true);
+    http.expectOne((candidate) => candidate.url.endsWith(urls[0]))
+      .event(new HttpResponse({ status: 200, body: new Blob(['retry']) }));
+    await retry;
+    expect(create).toHaveBeenCalledTimes(7);
+  });
+
+  it('revokes active and thumbnail object URLs on destroy', () => {
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    (component as any).objectUrls = ['blob:active'];
+    (component as any).previewObjectUrls = ['blob:thumb-1', 'blob:thumb-2'];
+    component.ngOnDestroy();
+    expect(revoke.calls.allArgs().map(([url]) => url)).toEqual(jasmine.arrayWithExactContents([
+      'blob:active', 'blob:thumb-1', 'blob:thumb-2'
+    ]));
   });
 
   it('invalidates Draft 1 derived state when the same submission id receives Draft 2 files', () => {
