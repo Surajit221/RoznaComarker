@@ -7,7 +7,7 @@
     <div class="topup-grid">@for (pack of packs; track pack.code) {
       <article class="topup-pack"><h3>{{ pack.name }}</h3><strong>{{ pack.credits }} Credits</strong><p>{{ pack.price | currency:pack.currency }}</p><small>For eligible {{ pack.allowedPlans.join(', ') }} plans</small>
         <button type="button" class="btn-primary" [disabled]="!!checkoutCode" (click)="selectPack(pack)">{{ selectedPack?.code === pack.code ? 'Selected' : 'Choose pack' }}</button></article>
-    } @empty { @if(!loading){<p class="topup-empty">No Assessment Credit packs are currently available.</p>} }</div>
+    } @empty { @if(!loading && !message){<p class="topup-empty">No Assessment Credit packs are currently available.</p>} }</div>
     @if(selectedPack){
       <section class="payment-panel" aria-labelledby="payment-method-title"><h3 id="payment-method-title">Payment method</h3>
         @if(fundingLoading){<div class="topup-status" aria-live="polite">Loading secure payment options…</div>}

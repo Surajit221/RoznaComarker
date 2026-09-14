@@ -9,7 +9,7 @@ export interface AssessmentCreditWallet {
   usagePercent: number; nudgeThresholds: { soft: number; warning: number }; warningAcknowledged: boolean;
 }
 export interface CreditPack { name: string; code: string; credits: number; price: number; currency: string; allowedPlans: string[]; displayOrder: number; }
-export type CreditPaymentProvider = 'stripe' | 'paypal';
+export type CreditPaymentProvider = 'paypal';
 export interface CreditPackOptions { packs: CreditPack[]; paymentProvider: CreditPaymentProvider; }
 export interface PayPalCreditPurchase { attemptId: string; orderId?: string; approvalUrl?: string; status: string;
   packCode: string; credits: number; amount: string; currency: string; credited: boolean; message?: string; }
@@ -44,11 +44,8 @@ export class CreditsApiService {
   }
   async getPacks(): Promise<CreditPackOptions> {
     const response = await firstValueFrom(this.http.get<{ success: boolean; packs: CreditPack[]; paymentProvider?: CreditPaymentProvider }>(`${environment.apiUrl}/credits/packs`));
-    return { packs: response.packs, paymentProvider: response.paymentProvider === 'paypal' ? 'paypal' : 'stripe' };
-  }
-  async createTopupCheckout(packCode: string): Promise<{ url: string; sessionId: string }> {
-    return firstValueFrom(this.http.post<{ success: boolean; url: string; sessionId: string }>(
-      `${environment.apiUrl}/credits/topups/checkout-session`, { packCode }));
+    if (!response.success || !Array.isArray(response.packs) || response.paymentProvider !== 'paypal') throw new Error('Invalid credit pack catalog response.');
+    return { packs: response.packs, paymentProvider: 'paypal' };
   }
   async createPayPalOrder(packCode: string, checkoutAttemptId: string): Promise<PayPalCreditPurchase> {
     const response = await firstValueFrom(this.http.post<{ success: boolean; data: PayPalCreditPurchase }>(
@@ -103,6 +100,9 @@ export class CreditsApiService {
   }
   async updatePlan(slug: string, value: AdminPlanUpdateDto): Promise<any> {
     return firstValueFrom(this.http.put(`${environment.apiUrl}/credits/admin/pricing/plans/${encodeURIComponent(slug)}`, value));
+  }
+  async createPack(value: AdminPackUpdateDto & { code:string }): Promise<any> {
+    return firstValueFrom(this.http.post(`${environment.apiUrl}/credits/admin/pricing/packs`, value));
   }
   async updatePack(code: string, value: AdminPackUpdateDto): Promise<any> {
     return firstValueFrom(this.http.put(`${environment.apiUrl}/credits/admin/pricing/packs/${encodeURIComponent(code)}`, value));

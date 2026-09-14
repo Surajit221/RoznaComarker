@@ -14,7 +14,7 @@
   } @else if (error) {
     <div class="state state--error" role="alert">{{ error }} <button type="button" (click)="load()">Try again</button></div>
   } @else if (comparison && !comparison.available) {
-    <p class="state">{{ comparison.message }}</p>
+    <p class="state" role="status">{{ comparisonMessage() }}</p>
   } @else if (comparison?.available) {
     @if (comparison?.identicalContent) {
       <p class="notice">Same content as previous draft. No score change.</p>

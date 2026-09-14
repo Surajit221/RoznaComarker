@@ -86,6 +86,9 @@
                     <div class="section-load-error" role="status">{{ analysisFailureMessage }}
                       @if (canonicalResultState?.manualRetryAllowed) { <button type="button" class="btn-warning-sm mt-2" [disabled]="isRetryingAnalysis" (click)="reEvaluateCurrentSubmission()">{{ isRetryingAnalysis ? 'Retrying…' : retryAnalysisLabel }}</button> }
                     </div>
+                    } @else if (canonicalResultState?.evaluationStatus !== 'completed') {
+                    <p role="status">Analysis is still in progress. A final score is not yet available.</p>
+                    <ng-container *ngTemplateOutlet="evaluationStatusPanel"></ng-container>
                     } @else {
                     <div class="flex items-center justify-between mb-4">
                       <h3 class="font-semibold text-gray-700">Overall Score</h3>

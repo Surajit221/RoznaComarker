@@ -425,17 +425,34 @@ export class MySubmissionPage {
   private objectUrls: string[] = [];
   private previewObjectUrls: string[] = [];
   private previewSourceSignature = '';
+  private mediaBlobRequests = new Map<string, Promise<Blob>>();
+
+  private getMediaBlob(url: string, forceRefresh = false): Promise<Blob> {
+    const normalizedUrl = this.normalizeUploadsUrl(url);
+    if (forceRefresh) this.mediaBlobRequests.delete(normalizedUrl);
+    const cached = this.mediaBlobRequests.get(normalizedUrl);
+    if (cached) return cached;
+    const request = firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));
+    this.mediaBlobRequests.set(normalizedUrl, request);
+    void request.catch(() => {
+      if (this.mediaBlobRequests.get(normalizedUrl) === request) this.mediaBlobRequests.delete(normalizedUrl);
+    });
+    return request;
+  }
 
   private async refreshSubmissionPreviewUrls(urls: string[]): Promise<void> {
-    const signature = JSON.stringify(urls);
+    const requestUrls = urls.map((url) => this.normalizeUploadsUrl(url));
+    const signature = JSON.stringify(requestUrls);
     if (signature === this.previewSourceSignature) return;
     this.previewSourceSignature = signature;
+    const retained = new Set(requestUrls);
+    for (const key of this.mediaBlobRequests.keys()) if (!retained.has(key)) this.mediaBlobRequests.delete(key);
     for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
     this.previewObjectUrls = [];
     this.submissionPreviewUrls = urls.map(() => '');
-    const previews = await Promise.all(urls.map(async (url) => {
+    const previews = await Promise.all(requestUrls.map(async (url) => {
       try {
-        const blob = await firstValueFrom(this.http.get(normalizeToHttps(url), { responseType: 'blob' }));
+        const blob = await this.getMediaBlob(url);
         return URL.createObjectURL(blob);
       } catch {
         return '';
@@ -964,12 +981,12 @@ export class MySubmissionPage {
     this.objectUrls = [];
   }
 
-  private async fetchAsObjectUrl(url: string, trackForCleanup = true): Promise<string> {
-    const normalizedUrl = normalizeToHttps(url);
+  private async fetchAsObjectUrl(url: string, trackForCleanup = true, forceRefresh = false): Promise<string> {
+    const normalizedUrl = this.normalizeUploadsUrl(url);
     if (!environment.production) {
       console.debug('[STUDENT FILE URL]', normalizedUrl);
     }
-    const blob = await firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));
+    const blob = await this.getMediaBlob(normalizedUrl, forceRefresh);
     const objectUrl = URL.createObjectURL(blob);
 
     if (trackForCleanup) {
@@ -1537,7 +1554,6 @@ export class MySubmissionPage {
     const assets = this.filesFromSubmission(submission);
     this.submissionFileIds = assets.ids;
     this.submissionFileUrls = assets.urls;
-    void this.refreshSubmissionPreviewUrls(assets.urls);
     if (changed) {
       this.ocrPayloadCache.clear();
       this.ocrPayloadInFlight.clear();
@@ -1557,6 +1573,7 @@ export class MySubmissionPage {
       this.assetRevisionToken = submission?.ocrJobId || submission?.submittedAt || String(Date.now());
       this.recomputeLegendAligned();
     }
+    void this.refreshSubmissionPreviewUrls(assets.urls);
     if (this.activeFileIndex < 0 || this.activeFileIndex >= this.submissionFileUrls.length) this.activeFileIndex = 0;
     return changed;
   }
@@ -1664,6 +1681,7 @@ export class MySubmissionPage {
     this.stopOcrPolling();
     this.ocrPayloadCache.clear();
     this.ocrPayloadInFlight.clear();
+    this.mediaBlobRequests.clear();
     this.revokeObjectUrls();
     this.previewSourceSignature = 'destroyed';
     for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
@@ -1749,6 +1767,13 @@ export class MySubmissionPage {
     ++this.loadOcrCorrectionsSeq;
     ++this.loadTranscriptPagesSeq;
     ++this.setUploadedFileUrlSeq;
+    this.revokeObjectUrls();
+    for (const url of this.previewObjectUrls) URL.revokeObjectURL(url);
+    this.previewObjectUrls = [];
+    this.submissionPreviewUrls = [];
+    this.previewSourceSignature = `loading:${seq}`;
+    this.mediaBlobRequests.clear();
+    this.assetRevisionToken = null;
     this.resetSectionStates();
     this.submission = null;
     this.feedback = null;
@@ -2008,7 +2033,7 @@ export class MySubmissionPage {
     this.router.navigate(['/student/my-classes']);
   }
 
-  private setUploadedFileUrl(url: string | null) {
+  private setUploadedFileUrl(url: string | null, forceRefresh = false) {
     const seq = ++this.setUploadedFileUrlSeq;
 
     this.revokeObjectUrls();
@@ -2029,7 +2054,7 @@ export class MySubmissionPage {
 
     const normalizedUrl = this.normalizeUploadsUrl(url);
 
-    return this.fetchAsObjectUrl(normalizedUrl, true)
+    return this.fetchAsObjectUrl(normalizedUrl, true, forceRefresh)
       .then((objectUrl) => {
         if (seq === this.setUploadedFileUrlSeq) {
           this.uploadedFileUrl = objectUrl;
@@ -2051,11 +2076,11 @@ export class MySubmissionPage {
 
   retryUploadedImage(): void {
     if (!this.rawUploadedFileUrl || this.uploadedFileIsPdf) return;
-    void this.setUploadedFileUrl(this.rawUploadedFileUrl);
+    void this.setUploadedFileUrl(this.rawUploadedFileUrl, true);
   }
 
   retryUploadedPdf(): void {
     if (!this.rawUploadedFileUrl) return;
-    void this.setUploadedFileUrl(this.rawUploadedFileUrl);
+    void this.setUploadedFileUrl(this.rawUploadedFileUrl, true);
   }
 }

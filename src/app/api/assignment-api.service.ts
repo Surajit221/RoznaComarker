@@ -288,7 +288,7 @@ export class AssignmentApiService {
 
   /**
    * Student checks if they already have a submission for an assignment (GAP 4).
-   * Returns null if no submission exists, throws HttpErrorResponse with status 404.
+   * Returns null only when the server reports no submission; request failures propagate.
    * @param assignmentId the Assignment._id
    * @returns FlashcardSubmission or null
    */
@@ -310,8 +310,8 @@ export class AssignmentApiService {
         )
       );
       return resp.data;
-    } catch {
-      return null;
+    } catch (error) {
+      throw error;
     }
   }
 

@@ -16,6 +16,23 @@ describe('AssignmentApiService stale evaluation workflow', () => {
 
   afterEach(() => http.verify());
 
+  for (const status of [401, 403, 429, 500]) {
+    it(`propagates flashcard HTTP ${status}`, async () => {
+      const result = service.getMyFlashcardSubmission('assignment-1');
+      const rejected = expectAsync(result).toBeRejectedWith(jasmine.objectContaining({ status }));
+      http.expectOne(`${environment.apiUrl}/assignments/assignment-1/my-submission`)
+        .flush({ message: 'Failure' }, { status, statusText: 'Failure' });
+      await rejected;
+    });
+  }
+
+  it('returns null for a successful missing flashcard submission', async () => {
+    const result = service.getMyFlashcardSubmission('assignment-1');
+    http.expectOne(`${environment.apiUrl}/assignments/assignment-1/my-submission`)
+      .flush({ success: true, data: null });
+    expect(await result).toBeNull();
+  });
+
   it('reads the stale count and starts the teacher bulk endpoint once', async () => {
     const summaryPromise = service.getStaleEvaluationSummary('assignment-1');
     const summaryRequest = http.expectOne(

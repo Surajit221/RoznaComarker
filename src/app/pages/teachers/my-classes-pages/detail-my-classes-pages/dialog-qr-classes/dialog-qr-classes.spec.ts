@@ -5,6 +5,11 @@ import { DialogQrClasses } from './dialog-qr-classes';
 describe('DialogQrClasses', () => {
   let component: DialogQrClasses;
   let fixture: ComponentFixture<DialogQrClasses>;
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+  });
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({

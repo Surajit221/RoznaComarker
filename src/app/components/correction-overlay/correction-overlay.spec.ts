@@ -329,7 +329,7 @@ describe('CorrectionOverlay media loading', () => {
     });
 
     it('opens on desktop mouse hover and closes on mouse leave when unpinned', () => {
-      component.isMobile = false;
+      (component as any).device.width.set(1440);
       const target = document.createElement('button');
       const event = pointerEvent(target);
 
@@ -352,7 +352,7 @@ describe('CorrectionOverlay media loading', () => {
     });
 
     it('handles pointer-induced focus and click as one opening interaction', () => {
-      component.isMobile = false;
+      (component as any).device.width.set(1440);
       const target = document.createElement('button');
       const openTooltip = spyOn<any>(component, 'openTooltip').and.callThrough();
 
@@ -365,7 +365,7 @@ describe('CorrectionOverlay media loading', () => {
     });
 
     it('opens from desktop keyboard focus', () => {
-      component.isMobile = false;
+      (component as any).device.width.set(1440);
       const target = document.createElement('button');
 
       component.onMarkerFocus(marker, { currentTarget: target } as unknown as FocusEvent);

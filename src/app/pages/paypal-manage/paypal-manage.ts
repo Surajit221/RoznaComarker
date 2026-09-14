@@ -1,10 +1,10 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, HostListener } from '@angular/core';
+import { Component, computed, HostListener } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BackendPlan } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
-import { trustedPayPalApprovalUrl, trustedStripePortalUrl } from '../../utils/trusted-navigation.util';
+import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
 import { AccountStateService } from '../../services/account-state.service';
 import { environment } from '../../../environments/environment';
 import { ViewportScroller } from '@angular/common';
@@ -13,6 +13,7 @@ import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
 import { CreditTopupComponent } from '../../components/credit-topup/credit-topup';
 import { BillingSelection, formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
+import { BillingPeriod, groupPricingPlans, primaryPricingFeatures, pricingSavingsPercent, PricingTier, selectedPricingPlan } from '../../utils/pricing-catalog-view.util';
 
 @Component({
   selector: 'app-paypal-manage', standalone: true,
@@ -22,8 +23,11 @@ import { PricingCatalogStateService } from '../../services/pricing-catalog-state
 export class PayPalManageComponent {
   readonly subscription = computed(() => this.accountState.subscription());
   readonly wallet = computed(() => this.accountState.wallet());
-  plans: BackendPlan[] = [];
+  readonly plans = computed(() => this.catalog.plans());
+  billingPeriod: BillingPeriod = 'monthly';
   loading = true;
+  catalogLoading = true;
+  catalogError: string | null = null;
   submitting: 'cancel' | 'change' | null = null;
   dialog: 'cancel' | 'change' | null = null;
   target: BackendPlan | null = null;
@@ -39,7 +43,7 @@ export class PayPalManageComponent {
   copied = false;
   constructor(private subscriptionApi: SubscriptionApiService,
     private route: ActivatedRoute, private router: Router, private accountState: AccountStateService,
-    private viewport: ViewportScroller,private creditTopupUi:CreditTopupUiService,private catalog:PricingCatalogStateService) {effect(()=>this.plans=this.catalog.plans())}
+    private viewport: ViewportScroller,private creditTopupUi:CreditTopupUiService,private catalog:PricingCatalogStateService) {}
 
   async ngOnInit(): Promise<void> {
     const result = this.route.snapshot.data['paypalChangeResult'];
@@ -48,7 +52,7 @@ export class PayPalManageComponent {
       const attempt = this.route.snapshot.queryParamMap.get('attempt');
       if (attempt) { try { await this.subscriptionApi.markPayPalPlanChangeCancelled(attempt); await this.accountState.refreshSubscription(); } catch { /* plan remains unchanged */ } }
     }
-    if (result === 'success') this.message = 'PayPal approval received. Confirming your new plan…';
+    if (result === 'success') this.message = 'Payment approval received. Confirming your new plan…';
     await this.load();
     const pendingReferral = sessionStorage.getItem('pending_referral_code');
     if (pendingReferral) {
@@ -86,13 +90,24 @@ export class PayPalManageComponent {
   getTargetPlanDisplayName(): string {
     const targetCode = this.billing?.pendingTargetPlanCode;
     if (!targetCode) return targetCode || '';
-    const targetPlan = this.plans.find(p => p.slug === targetCode);
+    const targetPlan = this.plans().find(p => p.slug === targetCode);
     return targetPlan?.display?.title || targetPlan?.name || targetCode;
   }
   usagePercent(used: number | undefined, limit: number | null | undefined): number | null { return clampedUsagePercent(used, limit); }
-  get availablePlans(): BackendPlan[] {
-    return this.plans.filter((plan) => (plan.paymentProvider === 'paypal' ? plan.purchasable === true : plan.purchasable !== false) && plan.price !== null && plan.price > 0 &&
-      !['free', 'institution', 'custom'].includes(plan.slug) && plan.slug !== this.billing?.planCode);
+  get tiers(): PricingTier[] { return groupPricingPlans(this.plans()); }
+  get hasAnnualBilling(): boolean { return this.tiers.some(tier => tier.annual); }
+  get maxSavingsPercent(): number | null {
+    const values = this.tiers.map(pricingSavingsPercent).filter((value): value is number => value !== null);
+    return values.length ? Math.max(...values) : null;
+  }
+  selectedPlan(tier: PricingTier): BackendPlan { return selectedPricingPlan(tier, this.billingPeriod); }
+  savingsPercentForTier(tier: PricingTier): number | null { return pricingSavingsPercent(tier); }
+  featuresFor(plan: BackendPlan) { return primaryPricingFeatures(plan); }
+  setBillingPeriod(period: BillingPeriod): void { this.billingPeriod = period; }
+  isCurrentPlan(plan: BackendPlan): boolean { return plan.slug === this.billing?.planCode || plan.slug === this.currentPlan?.slug; }
+  isPlanActionDisabled(plan: BackendPlan): boolean {
+    return this.isCurrentPlan(plan) || ['custom', 'institution'].includes(plan.slug) ||
+      !!this.billing?.pendingPlanChange || !!this.billing?.pendingCancellation || !!this.submitting;
   }
   formatPrice(plan: BackendPlan | null | undefined, selection?: BillingSelection): string {
     return plan ? formatPlanPrice(plan, selection) : '—';
@@ -105,16 +120,20 @@ export class PayPalManageComponent {
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
   }
   async load(): Promise<void> {
-    this.loading = true; this.error = null;
-    try {
-      await Promise.all([this.accountState.refreshSubscriptionIfStale(), this.catalog.refresh()]);
-      await this.accountState.refreshCreditsIfStale();
-    } catch { this.error = "We couldn't load your PayPal subscription. Please try again."; }
-    finally { this.loading = false; }
+    this.loading = true; this.catalogLoading = true; this.error = null; this.catalogError = null;
+    const accountRequest = this.accountState.refreshSubscriptionIfStale()
+      .then(() => this.accountState.refreshCreditsIfStale())
+      .catch(() => { this.error = "We couldn't load your account. Please try again."; })
+      .finally(() => { this.loading = false; });
+    const catalogRequest = this.catalog.refresh()
+      .catch(() => { this.catalogError = "We couldn't load available plans. Please try again."; })
+      .finally(() => { this.catalogLoading = false; });
+    await Promise.allSettled([accountRequest, catalogRequest]);
   }
   choosePlan(plan: BackendPlan): void {
+    if (this.isPlanActionDisabled(plan)) return;
     if (this.billing?.provider !== 'paypal' || !this.billing?.canChangePlan) {
-      void this.router.navigate(['/checkout', plan.slug]); return;
+      void this.router.navigate(['/checkout', plan.slug], { queryParams: { billing: this.billingPeriod } }); return;
     }
     if (this.target?.slug !== plan.slug || !this.changeAttemptId) this.changeAttemptId = crypto.randomUUID();
     this.target = plan; this.dialog = 'change';
@@ -130,11 +149,11 @@ export class PayPalManageComponent {
       const result = await this.subscriptionApi.cancelPayPalSubscription();
       this.dialog = null;
       if (result.alreadyTerminal) {
-        this.message = 'Your PayPal subscription is already cancelled.';
+        this.message = 'Your subscription is already cancelled.';
         await this.accountState.refreshSubscription();
         return;
       }
-      this.message = 'Cancellation requested. Waiting for PayPal to confirm your subscription status.';
+      this.message = 'Cancellation requested. Waiting for confirmation.';
       this.reconcileAttempt = 0;
       this.scheduleReconcile();
     } catch (error: any) { this.error = error?.error?.message || "We couldn't request cancellation. Please try again."; }
@@ -156,7 +175,7 @@ export class PayPalManageComponent {
         if (!next) { this.schedulePoll(); return; }
         if (!next.billing?.pendingPlanChange && !next.billing?.pendingCancellation) {
           await this.accountState.refreshCredits();
-          this.message = next.billing?.status === 'CANCELLED' ? 'Your PayPal subscription is cancelled.' : 'Your plan is now confirmed.';
+          this.message = next.billing?.status === 'CANCELLED' ? 'Your subscription is cancelled.' : 'Your plan is now confirmed.';
           return;
         }
       } catch { /* keep the last authoritative view while retrying */ }
@@ -165,7 +184,7 @@ export class PayPalManageComponent {
   }
   private async scheduleReconcile(): Promise<void> {
     if (this.reconcileAttempt >= this.RECONCILE_DELAYS.length) {
-      this.message = 'Cancellation requested. PayPal is still confirming it. You can safely leave this page.';
+      this.message = 'Cancellation requested. Confirmation is still pending. You can safely leave this page.';
       await this.accountState.refreshSubscription();
       return;
     }
@@ -177,7 +196,7 @@ export class PayPalManageComponent {
         const result = await this.subscriptionApi.reconcilePayPalManagement();
         if (result.cancelledOrTerminal) {
           await this.accountState.refreshSubscription();
-          this.message = 'Your PayPal subscription is cancelled.';
+          this.message = 'Your subscription is cancelled.';
           return;
         }
         if (!result.pendingCancellation) {
@@ -194,10 +213,6 @@ export class PayPalManageComponent {
   }
   scrollToPlans(): void { this.viewport.scrollToAnchor('available-plans'); }
   openCreditTopup(): void { this.creditTopupUi.open(); }
-  async manageStripe(): Promise<void> {
-    try { const result = await this.subscriptionApi.createCustomerPortal(); const url = trustedStripePortalUrl(result.url); if (!url) throw new Error('Untrusted Stripe portal URL'); window.location.assign(url); }
-    catch { await this.router.navigate(['/pricing']); }
-  }
   async copyReferralLink(): Promise<void> {
     if (!this.referralLink) return;
     await navigator.clipboard.writeText(this.referralLink); this.copied = true;
@@ -236,10 +251,10 @@ export class PayPalManageComponent {
     if (approvalUrl) {
       const url = trustedPayPalApprovalUrl(approvalUrl);
       if (!url) {
-        this.error = 'Untrusted PayPal approval URL.';
+        this.error = 'The checkout approval link could not be verified.';
         return;
       }
-      this.message = 'Redirecting to PayPal for approval…';
+      this.message = 'Redirecting to secure checkout…';
       if (typeof window !== 'undefined' && window.location && window.location.assign) {
         window.location.assign(url);
       }
@@ -255,14 +270,14 @@ export class PayPalManageComponent {
       const result = await this.subscriptionApi.changePayPalPlan(targetCode, attemptId);
       if (result.requiresApproval) {
         const url = trustedPayPalApprovalUrl(result.approvalUrl);
-        if (!url) throw new Error('Untrusted PayPal approval URL');
-        this.message = 'Redirecting to PayPal for approval…';
+        if (!url) throw new Error('Untrusted approval URL');
+        this.message = 'Redirecting to secure checkout…';
         if (typeof window !== 'undefined' && window.location && window.location.assign) {
           window.location.assign(url);
         }
         return;
       }
-      this.message = 'Plan change pending. PayPal is confirming your new plan.';
+      this.message = 'Plan change pending. Waiting for confirmation.';
       this.schedulePoll();
     } catch (error: any) {
       this.error = error?.error?.message || "We couldn't resume the plan change. Please try again.";

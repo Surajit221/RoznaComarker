@@ -306,6 +306,7 @@ export class StudentSubmissionPages {
   hasAssignmentRubric = false;
   private assignmentRubricPresenceId: string | null = null;
   draftComparisonRefreshKey = 0;
+  private draftComparisonCompletionIdentity: string | null = null;
 
 
 
@@ -398,6 +399,7 @@ export class StudentSubmissionPages {
     const criteriaRaw = Array.isArray(designer.criteria) ? designer.criteria : [];
 
     this.rubricDesignerTitle = typeof designer.title === 'string' ? designer.title : `Rubric: ${this.submissionTitle}`;
+    this.rubricTotalPoints = designer.totalPoints;
     this.rubricLevels = levelsRaw.length
       ? levelsRaw.map((l: any) => ({
         title: String(l?.title || ''),
@@ -408,6 +410,7 @@ export class StudentSubmissionPages {
     this.rubricCriteriaRows = criteriaRaw.length
       ? criteriaRaw.map((c: any) => ({
         title: String(c?.title || ''),
+        weight: c.weight,
         cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
       }))
       : [{ title: '', cells: this.rubricLevels.map(() => '') }];
@@ -443,6 +446,7 @@ export class StudentSubmissionPages {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
         title: typeof c?.name === 'string' ? String(c.name) : '',
+        weight: c.weight,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
       };
     });
@@ -450,6 +454,7 @@ export class StudentSubmissionPages {
     const at = typeof assignmentTitle === 'string' ? assignmentTitle : '';
     return {
       title: at.trim().length ? `Rubric: ${at}` : `Rubric: ${this.submissionTitle}`,
+      totalPoints: obj.totalPoints,
       levels,
       criteria
     };
@@ -470,12 +475,14 @@ export class StudentSubmissionPages {
 
     return {
       title,
+      totalPoints: obj.totalPoints,
       levels: levels.map((l: any) => ({
         title: typeof l?.title === 'string' ? String(l.title) : '',
         maxPoints: Number(l?.maxPoints) || 0
       })),
       criteria: criteria.map((c: any) => ({
         title: typeof c?.title === 'string' ? String(c.title) : '',
+        weight: c.weight,
         cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []
       }))
     };
@@ -505,8 +512,10 @@ export class StudentSubmissionPages {
         // Update assignment rubrics in the same format as assignment creation
         const rubricsPayload = {
           rubrics: {
+            totalPoints: designer.totalPoints,
             criteria: designer.criteria.map(c => ({
               name: c.title,
+              weight: c.weight,
               levels: designer.levels.map((lvl, i) => ({
                 title: lvl.title,
                 score: lvl.maxPoints,
@@ -528,17 +537,10 @@ export class StudentSubmissionPages {
         }
       }
 
-      const base = this.currentFeedback || this.buildEmptyFeedback(submissionId);
-      const payload: SubmissionFeedback = {
-        ...(base as any),
-        submissionId,
-        rubricDesigner: designer,
-        overriddenByTeacher: true
-      };
-
-      const saved = await this.feedbackApi.upsertSubmissionFeedback(submissionId, payload);
-      this.currentFeedback = saved;
-      void this.hydrateRubricDesignerFromAssignmentThenFeedback();
+      if (!assignmentId.trim()) throw new Error('Assignment is required to save a rubric.');
+      this.applyRubricDesignerToState(designer);
+      await this.hydrateRubricDesignerFromAssignmentThenFeedback();
+      await this.refreshRetriedAnalysis(submissionId);
 
       this.recomputeRubricFeedbackItems();
       this.alert.showToast('Rubric saved', 'success');
@@ -625,6 +627,7 @@ export class StudentSubmissionPages {
       const criteria = Array.isArray(parsed?.criteria) ? parsed.criteria : [];
 
       const designer: RubricDesigner = {
+        totalPoints: parsed.totalPoints,
         title: typeof parsed?.title === 'string' && parsed.title.trim().length
           ? parsed.title
           : `Rubric: ${this.submissionTitle}`,
@@ -634,6 +637,7 @@ export class StudentSubmissionPages {
         })),
         criteria: criteria.map((c: any) => ({
           title: String(c?.title || ''),
+          weight: c.weight,
           cells: (Array.isArray(c?.descriptions) ? c.descriptions : []).map((x: any) => String(x ?? ''))
         }))
       };
@@ -1120,6 +1124,7 @@ export class StudentSubmissionPages {
 
 
     this.rubricDesignerTitle = typeof d.title === 'string' ? d.title : `Rubric: ${this.submissionTitle}`;
+    this.rubricTotalPoints = d.totalPoints;
 
 
 
@@ -1188,9 +1193,7 @@ export class StudentSubmissionPages {
 
 
         title: String(c?.title || ''),
-
-
-
+        weight: c.weight,
         cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
 
 
@@ -1210,73 +1213,7 @@ export class StudentSubmissionPages {
 
 
   async saveRubricAndRegenerate() {
-
-    const submissionId = this.currentSubmission?._id;
-
-    if (!submissionId) return;
-
-    if (this.isRubricSaving) return;
-
-
-
-    if (this.isRubricDesignerStateEmpty()) {
-
-      this.alert.showWarning('Nothing to save', 'Please add rubric content before saving.');
-
-      return;
-
-    }
-
-
-
-    this.isRubricSaving = true;
-
-    try {
-
-      const base = this.currentFeedback || this.buildEmptyFeedback(submissionId);
-
-      const payload: SubmissionFeedback = {
-
-        ...(base as any),
-
-        submissionId,
-
-        rubricDesigner: this.rubricDesignerFromState,
-
-        overriddenByTeacher: true
-
-      };
-
-
-
-      const saved = await this.feedbackApi.upsertSubmissionFeedback(submissionId, payload);
-
-      this.currentFeedback = saved;
-
-      this.hydrateRubricDesignerFromFeedback();
-
-
-
-      // Keep rubric and evaluation state untouched by a comment-only save.
-
-      
-
-
-
-      this.alert.showToast('Rubric saved', 'success');
-
-      this.showDialog = false;
-
-    } catch (err: any) {
-
-      this.alert.showError('Save rubric failed', err?.error?.message || err?.message || 'Please try again');
-
-    } finally {
-
-      this.isRubricSaving = false;
-
-    }
-
+    await this.onRubricDesignerSave(this.rubricDesignerFromState);
   }
 
 
@@ -3094,7 +3031,7 @@ export class StudentSubmissionPages {
 
 
   private getOcrCorrectionsPayload(submissionId: string): Promise<any> {
-    const sourceHash = String((this.currentSubmission as any)?.correctionSourceHash || 'unversioned');
+    const sourceHash = String(this.currentSubmission?.correctionSourceHash || 'unversioned');
     const key = `${submissionId}:${sourceHash}`;
     if (this.ocrCorrectionsPayloadCache.has(key)) {
       return Promise.resolve(this.ocrCorrectionsPayloadCache.get(key));
@@ -3102,11 +3039,21 @@ export class StudentSubmissionPages {
     const existing = this.ocrCorrectionsPayloadInFlight.get(key);
     if (existing) return existing;
     const request = firstValueFrom(this.http.get<any>(
-      `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
+      `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`, { observe: 'response' }
     )).then((response) => {
-      this.ocrCorrectionsPayloadCache.set(key, response);
-      return response;
-    }).finally(() => this.ocrCorrectionsPayloadInFlight.delete(key));
+      const data = response.body?.data;
+      const currentHash = String(this.currentSubmission?.correctionSourceHash || 'unversioned');
+      const terminal = ['completed', 'failed'].includes(data?.ocrStatus)
+        && !data?.processing && !data?.processingActive
+        && !['pending', 'processing', 'partial'].includes(data?.correctionStatus);
+      if (response.status !== 202 && terminal && currentHash === sourceHash
+        && this.ocrCorrectionsPayloadInFlight.get(key) === request) {
+        this.ocrCorrectionsPayloadCache.set(key, response.body);
+      }
+      return response.body;
+    }).finally(() => {
+      if (this.ocrCorrectionsPayloadInFlight.get(key) === request) this.ocrCorrectionsPayloadInFlight.delete(key);
+    });
     this.ocrCorrectionsPayloadInFlight.set(key, request);
     return request;
   }
@@ -3170,6 +3117,11 @@ export class StudentSubmissionPages {
 
 
     this.isRetryingAnalysis = true;
+    this.resultCoordinator.stop();
+    this.ocrCorrectionsPayloadCache.clear();
+    this.ocrCorrectionsPayloadInFlight.clear();
+    ++this.loadOcrCorrectionsSeq;
+    ++this.loadTranscriptPagesSeq;
     try {
       const previousScore = Number(this.currentFeedback?.overallScore);
       if (!this.currentFeedback?.previousEvaluation && Number.isFinite(previousScore)) {
@@ -3190,6 +3142,7 @@ export class StudentSubmissionPages {
         && this.canonicalResultState?.semanticStatus === 'completed';
       if (evaluationOnly) await this.submissionApi.retryCanonicalEvaluation(submission._id);
       else await this.submissionApi.regenerateCanonicalCorrections(submission._id);
+      if (this.currentSubmission?._id !== submission._id) return;
       this.canonicalResultState = normalizeCanonicalResult(evaluationOnly ? {
         correctionStatus: 'completed', correctionStage: 'complete', semanticStatus: 'completed',
         processingActive: true, automaticPollingAllowed: true, manualRetryAllowed: false, terminal: false,
@@ -3204,7 +3157,7 @@ export class StudentSubmissionPages {
       this.aiFeedbackState = 'processing';
       this.feedbackState = 'processing';
       this.recomputeRubricFeedbackItems();
-      this.resultCoordinator.start(submission._id, (id) => this.refreshRetriedAnalysis(id));
+      this.resultCoordinator.start(submission._id, (id, sequence) => this.refreshRetriedAnalysis(id, sequence));
 
 
 
@@ -3615,6 +3568,7 @@ export class StudentSubmissionPages {
 
 
   rubricDesignerTitle = '';
+  rubricTotalPoints: number | undefined;
 
 
 
@@ -3622,7 +3576,7 @@ export class StudentSubmissionPages {
 
 
 
-  rubricCriteriaRows: Array<{ title: string; cells: string[] }> = [];
+  rubricCriteriaRows: Array<{ title: string; weight?: number; cells: string[] }> = [];
 
 
 
@@ -3705,6 +3659,7 @@ export class StudentSubmissionPages {
 
 
       title: this.rubricDesignerTitle,
+      totalPoints: this.rubricTotalPoints,
 
 
 
@@ -3729,6 +3684,7 @@ export class StudentSubmissionPages {
 
 
         title: normalizeCriteriaTitle(r.title),
+        weight: r.weight,
 
 
 
@@ -4523,7 +4479,8 @@ export class StudentSubmissionPages {
 
         this.rubricLevels = d.levels.map((l) => ({ title: l.title, maxPoints: l.maxPoints }));
 
-        this.rubricCriteriaRows = d.criteria.map((c) => ({ title: c.title, cells: [...c.cells] }));
+        this.rubricTotalPoints = d.totalPoints;
+        this.rubricCriteriaRows = d.criteria.map((c) => ({ title: c.title, weight: c.weight, cells: [...c.cells] }));
 
         this.alert.showToast('Rubric loaded', 'success');
 
@@ -4839,7 +4796,8 @@ export class StudentSubmissionPages {
 
 
 
-        this.rubricCriteriaRows = seeded.criteria.map((c) => ({ title: c.title, cells: [...c.cells] }));
+        this.rubricTotalPoints = seeded.totalPoints;
+        this.rubricCriteriaRows = seeded.criteria.map((c) => ({ title: c.title, weight: c.weight, cells: [...c.cells] }));
 
 
 
@@ -5369,10 +5327,11 @@ export class StudentSubmissionPages {
     }
   }
 
-  private async refreshRetriedAnalysis(submissionId: string): Promise<ResultRefreshSnapshot> {
+  private async refreshRetriedAnalysis(submissionId: string, sequence?: number): Promise<ResultRefreshSnapshot> {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     const feedback = await this.measureSubmissionRequest('evaluation polling', submissionId,
       () => this.feedbackApi.getSubmissionFeedback(submissionId));
+    if (sequence !== undefined && !this.resultCoordinator.isCurrentRequest(submissionId, sequence)) throw { status: 409 };
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
     const state = this.canonicalResultState;
@@ -5382,8 +5341,7 @@ export class StudentSubmissionPages {
       this.currentSubmission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.currentSubmission.assessmentCompletedAt;
       if (state.evaluationStatus === 'completed') this.currentSubmission.ocrStatus = 'completed';
     }
-    this.scoreState = state.evaluationStatus === 'completed'
-      || (state.evaluationStatus === 'partial' && state.score !== null && Number.isFinite(Number(state.score))) ? 'loaded'
+    this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
     this.aiFeedbackState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) ? 'error' : 'processing';
@@ -5395,7 +5353,8 @@ export class StudentSubmissionPages {
       this.hydrateRubricEditFormFromFeedback();
       this.hydrateRubricDesignerFromFeedback();
       this.recomputeRubricFeedbackItems();
-      await this.refreshAssessmentResult(submissionId);
+      await this.refreshAssessmentResult(submissionId, sequence);
+      if (sequence !== undefined && !this.resultCoordinator.isCurrentRequest(submissionId, sequence)) throw { status: 409 };
       this.refreshCompletedEvaluationState(submissionId);
     }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
@@ -5410,9 +5369,10 @@ export class StudentSubmissionPages {
   }
 
   /** Reconciles every result artifact from persisted state after assessment completion. */
-  private async refreshAssessmentResult(submissionId: string): Promise<void> {
+  private async refreshAssessmentResult(submissionId: string, sequence?: number): Promise<void> {
     if (!this.assignmentId || this.currentSubmission?._id !== submissionId) return;
     const list = await this.submissionApi.getSubmissionsByAssignment(this.assignmentId, Date.now());
+    if (sequence !== undefined && !this.resultCoordinator.isCurrentRequest(submissionId, sequence)) throw { status: 409 };
     if (this.currentSubmission?._id !== submissionId) return;
     const fresh = (list || []).find((item) => item._id === submissionId);
     if (!fresh) throw { status: 404 };
@@ -5427,6 +5387,7 @@ export class StudentSubmissionPages {
       this.loadCompleteTranscript(submissionId),
       this.refreshWritingCorrections()
     ]);
+    if (sequence !== undefined && !this.resultCoordinator.isCurrentRequest(submissionId, sequence)) throw { status: 409 };
     if (this.currentSubmission?._id !== submissionId) return;
     const annotationFailure = results.some((result) => result.status === 'rejected');
     this.transcriptState = annotationFailure && !this.transcriptPageViews.length ? 'error' : 'loaded';
@@ -5434,10 +5395,17 @@ export class StudentSubmissionPages {
       this.correctionsState = 'error';
       this.correctionsError = 'Some annotation details could not be loaded. Retry.';
     }
-    // Increment draft comparison refresh key when assessment completes
-    if (fresh.evaluationStatus === 'completed') {
-      this.draftComparisonRefreshKey += 1;
-    }
+    this.signalDraftComparisonCompletion(fresh);
+  }
+
+  private signalDraftComparisonCompletion(submission: BackendSubmission): void {
+    const assessmentFinalized = ['complete', 'completed'].includes(String(submission.assessmentStatus || ''))
+      || Boolean(submission.assessmentCompletedAt);
+    if (submission.evaluationStatus !== 'completed' || !assessmentFinalized) return;
+    const identity = `${submission._id}:${submission.assessmentCompletedAt || submission.evaluationSourceHash || 'assessment-complete'}`;
+    if (identity === this.draftComparisonCompletionIdentity) return;
+    this.draftComparisonCompletionIdentity = identity;
+    this.draftComparisonRefreshKey += 1;
   }
 
 
@@ -6277,7 +6245,8 @@ export class StudentSubmissionPages {
         : ['failed', 'blocked'].includes(canonical?.evaluationStatus || '') ? 'error' : 'processing';
     this.scoreState = !feedbackLoaded
       || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
-        && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
+        && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error'
+        : canonical?.evaluationStatus === 'completed' ? 'loaded' : 'processing';
 
     if (updateUrl && this.studentId) {
 
@@ -6568,7 +6537,7 @@ export class StudentSubmissionPages {
         this.currentFeedback = fb as SubmissionFeedback;
         this.applyFeedbackSectionStates(true);
         if (evaluationActive) {
-          this.resultCoordinator.start(submissionId, (id) => this.refreshRetriedAnalysis(id));
+          this.resultCoordinator.start(submissionId, (id, sequence) => this.refreshRetriedAnalysis(id, sequence));
         }
         return true;
       }
@@ -6690,7 +6659,8 @@ export class StudentSubmissionPages {
         : ['failed', 'blocked'].includes(canonical?.evaluationStatus || '') ? 'error' : 'processing';
     this.scoreState = !feedbackLoaded
       || (['failed', 'blocked'].includes(canonical?.evaluationStatus || '')
-        && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error' : 'loaded';
+        && !(this.currentFeedback as SubmissionFeedback | null)?.previousEvaluation) ? 'error'
+        : canonical?.evaluationStatus === 'completed' ? 'loaded' : 'processing';
     if (feedbackLoaded) this.feedbackForm.enable({ emitEvent: false });
   }
 

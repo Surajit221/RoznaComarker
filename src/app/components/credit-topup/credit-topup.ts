@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, DestroyRef, ElementRef, HostListener, ViewChild, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { CreditsApiService, type CreditPack, type CreditPaymentProvider } from '../../api/credits-api.service';
+import { CreditsApiService, type CreditPack } from '../../api/credits-api.service';
 import { AccountStateService } from '../../services/account-state.service';
-import { trustedPayPalApprovalUrl, trustedStripeCheckoutUrl } from '../../utils/trusted-navigation.util';
+import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
 import { AlertService } from '../../services/alert.service';
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
@@ -19,7 +20,6 @@ export class CreditTopupComponent {
   loading = false;
   checkoutCode: string | null = null;
   message: string | null = null;
-  paymentProvider: CreditPaymentProvider = 'stripe';
   attemptId: string | null = null;
   attemptPackCode: string | null = null;
   selectedPack: CreditPack | null = null;
@@ -29,15 +29,13 @@ export class CreditTopupComponent {
   private readonly alerts=inject(AlertService);private readonly ui=inject(CreditTopupUiService);private readonly destroyRef=inject(DestroyRef);private returnFocus:HTMLElement|null=null;
 
   constructor(private credits: CreditsApiService, private accountState: AccountStateService, private route: ActivatedRoute,
-    private catalog:PricingCatalogStateService, private paypalSdk:PayPalSdkLoaderService, private cdr:ChangeDetectorRef) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;this.paymentProvider=this.catalog.paymentProvider();if(this.selectedPack&&!next.some(pack=>pack.code===this.selectedPack?.code))this.selectedPack=null;if(this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.destroyFundingButtons();this.message='The selected credit pack is no longer available.'}})}
+    private catalog:PricingCatalogStateService, private paypalSdk:PayPalSdkLoaderService, private cdr:ChangeDetectorRef) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;if(this.selectedPack&&!next.some(pack=>pack.code===this.selectedPack?.code))this.selectedPack=null;if(this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.destroyFundingButtons();this.message='The selected credit pack is no longer available.'}})}
 
   ngOnInit(): void {
     const query = this.route.snapshot.queryParamMap;
     const state = query.get('topup'); const attempt = query.get('attempt');
     if (state === 'paypal-confirming' && attempt) void this.confirmPayPal(attempt);
     else if (state === 'paypal-cancelled' && attempt) void this.cancelPayPal(attempt);
-    else if (state === 'confirming') void this.confirmStripe();
-    else if (state === 'cancelled') { this.openState = true; this.message = 'Payment was cancelled. No credits were added.'; }
   }
 
   async open(): Promise<void> {
@@ -45,29 +43,23 @@ export class CreditTopupComponent {
     this.returnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;document.body.style.overflow='hidden';
     this.openState = true; this.message = null;
     this.loading = true;
-    try { await this.catalog.refresh(); await this.loadCapabilities(); this.focus(); }
-    catch { this.message = "We couldn't load credit packs. Please try again."; }
+    try { await this.catalog.refreshCreditPacks();if(this.catalog.packs().length)await this.loadCapabilities();this.focus(); }
+    catch(error:unknown){this.message=error instanceof HttpErrorResponse&&error.status===503?'Credit purchases are temporarily unavailable.':error instanceof HttpErrorResponse&&error.status===401?'Please sign in again to load credit packs.':"We couldn't load credit packs. Please try again.";}
     finally { this.loading = false; }
   }
 
   close(): void { if (!this.checkoutCode) { this.destroyFundingButtons();this.openState=false;this.attemptId=null;this.attemptPackCode=null;this.selectedPack=null;document.body.style.overflow='';const target=this.returnFocus;this.returnFocus=null;setTimeout(()=>target?.focus()); } }
 
-  async selectPack(pack:CreditPack):Promise<void>{if(this.checkoutCode)return;this.destroyFundingButtons();this.selectedPack=pack;this.message=null;this.cdr.detectChanges();await this.mountFundingButtons();}
+  async selectPack(pack:CreditPack):Promise<void>{if(this.checkoutCode||this.loading)return;this.destroyFundingButtons();this.selectedPack=pack;this.message=null;this.cdr.detectChanges();await this.mountFundingButtons();}
 
   async purchase(pack: CreditPack): Promise<void> {
     if (this.checkoutCode) return;
     this.checkoutCode = pack.code; this.message = null;
     try {
-      if (this.paymentProvider === 'paypal') {
-        if (!this.attemptId || this.attemptPackCode !== pack.code) { this.attemptId = crypto.randomUUID(); this.attemptPackCode = pack.code; }
-        const order = await this.credits.createPayPalOrder(pack.code, this.attemptId);
-        const url = trustedPayPalApprovalUrl(order.approvalUrl);
-        if (!url) throw new Error('Untrusted PayPal approval URL');
-        this.navigateExternal(url); return;
-      }
-      const checkout = await this.credits.createTopupCheckout(pack.code);
-      const url = trustedStripeCheckoutUrl(checkout.url);
-      if (!url) throw new Error('Untrusted Stripe checkout URL');
+      if (!this.attemptId || this.attemptPackCode !== pack.code) { this.attemptId = crypto.randomUUID(); this.attemptPackCode = pack.code; }
+      const order = await this.credits.createPayPalOrder(pack.code, this.attemptId);
+      const url = trustedPayPalApprovalUrl(order.approvalUrl);
+      if (!url) throw new Error('Untrusted PayPal approval URL');
       this.navigateExternal(url);
     } catch (error: any) {
       this.message = error?.error?.message === "This credit pack isn't available for your current plan." ? error.error.message : "We couldn't start the payment. Please try again.";
@@ -76,12 +68,11 @@ export class CreditTopupComponent {
   }
 
   private async loadCapabilities():Promise<void>{
-    if(this.paymentProvider!=='paypal')return;
     try{const capability=await this.credits.getPayPalCapabilities();if(capability.paypalCheckout)this.paypalClientId=capability.clientId;
     }catch{/* PayPal redirect checkout remains available */}
   }
   private ensureAttempt(pack:CreditPack):string{if(!this.attemptId||this.attemptPackCode!==pack.code){this.attemptId=crypto.randomUUID();this.attemptPackCode=pack.code;}return this.attemptId;}
-  private async mountFundingButtons():Promise<void>{const pack=this.selectedPack;if(!pack||!this.paypalClientId||this.paymentProvider!=='paypal')return;
+  private async mountFundingButtons():Promise<void>{const pack=this.selectedPack;if(!pack||!this.paypalClientId)return;
     this.fundingLoading=true;this.sdkConfig={clientId:this.paypalClientId,currency:pack.currency,mode:'capture'};
     try{const sdk=await this.paypalSdk.loadButtons(this.sdkConfig);const options=(fundingSource:unknown)=>({fundingSource,
       createOrder:async()=>{const order=await this.credits.createPayPalOrder(pack.code,this.ensureAttempt(pack));if(!order.orderId)throw new Error('ORDER_CREATE_FAILED');return order.orderId;},
@@ -97,17 +88,6 @@ export class CreditTopupComponent {
   private destroyFundingButtons():void{this.paypalButton?.close?.();this.cardButton?.close?.();this.paypalButton=undefined;this.cardButton=undefined;this.paypalButtonEligible=false;this.cardButtonEligible=false;if(this.sdkConfig)this.paypalSdk.release(this.sdkConfig);this.sdkConfig=undefined;}
 
   private async refreshWallet(): Promise<void> { await this.accountState.refreshCredits(); }
-  private async confirmStripe(): Promise<void> {
-    this.openState = true; this.message = 'Payment received. Credits are being added.';
-    const before = this.accountState.wallet()?.availableCredits;
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 500 : 1500));
-      await this.refreshWallet();
-      if (typeof before !== 'number' || Number(this.accountState.wallet()?.availableCredits) > before) {
-        this.message = `Credits added. ${this.accountState.wallet()?.availableCredits} Assessment Credits are now available.`; return;
-      }
-    }
-  }
   private async confirmPayPal(attemptId: string): Promise<void> {
     this.openState = true; this.checkoutCode = 'paypal-confirming'; this.message = 'Payment approved. Confirming your credit purchase...';
     try {

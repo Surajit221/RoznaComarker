@@ -115,7 +115,8 @@ describe('ChangePlanCheckoutComponent', () => {
 
     accountState = {
       subscription: signal(subscription),
-      refreshSubscription: jasmine.createSpy().and.resolveTo()
+      refreshSubscription: jasmine.createSpy().and.resolveTo(),
+      refreshSubscriptionIfStale: jasmine.createSpy().and.resolveTo(subscription)
     };
 
     router = {
@@ -171,7 +172,7 @@ describe('ChangePlanCheckoutComponent', () => {
     await component.ngOnInit();
     await fixture.whenStable();
 
-    expect(subscriptionApi.getMySubscription).toHaveBeenCalled();
+    expect(accountState.refreshSubscriptionIfStale).toHaveBeenCalled();
     expect(subscriptionApi.getCheckoutPlan).toHaveBeenCalledWith('essential_annual');
     expect(component.data?.currentPlan.slug).toBe('essential_monthly');
     expect(component.data?.targetPlan.slug).toBe('essential_annual');
@@ -859,7 +860,7 @@ describe('ChangePlanCheckoutComponent', () => {
       ...essential,
       billingInterval: 'year'
     };
-    subscriptionApi.getMySubscription.and.resolveTo({
+    accountState.refreshSubscriptionIfStale.and.resolveTo({
       plan: yearlyCurrent,
       billing: subscription.billing
     });

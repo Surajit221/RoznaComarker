@@ -2,19 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { readUsableBackendJwt } from './backend-token.util';
+import { classifyBackendRequest } from './backend-request.util';
 
 @Injectable()
 export class JwtInterceptor implements HttpInterceptor {
-  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+  intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
+    if (classifyBackendRequest(req.url).access !== 'authenticated') return next.handle(req);
     const token = readUsableBackendJwt();
-    
-    // Presentation uploads are public. Private files use authenticated /files
-    // endpoints and continue receiving the bearer header.
-    const url = req.url.toLowerCase();
-    if (url.includes('/uploads/') || url.startsWith('/uploads/')) {
-      return next.handle(req);
-    }
-    
+
     if (token && !req.headers.has('Authorization')) {
       req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
     }

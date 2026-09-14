@@ -61,10 +61,15 @@ export class CanonicalSubmissionResultCoordinator {
 
   stop(): void {
     ++this.generation;
+    ++this.requestSequence;
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     const state = this.pollingState$.value;
     this.pollingState$.next({ ...state, running: false });
+  }
+
+  isCurrentRequest(submissionId: string, sequence: number): boolean {
+    return this.submissionId === submissionId && this.requestSequence === sequence;
   }
 
   private schedule(delay: number, generation: number): void {

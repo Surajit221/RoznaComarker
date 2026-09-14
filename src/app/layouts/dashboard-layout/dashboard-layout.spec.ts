@@ -14,6 +14,8 @@ import { RoleService } from '../../services/role.service';
 import { DashboardLayout } from './dashboard-layout';
 import { routedComponentProviders } from '../../../testing/standalone-test-providers';
 import { AccountStateService } from '../../services/account-state.service';
+import { InstitutionApiService } from '../../api/institution-api.service';
+import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 
 describe('DashboardLayout subscription ownership', () => {
   let fixture: ComponentFixture<DashboardLayout>;
@@ -72,14 +74,21 @@ describe('DashboardLayout subscription ownership', () => {
         monthlyCreditsRemaining: 25, purchasedCredits: 0, bonusCredits: 0, availableCredits: 25,
         resetDate: '2026-09-01', billingCycleStart: '2026-08-01', billingCycleEnd: '2026-09-01',
         usagePercent: 0, nudgeThresholds: { soft: 50, warning: 80 }, warningAcknowledged: false }),
-      getPacks: jasmine.createSpy('getPacks').and.resolveTo({ packs: [], paymentProvider: 'stripe' }),
-      createTopupCheckout: jasmine.createSpy('createTopupCheckout'),
+      getPacks: jasmine.createSpy('getPacks').and.resolveTo({ packs: [], paymentProvider: 'paypal' }),
       createPayPalOrder: jasmine.createSpy('createPayPalOrder'),
       capturePayPalOrder: jasmine.createSpy('capturePayPalOrder'),
       getPayPalPurchase: jasmine.createSpy('getPayPalPurchase'),
       cancelPayPalPurchase: jasmine.createSpy('cancelPayPalPurchase'),
       acknowledgeNudge: jasmine.createSpy('acknowledgeNudge').and.rejectWith(new Error('not active')),
       ...creditApiOverrides
+    };
+    const catalogPacks = signal<any[]>([]);
+    const pricingCatalog = {
+      packs: catalogPacks,
+      refreshCreditPacks: jasmine.createSpy('refreshCreditPacks').and.callFake(async () => {
+        const response = await creditsApi.getPacks();
+        catalogPacks.set(response.packs);
+      })
     };
 
     localStorage.setItem('backend_jwt', jwtFor(role));
@@ -102,6 +111,8 @@ describe('DashboardLayout subscription ownership', () => {
         },
         { provide: SubscriptionApiService, useValue: { getMySubscription, createCustomerPortal } },
         { provide: CreditsApiService, useValue: creditsApi },
+        { provide: InstitutionApiService, useValue: { getMine: () => Promise.resolve(null) } },
+        { provide: PricingCatalogStateService, useValue: pricingCatalog },
         {
           provide: NotificationApiService,
           useValue: {
@@ -277,7 +288,7 @@ describe('DashboardLayout subscription ownership', () => {
     const labels = links.map((link) => link.textContent?.trim());
     const reportsLink = links.find((link) => link.textContent?.trim() === 'Reports');
 
-    expect(labels).toEqual(['Dashboard', 'My Classes', 'Reports', 'Profile']);
+    expect(labels).toEqual(['Dashboard', 'My Classes', 'Rubric Library', 'Reports', 'Profile']);
     expect(labels).not.toContain('Notification');
     expect(reportsLink?.getAttribute('href')).toBe('/teacher/reports');
 
@@ -347,7 +358,7 @@ describe('DashboardLayout subscription ownership', () => {
     await fixture.componentInstance.onAddCredits(); fixture.detectChanges();
     const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
     expect(getPacks).toHaveBeenCalledTimes(1); expect(dialog.textContent).toContain('10 Credits');
-    expect(dialog.textContent).toContain('$4.99'); expect(dialog.textContent).toContain('Buy with PayPal');
+    expect(dialog.textContent).toContain('$4.99'); expect(dialog.textContent).toContain('Choose pack');
   });
 
   it('DashboardLayout startup does not trigger duplicate account requests', async () => {
@@ -366,7 +377,8 @@ describe('DashboardLayout subscription ownership', () => {
   it('focus event after TTL refetches', async () => {
     const { getMySubscription, creditsApi } = await render('teacher');
     const state = TestBed.inject(AccountStateService);
-    await state.refreshIfStale(0);
+    (state as any).subscriptionRefreshedAt = 0;
+    (state as any).creditsRefreshedAt = 0;
     await fixture.componentInstance.refreshAccountOnFocus();
     expect(getMySubscription).toHaveBeenCalledTimes(2);
     expect(creditsApi.getWallet).toHaveBeenCalledTimes(2);
