@@ -187,13 +187,17 @@ export class SubmissionApiService {
     }
   }
 
-  async getSubmissionsByAssignment(assignmentId: string, cacheBustToken?: string | number | null): Promise<BackendSubmission[]> {
+  async getSubmissionsByAssignment(assignmentId: string, cacheBustToken?: string | number | null,
+    activityOnly = false): Promise<BackendSubmission[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendSubmission[]>>(
           `${apiBaseUrl}/submissions/assignment/${encodeURIComponent(assignmentId)}`,
-          { params: cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) } }
+          { params: {
+            ...(cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) }),
+            ...(activityOnly ? { view: 'activity' } : {})
+          } }
         )
       );
       return resp?.data || [];
