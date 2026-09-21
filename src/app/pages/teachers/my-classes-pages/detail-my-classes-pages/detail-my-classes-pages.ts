@@ -315,46 +315,9 @@ export class DetailMyClassesPages {
       return;
     }
 
-    // Worksheet submission counts come from getClassAssignments (backend pre-computes them).
-    // There is no separate by-assignment endpoint, so reload the full list to get fresh counts.
-    const assignment = this.assignmentsById[assignmentId];
-    if (assignment?.resourceType === 'worksheet') {
-      await this.loadAssignments();
-      return;
-    }
-
-    try {
-      const submissions = await this.getAssignmentSubmissionRecords(assignmentId, assignment);
-      const totalStudents = this.studentsCount;
-
-      const nextAssignments = [...this.assignments];
-      nextAssignments[idx] = {
-        ...nextAssignments[idx],
-        submitted: (submissions || []).length,
-        total: totalStudents
-      };
-      this.assignments = nextAssignments;
-
-      // Keep student progress stats reasonably fresh for the UI.
-      const statsByStudent = { ...(this.studentSubmissionStatsById || {}) } as Record<string, { assignmentIds: Set<string>; lastActivityMs: number }>;
-      for (const sub of submissions || []) {
-        const studentId = this.getStudentIdFromAnySubmission(sub);
-        if (!studentId) continue;
-        if (!statsByStudent[studentId]) {
-          statsByStudent[studentId] = { assignmentIds: new Set<string>(), lastActivityMs: 0 };
-        }
-        statsByStudent[studentId].assignmentIds.add(assignmentId);
-        const t = this.getSubmissionTimestampMs(sub);
-        if (t > statsByStudent[studentId].lastActivityMs) {
-          statsByStudent[studentId].lastActivityMs = t;
-        }
-      }
-      this.studentSubmissionStatsById = statsByStudent;
-      this.applyStudentStats();
-    } catch {
-      // If anything goes wrong, fall back to full reload.
-      await this.loadAssignments();
-    }
+    // The backend owns the current-roster numerator and denominator for every
+    // resource type. Historical submission endpoints must not overwrite it.
+    await this.loadAssignments();
   }
 
   private async loadClassSummary(forceRefresh = false) {
@@ -475,7 +438,7 @@ export class DetailMyClassesPages {
       dueDate,
       // Use backend-computed count (correct for essay, flashcard, and worksheet)
       submitted: typeof a.submitted === 'number' ? a.submitted : 0,
-      total: 0,
+      total: typeof a.total === 'number' ? a.total : this.studentsCount,
       status,
       resourceType: a.resourceType,
       resourceId: a.resourceId,
@@ -523,7 +486,7 @@ export class DetailMyClassesPages {
       this.assignments = (assignments || []).map((a) => this.mapAssignment(a));
 
       // fill in submission stats
-      const totalStudents = this.studentsCount;
+      const activeStudentIds = new Set((this.students || []).map(student => student.id));
       const statsByStudent: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
 
       await Promise.all(
@@ -535,17 +498,13 @@ export class DetailMyClassesPages {
             // getClassAssignments response (mapAssignment sets them). Skip re-fetching
             // via the essay submissions API which would always return 0 for worksheets.
             if (assignment?.resourceType === 'worksheet') {
-              item.total = totalStudents;
               return;
             }
 
             const submissions = await this.getAssignmentSubmissionRecords(item.id, assignment);
-            item.submitted = (submissions || []).length;
-            item.total = totalStudents;
-
             for (const sub of submissions || []) {
               const studentId = this.getStudentIdFromAnySubmission(sub);
-              if (!studentId) continue;
+              if (!studentId || !activeStudentIds.has(studentId)) continue;
               if (!statsByStudent[studentId]) {
                 statsByStudent[studentId] = { assignmentIds: new Set<string>(), lastActivityMs: 0 };
               }
@@ -556,7 +515,7 @@ export class DetailMyClassesPages {
               }
             }
           } catch {
-            item.total = totalStudents;
+            // Preserve authoritative backend progress when history loading fails.
           }
         })
       );

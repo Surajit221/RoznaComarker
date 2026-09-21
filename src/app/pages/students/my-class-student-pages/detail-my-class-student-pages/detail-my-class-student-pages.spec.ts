@@ -4,6 +4,7 @@ import { DetailMyClassStudentPages } from './detail-my-class-student-pages';
 import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
 import { AuthService } from '../../../../auth/auth.service';
 import { of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 
 describe('DetailMyClassStudentPages', () => {
   let component: DetailMyClassStudentPages;
@@ -105,5 +106,18 @@ describe('DetailMyClassStudentPages', () => {
 
     session.and.returnValue(of({ state: 'no-weaknesses', session: null }));
     expect((await (component as any).mapAssignment(assignment)).adaptiveResubmissionSatisfied).toBeTrue();
+  });
+
+  it('shows a safe connectivity message for status-zero assignment failures', async () => {
+    component.classId = 'class-1';
+    component.isLoading = false;
+    spyOn((component as any).assignmentApi, 'getMyAssignments').and.rejectWith(
+      new HttpErrorResponse({ status: 0, statusText: 'Unknown Error', url: 'https://backend.example/api/assignments/my' })
+    );
+
+    await component.loadAssignments();
+
+    expect(component.errorModal.message).toBe('Unable to reach the server. Check your connection and try again.');
+    expect(component.errorModal.message).not.toContain('https://');
   });
 });
