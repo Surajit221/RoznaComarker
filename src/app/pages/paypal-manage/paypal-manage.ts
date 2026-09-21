@@ -104,7 +104,7 @@ export class PayPalManageComponent {
   savingsPercentForTier(tier: PricingTier): number | null { return pricingSavingsPercent(tier); }
   featuresFor(plan: BackendPlan) { return primaryPricingFeatures(plan); }
   setBillingPeriod(period: BillingPeriod): void { this.billingPeriod = period; }
-  isCurrentPlan(plan: BackendPlan): boolean { return plan.slug === this.billing?.planCode || plan.slug === this.currentPlan?.slug; }
+  isCurrentPlan(plan: BackendPlan): boolean { return (plan.slug === this.billing?.planCode || plan.slug === this.currentPlan?.slug) && this.billingPeriod === (this.billing?.billingPeriod || 'monthly'); }
   isPlanActionDisabled(plan: BackendPlan): boolean {
     return this.isCurrentPlan(plan) || ['custom', 'institution'].includes(plan.slug) ||
       !!this.billing?.pendingPlanChange || !!this.billing?.pendingCancellation || !!this.submitting;
@@ -163,7 +163,7 @@ export class PayPalManageComponent {
     if (!this.target || !this.changeAttemptId || this.submitting) return;
     this.dialog = null;
     this.router.navigate(['/checkout/change-plan'], {
-      queryParams: { target: this.target.slug, attempt: this.changeAttemptId }
+      queryParams: { target: this.target.slug, attempt: this.changeAttemptId, billing: this.billingPeriod }
     });
   }
   private schedulePoll(): void {
@@ -171,6 +171,7 @@ export class PayPalManageComponent {
     this.pollTimer = setTimeout(async () => {
       this.pollTimer = null; this.pollCount += 1;
       try {
+        await this.subscriptionApi.reconcilePayPalManagement();
         const next = await this.accountState.refreshSubscription();
         if (!next) { this.schedulePoll(); return; }
         if (!next.billing?.pendingPlanChange && !next.billing?.pendingCancellation) {
@@ -267,7 +268,7 @@ export class PayPalManageComponent {
     }
     this.submitting = 'change'; this.error = null;
     try {
-      const result = await this.subscriptionApi.changePayPalPlan(targetCode, attemptId);
+      const result = await this.subscriptionApi.changePayPalPlan(targetCode, attemptId, this.billing?.pendingBillingPeriod || 'monthly');
       if (result.requiresApproval) {
         const url = trustedPayPalApprovalUrl(result.approvalUrl);
         if (!url) throw new Error('Untrusted approval URL');

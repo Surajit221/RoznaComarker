@@ -91,9 +91,9 @@ export class CreditsApiService {
     return firstValueFrom(this.http.get<AdminCreditWalletResponse & { success: boolean }>(
       `${environment.apiUrl}/credits/admin/${encodeURIComponent(userId)}`, { params: { page, limit: 20 } }));
   }
-  async adjust(userId: string, amount: number, reason: string): Promise<{ wallet: AssessmentCreditWallet }> {
+  async adjust(userId: string, amount: number, reason: string, idempotencyKey: string): Promise<{ wallet: AssessmentCreditWallet }> {
     return firstValueFrom(this.http.post<{ success: boolean; wallet: AssessmentCreditWallet }>(
-      `${environment.apiUrl}/credits/admin/${encodeURIComponent(userId)}/adjust`, { amount, reason }));
+      `${environment.apiUrl}/credits/admin/${encodeURIComponent(userId)}/adjust`, { amount, reason, idempotencyKey }));
   }
   async getPricingConfig(): Promise<AdminPricingConfig> {
     return firstValueFrom(this.http.get<AdminPricingConfig & { success: boolean }>(`${environment.apiUrl}/credits/admin/pricing`));

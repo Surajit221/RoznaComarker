@@ -22,12 +22,20 @@ describe('SubscriptionApiService', () => {
     const request = http.expectOne(`${environment.apiUrl}/subscription/paypal/create`);
 
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ planCode: 'essential_monthly', checkoutAttemptId: 'attempt-1' });
+    expect(request.request.body).toEqual({ planCode: 'essential_monthly', checkoutAttemptId: 'attempt-1', billingPeriod: 'monthly' });
     expect(http.match(`${environment.apiUrl}/subscription/paypal/create`).length).toBe(0);
 
     request.flush({ success: true, data: {
       subscriptionId: 'I-PAYPAL', approvalUrl: 'https://www.sandbox.paypal.com/approve', status: 'APPROVAL_PENDING'
     } });
     expect((await pending).subscriptionId).toBe('I-PAYPAL');
+  });
+
+  it('sends annual selection without a browser price or provider plan ID', async () => {
+    const pending = service.createPayPalSubscription('essential', 'attempt-annual', 'annual');
+    const request = http.expectOne(environment.apiUrl + '/subscription/paypal/create');
+    expect(request.request.body).toEqual({ planCode: 'essential', checkoutAttemptId: 'attempt-annual', billingPeriod: 'annual' });
+    request.flush({ success: true, data: { subscriptionId: 'I-ANNUAL' } });
+    expect((await pending).subscriptionId).toBe('I-ANNUAL');
   });
 });

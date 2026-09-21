@@ -4,15 +4,17 @@
     <div class="topup-heading"><div><h2 id="topup-title">Add Assessment Credits</h2><p>Purchased credits are used after your monthly Assessment Credits and before bonus credits.</p></div><button type="button" aria-label="Close Add Assessment Credits" [disabled]="!!checkoutCode" (click)="close()"><i class="bx bx-x"></i></button></div>
     @if (loading) { <div class="topup-status" aria-live="polite">Loading credit packs...</div> }
     @if (message) { <div class="topup-status" data-payment-error tabindex="-1" role="alert">{{ message }}</div> }
+    @if(confirmationPending){<button type="button" class="btn-primary" [disabled]="!!checkoutCode" (click)="retryConfirmation()">Check payment</button>}
     <div class="topup-grid">@for (pack of packs; track pack.code) {
       <article class="topup-pack"><h3>{{ pack.name }}</h3><strong>{{ pack.credits }} Credits</strong><p>{{ pack.price | currency:pack.currency }}</p><small>For eligible {{ pack.allowedPlans.join(', ') }} plans</small>
-        <button type="button" class="btn-primary" [disabled]="!!checkoutCode" (click)="selectPack(pack)">{{ selectedPack?.code === pack.code ? 'Selected' : 'Choose pack' }}</button></article>
+        <button type="button" class="btn-primary" [disabled]="!!checkoutCode || confirmationPending" (click)="selectPack(pack)">{{ selectedPack?.code === pack.code ? 'Selected' : 'Choose pack' }}</button></article>
     } @empty { @if(!loading && !message){<p class="topup-empty">No Assessment Credit packs are currently available.</p>} }</div>
     @if(selectedPack){
       <section class="payment-panel" aria-labelledby="payment-method-title"><h3 id="payment-method-title">Payment method</h3>
         @if(fundingLoading){<div class="topup-status" aria-live="polite">Loading secure payment options…</div>}
         @if(paypalButtonEligible){<div id="paypal-topup-button" class="paypal-funding-button"></div>}
         @if(cardButtonEligible){<div id="paypal-topup-card-button" class="paypal-funding-button"></div>}
+        @if(!fundingLoading && !paypalButtonEligible && !cardButtonEligible && !confirmationPending){<button type="button" class="btn-primary" [disabled]="!!checkoutCode" (click)="purchase(selectedPack)">Continue with PayPal</button>}
         <p class="powered">Powered by PayPal</p>
       </section>
     }

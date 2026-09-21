@@ -318,4 +318,39 @@ describe('PayPalSdkLoaderService', () => {
     expect(appendChildSpy.calls.count()).toBe(appendCallCount);
     expect((globalThis as any).paypalCapture).toBeDefined();
   });
+
+  it('rejects incompatible configuration while another consumer owns the SDK', async () => {
+    const config: PayPalSdkConfig = {clientId:'one',currency:'USD',mode:'capture'};
+    const pending = service.loadButtons(config);
+    const globals = globalThis as unknown as Record<string, unknown>;
+    globals['paypalCapture'] = {Buttons: () => ({}), FUNDING:{}};
+    mockScript.onload?.(new Event('load'));
+    await pending;
+    await expectAsync(service.loadButtons({...config,currency:'EUR'})).toBeRejectedWithError('PAYPAL_SDK_CONFIGURATION_IN_USE');
+    service.release(config);
+    const second = service.loadButtons({...config,clientId:'two',currency:'EUR'});
+    expect(mockScript.src).toContain('currency=EUR');
+    expect(mockScript.src).toContain('client-id=two');
+    globals['paypalCapture'] = {Buttons: () => ({}), FUNDING:{}};
+    mockScript.onload?.(new Event('load'));
+    await second;
+  });
+  it('retries a rejected SDK load', async () => {
+    const config: PayPalSdkConfig = {clientId:'one',currency:'USD',mode:'capture'};
+    const first = service.loadButtons(config);
+    mockScript.onerror?.(new Event('error'));
+    await expectAsync(first).toBeRejected();
+    const second = service.loadButtons(config);
+    (globalThis as unknown as Record<string, unknown>)['paypalCapture'] = {Buttons: () => ({}), FUNDING:{}};
+    mockScript.onload?.(new Event('load'));
+    await expectAsync(second).toBeResolved();
+  });
+
+  it('does not replace an in-flight script after its consumer releases it', async () => {
+    const config: PayPalSdkConfig = {clientId:'one',currency:'USD',mode:'capture'};
+    const first=service.loadButtons(config);service.release(config);
+    await expectAsync(service.loadButtons({...config,currency:'EUR'})).toBeRejectedWithError('PAYPAL_SDK_CONFIGURATION_IN_USE');
+    (globalThis as unknown as Record<string,unknown>)['paypalCapture']={Buttons:()=>({}),FUNDING:{}};
+    mockScript.onload?.(new Event('load'));await first;
+  });
 });

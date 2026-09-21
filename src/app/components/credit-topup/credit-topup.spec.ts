@@ -64,4 +64,28 @@ describe('CreditTopupComponent', () => {
   it('funding callbacks create and capture the same durable attempt once',async()=>{await component.open();await component.selectPack(pack);const orderId=await buttonOptions[1].createOrder();expect(orderId).toBe('ORDER');const attempt=component.attemptId;await Promise.all([buttonOptions[1].onApprove(),buttonOptions[1].onApprove()]);expect(credits.createPayPalOrder).toHaveBeenCalledOnceWith('CREDITS_10',attempt);expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(1);expect(state.refreshCredits).toHaveBeenCalledTimes(1);});
   it('cancellation clears attempt state for fresh checkout',async()=>{await component.open();await component.selectPack(pack);const attempt=component.attemptId;await (component as any).cancelFundingPurchase();expect(component.attemptId).toBeNull();expect(component.attemptPackCode).toBeNull();expect(component.checkoutCode).toBeNull();});
   it('switching packs destroys old buttons and creates new ones',async()=>{await component.open();await component.selectPack(pack);const firstOptions=buttonOptions.length;expect(firstOptions).toBeGreaterThan(0);await component.selectPack(pack50);fixture.detectChanges();await fixture.whenStable();const secondOptions=buttonOptions.length;expect(secondOptions).toBeGreaterThan(0);});
+
+  it('renders secure redirect fallback after capability failure', async () => {
+    credits.getPayPalCapabilities.and.rejectWith(new Error('network'));
+    await component.open(); await component.selectPack(pack); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Continue with PayPal');
+  });
+  it('capture response loss reconciles the existing attempt without another order', async () => {
+    credits.capturePayPalOrder.and.rejectWith(new Error('response lost'));
+    credits.getPayPalPurchase.and.resolveTo({credited:true,status:'credited',credits:10});
+    await component.open(); await component.selectPack(pack);
+    await buttonOptions[0].createOrder(); const attempt=component.attemptId;
+    await buttonOptions[0].onApprove();
+    expect(credits.getPayPalPurchase).toHaveBeenCalledWith(attempt);
+    expect(credits.createPayPalOrder).toHaveBeenCalledTimes(1);
+    expect(state.refreshCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains an uncertain payment when the catalog removes its pack', async () => {
+    await component.open();component.attemptPackCode='CREDITS_10';component.attemptId='existing-attempt';component.confirmationPending=true;
+    catalog.packs.set([pack50]);fixture.detectChanges();
+    await component.purchase(pack50);
+    expect(component.attemptId).toBe('existing-attempt');
+    expect(credits.createPayPalOrder).not.toHaveBeenCalled();
+  });
 });

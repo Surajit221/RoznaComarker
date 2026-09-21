@@ -43,6 +43,7 @@ export type BackendMySubscription = {
     subscriptionStatus?: string | null;
     pendingPlanChange?: boolean;
     pendingTargetPlanCode?: string | null;
+    pendingBillingPeriod?: 'monthly' | 'annual' | null;
     pendingChangeAttemptId?: string | null;
     pendingChangeApprovalUrl?: string | null;
     pendingCancellation?: boolean;
@@ -115,9 +116,9 @@ export class SubscriptionApiService {
     return resp.data;
   }
 
-  async createPayPalSubscription(planCode: string, checkoutAttemptId: string): Promise<{ checkoutAttemptId: string; subscriptionId: string; approvalUrl: string; status: string }> {
+  async createPayPalSubscription(planCode: string, checkoutAttemptId: string, billingPeriod: 'monthly' | 'annual' = 'monthly'): Promise<{ checkoutAttemptId: string; subscriptionId: string; approvalUrl: string; status: string }> {
     const resp = await firstValueFrom(this.http.post<BackendResponse<{ checkoutAttemptId: string; subscriptionId: string; approvalUrl: string; status: string }>>(
-      `${this.getApiBaseUrl()}/subscription/paypal/create`, { planCode, checkoutAttemptId }
+      `${this.getApiBaseUrl()}/subscription/paypal/create`, { planCode, checkoutAttemptId, billingPeriod }
     ));
     return resp.data;
   }
@@ -142,12 +143,12 @@ export class SubscriptionApiService {
     return resp.data;
   }
 
-  async changePayPalPlan(targetPlanCode: string, changeAttemptId: string): Promise<{
+  async changePayPalPlan(targetPlanCode: string, changeAttemptId: string, billingPeriod: 'monthly' | 'annual' = 'monthly'): Promise<{
     attemptId: string; status: string; targetPlanCode: string; requiresApproval: boolean; approvalUrl: string | null;
   }> {
     const resp = await firstValueFrom(this.http.post<BackendResponse<{
       attemptId: string; status: string; targetPlanCode: string; requiresApproval: boolean; approvalUrl: string | null;
-    }>>(`${this.getApiBaseUrl()}/subscription/paypal/change-plan`, { targetPlanCode, changeAttemptId }));
+    }>>(`${this.getApiBaseUrl()}/subscription/paypal/change-plan`, { targetPlanCode, changeAttemptId, billingPeriod }));
     return resp.data;
   }
 
@@ -162,7 +163,7 @@ export class SubscriptionApiService {
     return resp.data;
   }
 
-  async getChangePlanContext(targetPlanCode: string, changeAttemptId: string): Promise<{
+  async getChangePlanContext(targetPlanCode: string, changeAttemptId: string, billingPeriod: 'monthly' | 'annual' = 'monthly'): Promise<{
     changeAttemptId: string;
     providerSubscriptionId: string;
     targetPayPalPlanId: string;
@@ -181,11 +182,16 @@ export class SubscriptionApiService {
       targetPlanName: string;
       targetPlanPrice: number;
       targetBillingInterval: string;
-    }>>(`${this.getApiBaseUrl()}/subscription/paypal/change-plan/context`, { targetPlanCode, changeAttemptId }));
+    }>>(`${this.getApiBaseUrl()}/subscription/paypal/change-plan/context`, { targetPlanCode, changeAttemptId, billingPeriod }));
     if (!resp.success) {
       throw new Error(resp.message || 'Failed to fetch plan change context');
     }
     return resp.data;
+  }
+
+  async claimPayPalSdkChange(changeAttemptId: string): Promise<void> {
+    await firstValueFrom(this.http.post(
+      `${this.getApiBaseUrl()}/subscription/paypal/change-plan/claim-sdk`, { changeAttemptId }));
   }
 
   async reconcilePlanChange(changeAttemptId: string): Promise<{ status: string; targetPlanCode: string; providerStatus: string }> {

@@ -101,6 +101,7 @@ describe('ChangePlanCheckoutComponent', () => {
 
   beforeEach(async () => {
     subscriptionApi = {
+      claimPayPalSdkChange: jasmine.createSpy().and.resolveTo(),
       getMySubscription: jasmine.createSpy().and.resolveTo(subscription),
       getCheckoutPlan: jasmine.createSpy().and.resolveTo(annual),
       getChangePlanContext: jasmine.createSpy().and.resolveTo(changePlanContext),
@@ -115,6 +116,7 @@ describe('ChangePlanCheckoutComponent', () => {
 
     accountState = {
       subscription: signal(subscription),
+      refreshCredits: jasmine.createSpy().and.resolveTo(),
       refreshSubscription: jasmine.createSpy().and.resolveTo(),
       refreshSubscriptionIfStale: jasmine.createSpy().and.resolveTo(subscription)
     };
@@ -162,6 +164,7 @@ describe('ChangePlanCheckoutComponent', () => {
 
     fixture = TestBed.createComponent(ChangePlanCheckoutComponent);
     component = fixture.componentInstance;
+    spyOn(component as unknown as { navigateExternal(url: string): void }, 'navigateExternal').and.stub();
   });
 
   it('should create', () => {
@@ -182,7 +185,7 @@ describe('ChangePlanCheckoutComponent', () => {
     await component.ngOnInit();
     await fixture.whenStable();
 
-    expect(subscriptionApi.getChangePlanContext).toHaveBeenCalledWith('essential_annual', 'change-attempt-123');
+    expect(subscriptionApi.getChangePlanContext).toHaveBeenCalledWith('essential_annual', 'change-attempt-123', 'annual');
     expect(component.context).toEqual(changePlanContext);
   });
 
@@ -328,8 +331,6 @@ describe('ChangePlanCheckoutComponent', () => {
     await component.ngOnInit();
     await fixture.whenStable();
 
-    // Skip this test due to page reload issues in test environment
-    pending();
 
     component.cancel();
 
@@ -349,7 +350,7 @@ describe('ChangePlanCheckoutComponent', () => {
     expect(closeSpy).toHaveBeenCalledTimes(2);
     expect(component.paypalButton).toBeNull();
     expect(component.cardButton).toBeNull();
-    expect(paypalSdkLoader.release).not.toHaveBeenCalled();
+    expect(paypalSdkLoader.release).toHaveBeenCalledWith({clientId:'real-paypal-client-id',currency:'USD',mode:'subscription'});
   });
 
   it('fallback buttons call existing changePayPalPlan', async () => {
@@ -357,8 +358,6 @@ describe('ChangePlanCheckoutComponent', () => {
     await fixture.whenStable();
     component.useFallbackFlow = true;
 
-    // Skip this test due to page reload issues
-    pending();
 
     // Mock the backend response to not require approval (to avoid navigation)
     subscriptionApi.changePayPalPlan.and.resolveTo({
@@ -368,7 +367,7 @@ describe('ChangePlanCheckoutComponent', () => {
 
     await component.startWithPayPal();
 
-    expect(subscriptionApi.changePayPalPlan).toHaveBeenCalledWith('essential_annual', 'change-attempt-123');
+    expect(subscriptionApi.changePayPalPlan).toHaveBeenCalledWith('essential_annual', 'change-attempt-123', 'annual');
   });
 
   it('replaces frontend temporary ID with backend canonical changeAttemptId', async () => {
@@ -419,8 +418,6 @@ describe('ChangePlanCheckoutComponent', () => {
   });
 
   it('uses canonical changeAttemptId for fallback changePayPalPlan', async () => {
-    // Skip this test due to page reload issues
-    pending();
 
     const canonicalContext = {
       ...changePlanContext,
@@ -434,7 +431,7 @@ describe('ChangePlanCheckoutComponent', () => {
 
     await component.startWithPayPal();
 
-    expect(subscriptionApi.changePayPalPlan).toHaveBeenCalledWith('essential_annual', 'canonical-attempt-111');
+    expect(subscriptionApi.changePayPalPlan).toHaveBeenCalledWith('essential_annual', 'canonical-attempt-111', 'annual');
   });
 
   it('keeps original changeAttemptId when backend returns same ID', async () => {
@@ -783,7 +780,7 @@ describe('ChangePlanCheckoutComponent', () => {
 
     component.ngOnDestroy();
 
-    expect(paypalSdkLoader.release).not.toHaveBeenCalled();
+    expect(paypalSdkLoader.release).toHaveBeenCalledWith({clientId:'real-paypal-client-id',currency:'USD',mode:'subscription'});
   });
 
   it('no createPayPalSubscription call during plan change', async () => {
@@ -869,5 +866,20 @@ describe('ChangePlanCheckoutComponent', () => {
     await fixture.whenStable();
 
     expect(component.currentBillingPeriod).toBe('annual');
+  });
+
+  it('propagates annual query selection for a combined Plan record', async () => {
+    subscriptionApi.getCheckoutPlan.and.resolveTo({ ...essential, slug: 'essential', annualPrice: 249 });
+    route.snapshot.queryParamMap.get.and.callFake((key: string) => (new Map([['target','essential'],['attempt','combined-attempt'],['billing','annual']]).get(key)));
+    await component.ngOnInit();
+    expect(component.data?.billingPeriod).toBe('annual');
+    expect(subscriptionApi.getChangePlanContext).toHaveBeenCalledWith('essential','combined-attempt','annual');
+  });
+  it('does not announce completion while provider still reports the old plan', async () => {
+    subscriptionApi.reconcilePlanChange.and.resolveTo({status:'provider_pending'});
+    await component.ngOnInit();
+    await component['onPayPalApprove']();
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(component.error).toContain('still confirming');
   });
 });

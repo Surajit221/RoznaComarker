@@ -14,7 +14,7 @@ describe('AdminCredits details drawer', () => {
     api = { searchTeachers: jasmine.createSpy().and.resolveTo({ teachers: [teacher], pagination: { page: 1, pages: 1, total: 1 } }),
       getAdminWallet: jasmine.createSpy().and.resolveTo(details), adjust: jasmine.createSpy() };
     await TestBed.configureTestingModule({ imports: [AdminCredits], providers: [
-      { provide: CreditsApiService, useValue: api }, { provide: AlertService, useValue: {} }
+      { provide: CreditsApiService, useValue: api }, { provide: AlertService, useValue: {showError:()=>{},showSuccess:()=>{}} }
     ] }).compileComponents();
   });
 
@@ -45,5 +45,15 @@ describe('AdminCredits details drawer', () => {
     (fixture.nativeElement.querySelector('button.admin-btn-secondary') as HTMLButtonElement).click(); await fixture.whenStable(); fixture.detectChanges();
     const drawer = document.querySelector('.details-drawer') as HTMLElement;
     expect(drawer.textContent).toContain('Temporary failure'); expect(drawer.textContent).toContain('Try again');
+  });
+
+  it('reuses one adjustment UUID after response loss', async () => {
+    const fixture=TestBed.createComponent(AdminCredits);const component=fixture.componentInstance;
+    component.selected=details;component.amount=3;component.reason='Approved correction';
+    api.adjust.and.rejectWith(new Error('response lost'));await component.adjust(1);
+    api.adjust.and.resolveTo({wallet:details.wallet});await component.adjust(1);
+    expect(api.adjust.calls.count()).toBe(2);
+    expect(api.adjust.calls.argsFor(0)).toEqual(api.adjust.calls.argsFor(1));
+    expect(api.adjust.calls.argsFor(0)[3]).toMatch(/^[0-9a-f-]{36}$/);
   });
 });

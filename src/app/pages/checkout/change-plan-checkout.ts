@@ -11,7 +11,7 @@ import { BackendPlan } from '../../api/plans-api.service';
 import { SubscriptionApiService } from '../../api/subscription-api.service';
 import { CreditsApiService } from '../../api/credits-api.service';
 import { AccountStateService } from '../../services/account-state.service';
-import { PayPalSdkLoaderService, PayPalButtonInstance, PayPalButtonsSdk } from '../../services/paypal-sdk-loader.service';
+import { PayPalSdkLoaderService, PayPalButtonInstance, PayPalButtonsSdk, PayPalSdkConfig } from '../../services/paypal-sdk-loader.service';
 import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
 import { formatPlanPeriod, formatPlanPrice } from '../../utils/billing-price.util';
 
@@ -58,6 +58,9 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   cardRuntimeFailed = false;
   cardErrorMessage: string | null = null;
   private paypalButtonsRendered = false;
+  private sdkConfig?: PayPalSdkConfig;
+  private destroyed = false;
+  private authoritativeCurrentPeriod?: 'monthly' | 'annual';
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -104,7 +107,9 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
       }
 
       const targetPlan = await this.subscriptionApi.getCheckoutPlan(this.targetPlanCode);
-      const billingPeriod = targetPlan.billingInterval === 'year' ? 'annual' : 'monthly';
+      const selectedPeriod = this.route.snapshot.queryParamMap.get('billing');
+      const billingPeriod = selectedPeriod === 'annual' || (!selectedPeriod && ['year', 'yearly', 'annual'].includes(targetPlan.billingInterval || '')) ? 'annual' : 'monthly';
+      this.authoritativeCurrentPeriod = subscription.billing?.billingPeriod;
 
       this.data = {
         currentPlan,
@@ -123,7 +128,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   private async loadChangePlanContext(): Promise<void> {
     if (!this.targetPlanCode || !this.changeAttemptId) return;
     try {
-      const response = await this.subscriptionApi.getChangePlanContext(this.targetPlanCode, this.changeAttemptId);
+      const response = await this.subscriptionApi.getChangePlanContext(this.targetPlanCode, this.changeAttemptId, this.data?.billingPeriod || 'monthly');
       this.context = response;
       // Use canonical changeAttemptId from backend response
       if (response.changeAttemptId) {
@@ -146,11 +151,13 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
         throw new Error('PAYPAL_CHECKOUT_UNAVAILABLE');
       }
 
-      this.paypalSdk = await this.paypalSdkLoader.loadButtons({
+      this.sdkConfig = {
         clientId: capability.clientId,
         currency: this.context.currency,
         mode: 'subscription'
-      });
+      };
+      this.paypalSdk = await this.paypalSdkLoader.loadButtons(this.sdkConfig);
+      if (this.destroyed) { this.paypalSdkLoader.release(this.sdkConfig); return; }
 
       if (!this.paypalSdk) {
         this.error = 'Unable to load PayPal SDK.';
@@ -159,9 +166,10 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
 
       const paypalButtonConfig = {
         fundingSource: this.paypalSdk.FUNDING.PAYPAL,
-        createSubscription: (data: any, actions: any) => {
+        createSubscription: async (data: unknown, actions: { subscription: { revise(id: string, options: { plan_id: string }): Promise<string> } }) => {
           try {
-            return actions.subscription.revise(
+            await this.subscriptionApi.claimPayPalSdkChange(this.changeAttemptId!);
+            return await actions.subscription.revise(
               this.context!.providerSubscriptionId,
               { plan_id: this.context!.targetPayPalPlanId }
             );
@@ -185,9 +193,10 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
 
       const cardButtonConfig = {
         fundingSource: this.paypalSdk.FUNDING.CARD,
-        createSubscription: (data: any, actions: any) => {
+        createSubscription: async (data: unknown, actions: { subscription: { revise(id: string, options: { plan_id: string }): Promise<string> } }) => {
           try {
-            return actions.subscription.revise(
+            await this.subscriptionApi.claimPayPalSdkChange(this.changeAttemptId!);
+            return await actions.subscription.revise(
               this.context!.providerSubscriptionId,
               { plan_id: this.context!.targetPayPalPlanId }
             );
@@ -303,7 +312,10 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
     this.submitting = true;
     this.error = null;
     try {
-      await this.subscriptionApi.reconcilePlanChange(this.changeAttemptId!);
+      const result = await this.subscriptionApi.reconcilePlanChange(this.changeAttemptId!);
+      await this.accountState.refreshSubscription();
+      if (result.status !== 'completed') { this.error = 'PayPal is still confirming this change. Resume confirmation from Account & Plan.'; return; }
+      await this.accountState.refreshCredits();
       this.router.navigate(['/billing/paypal/manage'], {
         queryParams: { result: 'success', attempt: this.changeAttemptId || undefined }
       });
@@ -320,7 +332,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
       await this.accountState.refreshSubscription();
       this.router.navigate(['/billing/paypal/manage']);
     } catch (err: any) {
-      this.error = 'Plan change was cancelled. Please refresh to see your current plan.';
+      this.error = 'PayPal has not confirmed the outcome. Return to Account & Plan to check this existing change before retrying.';
     }
   }
 
@@ -329,12 +341,12 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
     this.submitting = true;
     this.error = null;
     try {
-      const result = await this.subscriptionApi.changePayPalPlan(this.targetPlanCode, this.changeAttemptId);
+      const result = await this.subscriptionApi.changePayPalPlan(this.targetPlanCode, this.changeAttemptId, this.data?.billingPeriod || 'monthly');
       if (result.requiresApproval) {
         const url = trustedPayPalApprovalUrl(result.approvalUrl);
         if (!url) throw new Error('Untrusted PayPal approval URL');
-        if (typeof window !== 'undefined' && window.location && window.location.assign) {
-          window.location.assign(url);
+        if (typeof window !== 'undefined') {
+          this.navigateExternal(url);
         }
         return;
       }
@@ -352,11 +364,16 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
     await this.startWithPayPal();
   }
 
+  protected navigateExternal(url: string): void { window.location.assign(url); }
+
   cancel(): void {
     this.router.navigate(['/billing/paypal/manage']);
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    if (this.sdkConfig) this.paypalSdkLoader.release(this.sdkConfig);
+    this.sdkConfig = undefined;
     this.paypalButton?.close?.();
     this.cardButton?.close?.();
 
@@ -366,6 +383,7 @@ export class ChangePlanCheckoutComponent implements OnInit, OnDestroy {
   }
 
   get currentBillingPeriod(): 'monthly' | 'annual' {
+    if (this.authoritativeCurrentPeriod) return this.authoritativeCurrentPeriod;
     if (!this.data) return 'monthly';
 
     return this.data.currentPlan.billingInterval === 'year'
