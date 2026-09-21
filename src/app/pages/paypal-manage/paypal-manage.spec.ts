@@ -304,7 +304,7 @@ describe('PayPalManageComponent', () => {
     } });
     fixture.detectChanges();
     await fixture.componentInstance.resumePendingPlanChange();
-    expect(api.changePayPalPlan).toHaveBeenCalledWith('pro_monthly', 'change-attempt-123');
+    expect(api.changePayPalPlan).toHaveBeenCalledWith('pro_monthly', 'change-attempt-123', 'monthly');
     expect(fixture.componentInstance.message).toContain('Plan change pending');
   });
 
@@ -423,7 +423,7 @@ describe('PayPalManageComponent', () => {
     await fixture.componentInstance.confirmChange();
 
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/checkout/change-plan'], {
-      queryParams: { target: 'pro_monthly', attempt: jasmine.any(String) }
+      queryParams: { target: 'pro_monthly', attempt: jasmine.any(String), billing: 'monthly' }
     });
     expect(api.changePayPalPlan).not.toHaveBeenCalled();
   });

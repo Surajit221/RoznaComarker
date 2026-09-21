@@ -13,6 +13,7 @@ export class AdminCredits implements OnDestroy {
   @ViewChild('detailsDrawer') detailsDrawer?: ElementRef<HTMLElement>;
   amount: number | null = null; reason = ''; loading = false; adjusting=false;directoryPage=1;directoryPages=1;directoryTotal=0;
   drawerOpen=false;detailLoading=false;detailError='';drawerTeacher:CreditTeacher|null=null;
+  private adjustmentAttempt?: { identity: string; key: string };
   private drawerTrigger:HTMLElement|null=null;
   async ngOnInit():Promise<void>{await this.loadDirectory(1)}
   async loadDirectory(page:number): Promise<void> { this.loading = true; try { const result=await this.api.searchTeachers(this.query,page);this.teachers=result.teachers;this.directoryPage=result.pagination.page;this.directoryPages=Math.max(1,result.pagination.pages);this.directoryTotal=result.pagination.total; }
@@ -37,7 +38,10 @@ export class AdminCredits implements OnDestroy {
     if (delta < 0 && !await this.alerts.showConfirm('Remove Assessment Credits?',
       `Remove ${Math.abs(delta)} credits from ${this.selected.teacher.displayName || this.selected.teacher.email}?`, 'Remove Credits', 'Cancel')) return;
     if(this.adjusting)return;this.adjusting=true;try {
-      const result = await this.api.adjust(this.selected.teacher._id, delta, this.reason.trim());
+      const identity = JSON.stringify([this.selected.teacher._id, delta, this.reason.trim()]);
+      if (this.adjustmentAttempt?.identity !== identity) this.adjustmentAttempt = { identity, key: crypto.randomUUID() };
+      const result = await this.api.adjust(this.selected.teacher._id, delta, this.reason.trim(), this.adjustmentAttempt.key);
+      this.adjustmentAttempt = undefined;
       this.selected = { ...this.selected, wallet: result.wallet }; this.amount = null; this.reason = '';
       await this.select(this.selected.teacher, 1);
       this.alerts.showSuccess('Credits updated', `${result.wallet.availableCredits} credits are now available.`);

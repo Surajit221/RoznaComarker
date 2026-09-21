@@ -33,79 +33,23 @@ describe('Stripe checkout pages', () => {
     TestBed.resetTestingModule();
   });
 
-  it('loads Starter from API and mounts the Embedded Checkout container with Rozna pricing', async () => {
-    environment.stripePublishableKey = 'pk_test_browser';
-    const mount = jasmine.createSpy('mount');
-    const destroy = jasmine.createSpy('destroy');
-    const createEmbeddedCheckoutPage = jasmine.createSpy('createEmbeddedCheckoutPage')
-      .and.resolveTo({ mount, destroy });
-    (window as any).Stripe = jasmine.createSpy('Stripe').and.returnValue({ createEmbeddedCheckoutPage });
-    const api = {
-      getCheckoutPlan: jasmine.createSpy().and.resolveTo(starter),
-      createCheckoutSession: jasmine.createSpy().and.resolveTo({ clientSecret: 'cs_test' })
-    };
-    await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
-      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: api }
-    ] }).compileComponents();
-    const fixture = TestBed.createComponent(CheckoutComponent);
-    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
-    const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Starter Monthly');
-    expect(text).toContain('$9.99');
-    expect(text).toContain('Up to 20 Classes');
-    expect(fixture.nativeElement.querySelector('#embedded-checkout')).toBeTruthy();
-    expect(createEmbeddedCheckoutPage).toHaveBeenCalledWith(jasmine.objectContaining({
-      fetchClientSecret: jasmine.any(Function),
-      onComplete: jasmine.any(Function)
-    }));
-    expect(mount).toHaveBeenCalledWith('#embedded-checkout');
-    expect(mount).toHaveBeenCalledTimes(1);
-
-    const fetchClientSecret = createEmbeddedCheckoutPage.calls.mostRecent().args[0].fetchClientSecret;
-    await fetchClientSecret();
-    await fetchClientSecret();
-    expect(api.createCheckoutSession).toHaveBeenCalledTimes(2);
-    const firstAttemptId = api.createCheckoutSession.calls.argsFor(0)[1];
-    const secondAttemptId = api.createCheckoutSession.calls.argsFor(1)[1];
-    expect(firstAttemptId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-    expect(secondAttemptId).toBe(firstAttemptId);
-
-    fixture.destroy();
-    expect(destroy).toHaveBeenCalledTimes(1);
-  });
-
-  it('rotates the attempt ID only for an explicit new initialization and mounts once', async () => {
-    environment.stripePublishableKey = 'pk_test_browser';
-    const mount = jasmine.createSpy('mount');
-    const createEmbeddedCheckoutPage = jasmine.createSpy('createEmbeddedCheckoutPage').and.returnValues(
-      Promise.reject(new Error('first attempt failed')),
-      Promise.resolve({ mount, destroy: jasmine.createSpy('destroy') })
-    );
-    (window as any).Stripe = () => ({ createEmbeddedCheckoutPage });
-    const api = {
-      getCheckoutPlan: jasmine.createSpy().and.resolveTo(starter),
-      createCheckoutSession: jasmine.createSpy().and.resolveTo({ clientSecret: 'cs_test' })
-    };
-    await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
-      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: api }
-    ] }).compileComponents();
-    const fixture = TestBed.createComponent(CheckoutComponent);
-    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
-
-    const firstFetch = createEmbeddedCheckoutPage.calls.argsFor(0)[0].fetchClientSecret;
-    await firstFetch();
-    await fixture.componentInstance.retry();
-    fixture.detectChanges();
-    const secondFetch = createEmbeddedCheckoutPage.calls.argsFor(1)[0].fetchClientSecret;
-    await secondFetch();
-
-    const firstAttemptId = api.createCheckoutSession.calls.argsFor(0)[1];
-    const secondAttemptId = api.createCheckoutSession.calls.argsFor(1)[1];
-    expect(secondAttemptId).not.toBe(firstAttemptId);
-    expect(createEmbeddedCheckoutPage).toHaveBeenCalledTimes(2);
-    expect(api.getCheckoutPlan).toHaveBeenCalledTimes(1);
-    expect(mount).toHaveBeenCalledTimes(1);
-  });
+  for (const provider of [undefined, 'stripe', 'unexpected']) {
+    it('fails closed for provider metadata ' + provider, async () => {
+      const stripe = jasmine.createSpy('Stripe');
+      (window as any).Stripe = stripe;
+      const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: provider }),
+        createCheckoutSession: jasmine.createSpy() };
+      await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
+        ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: api }
+      ] }).compileComponents();
+      const fixture = TestBed.createComponent(CheckoutComponent);
+      fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+      expect(fixture.componentInstance.errorMessage).toContain('temporarily unavailable');
+      expect(api.createCheckoutSession).not.toHaveBeenCalled();
+      expect(stripe).not.toHaveBeenCalled();
+      expect(paypalButtonOptions.length).toBe(0);
+    });
+  }
 
   it('shows a sanitized initialization error state', async () => {
     environment.stripePublishableKey = 'pk_test_browser';
@@ -319,5 +263,18 @@ describe('Stripe checkout pages', () => {
     const fixture = TestBed.createComponent(CheckoutCancelComponent); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No plan changes were made');
     expect(fixture.nativeElement.textContent).toContain('has not changed');
+  });
+
+  it('annual UI selection reaches the API and retry preserves its attempt identity', async () => {
+    const api={getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,slug:'essential',annualPrice:249,paymentProvider:'paypal'}),
+      createPayPalSubscription:jasmine.createSpy().and.callFake(async (_:string,id:string)=>({checkoutAttemptId:id,subscriptionId:'I-ANNUAL'}))};
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders({planCode:'essential'}),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();
+    fixture.componentInstance.billingPeriod='annual';
+    await paypalButtonOptions[0].createSubscription();
+    const attempt=fixture.componentInstance.paypalCheckoutAttemptId;
+    expect(api.createPayPalSubscription).toHaveBeenCalledWith('essential',attempt,'annual');
+    await fixture.componentInstance.retry();
+    expect(fixture.componentInstance.paypalCheckoutAttemptId).toBe(attempt);
   });
 });
