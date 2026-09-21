@@ -1197,7 +1197,7 @@ export class DetailMyClassesPages {
 
   private async getAssignmentSubmissionRecords(assignmentId: string, assignment?: BackendAssignment): Promise<any[]> {
     if (assignment?.resourceType === 'flashcard') {
-      return this.assignmentApi.getFlashcardAssignmentSubmissions(assignmentId);
+      return this.assignmentApi.getFlashcardAssignmentSubmissions(assignmentId, true);
     }
 
     // Worksheet submissions are stored in WorksheetSubmission (not the essay Submission model).
@@ -1207,7 +1207,7 @@ export class DetailMyClassesPages {
       return [];
     }
 
-    return this.submissionApi.getSubmissionsByAssignment(assignmentId);
+    return this.submissionApi.getSubmissionsByAssignment(assignmentId, null, true);
   }
 
   private getStudentIdFromAnySubmission(submission: any): string {

@@ -11,6 +11,7 @@ import { ClassApiService, type BackendClassSummary } from '../../../api/class-ap
 import { AlertService } from '../../../services/alert.service';
 import { DebounceService } from '../../../services/debounce.service';
 import { Subject, takeUntil } from 'rxjs';
+import { safeHttpErrorMessage } from '../../../utils/safe-http-error-message.util';
 
 @Component({
   selector: 'app-my-class-student-pages',
@@ -165,7 +166,7 @@ export class MyClassStudentPages {
       this.classes = classCards;
       this.filteredClasses = [...this.classes];
     } catch (err: any) {
-      this.alert.showError('Failed to load classes', err?.message || 'Please try again');
+      this.alert.showError('Failed to load classes', safeHttpErrorMessage(err));
     } finally {
       this.isLoading = false;
     }

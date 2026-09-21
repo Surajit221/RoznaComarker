@@ -33,6 +33,16 @@ describe('AssignmentApiService stale evaluation workflow', () => {
     expect(await result).toBeNull();
   });
 
+  it('requests lightweight flashcard activity metadata when asked', async () => {
+    const result = service.getFlashcardAssignmentSubmissions('assignment-1', true);
+    const req = http.expectOne((request) =>
+      request.url === `${environment.apiUrl}/assignments/assignment-1/submissions`
+      && request.params.get('view') === 'activity');
+    expect(req.request.method).toBe('GET');
+    req.flush({ success: true, data: [{ _id: 'submission-1', userId: 'student-1' }] });
+    expect((await result)[0].userId).toBe('student-1');
+  });
+
   it('reads the stale count and starts the teacher bulk endpoint once', async () => {
     const summaryPromise = service.getStaleEvaluationSummary('assignment-1');
     const summaryRequest = http.expectOne(

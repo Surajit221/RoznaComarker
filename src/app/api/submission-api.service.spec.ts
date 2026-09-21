@@ -74,6 +74,17 @@ describe('SubmissionApiService canonical reads', () => {
       await submissions;
     });
 
+    it('requests the lightweight activity projection without changing the detailed default', async () => {
+      const submissions = service.getSubmissionsByAssignment('assignment-1', null, true);
+      const req = http.expectOne((request) =>
+        request.url === `${environment.apiUrl}/submissions/assignment/assignment-1`
+        && request.params.get('view') === 'activity'
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ success: true, data: [{ _id: 'submission-1', student: 'student-1' }] });
+      expect((await submissions)[0].student).toBe('student-1');
+    });
+
     it('getSubmissionsByAssignment must NOT send _refresh when cacheBustToken is undefined', async () => {
       const submissions = service.getSubmissionsByAssignment('assignment-1', undefined);
       const req = http.expectOne((request) =>

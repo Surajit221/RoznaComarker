@@ -317,12 +317,14 @@ export class AssignmentApiService {
     }
   }
 
-  async getFlashcardAssignmentSubmissions(assignmentId: string): Promise<BackendFlashcardAssignmentSubmission[]> {
+  async getFlashcardAssignmentSubmissions(assignmentId: string,
+    activityOnly = false): Promise<BackendFlashcardAssignmentSubmission[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
       const resp = await firstValueFrom(
         this.http.get<BackendResponse<BackendFlashcardAssignmentSubmission[]>>(
-          `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/submissions`
+          `${apiBaseUrl}/assignments/${encodeURIComponent(assignmentId)}/submissions`,
+          { params: activityOnly ? { view: 'activity' } : {} }
         )
       );
       return resp?.data || [];
