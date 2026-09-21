@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ViewChild, inject } from '@angular/core';
 import { HttpEventType, HttpErrorResponse } from '@angular/common/http';
+import { safeHttpErrorMessage } from '../../../../utils/safe-http-error-message.util';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
 import { ErrorModal } from '../../../../shared/ui/error-modal/error-modal';
@@ -329,7 +330,7 @@ export class DetailMyClassStudentPages {
           return;
         }
       }
-      this.errorModal = { open: true, title: 'Failed to load assignments', message: err?.message || 'Please try again' };
+      this.errorModal = { open: true, title: 'Failed to load assignments', message: safeHttpErrorMessage(err) };
     } finally {
       this.isLoading = false;
     }

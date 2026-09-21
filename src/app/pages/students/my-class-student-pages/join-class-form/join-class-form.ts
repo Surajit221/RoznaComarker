@@ -5,6 +5,7 @@ import { DeviceService } from '../../../../services/device.service';
 import { MembershipApiService, type JoinClassResponse } from '../../../../api/membership-api.service';
 import { AlertService } from '../../../../services/alert.service';
 import { QrScannerService } from '../../../../services/qr-scanner.service';
+import { safeHttpErrorMessage } from '../../../../utils/safe-http-error-message.util';
 
 @Component({
   selector: 'app-join-class-form',
@@ -41,7 +42,7 @@ export class JoinClassForm implements AfterViewInit {
       const resp = await this.membershipApi.joinClassByCode(joinCode);
       this.joined.emit(resp);
     } catch (err: any) {
-      this.alert.showError('Failed to join class', err?.message || 'Please try again');
+      this.alert.showError('Failed to join class', safeHttpErrorMessage(err));
     } finally {
       this.isLoading = false;
     }

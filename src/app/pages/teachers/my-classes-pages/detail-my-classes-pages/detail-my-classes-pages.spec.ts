@@ -124,4 +124,25 @@ describe('DetailMyClassesPages', () => {
     expect(update.calls.mostRecent().args[0]).toBe('writing-2');
     expect(component.selectedRubricAssignmentId).toBeNull();
   });
+
+  it('keeps backend current-roster progress when historical submission records include a removed student', async () => {
+    component.classId = 'class-1';
+    component.students = [{ id: 'active-student', name: 'Active', image: '', status: 'ACTIVE',
+      submitted: 0, total: 0, lastActivity: '', progress: null }];
+    const assignmentApi = (component as any).assignmentApi;
+    const submissionApi = (component as any).submissionApi;
+    spyOn(assignmentApi, 'getClassAssignments').and.resolveTo([{
+      _id: 'assignment-1', title: 'Essay', deadline: '', resourceType: 'essay', submitted: 1, total: 1
+    }]);
+    spyOn(submissionApi, 'getSubmissionsByAssignment').and.resolveTo([
+      { _id: 'current', student: { _id: 'active-student' }, submittedAt: '2026-01-02' },
+      { _id: 'historical', student: { _id: 'removed-student' }, submittedAt: '2026-01-01' }
+    ]);
+
+    await component.loadAssignments();
+
+    expect(component.assignments[0].submitted).toBe(1);
+    expect(component.assignments[0].total).toBe(1);
+    expect(component.students[0].submitted).toBe(1);
+  });
 });

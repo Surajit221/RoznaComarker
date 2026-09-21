@@ -36,6 +36,8 @@ export type BackendAssignment = {
   resourceId?: string;
   /** Pre-computed submission count from getClassAssignments — correct for all resource types */
   submitted?: number;
+  /** Current active class roster size paired with `submitted`. */
+  total?: number;
 };
 
 export type BackendFlashcardAssignmentSubmission = {
