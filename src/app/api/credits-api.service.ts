@@ -12,7 +12,7 @@ export interface CreditPack { name: string; code: string; credits: number; price
 export type CreditPaymentProvider = 'paypal';
 export interface CreditPackOptions { packs: CreditPack[]; paymentProvider: CreditPaymentProvider; }
 export interface PayPalCreditPurchase { attemptId: string; orderId?: string; approvalUrl?: string; status: string;
-  packCode: string; credits: number; amount: string; currency: string; credited: boolean; message?: string; }
+  packCode: string; credits: number; amount: string; currency: string; credited: boolean; failureCode?: string; message?: string; }
 export interface PayPalCapabilities { provider:'paypal';environment:'sandbox'|'live';clientId:string;paypalCheckout:boolean;
   browserToken?:string;advancedCardPayments:boolean;cardTopups:boolean;cardSubscriptions:boolean;diagnostic?:string;
   subscriptionCheckout?:boolean;subscriptionHostedCardFunding?:'eligible_on_paypal'|'unavailable'|'unknown';embeddedCardSubscriptions?:boolean; }
