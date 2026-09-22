@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { CreditsApiService } from '../../api/credits-api.service';
@@ -79,6 +80,81 @@ describe('CreditTopupComponent', () => {
     expect(credits.getPayPalPurchase).toHaveBeenCalledWith(attempt);
     expect(credits.createPayPalOrder).toHaveBeenCalledTimes(1);
     expect(state.refreshCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it('restarts PayPal exactly once for INSTRUMENT_DECLINED without success UI or wallet refresh',async()=>{
+    credits.capturePayPalOrder.and.rejectWith(new HttpErrorResponse({status:422,error:{success:false,code:'INSTRUMENT_DECLINED',message:'safe'}}));
+    await component.open();await component.selectPack(pack);await buttonOptions[1].createOrder();
+    const actions={restart:jasmine.createSpy().and.resolveTo()};
+    await Promise.all([buttonOptions[1].onApprove({},actions),buttonOptions[1].onApprove({},actions)]);
+    expect(actions.restart).toHaveBeenCalledTimes(1);expect(state.refreshCredits).not.toHaveBeenCalled();
+    expect(alerts.showSuccess).not.toHaveBeenCalled();expect(component.message).toContain('choose another card or payment method');
+    expect(component.attemptId).not.toBeNull();
+  });
+
+  it('captures successfully on the second approval after funding restart',async()=>{
+    credits.capturePayPalOrder.and.returnValues(
+      Promise.reject(new HttpErrorResponse({status:422,error:{code:'INSTRUMENT_DECLINED'}})),
+      Promise.resolve({credited:true,status:'credited',credits:10}));
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
+    const actions={restart:jasmine.createSpy().and.resolveTo()};
+    await buttonOptions[0].onApprove({},actions);await buttonOptions[0].onApprove({},actions);
+    expect(actions.restart).toHaveBeenCalledTimes(1);expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(2);
+    expect(state.refreshCredits).toHaveBeenCalledTimes(1);expect(alerts.showSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconciles network status zero and never restarts funding',async()=>{
+    credits.capturePayPalOrder.and.rejectWith(new HttpErrorResponse({status:0,statusText:'Unknown Error'}));
+    credits.getPayPalPurchase.and.resolveTo({credited:true,status:'credited',credits:10});
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
+    const attempt=component.attemptId;
+    const actions={restart:jasmine.createSpy().and.resolveTo()};await buttonOptions[0].onApprove({},actions);
+    expect(credits.getPayPalPurchase).toHaveBeenCalledWith(attempt);
+    expect(actions.restart).not.toHaveBeenCalled();expect(state.refreshCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconciles a server 5xx into review_required without restarting funding',async()=>{
+    credits.capturePayPalOrder.and.rejectWith(new HttpErrorResponse({status:502,error:{code:'PAYPAL_API_ERROR'}}));
+    credits.getPayPalPurchase.and.resolveTo({credited:false,status:'review_required',credits:10});
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
+    const actions={restart:jasmine.createSpy().and.resolveTo()};await buttonOptions[0].onApprove({},actions);
+    expect(credits.getPayPalPurchase).toHaveBeenCalled();expect(actions.restart).not.toHaveBeenCalled();
+    expect(component.message).toContain('needs review');
+  });
+
+  it('does not reconcile or restart an unrelated terminal provider 422',async()=>{
+    credits.capturePayPalOrder.and.rejectWith(new HttpErrorResponse({status:409,error:{code:'UNPROCESSABLE_ENTITY',message:'PayPal could not complete this payment. No credits were added.'}}));
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
+    const actions={restart:jasmine.createSpy().and.resolveTo()};await buttonOptions[0].onApprove({},actions);
+    expect(credits.getPayPalPurchase).not.toHaveBeenCalled();expect(actions.restart).not.toHaveBeenCalled();
+    expect(component.message).toContain('could not complete');expect(component.attemptId).toBeNull();
+  });
+
+  it('uses distinct terminal payment messages and never restarts',async()=>{
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
+    const actions={restart:jasmine.createSpy().and.resolveTo()};
+    for(const [status,message] of [
+      ['review_required','needs review'],['refunded','was refunded'],['cancelled','was cancelled'],['failed','could not complete']
+    ] as const){
+      component.attemptId='attempt';component.attemptPackCode=pack.code;
+      credits.capturePayPalOrder.and.resolveTo({credited:false,status,credits:10});
+      await (component as any).completeFundingPurchase(actions);expect(component.message).toContain(message);
+    }
+    expect(actions.restart).not.toHaveBeenCalled();expect(state.refreshCredits).not.toHaveBeenCalled();
+  });
+
+  it('shows temporary provider wording for retryable failed status',async()=>{
+    credits.capturePayPalOrder.and.resolveTo({credited:false,status:'failed',credits:10,message:'PayPal is temporarily unavailable. Please try again.'});
+    await (component as any).confirmPayPal('attempt');
+    expect(component.message).toBe('PayPal is temporarily unavailable. Please try again.');
+  });
+
+  it('falls back to a fresh attempt if actions.restart rejects',async()=>{
+    credits.capturePayPalOrder.and.rejectWith(new HttpErrorResponse({status:422,error:{code:'INSTRUMENT_DECLINED'}}));
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
+    await buttonOptions[0].onApprove({}, {restart:jasmine.createSpy().and.rejectWith(new Error('restart failed'))});
+    expect(component.attemptId).toBeNull();expect(component.confirmationPending).toBeFalse();
+    expect(component.message).toContain('begin a new checkout');
   });
 
   it('retains an uncertain payment when the catalog removes its pack', async () => {

@@ -2,6 +2,7 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 
 export interface PayPalButtonInstance { isEligible():boolean;render(selector:string):Promise<void>;close?():void; }
+export interface PayPalOnApproveActions { restart():Promise<void>; }
 export interface PayPalButtonsSdk { FUNDING:{PAYPAL:unknown;CARD:unknown};Buttons(options:Record<string,unknown>):PayPalButtonInstance; }
 export interface PayPalSdkConfig { clientId:string;currency:string;mode:'capture'|'subscription'; }
 interface SdkEntry { key: string; refs: number; script: HTMLScriptElement; promise: Promise<PayPalButtonsSdk>; loading: boolean; }
