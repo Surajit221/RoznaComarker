@@ -14,7 +14,7 @@ export interface CreditPackOptions { packs: CreditPack[]; paymentProvider: Credi
 export interface PayPalCreditPurchase { attemptId: string; orderId?: string; approvalUrl?: string; status: string;
   packCode: string; credits: number; amount: string; currency: string; credited: boolean; failureCode?: string; message?: string; }
 export interface PayPalCapabilities { provider:'paypal';environment:'sandbox'|'live';clientId:string;paypalCheckout:boolean;
-  browserToken?:string;advancedCardPayments:boolean;cardTopups:boolean;cardSubscriptions:boolean;diagnostic?:string;
+  advancedCardPayments:boolean;embeddedCardFields:boolean;cardTopups:boolean;cardSubscriptions:boolean;diagnostic?:string;
   subscriptionCheckout?:boolean;subscriptionHostedCardFunding?:'eligible_on_paypal'|'unavailable'|'unknown';embeddedCardSubscriptions?:boolean; }
 export interface CreditTeacher { _id: string; displayName?: string; email: string; plan?: string; monthlyRemaining?: number; purchasedCredits?: number; bonusCredits?: number; totalAvailable?: number; }
 export interface CreditTeacherDirectory { teachers: CreditTeacher[]; pagination: { page:number;limit:number;total:number;pages:number } }
@@ -56,6 +56,11 @@ export class CreditsApiService {
     const response = await firstValueFrom(this.http.get<{ success:boolean;data:PayPalCapabilities }>(
       `${environment.apiUrl}/credits/paypal/capabilities`));
     return response.data;
+  }
+  async getPayPalCardClientToken():Promise<string>{
+    const response=await firstValueFrom(this.http.get<{success:boolean;data:{browserToken:string}}>(
+      `${environment.apiUrl}/credits/paypal/card/client-token`));
+    return response.data.browserToken;
   }
   async createPayPalCardOrder(packCode: string, checkoutAttemptId: string): Promise<PayPalCreditPurchase> {
     const response = await firstValueFrom(this.http.post<{ success:boolean;data:PayPalCreditPurchase }>(

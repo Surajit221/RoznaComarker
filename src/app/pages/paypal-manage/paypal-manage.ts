@@ -69,6 +69,10 @@ export class PayPalManageComponent {
 
   get billing() { return this.subscription()?.billing; }
   get currentPlan() { return this.subscription()?.plan; }
+  get entitlement() { return this.subscription()?.entitlement; }
+  get nextEntitlement() { return this.subscription()?.nextEntitlement; }
+  get daysRemaining(): number | null { const end=this.entitlement?.endsAt;if(!end)return null;
+    return Math.max(0,Math.ceil((new Date(end).getTime()-Date.now())/86400000)); }
   get usage() { return this.subscription()?.usage; }
   get referralLink(): string { const code = this.subscription()?.referrals?.code; return code ? `${environment.FRONTEND_URL}/register?ref=${encodeURIComponent(code)}` : ''; }
   get creditPercent(): number | null { const wallet = this.wallet(); return wallet ? clampedUsagePercent(wallet.monthlyCreditsUsed, wallet.monthlyCredits) : null; }
@@ -106,7 +110,7 @@ export class PayPalManageComponent {
   setBillingPeriod(period: BillingPeriod): void { this.billingPeriod = period; }
   isCurrentPlan(plan: BackendPlan): boolean { return (plan.slug === this.billing?.planCode || plan.slug === this.currentPlan?.slug) && this.billingPeriod === (this.billing?.billingPeriod || 'monthly'); }
   isPlanActionDisabled(plan: BackendPlan): boolean {
-    return this.isCurrentPlan(plan) || ['custom', 'institution'].includes(plan.slug) ||
+    return (this.isCurrentPlan(plan) && !!this.billing?.subscriptionId) || ['custom', 'institution'].includes(plan.slug) ||
       !!this.billing?.pendingPlanChange || !!this.billing?.pendingCancellation || !!this.submitting;
   }
   formatPrice(plan: BackendPlan | null | undefined, selection?: BillingSelection): string {

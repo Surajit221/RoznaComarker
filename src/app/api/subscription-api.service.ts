@@ -25,6 +25,10 @@ export type BackendMySubscription = {
   plan: BackendPlan;
   planStartedAt: string | null;
   planExpiresAt: string | null;
+  entitlement?: { id: string; source: 'paypal' | 'admin'; billingPeriod: 'monthly' | 'annual' | 'custom';
+    startsAt: string; endsAt: string | null; autoRenew: false } | null;
+  nextEntitlement?: { id: string; planSlug: string; billingPeriod: 'monthly' | 'annual' | 'custom';
+    startsAt: string; endsAt: string | null } | null;
   usage: BackendSubscriptionUsage;
   storage?: { usedBytes: number; limitBytes: number | null; usedMb: number; limitMb: number | null; percent: number | null };
   billing: {
@@ -61,6 +65,17 @@ export type BackendMySubscription = {
     cap?: number;
     referrals: Array<{ id: string; name: string; status: 'ATTRIBUTED' | 'QUALIFIED' | 'REWARDED' | 'REJECTED' | 'REVIEW_REQUIRED'; date: string }>;
   } | null;
+};
+
+export type PayPalPlanPurchase = {
+  attemptId: string;
+  orderId?: string;
+  status: string;
+  fulfilled: boolean;
+  failureCode?: string;
+  retryable?: boolean;
+  message?: string;
+  entitlement?: { id: string; status: string; startsAt: string; endsAt: string };
 };
 
 @Injectable({ providedIn: 'root' })
@@ -120,6 +135,22 @@ export class SubscriptionApiService {
     const resp = await firstValueFrom(this.http.post<BackendResponse<{ checkoutAttemptId: string; subscriptionId: string; approvalUrl: string; status: string }>>(
       `${this.getApiBaseUrl()}/subscription/paypal/create`, { planCode, checkoutAttemptId, billingPeriod }
     ));
+    return resp.data;
+  }
+  async createPayPalPlanOrder(planCode: string, checkoutAttemptId: string, billingPeriod: 'monthly' | 'annual'):
+    Promise<{ attemptId: string; orderId: string; status: string }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ attemptId: string; orderId: string; status: string }>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/orders/create`, { planCode, billingPeriod, checkoutAttemptId }));
+    return resp.data;
+  }
+  async capturePayPalPlanOrder(checkoutAttemptId: string): Promise<PayPalPlanPurchase> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<PayPalPlanPurchase>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/orders/capture`, { checkoutAttemptId }));
+    return resp.data;
+  }
+  async getPayPalPlanPurchase(checkoutAttemptId: string): Promise<PayPalPlanPurchase> {
+    const resp = await firstValueFrom(this.http.get<BackendResponse<PayPalPlanPurchase>>(
+      `${this.getApiBaseUrl()}/subscription/paypal/orders/${encodeURIComponent(checkoutAttemptId)}`));
     return resp.data;
   }
   async reconcilePayPalSubscription(checkoutAttemptId:string):Promise<{attemptId:string;subscriptionId:string;status:string;active:boolean}>{

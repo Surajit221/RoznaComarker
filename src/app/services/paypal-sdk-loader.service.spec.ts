@@ -19,10 +19,11 @@ describe('PayPalSdkLoaderService', () => {
   });
 
   afterEach(() => {
-    const scripts = document.querySelectorAll('script[data-paypal-buttons-sdk="true"]');
+    const scripts = document.querySelectorAll('script[data-paypal-buttons-sdk="true"],script[data-paypal-card-fields-sdk="true"]');
     scripts.forEach(script => script.remove());
     delete (globalThis as any).paypalCapture;
     delete (globalThis as any).paypalSubscription;
+    delete (globalThis as any).paypal;
     createElementSpy?.calls?.reset();
   });
 
@@ -352,5 +353,29 @@ describe('PayPalSdkLoaderService', () => {
     await expectAsync(service.loadButtons({...config,currency:'EUR'})).toBeRejectedWithError('PAYPAL_SDK_CONFIGURATION_IN_USE');
     (globalThis as unknown as Record<string,unknown>)['paypalCapture']={Buttons:()=>({}),FUNDING:{}};
     mockScript.onload?.(new Event('load'));await first;
+  });
+
+  it('loads the current v6 sandbox core and creates a Card Fields instance with a browser-safe token',async()=>{
+    const instance={findEligibleMethods:jasmine.createSpy(),createCardFieldsOneTimePaymentSession:jasmine.createSpy()};
+    const core={createInstance:jasmine.createSpy().and.resolveTo(instance)};
+    setTimeout(()=>{(globalThis as any).paypal=core;mockScript.onload?.(new Event('load'));},0);
+    const loaded=await service.loadCardFields({environment:'sandbox',browserToken:'browser-safe',currency:'usd'});
+    expect(loaded).toBe(instance as any);expect(mockScript.src).toBe('https://www.sandbox.paypal.com/web-sdk/v6/core');
+    expect(mockScript.dataset['paypalCardFieldsSdk']).toBe('true');
+    expect(core.createInstance).toHaveBeenCalledOnceWith({clientToken:'browser-safe',components:['card-fields'],pageType:'checkout'});
+  });
+
+  it('deduplicates concurrent v6 core loads while creating isolated Card Fields instances',async()=>{
+    const core={createInstance:jasmine.createSpy().and.resolveTo({})};
+    const first=service.loadCardFields({environment:'sandbox',browserToken:'one',currency:'USD'});
+    const second=service.loadCardFields({environment:'sandbox',browserToken:'two',currency:'USD'});
+    (globalThis as any).paypal=core;mockScript.onload?.(new Event('load'));await Promise.all([first,second]);
+    expect((document.head.appendChild as jasmine.Spy).calls.count()).toBe(1);expect(core.createInstance).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects an environment switch while the v6 core is in use',async()=>{
+    const first=service.loadCardFields({environment:'sandbox',browserToken:'one',currency:'USD'});
+    await expectAsync(service.loadCardFields({environment:'live',browserToken:'two',currency:'USD'})).toBeRejectedWithError('PAYPAL_CARD_FIELDS_SDK_CONFIGURATION_IN_USE');
+    (globalThis as any).paypal={createInstance:jasmine.createSpy().and.resolveTo({})};mockScript.onload?.(new Event('load'));await first;
   });
 });

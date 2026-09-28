@@ -16,8 +16,9 @@
       @if(!loading && paymentProvider==='paypal'){
         <section class="paypal-methods" aria-labelledby="paypal-method-title">
           <h3 id="paypal-method-title">Payment methods</h3>
-          @if(paypalButtonEligible){<div id="paypal-subscription-button" class="paypal-funding-button"></div>}
-          @if(cardButtonEligible){<div id="paypal-subscription-card-button" class="paypal-funding-button"></div>}
+          @if(paypalButtonEligible){<div id="paypal-subscription-button" class="paypal-funding-button" aria-label="Pay with PayPal"></div>}
+          @if(cardButtonEligible){<div id="paypal-subscription-card-button" class="paypal-funding-button" aria-label="Pay with debit or credit card"></div>}
+          <p>{{ billingDescription }}</p>
           <p>Powered by PayPal</p>
         </section>
       }

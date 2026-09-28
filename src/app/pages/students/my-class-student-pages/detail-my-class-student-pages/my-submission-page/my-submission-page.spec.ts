@@ -171,21 +171,25 @@ describe('MySubmissionPage', () => {
     expect(writing).not.toHaveBeenCalled();
   });
 
-  it('performs only one OCR reconciliation when completed feedback overtakes stale local OCR state', async () => {
+  for (const evaluationStatus of ['completed', 'failed']) {
+  it(`performs one two-page OCR reconciliation when ${evaluationStatus} feedback overtakes stale OCR state`, async () => {
     const http = TestBed.inject(HttpTestingController);
     component.assignmentId = 'assignment-1';
     component.submission = { _id: 'submission-1', ocrStatus: 'processing' } as any;
-    component.submissionFileIds = ['file-1'];
+    component.submissionFileIds = ['file-1', 'file-2'];
     spyOn<any>(component, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
     spyOn<any>(component, 'refreshSubmissionPreviewUrls').and.resolveTo();
     spyOn((component as any).submissionApi, 'getMySubmissionByAssignmentId').and.resolveTo({
       _id: 'submission-1', assignment: 'assignment-1', ocrStatus: 'completed', correctionSourceHash: 'source-final',
-      files: [{ _id: 'file-1', url: '/files/submissions/file-1.jpg' }]
+      files: [{ _id: 'file-1', url: '/files/submissions/file-1.jpg' },
+        { _id: 'file-2', url: '/files/submissions/file-2.jpg' }]
     } as any);
     spyOn<any>(component, 'refreshWritingCorrections').and.resolveTo();
     spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
-      submissionId: 'submission-1', overallScore: 67, evaluationStatus: 'completed', correctionStatus: 'completed',
-      detailedFeedbackStatus: 'completed', processingActive: false, automaticPollingAllowed: false, terminal: true
+      submissionId: 'submission-1', overallScore: evaluationStatus === 'completed' ? 67 : null,
+      evaluationStatus, ocrStatus: 'completed', correctionStatus: 'completed', semanticStatus: 'completed',
+      detailedFeedbackStatus: evaluationStatus === 'completed' ? 'completed' : 'stale',
+      processingActive: false, automaticPollingAllowed: false, terminal: true
     });
     const completed = (component as any).refreshCanonicalResult('submission-1', 1);
     await Promise.resolve();
@@ -194,16 +198,27 @@ describe('MySubmissionPage', () => {
     http.expectOne((candidate) => candidate.url.includes('/ocr-corrections')).flush({ success: true, data: {
       processing: false, ocrStatus: 'completed', correctionStatus: 'completed', correctionSourceHash: 'source-final',
       statistics: { content: 6, grammar: 37, organization: 2, vocabulary: 5, mechanics: 4, total: 54 },
-      corrections: [], ocr: [{ fileId: 'file-1', pageNumber: 1, text: 'Final transcript', words: [] }]
+      corrections: [], ocr: [{ fileId: 'file-1', pageNumber: 1, text: 'Final transcript page one', words: [] },
+        { fileId: 'file-2', pageNumber: 1, text: 'Final transcript page two', words: [] }]
     } });
     await completed;
     await (component as any).refreshCanonicalResult('submission-1', 2);
     http.expectNone((candidate) => candidate.url.includes('/ocr-corrections'));
-    expect(component.feedback?.overallScore).toBe(67);
+    expect(component.feedback?.overallScore).toBe(evaluationStatus === 'completed' ? 67 : null);
     expect(component.ocrStatus).toBe('completed');
-    expect(component.transcriptPageViews[0].status).toBe('ready');
+    expect(component.transcriptPageViews.map(page => page.status)).toEqual(['ready', 'ready']);
     expect((component as any).submissionApi.getMySubmissionByAssignmentId).toHaveBeenCalledTimes(1);
+    expect(component.isOcrPending).toBeFalse();
+    expect((component as any).isOcrPolling).toBeFalse();
+    component.isUploadedFile = false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Final transcript page one');
+    expect(fixture.nativeElement.textContent).toContain('Final transcript page two');
+    expect(fixture.nativeElement.textContent).not.toContain('OCR is processing your file');
+    expect(fixture.nativeElement.textContent).not.toContain('saved feedback is out of date');
+    if (evaluationStatus === 'failed') expect(fixture.nativeElement.textContent).toContain('Score unavailable');
   });
+  }
 
   it('keeps activeAnnotations reference stable until its source or selected file changes', () => {
     component.submissionFileIds = ['file-1', 'file-2'];
@@ -324,7 +339,7 @@ describe('MySubmissionPage', () => {
     component.isUploadedFile = false;
     for (const width of [1440, 390]) {
       window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange')); fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+    expect(fixture.nativeElement.textContent).toContain('Scoring and detailed feedback could not be completed. Your transcription and corrections are still available.');
       expect(fixture.nativeElement.textContent).not.toContain('Retry scoring');
     }
     expect((component as any).retryCanonicalAnalysis).toBeUndefined();

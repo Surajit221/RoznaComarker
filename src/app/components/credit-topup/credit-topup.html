@@ -10,10 +10,13 @@
         <button type="button" class="btn-primary" [disabled]="!!checkoutCode || confirmationPending" (click)="selectPack(pack)">{{ selectedPack?.code === pack.code ? 'Selected' : 'Choose pack' }}</button></article>
     } @empty { @if(!loading && !message){<p class="topup-empty">No Assessment Credit packs are currently available.</p>} }</div>
     @if(selectedPack){
-      <section class="payment-panel" aria-labelledby="payment-method-title"><h3 id="payment-method-title">Payment method</h3>
+      <section class="payment-panel" aria-labelledby="payment-method-title" [attr.aria-busy]="fundingLoading"><h3 id="payment-method-title">Payment method</h3>
         @if(fundingLoading){<div class="topup-status" aria-live="polite">Loading secure payment options…</div>}
         @if(paypalButtonEligible){<div id="paypal-topup-button" class="paypal-funding-button"></div>}
-        @if(cardButtonEligible){<div id="paypal-topup-card-button" class="paypal-funding-button"></div>}
+        @if(cardButtonEligible){
+          @if(paypalButtonEligible){<div class="payment-divider" aria-hidden="true"><span>OR</span></div>}
+          <div id="paypal-topup-card-button" class="paypal-funding-button"></div>
+        }
         @if(!fundingLoading && !paypalButtonEligible && !cardButtonEligible && !confirmationPending){<button type="button" class="btn-primary" [disabled]="!!checkoutCode" (click)="purchase(selectedPack)">Continue with PayPal</button>}
         <p class="powered">Powered by PayPal</p>
       </section>

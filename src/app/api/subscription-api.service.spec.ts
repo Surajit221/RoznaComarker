@@ -38,4 +38,18 @@ describe('SubscriptionApiService', () => {
     request.flush({ success: true, data: { subscriptionId: 'I-ANNUAL' } });
     expect((await pending).subscriptionId).toBe('I-ANNUAL');
   });
+
+  it('creates and captures a prepaid plan Order using identifiers only', async () => {
+    const creating = service.createPayPalPlanOrder('pro', 'attempt-plan', 'annual');
+    const create = http.expectOne(environment.apiUrl + '/subscription/paypal/orders/create');
+    expect(create.request.body).toEqual({ planCode: 'pro', checkoutAttemptId: 'attempt-plan', billingPeriod: 'annual' });
+    expect(create.request.body.price).toBeUndefined();
+    create.flush({ success: true, data: { attemptId: 'attempt-plan', orderId: 'ORDER-1', status: 'approval_pending' } });
+    expect((await creating).orderId).toBe('ORDER-1');
+    const capturing = service.capturePayPalPlanOrder('attempt-plan');
+    const capture = http.expectOne(environment.apiUrl + '/subscription/paypal/orders/capture');
+    expect(capture.request.body).toEqual({ checkoutAttemptId: 'attempt-plan' });
+    capture.flush({ success: true, data: { attemptId: 'attempt-plan', status: 'fulfilled', fulfilled: true } });
+    expect((await capturing).fulfilled).toBeTrue();
+  });
 });

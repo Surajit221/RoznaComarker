@@ -13,14 +13,16 @@ const pack: any = { name: '10 Assessment Credits', code: 'CREDITS_10', credits: 
 const pack50: any = { name: '50 Assessment Credits', code: 'CREDITS_50', credits: 50, price: 4.99, currency: 'USD', allowedPlans: ['free'], displayOrder: 2 };
 
 describe('CreditTopupComponent', () => {
-  let fixture: ComponentFixture<CreditTopupComponent>; let component: CreditTopupComponent; let credits: any; let state: any;let alerts:any;let catalog:any;let sdk:any;let buttonOptions:any[];
+  let fixture: ComponentFixture<CreditTopupComponent>; let component: CreditTopupComponent; let credits: any; let state: any;let alerts:any;let catalog:any;let sdk:any;let buttonOptions:any[];let eligibleFunding:Set<string>;
   beforeEach(async () => {
     credits = { getPacks: jasmine.createSpy().and.resolveTo({ packs: [pack,pack50], paymentProvider: 'paypal' }),
       createPayPalOrder: jasmine.createSpy().and.resolveTo({ orderId:'ORDER',approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=SAFE' }),
       capturePayPalOrder: jasmine.createSpy().and.resolveTo({ credited: true, status: 'credited',credits:10 }), getPayPalPurchase: jasmine.createSpy(), cancelPayPalPurchase: jasmine.createSpy() };
-    credits.getPayPalCapabilities=jasmine.createSpy().and.resolveTo({provider:'paypal',environment:'sandbox',clientId:'safe-client',browserToken:'safe-browser-token',paypalCheckout:true,advancedCardPayments:true,cardTopups:true,cardSubscriptions:false});
+    credits.getPayPalCapabilities=jasmine.createSpy().and.resolveTo({provider:'paypal',environment:'sandbox',clientId:'safe-client',paypalCheckout:true,advancedCardPayments:true,embeddedCardFields:true,cardTopups:true,cardSubscriptions:false});
+    credits.getPayPalCardClientToken=jasmine.createSpy().and.resolveTo('safe-browser-token');
     credits.createPayPalCardOrder=jasmine.createSpy().and.resolveTo({orderId:'ORDER',status:'approval_pending'});
-    buttonOptions=[];sdk={release:jasmine.createSpy()};sdk.loadButtons=jasmine.createSpy().and.resolveTo({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>{buttonOptions.push(options);return{isEligible:()=>true,render:jasmine.createSpy().and.resolveTo(),close:jasmine.createSpy()}}});
+    buttonOptions=[];eligibleFunding=new Set(['paypal','card']);sdk={release:jasmine.createSpy(),loadCardFields:jasmine.createSpy()};
+    sdk.loadButtons=jasmine.createSpy().and.resolveTo({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>{buttonOptions.push(options);return{isEligible:()=>eligibleFunding.has(options.fundingSource),render:jasmine.createSpy().and.resolveTo(),close:jasmine.createSpy()}}});
     const wallet = signal<any>({ availableCredits: 25, purchasedCredits: 0 });
     state = { wallet, refreshCredits: jasmine.createSpy().and.callFake(async () => { wallet.set({ availableCredits: 35, purchasedCredits: 10 }); return wallet(); }) };
     catalog={packs:signal<any[]>([]),paymentProvider:signal('paypal')};catalog.refreshCreditPacks=jasmine.createSpy().and.callFake(async()=>{const value=await credits.getPacks();catalog.packs.set(value.packs);catalog.paymentProvider.set(value.paymentProvider)});
@@ -47,7 +49,7 @@ describe('CreditTopupComponent', () => {
     expect(credits.capturePayPalOrder).toHaveBeenCalledOnceWith('attempt');
     expect(state.refreshCredits).toHaveBeenCalledTimes(1);
     expect(state.wallet()).toEqual(jasmine.objectContaining({ availableCredits: 35, purchasedCredits: 10 }));
-    expect(component.message).toContain('Credits added');
+    expect(component.message).toContain('Payment successful');
     expect(alerts.showSuccess).toHaveBeenCalledWith('Credits added','10 purchased Assessment Credits were added to your account.');
   });
 
@@ -60,9 +62,12 @@ describe('CreditTopupComponent', () => {
     expect(credits.createPayPalOrder.calls.allArgs()).toEqual([['CREDITS_10', attempt], ['CREDITS_10', attempt]]);
   });
   it('clears a selected pack when realtime catalog refresh removes it',async()=>{await component.open();component.attemptPackCode='CREDITS_10';component.attemptId='attempt';catalog.packs.set([pack50]);fixture.detectChanges();expect(component.attemptPackCode).toBeNull();expect(component.attemptId).toBeNull();expect(component.message).toContain('no longer available')});
-  it('renders eligible PayPal and Card funding buttons with no raw card state',async()=>{await component.open();await component.selectPack(pack);fixture.detectChanges();expect(component.paypalButtonEligible).toBeTrue();expect(component.cardButtonEligible).toBeTrue();expect(buttonOptions.map(value=>value.fundingSource)).toEqual(['paypal','card']);expect(fixture.nativeElement.querySelector('#paypal-card-number')).toBeNull();expect(component).not.toEqual(jasmine.objectContaining({cardNumber:jasmine.anything(),cvv:jasmine.anything(),expiry:jasmine.anything()}));});
-  it('hides only ineligible Card funding and preserves PayPal',async()=>{sdk.loadButtons.and.resolveTo({FUNDING:{PAYPAL:'paypal',CARD:'card'},Buttons:(options:any)=>({isEligible:()=>options.fundingSource==='paypal',render:jasmine.createSpy().and.resolveTo(),close:jasmine.createSpy()})});await component.open();await component.selectPack(pack);fixture.detectChanges();expect(component.paypalButtonEligible).toBeTrue();expect(component.cardButtonEligible).toBeFalse();expect(fixture.nativeElement.querySelector('#paypal-topup-button')).toBeTruthy();expect(fixture.nativeElement.querySelector('#paypal-topup-card-button')).toBeNull();});
-  it('funding callbacks create and capture the same durable attempt once',async()=>{await component.open();await component.selectPack(pack);const orderId=await buttonOptions[1].createOrder();expect(orderId).toBe('ORDER');const attempt=component.attemptId;await Promise.all([buttonOptions[1].onApprove(),buttonOptions[1].onApprove()]);expect(credits.createPayPalOrder).toHaveBeenCalledOnceWith('CREDITS_10',attempt);expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(1);expect(state.refreshCredits).toHaveBeenCalledTimes(1);});
+  it('renders independently eligible PayPal and standard Debit or Credit Card buttons',async()=>{await component.open();await component.selectPack(pack);fixture.detectChanges();expect(component.paypalButtonEligible).toBeTrue();expect(component.cardButtonEligible).toBeTrue();expect(buttonOptions.map(value=>value.fundingSource)).toEqual(['paypal','card']);expect(fixture.nativeElement.querySelector('#paypal-topup-button')).toBeTruthy();expect(fixture.nativeElement.querySelector('#paypal-topup-card-button')).toBeTruthy();expect(sdk.loadCardFields).not.toHaveBeenCalled();expect(credits.getPayPalCardClientToken).not.toHaveBeenCalled();});
+  it('hides the standard Card button when FUNDING.CARD is ineligible and preserves PayPal',async()=>{eligibleFunding.delete('card');await component.open();await component.selectPack(pack);fixture.detectChanges();expect(component.paypalButtonEligible).toBeTrue();expect(component.cardButtonEligible).toBeFalse();expect(fixture.nativeElement.querySelector('#paypal-topup-button')).toBeTruthy();expect(fixture.nativeElement.querySelector('#paypal-topup-card-button')).toBeNull();});
+  it('PayPal button callbacks create and capture the same durable attempt once',async()=>{await component.open();await component.selectPack(pack);const orderId=await buttonOptions[0].createOrder();expect(orderId).toBe('ORDER');const attempt=component.attemptId;await Promise.all([buttonOptions[0].onApprove(),buttonOptions[0].onApprove()]);expect(credits.createPayPalOrder).toHaveBeenCalledOnceWith('CREDITS_10',attempt);expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(1);expect(state.refreshCredits).toHaveBeenCalledTimes(1);});
+  it('standard Card button creates and captures one normal PayPal Order and grants once',async()=>{await component.open();await component.selectPack(pack);const orderId=await buttonOptions[1].createOrder();expect(orderId).toBe('ORDER');const attempt=component.attemptId;await Promise.all([buttonOptions[1].onApprove(),buttonOptions[1].onApprove()]);expect(credits.createPayPalOrder).toHaveBeenCalledOnceWith('CREDITS_10',attempt);expect(credits.createPayPalCardOrder).not.toHaveBeenCalled();expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(1);expect(state.refreshCredits).toHaveBeenCalledTimes(1);});
+  it('standard Card decline restarts once and retry success grants credits once',async()=>{credits.capturePayPalOrder.and.returnValues(Promise.reject(new HttpErrorResponse({status:422,error:{code:'INSTRUMENT_DECLINED'}})),Promise.resolve({credited:true,status:'credited',credits:10}));await component.open();await component.selectPack(pack);await buttonOptions[1].createOrder();const actions={restart:jasmine.createSpy().and.resolveTo()};await buttonOptions[1].onApprove({},actions);await buttonOptions[1].onApprove({},actions);expect(actions.restart).toHaveBeenCalledTimes(1);expect(credits.createPayPalOrder).toHaveBeenCalledTimes(1);expect(credits.capturePayPalOrder).toHaveBeenCalledTimes(2);expect(state.refreshCredits).toHaveBeenCalledTimes(1);expect(alerts.showSuccess).toHaveBeenCalledTimes(1);});
+  it('does not request or mount Advanced Card Fields regardless of server capability',async()=>{await component.open();await component.selectPack(pack);expect(credits.getPayPalCardClientToken).not.toHaveBeenCalled();expect(sdk.loadCardFields).not.toHaveBeenCalled();expect(component.cardButtonEligible).toBeTrue();expect(component.paypalButtonEligible).toBeTrue();});
   it('cancellation clears attempt state for fresh checkout',async()=>{await component.open();await component.selectPack(pack);const attempt=component.attemptId;await (component as any).cancelFundingPurchase();expect(component.attemptId).toBeNull();expect(component.attemptPackCode).toBeNull();expect(component.checkoutCode).toBeNull();});
   it('switching packs destroys old buttons and creates new ones',async()=>{await component.open();await component.selectPack(pack);const firstOptions=buttonOptions.length;expect(firstOptions).toBeGreaterThan(0);await component.selectPack(pack50);fixture.detectChanges();await fixture.whenStable();const secondOptions=buttonOptions.length;expect(secondOptions).toBeGreaterThan(0);});
 
@@ -84,9 +89,9 @@ describe('CreditTopupComponent', () => {
 
   it('restarts PayPal exactly once for INSTRUMENT_DECLINED without success UI or wallet refresh',async()=>{
     credits.capturePayPalOrder.and.rejectWith(new HttpErrorResponse({status:422,error:{success:false,code:'INSTRUMENT_DECLINED',message:'safe'}}));
-    await component.open();await component.selectPack(pack);await buttonOptions[1].createOrder();
+    await component.open();await component.selectPack(pack);await buttonOptions[0].createOrder();
     const actions={restart:jasmine.createSpy().and.resolveTo()};
-    await Promise.all([buttonOptions[1].onApprove({},actions),buttonOptions[1].onApprove({},actions)]);
+    await Promise.all([buttonOptions[0].onApprove({},actions),buttonOptions[0].onApprove({},actions)]);
     expect(actions.restart).toHaveBeenCalledTimes(1);expect(state.refreshCredits).not.toHaveBeenCalled();
     expect(alerts.showSuccess).not.toHaveBeenCalled();expect(component.message).toContain('choose another card or payment method');
     expect(component.attemptId).not.toBeNull();

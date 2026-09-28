@@ -195,6 +195,7 @@ export class AssignmentForm {
         payload.rubrics = {
           totalPoints: 100,
           criteria: this.rubricDesignerForModal.criteria.map(c => ({
+            ...(c.id ? { id: c.id } : {}),
             name: c.title,
             weight: Number(c.weight) || 0,
             levels: this.rubricDesignerForModal!.levels.map((lvl, i) => ({
@@ -361,6 +362,7 @@ export class AssignmentForm {
     const criteria = criteriaRaw.map((c: any) => {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
+        ...(c?.id ? { id: String(c.id) } : {}),
         title: typeof c?.name === 'string' ? String(c.name) : '',
         weight: Number(c?.weight) || 0,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
@@ -402,6 +404,7 @@ export class AssignmentForm {
         maxPoints: Number(l?.maxPoints) || 0
       })),
       criteria: criteria.map((c: any) => ({
+        ...(c?.id ? { id: String(c.id) } : {}),
         title: typeof c?.title === 'string' ? String(c.title) : '',
         weight: Number(c?.weight) || 0,
         cells: Array.isArray(c?.cells) ? c.cells.map((x: any) => String(x ?? '')) : []

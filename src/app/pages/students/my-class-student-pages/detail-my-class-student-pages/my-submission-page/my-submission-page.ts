@@ -1373,7 +1373,7 @@ export class MySubmissionPage {
     }
     if (ocrStatus === 'completed' && data.processing !== true) {
       this.hasLoadedOcrCorrections = true;
-      this.ocrErrorMessage = null;
+      this.ocrErrorMessage = data?.ocrError || null;
     } else if (data.processing === true || ['pending', 'processing'].includes(ocrStatus)) {
       this.hasLoadedOcrCorrections = false;
     }
@@ -1852,8 +1852,6 @@ export class MySubmissionPage {
       this.rebuildHighlightedTranscript();
       await this.refreshWritingCorrections();
 
-      this.ocrErrorMessage = null;
-
       if (submission?.ocrStatus === 'failed') {
         this.ocrErrorMessage = submission.ocrError || 'OCR failed';
       }
@@ -1972,7 +1970,8 @@ export class MySubmissionPage {
       this.submission.evaluationStatus = this.canonicalResultState.evaluationStatus as BackendSubmission['evaluationStatus'];
       this.submission.evaluationSourceHash = this.canonicalResultState.evaluationSourceHash || undefined;
       this.submission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.submission.assessmentCompletedAt;
-      if (this.canonicalResultState.evaluationStatus === 'completed') this.submission.ocrStatus = 'completed';
+      if (this.canonicalResultState.ocrStatus) this.submission.ocrStatus = this.canonicalResultState.ocrStatus;
+      else if (this.canonicalResultState.correctionStatus === 'completed') this.submission.ocrStatus = 'completed';
     }
     this.adaptiveSkillScores = this.buildAdaptiveSkillScores(feedback);
     this.teacherComment = typeof feedback?.teacherComments === 'string' ? feedback.teacherComments : null;
@@ -1987,7 +1986,8 @@ export class MySubmissionPage {
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
     const completionKey = `${submissionId}:${(feedback as any)?.assessmentCompletedAt || canonical.evaluationSourceHash || 'completed'}`;
-    if (canonical.evaluationStatus === 'completed' && this.ocrCompletionReconciliationKey !== completionKey) {
+    if ((canonical.evaluationStatus === 'completed' || canonical.terminal === true)
+      && this.ocrCompletionReconciliationKey !== completionKey) {
       this.ocrCompletionReconciliationKey = completionKey;
       await this.refreshAssessmentResult(submissionId);
       if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };

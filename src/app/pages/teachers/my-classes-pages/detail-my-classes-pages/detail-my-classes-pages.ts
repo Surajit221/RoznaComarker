@@ -768,6 +768,7 @@ export class DetailMyClassesPages {
     const criteria = criteriaRaw.map((c: any) => {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
+        ...(c?.id ? { id: String(c.id) } : {}),
         title: typeof c?.name === 'string' ? String(c.name) : '',
         weight: Number(c?.weight) || 0,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
@@ -816,6 +817,7 @@ export class DetailMyClassesPages {
     return {
       totalPoints: 100,
       criteria: criteria.map((row: any) => ({
+        ...(row?.id ? { id: String(row.id) } : {}),
         name: typeof row?.title === 'string' ? row.title : '',
         weight: Number(row?.weight) || 0,
         levels: levels.map((lvl: any, i: number) => ({
