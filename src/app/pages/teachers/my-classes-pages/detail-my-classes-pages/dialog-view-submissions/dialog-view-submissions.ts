@@ -112,7 +112,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
 
     try {
       const [submissions, staleSummary] = await Promise.all([
-        this.submissionApi.getSubmissionsByAssignment(assignmentId),
+        this.submissionApi.getSubmissionsByAssignment(assignmentId, null, 'cards'),
         this.assignmentApi.getStaleEvaluationSummary(assignmentId).catch(() => null)
       ]);
       if (this.destroyed || requestSequence !== this.requestSequence || assignmentId !== this.assignmentId) return;
@@ -206,7 +206,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     if (!assignmentId || this.destroyed) return;
     try {
       const [submissions, summary] = await Promise.all([
-        this.submissionApi.getSubmissionsByAssignment(assignmentId),
+        this.submissionApi.getSubmissionsByAssignment(assignmentId, null, 'cards'),
         this.assignmentApi.getStaleEvaluationSummary(assignmentId)
       ]);
       if (this.destroyed || assignmentId !== this.assignmentId) return;

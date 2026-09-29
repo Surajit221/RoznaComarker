@@ -67,6 +67,9 @@
 .upload-modal-actions .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; }
 .student-sheet-content { max-height: calc(100dvh - 2.5rem); overflow-x: hidden; overflow-y: auto; padding: 0 .15rem .25rem; overscroll-behavior: contain; }
 .student-sheet-content--guidelines { padding-bottom: .75rem; }
+.student-sheet-actions button { min-height: 44px; }
+.student-sheet-actions button:focus-visible { outline: 3px solid rgba(0, 128, 129, .5); outline-offset: 3px; }
+.student-sheet-actions button:disabled { cursor: not-allowed; }
 
 @media (max-width: 768px) {
   .student-assignment-card { padding: .9rem; }

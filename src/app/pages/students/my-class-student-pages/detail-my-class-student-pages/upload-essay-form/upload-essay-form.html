@@ -8,6 +8,16 @@
   (change)="onFilesSelected($event)"
 />
 
+<input
+  #imageInput
+  type="file"
+  class="hidden"
+  multiple
+  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+  aria-label="Choose essay images"
+  (change)="onImagesSelected($event)"
+/>
+
 <!-- Drop zone -->
 <div
   class="essay-dropzone relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition-colors duration-200 cursor-pointer select-none"

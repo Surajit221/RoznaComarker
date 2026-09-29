@@ -110,7 +110,11 @@ export class CanonicalSubmissionResultCoordinator {
         this.pollingState$.next({ submissionId, attempt, running: false, timedOut: retryable, lastHttpStatus: status });
         return;
       }
-      this.schedule(DELAYS[Math.min(attempt, DELAYS.length - 1)], generation);
+      const retryAfter = Number(error?.headers?.get?.('Retry-After'));
+      const delay = status === 429
+        ? Math.max(30_000, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 0)
+        : DELAYS[Math.min(attempt, DELAYS.length - 1)];
+      this.schedule(delay, generation);
     }
   }
 

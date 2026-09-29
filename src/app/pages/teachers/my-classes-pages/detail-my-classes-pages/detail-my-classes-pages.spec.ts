@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 
 import { DetailMyClassesPages } from './detail-my-classes-pages';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../testing/standalone-test-providers';
@@ -26,6 +26,22 @@ describe('DetailMyClassesPages', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('refreshes class lists once per minute and stops polling on destroy', fakeAsync(() => {
+    const summary = spyOn(component as any, 'loadClassSummary').and.resolveTo();
+    const students = spyOn(component as any, 'loadStudents').and.resolveTo();
+    const assignments = spyOn(component as any, 'loadAssignments').and.resolveTo();
+    (component as any).startPolling();
+    tick(15_000); flushMicrotasks();
+    expect(summary).not.toHaveBeenCalled();
+    tick(45_000); flushMicrotasks();
+    expect(summary).toHaveBeenCalledTimes(1);
+    expect(students).toHaveBeenCalledTimes(1);
+    expect(assignments).toHaveBeenCalledTimes(1);
+    component.ngOnDestroy();
+    tick(120_000); flushMicrotasks();
+    expect(summary).toHaveBeenCalledTimes(1);
+  }));
 
   it('renders complete class values beside accessible copy buttons', async () => {
     component.classSummary = { name: 'English', joinCode: 'ABC123' } as any;

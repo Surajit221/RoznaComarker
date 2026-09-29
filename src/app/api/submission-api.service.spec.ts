@@ -85,6 +85,14 @@ describe('SubmissionApiService canonical reads', () => {
       expect((await submissions)[0].student).toBe('student-1');
     });
 
+    it('requests the lightweight cards projection for the submission list', async () => {
+      const submissions = service.getSubmissionsByAssignment('assignment-1', null, 'cards');
+      const req = http.expectOne((request) => request.url === `${environment.apiUrl}/submissions/assignment/assignment-1`
+        && request.params.get('view') === 'cards');
+      req.flush({ success: true, data: [{ _id: 'submission-1' }] });
+      expect((await submissions)[0]._id).toBe('submission-1');
+    });
+
     it('getSubmissionsByAssignment must NOT send _refresh when cacheBustToken is undefined', async () => {
       const submissions = service.getSubmissionsByAssignment('assignment-1', undefined);
       const req = http.expectOne((request) =>

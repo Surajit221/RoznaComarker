@@ -1283,7 +1283,8 @@ export class MySubmissionPage {
       });
       // Keep the last known-good markers during a transient refresh failure.
       const status = Number(failure?.status);
-      if ([202, 409, 429].includes(status)) { this.correctionsState = 'processing'; this.statisticsState = 'processing'; this.startOcrPolling(); return true; }
+      if ([202, 409].includes(status)) { this.correctionsState = 'processing'; this.statisticsState = 'processing'; this.startOcrPolling(); return true; }
+      if (status === 429) this.stopOcrPolling();
       this.ocrErrorMessage = failure?.error?.data?.ocrError || failure?.error?.message || failure?.message || 'OCR corrections are unavailable.';
       if (!this.submission?.correctionStatistics) this.statisticsState = 'error';
       return false;

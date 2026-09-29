@@ -507,7 +507,8 @@ export class DetailMyClassStudentPages {
       void this.router.navigateByUrl(url);
 
     } catch (err: any) {
-      const message = err?.error?.message || err?.message || 'Please try again';
+      const message = safeHttpErrorMessage(err);
+      this.uploadProgressPercent = null;
       this.uploadErrorMessage = message;
       this.errorModal = { open: true, title: 'Upload failed', message };
     } finally {

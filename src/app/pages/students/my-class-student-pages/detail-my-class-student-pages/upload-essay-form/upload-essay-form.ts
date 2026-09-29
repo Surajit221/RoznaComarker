@@ -19,6 +19,7 @@ import { DeviceService } from '../../../../../services/device.service';
 export class UploadEssayForm {
   @Output() filesSelected = new EventEmitter<File[]>();
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('imageInput') imageInput!: ElementRef<HTMLInputElement>;
 
   device = inject(DeviceService);
   private cdr = inject(ChangeDetectorRef);
@@ -28,11 +29,19 @@ export class UploadEssayForm {
   validationError: string | null = null;
 
   private readonly maxFileSizeBytes = 10 * 1024 * 1024;
+  readonly maxFiles = 20;
   private readonly allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'application/pdf']);
   private readonly allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
 
   // Prevents touchend + click both firing the picker on mobile
   private _pickerOpen = false;
+
+  openImagePicker(): void {
+    // Keep this click synchronous with the student's button press. Mobile
+    // browsers may reject file pickers opened from a later timer callback.
+    this.imageInput.nativeElement.value = '';
+    this.imageInput.nativeElement.click();
+  }
 
   openFilePicker(event: Event): void {
     event.preventDefault();
@@ -84,12 +93,33 @@ export class UploadEssayForm {
     input.value = '';
   }
 
-  private processFiles(fileList: FileList): void {
+  onImagesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const selected = Array.from(input.files || []);
+    if (selected.length) {
+      const images = selected.filter((file) => {
+        const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        return ['image/jpeg', 'image/png'].includes(file.type)
+          || ['.jpg', '.jpeg', '.png'].includes(extension);
+      });
+      this.processFiles(images);
+      if (images.length !== selected.length) {
+        this.validationError = 'Upload Image accepts JPG and PNG files only. Use the file area for PDFs.';
+      }
+    }
+    input.value = '';
+  }
+
+  private processFiles(fileList: FileList | File[]): void {
     this.validationError = null;
     const incoming = Array.from(fileList);
     const toAdd: { file: File; name: string; size: number; preview?: string }[] = [];
 
     for (const file of incoming) {
+      if (this.files.length + toAdd.length >= this.maxFiles) {
+        this.validationError = 'You can select up to 20 files.';
+        break;
+      }
       if (!this.isFileAllowed(file)) {
         this.validationError = 'Only JPG, PNG, and PDF files up to 10MB are allowed.';
         continue;
@@ -97,7 +127,7 @@ export class UploadEssayForm {
 
       const isDuplicate = this.files.some(
         (f) => f.name === file.name && f.size === file.size
-      );
+      ) || toAdd.some((f) => f.name === file.name && f.size === file.size);
       if (isDuplicate) continue;
 
       const entry: { file: File; name: string; size: number; preview?: string } = {
@@ -149,6 +179,9 @@ export class UploadEssayForm {
     this._pickerOpen = false;
     if (this.fileInput?.nativeElement) {
       this.fileInput.nativeElement.value = '';
+    }
+    if (this.imageInput?.nativeElement) {
+      this.imageInput.nativeElement.value = '';
     }
     this.filesSelected.emit([]);
     this.cdr.detectChanges();

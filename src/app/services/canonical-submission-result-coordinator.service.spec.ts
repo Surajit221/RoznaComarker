@@ -4,6 +4,18 @@ import { CanonicalSubmissionResultCoordinator, shouldRevalidateCanonicalResult,
 import { normalizeCanonicalResult } from '../utils/canonical-result-state.util';
 
 describe('CanonicalSubmissionResultCoordinator', () => {
+  it('respects Retry-After instead of rapidly retrying a 429', fakeAsync(() => {
+    const service = new CanonicalSubmissionResultCoordinator();
+    const refresh = jasmine.createSpy('refresh').and.rejectWith({ status: 429,
+      headers: { get: () => '45' } });
+    service.start('submission-1', refresh);
+    tick(0); flushMicrotasks();
+    tick(44_000); flushMicrotasks();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    service.stop();
+    tick(2_000); flushMicrotasks();
+    expect(refresh).toHaveBeenCalledTimes(1);
+  }));
   it('stops polling after OCR and corrections complete but evaluation terminally fails', fakeAsync(() => {
     const service = new CanonicalSubmissionResultCoordinator();
     const refresh = jasmine.createSpy('refresh').and.resolveTo({ submissionId: 'submission-1', ocrStatus: 'completed',
