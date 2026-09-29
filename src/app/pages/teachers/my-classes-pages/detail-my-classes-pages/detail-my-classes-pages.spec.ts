@@ -4,6 +4,7 @@ import { DetailMyClassesPages } from './detail-my-classes-pages';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../testing/standalone-test-providers';
 import { Router } from '@angular/router';
 import { AlertService } from '../../../../services/alert.service';
+import { ClassApiService } from '../../../../api/class-api.service';
 
 describe('DetailMyClassesPages', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -40,6 +41,24 @@ describe('DetailMyClassesPages', () => {
     expect(copy).toHaveBeenCalledWith(component.shareLink, 'Class link copied');
     fixture.nativeElement.querySelector('button[aria-label="Copy class code"]').click();
     expect(copy).toHaveBeenCalledWith('ABC123', 'Class code copied');
+  });
+
+  it('reports provider failure truthfully and does not duplicate a pending send', async () => {
+    component.classId = 'class-1';
+    let finish!: (value: unknown) => void;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const send = spyOn(TestBed.inject(ClassApiService), 'inviteStudents').and.returnValue(pending as ReturnType<ClassApiService['inviteStudents']>);
+    const error = spyOn(TestBed.inject(AlertService), 'showError');
+    spyOn(component as any, 'loadStudents').and.resolveTo();
+    spyOn(component as any, 'loadClassSummary').and.resolveTo();
+    const first = component.onSendInvitations(['a@example.com']);
+    await component.onSendInvitations(['a@example.com']);
+    expect(send).toHaveBeenCalledTimes(1);
+    finish({ summary: { total: 1, invited: 0, already_joined: 0, already_invited: 0, errors: 1 },
+      results: [{ email: 'a@example.com', status: 'error', message: 'Invitation created, but email delivery failed.' }] });
+    await first;
+    expect(error).toHaveBeenCalled();
+    expect(component.isInvitingStudents).toBeFalse();
   });
 
   it('shows the teacher Duplicate action and opens review without creating immediately', () => {

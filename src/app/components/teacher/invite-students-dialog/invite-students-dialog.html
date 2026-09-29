@@ -1,6 +1,6 @@
 <ng-container>
-  @if(device.isDesktop()) {
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" *ngIf="open">
+  @if(open && device.isDesktop()) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-3xl font-bold">Invite Students</h2>
@@ -8,6 +8,7 @@
           type="button" 
           class="text-gray-500 hover:text-gray-700 text-2xl"
           (click)="onClose()"
+          [disabled]="isSubmitting"
         >
           <i class="bx bx-x"></i>
         </button>
@@ -17,7 +18,7 @@
         <p class="text-gray-600 mb-2">Invite students to join <strong>{{ classTitle }}</strong></p>
         <div class="bg-gray-50 p-4 rounded-xl space-y-2">
           <div class="flex items-center gap-2">
-            <label class="text-sm font-bold pl-2">Class Link:</label>
+            <span class="text-sm font-bold pl-2">Class Link:</span>
             <div class="relative flex-1">
               <input
                 type="text"
@@ -35,7 +36,7 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <label class="text-sm font-bold pl-2">Class Code:</label>
+            <span class="text-sm font-bold pl-2">Class Code:</span>
             <div class="relative flex-1">
               <input
                 type="text"
@@ -61,6 +62,7 @@
           <textarea
             id="emails"
             formControlName="emails"
+            maxlength="6400"
             class="input-text h-32 resize-none"
             placeholder="Enter email addresses separated by commas&#10;Example: student1@example.com, student2@example.com"
             [class.input-error]="emailsControl?.invalid && emailsControl?.touched"
@@ -70,8 +72,11 @@
               @if (emailsControl?.errors?.['required']) {
                 <span>Email addresses are required</span>
               }
-              @if (emailsControl?.errors?.['pattern']) {
-                <span>Please enter valid email addresses separated by commas</span>
+              @if (emailsControl?.errors?.['invalidEmails']; as invalid) {
+                <span>Invalid email: {{ invalid.join(', ') }}</span>
+              }
+              @if (emailsControl?.errors?.['tooManyEmails']) {
+                <span>Enter no more than 25 email addresses.</span>
               }
             </div>
           }
@@ -100,8 +105,8 @@
       </form>
     </div>
   </div>
-  } @if(device.isMobile() || device.isTablet()) {
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50" *ngIf="open">
+  } @if(open && (device.isMobile() || device.isTablet())) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
     <div class="bg-white rounded-t-3xl p-6 w-full max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold">Invite Students</h2>
@@ -109,6 +114,7 @@
           type="button" 
           class="text-gray-500 hover:text-gray-700 text-xl"
           (click)="onClose()"
+          [disabled]="isSubmitting"
         >
           <i class="bx bx-x"></i>
         </button>
@@ -118,7 +124,7 @@
         <p class="text-gray-600 mb-2 text-sm">Invite students to join <strong>{{ classTitle }}</strong></p>
         <div class="bg-gray-50 p-3 rounded-xl space-y-2">
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold">Class Link:</label>
+            <span class="text-xs font-bold">Class Link:</span>
             <div class="relative">
               <input
                 type="text"
@@ -136,7 +142,7 @@
             </div>
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold">Class Code:</label>
+            <span class="text-xs font-bold">Class Code:</span>
             <div class="relative">
               <input
                 type="text"
@@ -162,6 +168,7 @@
           <textarea
             id="emails"
             formControlName="emails"
+            maxlength="6400"
             class="input-text h-24 resize-none text-sm"
             placeholder="Enter emails separated by commas&#10;student1@example.com, student2@example.com"
             [class.input-error]="emailsControl?.invalid && emailsControl?.touched"
@@ -171,8 +178,11 @@
               @if (emailsControl?.errors?.['required']) {
                 <span>Email addresses are required</span>
               }
-              @if (emailsControl?.errors?.['pattern']) {
-                <span>Please enter valid email addresses</span>
+              @if (emailsControl?.errors?.['invalidEmails']; as invalid) {
+                <span>Invalid email: {{ invalid.join(', ') }}</span>
+              }
+              @if (emailsControl?.errors?.['tooManyEmails']) {
+                <span>Enter no more than 25 email addresses.</span>
               }
             </div>
           }
