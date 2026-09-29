@@ -1,7 +1,11 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { safeHttpErrorMessage } from './safe-http-error-message.util';
 
 describe('safeHttpErrorMessage', () => {
+  it('maps 429 to a truthful retry message', () => {
+    const error = new HttpErrorResponse({ status: 429, headers: new HttpHeaders({ 'Retry-After': '75' }) });
+    expect(safeHttpErrorMessage(error)).toContain('Retry in about 2 minutes');
+  });
   it('maps status zero to a user-safe connectivity message', () => {
     const error = new HttpErrorResponse({ status: 0, statusText: 'Unknown Error', url: 'https://backend.example/api' });
     expect(safeHttpErrorMessage(error)).toBe('Unable to reach the server. Check your connection and try again.');

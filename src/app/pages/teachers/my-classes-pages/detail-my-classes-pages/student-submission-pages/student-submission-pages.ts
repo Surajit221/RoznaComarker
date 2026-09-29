@@ -3005,7 +3005,7 @@ export class StudentSubmissionPages {
       });
       this.correctionsError = err?.error?.data?.ocrError || err?.error?.message || err?.message || 'Failed to load AI corrections';
       const status = Number(err?.status);
-      if ([202, 409, 429].includes(status)) { this.correctionsState = 'processing'; this.statisticsState = 'processing'; return true; }
+      if ([202, 409].includes(status)) { this.correctionsState = 'processing'; this.statisticsState = 'processing'; return true; }
       if (!(this.currentSubmission as any)?.correctionStatistics) this.statisticsState = 'error';
 
 

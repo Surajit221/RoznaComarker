@@ -94,8 +94,9 @@ export class DetailMyClassesPages {
 
   private realtimeSub: Subscription | null = null;
   private pollId: number | null = null;
+  private pollingRefreshInFlight = false;
+  private destroyed = false;
   private pendingSubmissionCountRefresh = false;
-  private lastAssignmentsPollAtMs = 0;
   isButtonFabOpen = false;
   openSheetAssignment = false;
   openSheetQr = false;
@@ -198,6 +199,7 @@ export class DetailMyClassesPages {
   private studentSubmissionStatsById: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
 
   async ngOnInit() {
+    this.destroyed = false;
     this.classId = this.route.snapshot.paramMap.get('slug');
     const RESERVED = ['student-profile', 'student-submissions'];
     if (!this.classId || RESERVED.includes(this.classId)) {
@@ -205,6 +207,7 @@ export class DetailMyClassesPages {
       return;
     }
     const viewer = await this.auth.getMeProfile().catch(() => null);
+    if (this.destroyed) return;
     if (viewer?.role !== 'teacher') {
       if (viewer?.role === 'student' && this.classId) {
         await this.router.navigate(['/student/classroom', this.classId]);
@@ -231,6 +234,7 @@ export class DetailMyClassesPages {
       this.showWorksheetModal = true;
     }
 
+    if (this.destroyed) return;
     this.realtime.connect();
 
     this.realtimeSub?.unsubscribe();
@@ -257,10 +261,11 @@ export class DetailMyClassesPages {
       }
     });
 
-    this.startPolling();
+    if (!this.destroyed) this.startPolling();
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     this.realtimeSub?.unsubscribe();
     this.realtimeSub = null;
 
@@ -276,6 +281,7 @@ export class DetailMyClassesPages {
 
     window.setTimeout(() => {
       this.pendingSubmissionCountRefresh = false;
+      if (this.destroyed) return;
       if (assignmentId) {
         void this.refreshAssignmentSubmissionCount(assignmentId);
         return;
@@ -292,17 +298,11 @@ export class DetailMyClassesPages {
       } catch {
         // ignore
       }
-
-      // Refresh class summary + students more frequently so newly joined students show up without reload.
-      void this.loadClassSummary(true);
-      void this.loadStudents(true);
-
-      const now = Date.now();
-      if (!this.lastAssignmentsPollAtMs || now - this.lastAssignmentsPollAtMs >= 60000) {
-        this.lastAssignmentsPollAtMs = now;
-        void this.loadAssignments();
-      }
-    }, 15000);
+      if (this.destroyed || this.pollingRefreshInFlight) return;
+      this.pollingRefreshInFlight = true;
+      void Promise.all([this.loadClassSummary(true), this.loadStudents(true), this.loadAssignments()])
+        .finally(() => { this.pollingRefreshInFlight = false; });
+    }, 60000);
   }
 
   private async refreshAssignmentSubmissionCount(assignmentId: string): Promise<void> {

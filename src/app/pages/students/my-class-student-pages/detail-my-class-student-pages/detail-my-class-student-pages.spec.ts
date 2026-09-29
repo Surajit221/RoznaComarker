@@ -3,8 +3,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DetailMyClassStudentPages } from './detail-my-class-student-pages';
 import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
 import { AuthService } from '../../../../auth/auth.service';
-import { of } from 'rxjs';
-import { HttpErrorResponse } from '@angular/common/http';
+import { of, Subject } from 'rxjs';
+import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 
 describe('DetailMyClassStudentPages', () => {
   let component: DetailMyClassStudentPages;
@@ -119,5 +119,107 @@ describe('DetailMyClassStudentPages', () => {
 
     expect(component.errorModal.message).toBe('Unable to reach the server. Check your connection and try again.');
     expect(component.errorModal.message).not.toContain('https://');
+  });
+
+  it('shows 429 for assignment loading without calling the server unreachable', async () => {
+    component.classId = 'class-1';
+    component.isLoading = false;
+    spyOn((component as any).assignmentApi, 'getMyAssignments').and.rejectWith(
+      new HttpErrorResponse({ status: 429, statusText: 'Too Many Requests' }));
+    await component.loadAssignments();
+    expect(component.errorModal.message).toContain('Too many requests');
+    expect(component.errorModal.message).not.toContain('Unable to reach');
+  });
+
+  it('preserves selected files and blocks double upload after a 429', async () => {
+    const file = new File(['essay'], 'essay.txt', { type: 'text/plain' });
+    component.selectedAssignmentId = 'assignment-1';
+    component.selectedFiles = [file];
+    component.isLoading = false;
+    const pending = new Subject<any>();
+    const submit = spyOn((component as any).uploadApi, 'submitSubmissionFiles').and.returnValue(pending.asObservable());
+    const first = component.uploadFiles();
+    await component.uploadFiles();
+    expect(submit).toHaveBeenCalledTimes(1);
+    pending.error(new HttpErrorResponse({ status: 429,
+      headers: new HttpHeaders({ 'Retry-After': '60' }) }));
+    await first;
+    expect(component.selectedFiles).toEqual([file]);
+    expect(component.uploadProgressPercent).toBeNull();
+    expect(component.isLoading).toBeFalse();
+    expect(component.errorModal.message).toContain('Too many requests');
+
+    const retryPending = new Subject<any>();
+    submit.and.returnValue(retryPending.asObservable());
+    const retry = component.uploadFiles();
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(submit.calls.mostRecent().args[0]).toEqual([file]);
+    retryPending.error(new HttpErrorResponse({ status: 429 }));
+    await retry;
+    expect(component.selectedFiles).toEqual([file]);
+  });
+
+  it('keeps mobile Upload Image separate from Submit and leaves PDF browsing available', () => {
+    Object.assign(component.device, {
+      isDesktop: () => false,
+      isMobile: () => true,
+      isTablet: () => false
+    });
+    component.openSheet = true;
+    component.selectedAssignmentId = 'assignment-1';
+    component.isLoading = false;
+    fixture.detectChanges();
+
+    const actions = fixture.nativeElement.querySelector('.student-sheet-actions') as HTMLElement;
+    expect(actions).toBeTruthy();
+    const buttons = Array.from(actions.querySelectorAll('button')) as HTMLButtonElement[];
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Upload Image', 'Submit', 'Cancel']);
+    expect(buttons[1].disabled).toBeTrue();
+    const imagePicker = component.uploadFormSheet!.imageInput.nativeElement;
+    const browsePicker = component.uploadFormSheet!.fileInput.nativeElement;
+    expect(browsePicker.accept).toContain('application/pdf');
+    const pickerClick = spyOn(imagePicker, 'click');
+    const submit = spyOn(component, 'uploadFiles');
+
+    buttons[0].click();
+    expect(pickerClick).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+
+    component.onFilesSelected([new File(['essay'], 'essay.jpg', { type: 'image/jpeg' })]);
+    fixture.detectChanges();
+    expect(buttons[1].disabled).toBeFalse();
+    buttons[1].click();
+    expect(submit).toHaveBeenCalledTimes(1);
+    buttons[2].click();
+    expect(component.openSheet).toBeFalse();
+  });
+
+  it('fits mobile submission controls and long filenames at 375, 390, and 430px', () => {
+    Object.assign(component.device, {
+      isDesktop: () => false,
+      isMobile: () => true,
+      isTablet: () => false
+    });
+    component.openSheet = true;
+    component.isLoading = false;
+    const file = new File(['essay'], 'a-very-long-essay-filename-that-must-not-push-the-controls-off-screen.jpg',
+      { type: 'image/jpeg' });
+    component.selectedFiles = [file];
+    component.uploadProgressPercent = 100;
+    component.uploadErrorMessage = 'Too many requests. Please wait before trying again.';
+    fixture.detectChanges();
+    component.uploadFormSheet!.files = [{ file, name: file.name, size: file.size }];
+    fixture.detectChanges();
+    const sheet = fixture.nativeElement.querySelector('.student-sheet-content') as HTMLElement;
+    const actions = sheet.querySelector('.student-sheet-actions') as HTMLElement;
+    expect(sheet.textContent).toContain('Creating submission...');
+    for (const width of [375, 390, 430]) {
+      sheet.style.width = `${width}px`;
+      sheet.style.boxSizing = 'border-box';
+      expect(sheet.scrollWidth).withContext(`${width}px sheet overflow`).toBeLessThanOrEqual(sheet.clientWidth);
+      for (const button of Array.from(actions.querySelectorAll('button'))) {
+        expect(button.getBoundingClientRect().height).withContext(`${width}px touch target`).toBeGreaterThanOrEqual(44);
+      }
+    }
   });
 });
