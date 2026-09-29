@@ -9,7 +9,8 @@ import { trustedPayPalApprovalUrl } from '../../utils/trusted-navigation.util';
 import { AlertService } from '../../services/alert.service';
 import { CreditTopupUiService } from '../../services/credit-topup-ui.service';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
-import { PayPalSdkLoaderService, type PayPalButtonInstance, type PayPalOnApproveActions, type PayPalSdkConfig } from '../../services/paypal-sdk-loader.service';
+import { PayPalSdkLoaderService, type PayPalButtonInstance, type PayPalOnApproveActions,
+  type PayPalSdkConfig } from '../../services/paypal-sdk-loader.service';
 
 type PayPalConfirmationOutcome = 'finished' | 'instrument_declined';
 const INSTRUMENT_DECLINED_MESSAGE = "PayPal couldn't process this payment method. Please choose another card or payment method. No credits were added.";
@@ -31,11 +32,11 @@ export class CreditTopupComponent {
   private fundingGeneration=0;
   paypalButtonEligible=false;cardButtonEligible=false;fundingLoading=false;
   private paypalButton?:PayPalButtonInstance;private cardButton?:PayPalButtonInstance;private sdkConfig?:PayPalSdkConfig;
-  private paypalClientId='';private capturePromise?:Promise<void>;
+  private paypalClientId='';private capturePromise?:Promise<void>;private attemptFundingSource:'paypal'|'card'|null=null;
   private readonly alerts=inject(AlertService);private readonly ui=inject(CreditTopupUiService);private readonly destroyRef=inject(DestroyRef);private returnFocus:HTMLElement|null=null;
 
   constructor(private credits: CreditsApiService, private accountState: AccountStateService, private route: ActivatedRoute,
-    private catalog:PricingCatalogStateService, private paypalSdk:PayPalSdkLoaderService, private cdr:ChangeDetectorRef) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;if(this.selectedPack&&!next.some(pack=>pack.code===this.selectedPack?.code))this.selectedPack=null;if(!this.confirmationPending&&this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.destroyFundingButtons();this.message='The selected credit pack is no longer available.'}})}
+    private catalog:PricingCatalogStateService, private paypalSdk:PayPalSdkLoaderService, private cdr:ChangeDetectorRef) {this.ui.openRequests$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(()=>void this.open());effect(()=>{const next=this.catalog.packs();this.packs=next;if(this.selectedPack&&!next.some(pack=>pack.code===this.selectedPack?.code))this.selectedPack=null;if(!this.confirmationPending&&this.attemptPackCode&&!next.some(pack=>pack.code===this.attemptPackCode)){this.attemptId=null;this.attemptPackCode=null;this.attemptFundingSource=null;this.checkoutCode=null;this.destroyFundingButtons();this.message='The selected credit pack is no longer available.'}})}
 
   ngOnInit(): void {
     const query = this.route.snapshot.queryParamMap;
@@ -54,7 +55,7 @@ export class CreditTopupComponent {
     finally { this.loading = false; }
   }
 
-  close(): void { if (!this.checkoutCode) { this.destroyFundingButtons();this.openState=false;if(!this.confirmationPending){this.attemptId=null;this.attemptPackCode=null;}this.selectedPack=null;document.body.style.overflow='';const target=this.returnFocus;this.returnFocus=null;setTimeout(()=>target?.focus()); } }
+  close(): void { if (!this.checkoutCode) { this.destroyFundingButtons();this.openState=false;if(!this.confirmationPending){this.attemptId=null;this.attemptPackCode=null;this.attemptFundingSource=null;}this.selectedPack=null;document.body.style.overflow='';const target=this.returnFocus;this.returnFocus=null;setTimeout(()=>target?.focus()); } }
 
   async selectPack(pack:CreditPack):Promise<void>{if(this.checkoutCode||this.loading||this.confirmationPending)return;this.destroyFundingButtons();this.selectedPack=pack;this.message=null;this.cdr.detectChanges();await this.mountFundingButtons();}
 
@@ -62,8 +63,8 @@ export class CreditTopupComponent {
     if (this.checkoutCode || this.confirmationPending) return;
     this.checkoutCode = pack.code; this.message = null;
     try {
-      if (!this.attemptId || this.attemptPackCode !== pack.code) { this.attemptId = crypto.randomUUID(); this.attemptPackCode = pack.code; }
-      const order = await this.credits.createPayPalOrder(pack.code, this.attemptId);
+      const attemptId=this.ensureAttempt(pack,'paypal');
+      const order = await this.credits.createPayPalOrder(pack.code, attemptId);
       const url = trustedPayPalApprovalUrl(order.approvalUrl);
       if (!url) throw new Error('Untrusted PayPal approval URL');
       this.navigateExternal(url);
@@ -74,24 +75,35 @@ export class CreditTopupComponent {
   }
 
   private async loadCapabilities():Promise<void>{
-    try{const capability=await this.credits.getPayPalCapabilities();this.paypalClientId=capability.paypalCheckout?capability.clientId:'';
-    }catch{this.paypalClientId='';}
+    this.paypalClientId='';
+    try{const capability=await this.credits.getPayPalCapabilities();this.paypalClientId=capability.paypalCheckout?capability.clientId:'';}
+    catch{this.paypalClientId='';}
   }
-  private ensureAttempt(pack:CreditPack):string{if(!this.attemptId||this.attemptPackCode!==pack.code){this.attemptId=crypto.randomUUID();this.attemptPackCode=pack.code;}return this.attemptId;}
-  private async mountFundingButtons():Promise<void>{const pack=this.selectedPack;if(!pack||!this.paypalClientId)return;
-    const generation=++this.fundingGeneration;this.fundingLoading=true;this.sdkConfig={clientId:this.paypalClientId,currency:pack.currency,mode:'capture'};
-    try{const sdk=await this.paypalSdk.loadButtons(this.sdkConfig);if(generation!==this.fundingGeneration||this.destroyed||!this.openState)return;const options=(fundingSource:unknown)=>({fundingSource,
-      createOrder:async()=>{const order=await this.credits.createPayPalOrder(pack.code,this.ensureAttempt(pack));if(!order.orderId)throw new Error('ORDER_CREATE_FAILED');return order.orderId;},
-      onApprove:(_data:unknown,actions:PayPalOnApproveActions)=>this.completeFundingPurchase(actions),onCancel:()=>this.cancelFundingPurchase(),onError:()=>{this.checkoutCode=null;this.message='Secure checkout could not be completed. Please try again.';}});
-      this.paypalButton=sdk.Buttons(options(sdk.FUNDING.PAYPAL));this.cardButton=sdk.Buttons(options(sdk.FUNDING.CARD));
-      this.paypalButtonEligible=this.paypalButton.isEligible();this.cardButtonEligible=this.cardButton.isEligible();this.cdr.detectChanges();await Promise.resolve();
-      await Promise.all([...(this.paypalButtonEligible?[this.paypalButton.render('#paypal-topup-button')]:[]),...(this.cardButtonEligible?[this.cardButton.render('#paypal-topup-card-button')]:[])]);
-      if(!this.paypalButtonEligible&&!this.cardButtonEligible)this.message='PayPal checkout is temporarily unavailable.';
-    }catch{if(generation===this.fundingGeneration)this.message='PayPal checkout is temporarily unavailable.';}finally{if(generation===this.fundingGeneration&&!this.destroyed){this.fundingLoading=false;this.cdr.detectChanges();}}}
-  private completeFundingPurchase(actions?:PayPalOnApproveActions): Promise<void> {
+  private ensureAttempt(pack:CreditPack,fundingSource:'paypal'|'card'='paypal'):string{
+    if(!this.attemptId||this.attemptPackCode!==pack.code||this.attemptFundingSource!==fundingSource){this.attemptId=crypto.randomUUID();this.attemptPackCode=pack.code;this.attemptFundingSource=fundingSource;}return this.attemptId;
+  }
+  private async mountFundingButtons():Promise<void>{const pack=this.selectedPack;if(!pack)return;
+    const generation=++this.fundingGeneration;this.fundingLoading=true;
+    if(this.paypalClientId){
+      this.sdkConfig={clientId:this.paypalClientId,currency:pack.currency,mode:'capture'};
+      try{const sdk=await this.paypalSdk.loadButtons(this.sdkConfig);if(generation!==this.fundingGeneration||this.destroyed||!this.openState)return;
+        let buttonAttemptId:string|null=null;
+        const options=(fundingSource:unknown)=>({fundingSource,
+          createOrder:async()=>{this.checkoutCode=pack.code;try{buttonAttemptId=this.ensureAttempt(pack,'paypal');const order=await this.credits.createPayPalOrder(pack.code,buttonAttemptId);if(!order.orderId)throw new Error('ORDER_CREATE_FAILED');return order.orderId;}catch(error){this.checkoutCode=null;throw error;}},
+          onApprove:(_data:unknown,actions:PayPalOnApproveActions)=>this.completeFundingPurchase(actions,buttonAttemptId||undefined),
+          onCancel:()=>this.cancelFundingPurchase(buttonAttemptId||undefined),onError:()=>{this.checkoutCode=null;this.message='Secure checkout could not be completed. Please try again.';}});
+        this.paypalButton=sdk.Buttons(options(sdk.FUNDING.PAYPAL));this.cardButton=sdk.Buttons(options(sdk.FUNDING.CARD));
+        this.paypalButtonEligible=this.paypalButton.isEligible();this.cardButtonEligible=this.cardButton.isEligible();this.cdr.detectChanges();await Promise.resolve();
+        await Promise.all([...(this.paypalButtonEligible?[this.paypalButton.render('#paypal-topup-button')]:[]),
+          ...(this.cardButtonEligible?[this.cardButton.render('#paypal-topup-card-button')]:[])]);
+      }catch{if(generation===this.fundingGeneration){this.paypalButtonEligible=false;this.cardButtonEligible=false;}}
+    }
+    if(generation===this.fundingGeneration&&!this.destroyed){this.fundingLoading=false;if(!this.paypalButtonEligible&&!this.cardButtonEligible)this.message='PayPal checkout is temporarily unavailable.';this.cdr.detectChanges();}
+  }
+  private completeFundingPurchase(actions?:PayPalOnApproveActions, approvedAttemptId?:string): Promise<void> {
     if (this.capturePromise) return this.capturePromise;
-    if (!this.attemptId) return Promise.reject(new Error('ORDER_CAPTURE_FAILED'));
-    this.capturePromise = this.confirmPayPal(this.attemptId).then(async(outcome)=>{
+    const attemptId=approvedAttemptId||this.attemptId;if (!attemptId) return Promise.reject(new Error('ORDER_CAPTURE_FAILED'));
+    this.capturePromise = this.confirmPayPal(attemptId).then(async(outcome)=>{
       if(outcome!=='instrument_declined'||!actions)return;
       try{await actions.restart();}
       catch{this.attemptId=null;this.attemptPackCode=null;this.confirmationPending=false;this.checkoutCode=null;
@@ -100,7 +112,7 @@ export class CreditTopupComponent {
     return this.capturePromise;
   }
   async retryConfirmation(): Promise<void> { if (this.attemptId) await this.completeFundingPurchase(); }
-  private async cancelFundingPurchase():Promise<void>{if(this.attemptId)try{await this.credits.cancelPayPalPurchase(this.attemptId);}catch{this.confirmationPending=true;this.message='Cancellation could not be confirmed. Check this payment before retrying.';return;}this.attemptId=null;this.attemptPackCode=null;this.checkoutCode=null;this.message='Payment was cancelled. No credits were added.';}
+  private async cancelFundingPurchase(attemptId=this.attemptId||undefined):Promise<void>{if(attemptId)try{await this.credits.cancelPayPalPurchase(attemptId);}catch{this.confirmationPending=true;this.message='Cancellation could not be confirmed. Check this payment before retrying.';return;}this.attemptId=null;this.attemptPackCode=null;this.attemptFundingSource=null;this.checkoutCode=null;this.message='Payment was cancelled. No credits were added.';}
   private destroyFundingButtons():void{this.fundingGeneration++;this.fundingLoading=false;this.paypalButton?.close?.();this.cardButton?.close?.();this.paypalButton=undefined;this.cardButton=undefined;this.paypalButtonEligible=false;this.cardButtonEligible=false;if(this.sdkConfig)this.paypalSdk.release(this.sdkConfig);this.sdkConfig=undefined;}
 
   private async refreshWallet(): Promise<void> { await this.accountState.refreshCredits(); }
@@ -114,7 +126,7 @@ export class CreditTopupComponent {
     return ['PAYPAL_CAPTURE_CORRELATION_MISMATCH','PAYPAL_CAPTURE_OWNERSHIP_CONFLICT','PAYPAL_PURCHASE_ATTEMPT_TERMINAL'].includes(this.captureErrorCode(error)||'');
   }
   private closeTerminalAttempt(message:string):void{
-    this.confirmationPending=false;this.destroyFundingButtons();this.selectedPack=null;this.attemptId=null;this.attemptPackCode=null;this.message=message;
+    this.confirmationPending=false;this.destroyFundingButtons();this.selectedPack=null;this.attemptId=null;this.attemptPackCode=null;this.attemptFundingSource=null;this.message=message;
   }
   private async confirmPayPal(attemptId: string): Promise<PayPalConfirmationOutcome> {
     this.attemptId = attemptId; this.confirmationPending = true;
@@ -127,6 +139,7 @@ export class CreditTopupComponent {
           this.confirmationPending=false;this.message=INSTRUMENT_DECLINED_MESSAGE;return 'instrument_declined';
         }
         if(!this.shouldReconcileCaptureError(error))throw error;
+        this.message="We couldn't confirm the payment. Checking the payment status...";
         purchase = await this.credits.getPayPalPurchase(attemptId);
       }
       if(purchase.failureCode==='INSTRUMENT_DECLINED'){
@@ -137,7 +150,7 @@ export class CreditTopupComponent {
         purchase = await this.credits.getPayPalPurchase(attemptId);
         if (['failed', 'cancelled', 'review_required'].includes(purchase.status)) break;
       }
-      if (purchase.credited) { this.confirmationPending=false;this.destroyFundingButtons();this.selectedPack=null;this.attemptId=null;this.attemptPackCode=null;await this.refreshWallet(); this.message = `Credits added. ${this.accountState.wallet()?.availableCredits} Assessment Credits are now available.`;this.alerts.showSuccess('Credits added',`${purchase.credits} purchased Assessment Credits were added to your account.`); }
+      if (purchase.credited) { this.confirmationPending=false;this.destroyFundingButtons();this.selectedPack=null;this.attemptId=null;this.attemptPackCode=null;this.attemptFundingSource=null;await this.refreshWallet(); this.message = 'Payment successful. Your Assessment Credits have been added.';this.alerts.showSuccess('Credits added',`${purchase.credits} purchased Assessment Credits were added to your account.`); }
       else if(purchase.failureCode==='INSTRUMENT_DECLINED'){this.confirmationPending=false;this.message=INSTRUMENT_DECLINED_MESSAGE;return 'instrument_declined';}
       else if(purchase.status==='cancelled')this.closeTerminalAttempt('Payment was cancelled. No credits were added.');
       else if(purchase.status==='refunded')this.closeTerminalAttempt('This payment was refunded.');
@@ -145,14 +158,14 @@ export class CreditTopupComponent {
       else if(purchase.status==='failed')this.closeTerminalAttempt(purchase.message==='PayPal is temporarily unavailable. Please try again.'?purchase.message:'PayPal could not complete this payment. No credits were added.');
       else this.message = purchase.message || 'Payment confirmation is taking longer than expected. Use Check payment to confirm the existing purchase.';
     } catch (error: any) { this.confirmationPending=false;
-      if(error instanceof HttpErrorResponse&&error.status>=400&&error.status<500){this.attemptId=null;this.attemptPackCode=null;}
+      if(error instanceof HttpErrorResponse&&error.status>=400&&error.status<500){this.attemptId=null;this.attemptPackCode=null;this.attemptFundingSource=null;}
       this.message = error?.error?.message || 'We could not confirm the payment yet. Please retry from Add Credits.'; }
     finally { this.checkoutCode = null; }
     return 'finished';
   }
   private async cancelPayPal(attemptId: string): Promise<void> {
     this.openState = true; this.message = 'Payment was cancelled. No credits were added.';
-    try { await this.credits.cancelPayPalPurchase(attemptId); } catch { this.attemptId=attemptId;this.confirmationPending=true;this.message='Cancellation could not be confirmed. Check this payment before retrying.'; }
+    try { await this.credits.cancelPayPalPurchase(attemptId);this.attemptFundingSource=null; } catch { this.attemptId=attemptId;this.confirmationPending=true;this.message='Cancellation could not be confirmed. Check this payment before retrying.'; }
   }
   private focus(): void { setTimeout(() => { const first = this.dialog?.nativeElement.querySelector<HTMLElement>('button:not([disabled])'); (first || this.dialog?.nativeElement)?.focus(); }); }
   protected navigateExternal(url: string): void { window.location.assign(url); }

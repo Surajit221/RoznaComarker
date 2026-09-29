@@ -2,6 +2,25 @@ import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRet
   normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
+  for (const [ocrStatus, correctionStatus, evaluationStatus] of [
+    ['pending', 'pending', 'pending'], ['completed', 'processing', 'pending'],
+    ['completed', 'completed', 'processing'], ['completed', 'completed', 'failed'],
+    ['completed', 'completed', 'completed'], ['completed', 'partial', 'partial']
+  ]) {
+    it(`preserves independent OCR state for ${ocrStatus}/${correctionStatus}/${evaluationStatus}`, () => {
+      const state = normalizeCanonicalResult({ ocrStatus, correctionStatus, evaluationStatus,
+        terminal: evaluationStatus === 'failed', processingActive: evaluationStatus !== 'failed',
+        automaticPollingAllowed: evaluationStatus !== 'failed' });
+      expect(state.ocrStatus).toBe(ocrStatus as any);
+      expect(state.evaluationStatus).toBe(evaluationStatus as any);
+      if (evaluationStatus === 'failed') {
+        expect(state.scoreMessage).toBe('Score unavailable');
+        expect(state.automaticPollingAllowed).toBeFalse();
+      }
+      expect(normalizeCanonicalResult({ evaluationStatus }, state).ocrStatus).toBe(ocrStatus as any);
+    });
+  }
+
   it('does not render structural zero counts as authoritative when structural coverage is incomplete', () => {
     const state = normalizeCanonicalResult({ correctionStatus: 'partial', semanticStatus: 'partial',
       statisticsCompleteness: 'partial', categoryAvailability: {
@@ -67,7 +86,7 @@ describe('canonical result normalization', () => {
     expect(shouldRetryEvaluationOnly(evaluationFailed)).toBeTrue();
     expect(shouldRetryEvaluationOnly(normalizeCanonicalResult({ correctionStatus: 'failed',
       semanticStatus: 'failed', evaluationStatus: 'blocked' }))).toBeFalse();
-    expect(canonicalFailureMessage(evaluationFailed)).toBe('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+    expect(canonicalFailureMessage(evaluationFailed)).toBe('Scoring and detailed feedback could not be completed. Your transcription and corrections are still available.');
     expect(canonicalRetryLabel(evaluationFailed)).toBe('Retry scoring');
   });
 

@@ -33,7 +33,7 @@ export class RubricDesignerModal implements OnDestroy {
 
   rubricDesignerTitle = '';
   rubricLevels: Array<{ title: string; maxPoints: number | null }> = [];
-  rubricCriteriaRows: Array<{ title: string; weight: number | null; cells: string[] }> = [];
+  rubricCriteriaRows: Array<{ id?: string; title: string; weight: number | null; cells: string[] }> = [];
 
   readonly rubricPromptControl = new FormControl('', { nonNullable: true });
   private generationAwaitingApplication = false;
@@ -98,6 +98,7 @@ export class RubricDesignerModal implements OnDestroy {
 
     this.rubricCriteriaRows = criteriaRaw.length
       ? criteriaRaw.map((c: any) => ({
+          ...(c?.id ? { id: String(c.id) } : {}),
           title: String(c?.title || ''),
           weight: this.coerceWeightInput(c?.weight),
           cells: this.rubricLevels.map((_, i) => this.coerceCellText(Array.isArray(c?.cells) ? c.cells[i] : ''))
@@ -183,6 +184,7 @@ export class RubricDesignerModal implements OnDestroy {
         maxPoints: Number(l.maxPoints) || 0
       })),
       criteria: this.rubricCriteriaRows.map((r) => ({
+        ...(r.id ? { id: r.id } : {}),
         title: String(r.title || ''),
         weight: Number(r.weight) || 0,
         cells: Array.isArray(r.cells) ? r.cells.map((x) => String(x || '')) : []

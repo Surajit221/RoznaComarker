@@ -27,7 +27,7 @@ export type ParsedRubric = {
 };
 
 export interface SavedRubricLevel { title: string; score: number; description: string; }
-export interface SavedRubricCriterion { name: string; weight: number; levels: SavedRubricLevel[]; }
+export interface SavedRubricCriterion { id?: string; name: string; weight: number; levels: SavedRubricLevel[]; }
 export interface SavedRubricData { totalPoints: number; criteria: SavedRubricCriterion[]; }
 export interface SavedRubric {
   _id: string;

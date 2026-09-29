@@ -8,8 +8,13 @@
     <section class="current-card" aria-labelledby="current-plan-title">
       <div><p class="label">Current plan</p><h2 id="current-plan-title">{{ currentPlan?.display?.title || currentPlan?.name }}</h2>
         <p class="price">{{ formatPrice(currentPlan, billing?.billingPeriod) }}<span>{{ formatPeriod(currentPlan, billing?.billingPeriod) }}</span></p></div>
-      <dl><div><dt>Billing period</dt><dd>{{ billing?.subscriptionId ? (billing?.billingPeriod | titlecase) : 'Not applicable' }}</dd></div>
-        <div><dt>Next billing</dt><dd>{{ formatDate(billing?.currentPeriodEnd) }}</dd></div><div><dt>Status</dt><dd>{{ billing?.subscriptionStatus || 'Free' | titlecase }}</dd></div></dl>
+      <dl><div><dt>Plan period</dt><dd>{{ entitlement?.billingPeriod ? (entitlement?.billingPeriod | titlecase) : (billing?.subscriptionId ? (billing?.billingPeriod | titlecase) : 'Free') }}</dd></div>
+        <div><dt>Started</dt><dd>{{ formatDate(entitlement?.startsAt || subscription()?.planStartedAt) }}</dd></div>
+        <div><dt>Expiry</dt><dd>{{ formatDate(entitlement?.endsAt || billing?.currentPeriodEnd || subscription()?.planExpiresAt) }}</dd></div>
+        <div><dt>Days remaining</dt><dd>{{ daysRemaining === null ? 'Not applicable' : daysRemaining }}</dd></div>
+        <div><dt>Renewal</dt><dd>{{ entitlement ? 'Manual renewal' : (billing?.subscriptionId ? 'Automatic subscription' : 'Not applicable') }}</dd></div>
+        <div><dt>Status</dt><dd>{{ entitlement ? 'Active' : (billing?.subscriptionStatus || 'Free' | titlecase) }}</dd></div></dl>
+      @if (nextEntitlement) { <div class="pending" role="status"><strong>Next scheduled plan</strong><span>{{ nextEntitlement.planSlug | titlecase }} starts {{ formatDate(nextEntitlement.startsAt) }}</span></div> }
       @if (billing?.pendingPlanChange) { <div class="pending" role="status"><strong>Plan change pending</strong><span>Target: {{ getTargetPlanDisplayName() }}</span><div class="pending-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="resumePendingPlanChange()">Resume Plan Change</button><button type="button" class="secondary danger" [disabled]="!!submitting" (click)="cancelPendingPlanChange()">Cancel Pending Change</button></div></div> }
       @if (billing?.pendingCancellation) { <div class="pending" role="status"><strong>Cancellation pending</strong><span>Waiting for confirmation</span></div> }
       <div class="actions"><button type="button" class="primary" (click)="scrollToPlans()">{{ billing?.subscriptionId ? 'Change Plan' : 'View Plans' }}</button>
@@ -76,7 +81,7 @@
               @if (billingPeriod === 'annual' && savingsPercentForTier(tier); as saving) { <span class="plan-saving">Save {{ saving }}% compared with monthly</span> }
               <div class="credit-highlight"><span>Assessment Credits</span><strong>{{ tier.monthly.features.essayAnalysesPerMonth === null ? 'Custom' : tier.monthly.features.essayAnalysesPerMonth }}</strong><small>{{ tier.monthly.features.essayAnalysesPerMonth === null ? 'Tailored allowance' : 'per month' }}</small></div>
               <ul class="feature-list">@for (feature of featuresFor(tier.monthly); track feature.label) {@if (feature.label !== 'Assessment Credits/month') { <li><span class="check-icon" aria-hidden="true"><i class="bx bx-check"></i></span><span>{{ feature.label }}: {{ feature.value }}</span></li> }}</ul>
-              <button type="button" class="plan-cta" [class.current-plan-cta]="isCurrentPlan(selectedPlan(tier))" [class.institution-cta]="tier.key === 'institution'" [class.primary]="!isCurrentPlan(selectedPlan(tier)) && tier.key !== 'institution'" [disabled]="isPlanActionDisabled(selectedPlan(tier))" [attr.aria-disabled]="isPlanActionDisabled(selectedPlan(tier))" (click)="choosePlan(selectedPlan(tier))">{{ isCurrentPlan(selectedPlan(tier)) ? 'Current plan' : (tier.key === 'institution' ? selectedPlan(tier).display.cta : 'Choose ' + tier.title) }}</button>
+              <button type="button" class="plan-cta" [class.current-plan-cta]="isCurrentPlan(selectedPlan(tier))" [class.institution-cta]="tier.key === 'institution'" [class.primary]="!isCurrentPlan(selectedPlan(tier)) && tier.key !== 'institution'" [disabled]="isPlanActionDisabled(selectedPlan(tier))" [attr.aria-disabled]="isPlanActionDisabled(selectedPlan(tier))" (click)="choosePlan(selectedPlan(tier))">{{ isCurrentPlan(selectedPlan(tier)) ? (entitlement ? 'Renew plan' : 'Current plan') : (tier.key === 'institution' ? selectedPlan(tier).display.cta : 'Choose ' + tier.title) }}</button>
             </article>
           }
         </div>

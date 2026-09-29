@@ -220,6 +220,9 @@
                     </div>
                     <article class="text-gray-700 leading-relaxed text-lg space-y-6">
                       <section class="p-4 rounded-lg bg-white border border-gray-200">
+                        @if (correctionsError) {
+                        <p class="text-sm text-red-600 font-medium mb-3" role="status">{{ correctionsError }}</p>
+                        }
                         <div class="canonical-transcript-viewport">
                         @if (transcriptPageViews.length) {
                           @for (page of transcriptPageViews; track page.key) {

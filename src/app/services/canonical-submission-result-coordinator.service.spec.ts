@@ -4,6 +4,20 @@ import { CanonicalSubmissionResultCoordinator, shouldRevalidateCanonicalResult,
 import { normalizeCanonicalResult } from '../utils/canonical-result-state.util';
 
 describe('CanonicalSubmissionResultCoordinator', () => {
+  it('stops polling after OCR and corrections complete but evaluation terminally fails', fakeAsync(() => {
+    const service = new CanonicalSubmissionResultCoordinator();
+    const refresh = jasmine.createSpy('refresh').and.resolveTo({ submissionId: 'submission-1', ocrStatus: 'completed',
+      canonical: normalizeCanonicalResult({ ocrStatus: 'completed', correctionStatus: 'completed',
+        semanticStatus: 'completed', evaluationStatus: 'failed', detailedFeedbackStatus: 'stale',
+        terminal: true, processingActive: false, automaticPollingAllowed: false }) });
+    service.start('submission-1', refresh);
+    tick(0); flushMicrotasks();
+    tick(60000); flushMicrotasks();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(service.pollingState$.value.running).toBeFalse();
+    service.stop();
+  }));
+
   const snapshot = (overrides: Record<string, unknown>): ResultRefreshSnapshot => ({
     submissionId: 'submission-1',
     ocrStatus: 'completed',

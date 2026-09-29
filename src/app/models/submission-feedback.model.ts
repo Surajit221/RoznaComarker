@@ -38,6 +38,7 @@ export interface RubricDesignerLevel {
 }
 
 export interface RubricDesignerCriteriaRow {
+  id?: string;
   title: string;
   weight?: number;
   cells: string[];

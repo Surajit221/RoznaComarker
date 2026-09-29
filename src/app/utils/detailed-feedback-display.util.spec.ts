@@ -73,7 +73,7 @@ describe('detailed feedback display normalization', () => {
       correctionSourceHash: 'h', statisticsCompleteness: 'canonical', evaluationStatus: 'failed',
       detailedFeedbackStatus: 'blocked', manualRetryAllowed: true, terminal: true });
     const evaluationDisplay = buildDetailedFeedbackDisplayModel(evaluationFailed);
-    expect(evaluationDisplay.message).toBe('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+    expect(evaluationDisplay.message).toBe('Scoring and detailed feedback could not be completed. Your transcription and corrections are still available.');
     expect(evaluationDisplay.retryLabel).toBe('Retry scoring');
 
     const correctionFailed = normalizeCanonicalResult({ correctionStatus: 'failed', semanticStatus: 'failed',

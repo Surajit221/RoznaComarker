@@ -366,7 +366,7 @@ describe('StudentSubmissionPages', () => {
     for (const width of [1440, 390]) {
       window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toContain('Correction analysis completed, but scoring and detailed feedback could not be generated.');
+      expect(fixture.nativeElement.textContent).toContain('Scoring and detailed feedback could not be completed. Your transcription and corrections are still available.');
       expect(fixture.nativeElement.textContent).toContain('Retry scoring');
     }
   });
@@ -548,6 +548,22 @@ describe('StudentSubmissionPages', () => {
     expect(fixture.nativeElement.textContent).toContain('18.0 / 30');
     expect(fixture.nativeElement.textContent).not.toContain('Normalized weight:');
     expect(fixture.nativeElement.querySelector('.score-badge')).toBeTruthy();
+  });
+
+  it('reconciles transcript artifacts after terminal scoring failure, independently of OCR', async () => {
+    component.currentSubmission = { _id: 'submission-1', ocrStatus: 'processing' } as any;
+    const reconcile = spyOn<any>(component, 'refreshAssessmentResult').and.resolveTo();
+    spyOn((component as any).feedbackApi, 'getSubmissionFeedback').and.resolveTo({
+      submissionId: 'submission-1', ocrStatus: 'completed', correctionStatus: 'completed',
+      semanticStatus: 'completed', evaluationStatus: 'failed', detailedFeedbackStatus: 'stale',
+      terminal: true, processingActive: false, automaticPollingAllowed: false
+    });
+    const snapshot = await (component as any).refreshRetriedAnalysis('submission-1');
+    expect(reconcile).toHaveBeenCalledTimes(1);
+    expect(snapshot.ocrStatus).toBe('completed');
+    expect(component.scoreState).toBe('error');
+    expect(component.detailedFeedbackDisplay.message).toContain('Your transcription and corrections are still available');
+    expect(component.detailedFeedbackDisplay.message).not.toContain('out of date');
   });
 
   it('applies completed feedback and rebuilds custom rows in the same polling tick', async () => {

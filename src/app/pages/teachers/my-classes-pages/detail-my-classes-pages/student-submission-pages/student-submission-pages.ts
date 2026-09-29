@@ -409,6 +409,7 @@ export class StudentSubmissionPages {
 
     this.rubricCriteriaRows = criteriaRaw.length
       ? criteriaRaw.map((c: any) => ({
+        ...(c?.id ? { id: String(c.id) } : {}),
         title: String(c?.title || ''),
         weight: c.weight,
         cells: this.rubricLevels.map((_, i) => String(Array.isArray(c?.cells) ? (c.cells[i] || '') : ''))
@@ -445,6 +446,7 @@ export class StudentSubmissionPages {
     const criteria = criteriaRaw.map((c: any) => {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
+        ...(c?.id ? { id: String(c.id) } : {}),
         title: typeof c?.name === 'string' ? String(c.name) : '',
         weight: c.weight,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
@@ -514,6 +516,7 @@ export class StudentSubmissionPages {
           rubrics: {
             totalPoints: designer.totalPoints,
             criteria: designer.criteria.map(c => ({
+              ...(c.id ? { id: c.id } : {}),
               name: c.title,
               weight: c.weight,
               levels: designer.levels.map((lvl, i) => ({
@@ -2806,6 +2809,7 @@ export class StudentSubmissionPages {
 
 
       this.canonicalResultState = normalizeCanonicalResult(data, this.canonicalResultState);
+      this.correctionsError = data?.ocrError || null;
       const corrections: any[] = Array.isArray((data as any).corrections) ? (data as any).corrections : [];
       this.canonicalWritingCorrections = corrections;
       const statistics = (data as any).statistics;
@@ -5339,7 +5343,8 @@ export class StudentSubmissionPages {
       this.currentSubmission.evaluationStatus = state.evaluationStatus as BackendSubmission['evaluationStatus'];
       this.currentSubmission.evaluationSourceHash = state.evaluationSourceHash || undefined;
       this.currentSubmission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.currentSubmission.assessmentCompletedAt;
-      if (state.evaluationStatus === 'completed') this.currentSubmission.ocrStatus = 'completed';
+      if (state.ocrStatus) this.currentSubmission.ocrStatus = state.ocrStatus;
+      else if (state.correctionStatus === 'completed') this.currentSubmission.ocrStatus = 'completed';
     }
     this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
@@ -5356,6 +5361,8 @@ export class StudentSubmissionPages {
       await this.refreshAssessmentResult(submissionId, sequence);
       if (sequence !== undefined && !this.resultCoordinator.isCurrentRequest(submissionId, sequence)) throw { status: 409 };
       this.refreshCompletedEvaluationState(submissionId);
+    } else if (state.terminal === true) {
+      await this.refreshAssessmentResult(submissionId, sequence);
     }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
   }

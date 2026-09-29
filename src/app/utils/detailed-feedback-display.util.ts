@@ -78,6 +78,9 @@ export function buildDetailedFeedbackDisplayModel(
     areasForImprovement: [], strengths: [], actionSteps: [], legacyAreas: [], legacyStrengths: [], legacyActionSteps: [] };
   if (!state) return { ...empty, status: 'loading', message: 'Loading detailed feedback…' };
   const status = state?.detailedFeedbackStatus || 'pending';
+  if (state.terminal && ['failed', 'blocked'].includes(state.evaluationStatus)) {
+    return { ...empty, status: 'failed', message: canonicalFailureMessage(state) };
+  }
   const pending = ['pending', 'processing', 'retry_wait'].includes(state.semanticStatus)
     || (Boolean(state.correctionSourceHash) && ['pending', 'processing'].includes(state.evaluationStatus))
     || ['pending', 'processing'].includes(status);

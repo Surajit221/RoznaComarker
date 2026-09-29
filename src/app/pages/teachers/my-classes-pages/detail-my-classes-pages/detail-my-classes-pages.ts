@@ -768,6 +768,7 @@ export class DetailMyClassesPages {
     const criteria = criteriaRaw.map((c: any) => {
       const rowLevels = Array.isArray(c?.levels) ? c.levels : [];
       return {
+        ...(c?.id ? { id: String(c.id) } : {}),
         title: typeof c?.name === 'string' ? String(c.name) : '',
         weight: Number(c?.weight) || 0,
         cells: levels.map((_lvl: any, i: number) => String(rowLevels[i]?.description ?? ''))
@@ -816,6 +817,7 @@ export class DetailMyClassesPages {
     return {
       totalPoints: 100,
       criteria: criteria.map((row: any) => ({
+        ...(row?.id ? { id: String(row.id) } : {}),
         name: typeof row?.title === 'string' ? row.title : '',
         weight: Number(row?.weight) || 0,
         levels: levels.map((lvl: any, i: number) => ({
@@ -1234,28 +1236,34 @@ export class DetailMyClassesPages {
     this.router.navigate(['/student/my-classes']);
   }
 
-  async copyToClipboard(text: string) {
+  async copyToClipboard(text: string, successMessage = 'Copied to clipboard!') {
+    if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      this.alert.showSuccess('Success', 'Copied to clipboard!');
-    } catch (err) {
+      this.alert.showSuccess('Success', successMessage);
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = text;
       document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      this.alert.showSuccess('Success', 'Copied to clipboard!');
+      try {
+        textArea.select();
+        if (!document.execCommand('copy')) throw new Error('COPY_FAILED');
+        this.alert.showSuccess('Success', successMessage);
+      } catch {
+        this.alert.showError('Copy failed', 'Please select and copy the value manually.');
+      } finally {
+        document.body.removeChild(textArea);
+      }
     }
   }
 
   copyClassLink() {
-    this.copyToClipboard(this.shareLink);
+    this.copyToClipboard(this.shareLink, 'Class link copied');
   }
 
   copyClassCode() {
-    this.copyToClipboard(this.classCode);
+    this.copyToClipboard(this.classCode, 'Class code copied');
   }
 
   onInviteStudents() {
