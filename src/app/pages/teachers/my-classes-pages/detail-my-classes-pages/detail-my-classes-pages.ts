@@ -1284,28 +1284,40 @@ export class DetailMyClassesPages {
     this.router.navigate(['/flashcards', resourceId]);
   }
 
+  isInvitingStudents = false;
   async onSendInvitations(emails: string[]) {
+    if (this.isInvitingStudents) return;
     const classId = this.classId;
     if (!classId) {
       this.errorModal = { open: true, title: 'Missing class', message: 'Unable to invite students: class id is missing.' };
       return;
     }
 
+    this.isInvitingStudents = true;
     try {
       const result = await this.classApi.inviteStudents(classId, emails);
       
       const { summary } = result;
       let message = `Invitation process completed:\n`;
+      message += `• ${summary.total} unique addresses submitted\n`;
       message += `• ${summary.invited} invited successfully\n`;
       message += `• ${summary.already_joined} already joined\n`;
       message += `• ${summary.already_invited} already invited\n`;
       message += `• ${summary.errors} errors`;
+      for (const item of result.results.filter(item => item.status === 'error'))
+        message += `\n• ${item.email}: ${item.message}`;
 
-      if (summary.errors > 0) {
-        this.alert.showWarning('Invitations sent with errors', message);
+      if (summary.errors === summary.total && summary.total > 0) {
+        this.alert.showError('Invitations could not be sent', message);
+      } else if (summary.errors > 0) {
+        this.alert.showWarning('Invitations partially sent', message);
+      } else if (summary.invited === 0) {
+        this.alert.showWarning('No new invitations sent', message);
       } else {
         this.alert.showSuccess('Invitations sent', message);
       }
+
+      if (summary.errors === 0) this.onCloseInviteDialog();
 
       // Refresh students list to get updated data
       await this.loadStudents();
@@ -1314,6 +1326,6 @@ export class DetailMyClassesPages {
     } catch (err: any) {
       const message = err?.error?.message || err?.message || 'Please try again';
       this.errorModal = { open: true, title: 'Failed to send invitations', message };
-    }
+    } finally { this.isInvitingStudents = false; }
   }
 }

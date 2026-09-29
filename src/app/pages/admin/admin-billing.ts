@@ -11,9 +11,39 @@ export class AdminBilling implements OnInit {
   private alerts = inject(AlertService);
   plans: AdminBillingPlan[] = []; promos: PromoRecord[] = []; page = 1; email = ''; target: AdminBillingTarget | null = null;
   planSlug = 'essential'; billingPeriod = 'monthly'; reason = ''; busy = false; message = '';
+  promoDateFrom = ''; promoDateUntil = ''; dateError = '';
+  private originalDateFrom = ''; private originalDateUntil = '';
   editingId?: string;
   promo = this.emptyPromo();
   private assignment?: { identity: string; quote: AdminAssignmentQuote; operationId: string };
+  get planTiers(): { tier: string; name: string }[] {
+    return [...new Set(this.plans.map(plan => plan.tier))].map(tier => {
+      const plans = this.plans.filter(plan => plan.tier === tier);
+      return { tier, name: (plans.find(plan => plan.periods.includes('monthly')) || plans[0]).name };
+    });
+  }
+  get availablePeriods(): ('monthly' | 'annual')[] {
+    return [...new Set(this.plans.filter(plan => plan.tier === this.planSlug).flatMap(plan => plan.periods))];
+  }
+  get promoPlans(): AdminBillingPlan[] { return this.plans.filter(plan => plan.promoEligible); }
+  selectTier(): void { if (!this.availablePeriods.includes(this.billingPeriod as 'monthly' | 'annual')) this.billingPeriod = this.availablePeriods[0] || 'monthly'; }
+  private selectedPlanSlug(): string | null {
+    if (this.planSlug === 'free') return this.plans.some(plan => plan.slug === 'free') ? 'free' : null;
+    return this.plans.find(plan => plan.tier === this.planSlug && plan.periods.includes(this.billingPeriod as 'monthly' | 'annual'))?.slug || null;
+  }
+  private toLocalDateTime(value: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    const pad = (number: number) => String(number).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+  private toIso(value: string): string | null {
+    if (!value) return null;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) && this.toLocalDateTime(date.toISOString()) === value ? date.toISOString() : null;
+  }
   emptyPromo(): PromoInput { return { code: '', active: true, discountType: 'PERCENT', discountValue: '20', currency: 'USD',
     validFrom: '', validUntil: '', plans: [] as string[], billingPeriods: [] as string[], totalLimit: null as number | null, perUserLimit: null as number | null }; }
   async ngOnInit() { try { [this.plans] = await Promise.all([this.api.plans(), this.loadPromos()]); } catch (e) { this.message = billingFailure(e).message || 'Unable to load billing tools.'; } }
@@ -25,11 +55,24 @@ export class AdminBilling implements OnInit {
       currency: row.currency, validFrom: row.validFrom, validUntil: row.validUntil,
       plans: row.plans, billingPeriods: row.billingPeriods, totalLimit: row.totalLimit, perUserLimit: row.perUserLimit };
     this.promo.plans = [...row.plans]; this.promo.billingPeriods = [...row.billingPeriods];
+    this.promoDateFrom = this.toLocalDateTime(row.validFrom);
+    this.promoDateUntil = this.toLocalDateTime(row.validUntil);
+    this.originalDateFrom = this.promoDateFrom; this.originalDateUntil = this.promoDateUntil;
+    this.dateError = '';
   }
-  newPromo() { this.editingId = undefined; this.promo = this.emptyPromo(); }
+  newPromo() { this.editingId = undefined; this.promo = this.emptyPromo(); this.promoDateFrom = ''; this.promoDateUntil = ''; this.originalDateFrom = ''; this.originalDateUntil = ''; this.dateError = ''; }
   async savePromo() {
-    if (this.busy) return; this.busy = true; this.message = '';
-    try { await this.api.savePromo({ ...this.promo, validFrom: this.promo.validFrom || null, validUntil: this.promo.validUntil || null }, this.editingId);
+    if (this.busy) return;
+    this.dateError = '';
+    const validFrom = this.editingId && this.promoDateFrom && this.promoDateFrom === this.originalDateFrom
+      ? this.promo.validFrom : this.toIso(this.promoDateFrom);
+    const validUntil = this.editingId && this.promoDateUntil && this.promoDateUntil === this.originalDateUntil
+      ? this.promo.validUntil : this.toIso(this.promoDateUntil);
+    if ((this.promoDateFrom && !validFrom) || (this.promoDateUntil && !validUntil)) this.dateError = 'Choose a valid date and time.';
+    else if (validFrom && validUntil && validUntil <= validFrom) this.dateError = 'End date must be after the start date.';
+    if (this.dateError) return;
+    this.busy = true; this.message = '';
+    try { await this.api.savePromo({ ...this.promo, validFrom, validUntil }, this.editingId);
       await this.loadPromos(); this.newPromo(); this.message = 'Promo saved. Existing orders retain their original discount.'; }
     catch (e) { this.message = billingFailure(e).message || 'Unable to save promo.'; }
     finally { this.busy = false; }
@@ -42,9 +85,11 @@ export class AdminBilling implements OnInit {
   }
   async assign() {
     if (this.busy || !this.target || this.target.blocked) return;
+    const selectedSlug = this.selectedPlanSlug() || (this.plans.length ? null : this.planSlug);
+    if (!selectedSlug) { this.message = 'Select an available plan and term.'; return; }
     this.busy = true; this.message = '';
     try {
-      const input = { email: this.target.email, planSlug: this.planSlug, billingPeriod: this.billingPeriod, reason: this.reason };
+      const input = { email: this.target.email, planSlug: selectedSlug, billingPeriod: this.planSlug === 'free' ? 'monthly' : this.billingPeriod, reason: this.reason };
       const identity = JSON.stringify(input);
       if (this.assignment?.identity !== identity) this.assignment = { identity, quote: await this.api.preview(input), operationId: crypto.randomUUID() };
       const { quote, operationId } = this.assignment;

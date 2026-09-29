@@ -4,10 +4,27 @@ import {
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
+  AbstractControl,
+  ValidationErrors,
   Validators,
 } from '@angular/forms';
 import { DeviceService } from '../../../services/device.service';
 import { AlertService } from '../../../services/alert.service';
+
+const MAX_INVITE_EMAILS = 25;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export function parseInviteEmails(value: string): { emails: string[]; invalid: string[]; tooMany: boolean } {
+  const entries = value.split(',').map(email => email.trim().toLowerCase()).filter(Boolean);
+  const emails = [...new Set(entries.filter(email => email.length <= 254 && emailPattern.test(email)))];
+  return { emails, invalid: entries.filter(email => email.length > 254 || !emailPattern.test(email)),
+    tooMany: emails.length > MAX_INVITE_EMAILS };
+}
+function emailListValidator(control: AbstractControl): ValidationErrors | null {
+  const parsed = parseInviteEmails(String(control.value || ''));
+  if (parsed.invalid.length) return { invalidEmails: parsed.invalid };
+  if (parsed.tooMany) return { tooManyEmails: true };
+  return parsed.emails.length ? null : { required: true };
+}
 
 @Component({
   selector: 'app-invite-students-dialog',
@@ -22,17 +39,17 @@ export class InviteStudentsDialog {
   @Input() shareLink = '';
   @Output() closed = new EventEmitter<void>();
   @Output() invite = new EventEmitter<string[]>();
+  @Input() isSubmitting = false;
 
   device = inject(DeviceService);
   private fb = inject(FormBuilder);
   private alert = inject(AlertService);
 
   inviteForm: FormGroup;
-  isSubmitting = false;
 
   constructor() {
     this.inviteForm = this.fb.group({
-      emails: ['', [Validators.required, Validators.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)]]
+      emails: ['', [Validators.required, emailListValidator]]
     });
   }
 
@@ -47,7 +64,6 @@ export class InviteStudentsDialog {
 
   private resetForm() {
     this.inviteForm.reset();
-    this.isSubmitting = false;
   }
 
   onSubmit() {
@@ -61,37 +77,8 @@ export class InviteStudentsDialog {
       return;
     }
 
-    try {
-      this.isSubmitting = true;
-
-      const emailsText = this.inviteForm.value.emails || '';
-      const emails = emailsText
-        .split(',')
-        .map((email: string) => email.trim())
-        .filter((email: string) => email.length > 0);
-
-      if (emails.length === 0) {
-        this.alert.showError('No emails', 'Please enter at least one email address.');
-        return;
-      }
-
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const invalidEmails = emails.filter((email: string) => !emailRegex.test(email));
-      
-      if (invalidEmails.length > 0) {
-        this.alert.showError('Invalid emails', `The following email addresses are invalid: ${invalidEmails.join(', ')}`);
-        return;
-      }
-
-      this.invite.emit(emails);
-      this.onClose();
-
-    } catch (err: any) {
-      this.alert.showError('Failed to send invitations', (err as Error)?.message || 'Please try again');
-    } finally {
-      this.isSubmitting = false;
-    }
+    const parsed = parseInviteEmails(String(this.inviteForm.value.emails || ''));
+    this.invite.emit(parsed.emails);
   }
 
   private markAllFieldsAsTouched(): void {
@@ -105,7 +92,7 @@ export class InviteStudentsDialog {
     try {
       await navigator.clipboard.writeText(text);
       this.alert.showSuccess('Success', 'Copied to clipboard!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.alert.showError('Failed to copy to clipboard', (err as Error)?.message || 'Please try again');
       const textArea = document.createElement('textarea');
       textArea.value = text;

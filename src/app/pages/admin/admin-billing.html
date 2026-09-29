@@ -10,8 +10,8 @@
       @for (next of target.scheduled; track $index) { <p>Scheduled: {{ next.planSlug }} from {{ next.startsAt }} to {{ next.endsAt }}</p> }
       @if (target.blocked) { <p class="admin-notice error" role="alert">{{ target.message }}</p> }
       <div class="billing-fields">
-        <label class="admin-field">New plan<select [(ngModel)]="planSlug" [disabled]="busy">@for (plan of plans; track plan.slug) { <option [value]="plan.slug">{{ plan.name }}</option> }</select></label>
-        <label class="admin-field">Term<select [(ngModel)]="billingPeriod" [disabled]="busy"><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label>
+        <label class="admin-field">New plan<select [(ngModel)]="planSlug" (ngModelChange)="selectTier()" [disabled]="busy">@for (plan of planTiers; track plan.tier) { <option [value]="plan.tier">{{ plan.name }}</option> }</select></label>
+        <label class="admin-field">Term<select [(ngModel)]="billingPeriod" [disabled]="busy || !availablePeriods.length">@if (!availablePeriods.length) { <option value="monthly">No expiry (Free)</option> }@for (period of availablePeriods; track period) { <option [value]="period">{{ period === 'annual' ? 'Annual' : 'Monthly' }}</option> }</select></label>
         <label class="admin-field">Reason<input [(ngModel)]="reason" maxlength="500" [disabled]="busy"></label>
       </div>
       <button class="admin-btn admin-btn-primary" (click)="assign()" [disabled]="busy || target.blocked || !reason.trim()">Preview and confirm</button>
@@ -24,14 +24,16 @@
       <label class="admin-field">Discount type<select [(ngModel)]="promo.discountType"><option value="PERCENT">Percent</option><option value="FIXED">Fixed amount</option></select></label>
       <label class="admin-field">Value<input [(ngModel)]="promo.discountValue" inputmode="decimal"></label>
       <label class="admin-field">Currency<select [(ngModel)]="promo.currency">@for (currency of ['USD','EUR','GBP','CAD','AUD']; track currency) { <option>{{ currency }}</option> }</select></label>
-      <label class="admin-field">Valid from (UTC ISO date)<input [(ngModel)]="promo.validFrom" placeholder="2026-10-01T00:00:00Z"></label>
-      <label class="admin-field">Valid until (UTC ISO date)<input [(ngModel)]="promo.validUntil" placeholder="2026-11-01T00:00:00Z"></label>
+      <label class="admin-field">Valid from (local date and time)<input type="datetime-local" [(ngModel)]="promoDateFrom" [disabled]="busy"></label>
+      <label class="admin-field">Valid until (local date and time)<input type="datetime-local" [(ngModel)]="promoDateUntil" [disabled]="busy"></label>
       <label class="admin-field">Global limit<input type="number" min="1" [(ngModel)]="promo.totalLimit"></label>
       <label class="admin-field">Per-user limit<input type="number" min="1" [(ngModel)]="promo.perUserLimit"></label>
-      <label class="admin-field">Plans (none means all)<select multiple [(ngModel)]="promo.plans">@for (plan of plans; track plan.slug) { <option [value]="plan.slug">{{ plan.name }}</option> }</select></label>
+      <label class="admin-field">Plans (none means all paid plans)<select multiple [(ngModel)]="promo.plans">@for (plan of promoPlans; track plan.slug) { <option [value]="plan.slug">{{ plan.name }}</option> }</select></label>
       <label class="admin-field">Periods (none means both)<select multiple [(ngModel)]="promo.billingPeriods"><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label>
-      <label><input type="checkbox" [(ngModel)]="promo.active"> Active</label>
+      <label class="admin-active"><input type="checkbox" [(ngModel)]="promo.active"> Active</label>
     </div>
+    @if (dateError) { <p class="admin-notice error" role="alert">{{ dateError }}</p> }
+    <p class="helper">Dates use your local time. Leave either blank for no boundary. The end is an exact expiration time.</p>
     <button class="admin-btn admin-btn-primary" (click)="savePromo()" [disabled]="busy">Save promo</button>
     <button class="admin-btn admin-btn-secondary" (click)="newPromo()" [disabled]="busy">New / clear</button>
     <p class="helper">Validation does not use a redemption. Orders reserve a slot; verified payment consumes it. Refunds do not restore usage. Zero-total checkout is not supported.</p>

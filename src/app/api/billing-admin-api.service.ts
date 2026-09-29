@@ -4,7 +4,8 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 interface Result<T> { data: T }
-export interface AdminBillingPlan { name: string; slug: string; price: number; annualPrice?: number; currency: string }
+export interface AdminBillingPlan { name: string; slug: string; tier: string; periods: ('monthly' | 'annual')[];
+  promoEligible: boolean; price: number | null; annualPrice?: number | null; currency: string }
 export interface PromoInput {
   code: string; active: boolean; discountType: string; discountValue: string; currency: string;
   validFrom: string | null; validUntil: string | null; plans: string[]; billingPeriods: string[];
