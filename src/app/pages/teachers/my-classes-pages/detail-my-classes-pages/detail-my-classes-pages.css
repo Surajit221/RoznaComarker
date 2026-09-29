@@ -127,3 +127,9 @@
     overflow: visible;
   }
 }
+.class-copy-field{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:stretch;min-width:0;width:100%;min-height:44px;border:1px solid #d1d5db;border-radius:.75rem;background:#fff;overflow:hidden}
+.class-copy-field__value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;padding:0 14px;color:#374151;font-size:.9rem}
+.class-copy-field__button{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;border:0;border-left:1px solid #d1d5db;background:#f9fafb;color:#136c6d;cursor:pointer}
+.class-copy-field__button i{font-size:1.35rem}
+.class-copy-field__button:hover{background:#eff8f7}
+.class-copy-field__button:focus-visible{outline:3px solid #008081;outline-offset:-3px;position:relative;z-index:1}

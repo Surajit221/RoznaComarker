@@ -26,15 +26,20 @@ describe('DetailMyClassesPages', () => {
     expect(component).toBeTruthy();
   });
 
-  it('renders class link and code display inputs without requiring an NgControl provider', () => {
+  it('renders complete class values beside accessible copy buttons', async () => {
     component.classSummary = { name: 'English', joinCode: 'ABC123' } as any;
     fixture.detectChanges();
-
-    const displayInputs = Array.from(
-      fixture.nativeElement.querySelectorAll('input[readonly]') as NodeListOf<HTMLInputElement>
-    ).filter(input => input.value.includes('ABC123') || input.value.includes('/join/'));
-    expect(displayInputs.length).toBeGreaterThan(0);
-    expect(displayInputs.every(input => !input.hasAttribute('formControlName'))).toBeTrue();
+    const fields = fixture.nativeElement.querySelectorAll('.class-copy-field');
+    expect(fields.length).toBeGreaterThan(0);
+    expect(fields[0].textContent).toContain(component.shareLink);
+    expect(fixture.nativeElement.querySelector('button[aria-label="Copy class link"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('button[aria-label="Copy class code"]')).toBeTruthy();
+    expect(component.qrValue).toBe(component.shareLink);
+    const copy = spyOn(component, 'copyToClipboard').and.resolveTo();
+    fixture.nativeElement.querySelector('button[aria-label="Copy class link"]').click();
+    expect(copy).toHaveBeenCalledWith(component.shareLink, 'Class link copied');
+    fixture.nativeElement.querySelector('button[aria-label="Copy class code"]').click();
+    expect(copy).toHaveBeenCalledWith('ABC123', 'Class code copied');
   });
 
   it('shows the teacher Duplicate action and opens review without creating immediately', () => {

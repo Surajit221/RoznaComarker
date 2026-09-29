@@ -11,6 +11,7 @@ export interface AdminNavItem {
 }
 
 export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
+  { label: 'Promos & Plans', description: 'Manage promo codes and audited manual plans.', icon: 'bx bxs-purchase-tag', route: '/admin/billing' },
   {
     label: 'Teacher Credits',
     description: 'Review balances and audited adjustments.',

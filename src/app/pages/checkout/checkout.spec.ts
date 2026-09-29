@@ -38,7 +38,7 @@ describe('Stripe checkout pages', () => {
     it('fails closed for provider metadata ' + provider, async () => {
       const stripe = jasmine.createSpy('Stripe');
       (window as any).Stripe = stripe;
-      const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: provider }),
+      const api = { getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: provider }),
         createCheckoutSession: jasmine.createSpy() };
       await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
         ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: api }
@@ -56,7 +56,7 @@ describe('Stripe checkout pages', () => {
     environment.stripePublishableKey = 'pk_test_browser';
     (window as any).Stripe = () => ({ createEmbeddedCheckoutPage: () => Promise.reject(new Error('Stripe unavailable')) });
     await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
-      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: { getCheckoutPlan: () => Promise.resolve(starter) } }
+      ...routedComponentProviders(), { provide: SubscriptionApiService, useValue: { getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: () => Promise.resolve(starter) } }
     ] }).compileComponents();
     const fixture = TestBed.createComponent(CheckoutComponent);
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
@@ -68,7 +68,7 @@ describe('Stripe checkout pages', () => {
 
   it('does not create on page load and does not describe a suspended PayPal subscription as active', async () => {
     const api = {
-      getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
+      getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
       createPayPalPlanOrder: jasmine.createSpy().and.rejectWith(new Error('PLAN_ENTITLEMENT_CONFLICT'))
     };
     await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
@@ -94,7 +94,7 @@ describe('Stripe checkout pages', () => {
         attemptId: '00000000-0000-4000-8000-000000000001', orderId: 'ORDER-PAYPAL', status: 'approval_pending'
       });
       const api = {
-        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+        getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
           ...starter,
           slug: planCode,
           paymentProvider: 'paypal'
@@ -127,7 +127,7 @@ describe('Stripe checkout pages', () => {
 
     it(`hides only ineligible Card funding and preserves PayPal for ${planCode}`, async () => {
       const api = {
-        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+        getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
           ...starter,
           slug: planCode,
           paymentProvider: 'paypal'
@@ -159,7 +159,7 @@ describe('Stripe checkout pages', () => {
     it(`coalesces duplicate createOrder callbacks for ${planCode}`, async () => {
       const createPayPalPlanOrder = jasmine.createSpy('createPayPalPlanOrder').and.resolveTo({ orderId: 'ORDER-PAYPAL' });
       const api = {
-        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+        getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
           ...starter,
           slug: planCode,
           paymentProvider: 'paypal'
@@ -189,7 +189,7 @@ describe('Stripe checkout pages', () => {
       const capturePayPalPlanOrder = jasmine.createSpy('capturePayPalPlanOrder').and.rejectWith(new Error('response lost'));
       const getPayPalPlanPurchase = jasmine.createSpy('getPayPalPlanPurchase').and.resolveTo({ fulfilled: true, status: 'fulfilled' });
       const api = {
-        getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
+        getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy('getCheckoutPlan').and.resolveTo({
           ...starter,
           slug: planCode,
           paymentProvider: 'paypal'
@@ -228,7 +228,7 @@ describe('Stripe checkout pages', () => {
     );
     const getPayPalPlanPurchase = jasmine.createSpy();
     const accountState = { refreshSubscription: jasmine.createSpy().and.resolveTo() };
-    const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
+    const api = { getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
       createPayPalPlanOrder: jasmine.createSpy().and.resolveTo({ orderId: 'ORDER-PAYPAL' }),
       capturePayPalPlanOrder, getPayPalPlanPurchase };
     await TestBed.configureTestingModule({ imports: [CheckoutComponent], providers: [
@@ -253,7 +253,7 @@ describe('Stripe checkout pages', () => {
   });
 
   it('shows a safe error only when PayPal cannot restart declined funding', async () => {
-    const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
+    const api = { getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
       createPayPalPlanOrder: jasmine.createSpy().and.resolveTo({ orderId: 'ORDER-PAYPAL' }),
       capturePayPalPlanOrder: jasmine.createSpy().and.rejectWith(new HttpErrorResponse({ status: 422,
         error: { code: 'INSTRUMENT_DECLINED' } })), getPayPalPlanPurchase: jasmine.createSpy() };
@@ -271,7 +271,7 @@ describe('Stripe checkout pages', () => {
 
   it('does not restart or reconcile a terminal plan capture error', async () => {
     const getPayPalPlanPurchase = jasmine.createSpy();
-    const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
+    const api = { getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan: jasmine.createSpy().and.resolveTo({ ...starter, paymentProvider: 'paypal' }),
       createPayPalPlanOrder: jasmine.createSpy().and.resolveTo({ orderId: 'ORDER-PAYPAL' }),
       capturePayPalPlanOrder: jasmine.createSpy().and.rejectWith(new HttpErrorResponse({ status: 409,
         error: { code: 'UNPROCESSABLE_ENTITY', message: 'PayPal could not complete this plan payment.' } })),
@@ -300,7 +300,7 @@ describe('Stripe checkout pages', () => {
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     expect(getMySubscription).toHaveBeenCalled();
     expect(refreshCredits).toHaveBeenCalledOnceWith();
-    expect(fixture.nativeElement.textContent).toContain('Your paid plan is active');
+    expect(fixture.nativeElement.textContent).toContain('Your plan is active');
   });
 
   it('cancel page states that billing and subscription state are unchanged', async () => {
@@ -311,15 +311,98 @@ describe('Stripe checkout pages', () => {
   });
 
   it('annual UI selection reaches the API and retry preserves its attempt identity', async () => {
-    const api={getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,slug:'essential',annualPrice:249,paymentProvider:'paypal'}),
+    const api={getBillingQuote: jasmine.createSpy().and.resolveTo({ quoteId: 'test-quote', expiresAt: new Date(Date.now()+600000).toISOString(), baseAmount: '20.00', prorationCredit: '5.00', subtotalBeforeDiscount: '15.00', discountAmount: '3.00', finalAmount: '12.00', currency: 'USD', transition: 'upgrade' }), getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,slug:'essential',annualPrice:249,paymentProvider:'paypal'}),
       createPayPalPlanOrder:jasmine.createSpy().and.resolveTo({orderId:'ORDER-ANNUAL'})};
     await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders({planCode:'essential'}),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
     const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();
     fixture.componentInstance.billingPeriod='annual';
     await paypalButtonOptions[0].createOrder();
     const attempt=fixture.componentInstance.paypalCheckoutAttemptId;
-    expect(api.createPayPalPlanOrder).toHaveBeenCalledWith('essential',attempt,'annual');
+    expect(api.createPayPalPlanOrder).toHaveBeenCalledWith('essential',attempt,'annual','test-quote');
     await fixture.componentInstance.retry();
     expect(fixture.componentInstance.paypalCheckoutAttemptId).toBe(attempt);
+  });
+
+  it('displays server proration and promo, applies explicitly, and locks the quote after order creation', async () => {
+    const serverQuote = { quoteId: 'server-quote', expiresAt: new Date(Date.now()+600000).toISOString(), currency:'USD',
+      baseAmount:'20.00', prorationCredit:'5.00', subtotalBeforeDiscount:'15.00', discountAmount:'3.00', finalAmount:'12.00', transition:'upgrade' };
+    const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({...starter,paymentProvider:'paypal'}),
+      getBillingQuote: jasmine.createSpy().and.resolveTo(serverQuote), createPayPalPlanOrder: jasmine.createSpy().and.resolveTo({orderId:'ORDER'}),
+      cancelPayPalPlanOrder: jasmine.createSpy().and.resolveTo({}) };
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('USD 12.00');
+    fixture.componentInstance.promoCode=' SAVE20 ';fixture.detectChanges();expect(api.getBillingQuote).toHaveBeenCalledTimes(1);
+    await fixture.componentInstance.applyPromo();expect(api.getBillingQuote.calls.mostRecent().args[2]).toBe('SAVE20');
+    await paypalButtonOptions.at(-1).createOrder();fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(api.createPayPalPlanOrder.calls.mostRecent().args[3]).toBe('server-quote');
+    expect(fixture.nativeElement.querySelector('#promo-code').disabled).toBeTrue();
+    await fixture.componentInstance.applyPromo(true);expect(api.getBillingQuote).toHaveBeenCalledTimes(2);
+    await fixture.componentInstance.restartOrder();expect(api.cancelPayPalPlanOrder).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.orderStarted).toBeFalse();
+  });
+  it('invalid promo preserves input and previous server quote', async () => {
+    const api = { getCheckoutPlan: jasmine.createSpy().and.resolveTo({...starter,paymentProvider:'paypal'}),
+      getBillingQuote: jasmine.createSpy().and.resolveTo({quoteId:'q',expiresAt:new Date(Date.now()+600000).toISOString(),currency:'USD',baseAmount:'9.99',prorationCredit:'0.00',discountAmount:'0.00',finalAmount:'9.99'}), createPayPalPlanOrder:jasmine.createSpy() };
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();
+    fixture.componentInstance.promoCode = 'EXPIRED';
+    api.getBillingQuote.and.rejectWith({error:{message:'Promo expired'}});await fixture.componentInstance.applyPromo();fixture.detectChanges();
+    expect(fixture.componentInstance.promoError).toBe('Promo expired');expect(fixture.componentInstance.promoCode).toBe('EXPIRED');
+    expect(fixture.componentInstance.quote?.quoteId).toBe('q');
+    expect(fixture.nativeElement.querySelector('#promo-error').textContent).toContain('Promo expired');
+    expect(api.createPayPalPlanOrder).not.toHaveBeenCalled();
+  });
+
+  it('shows only nonzero server pricing rows and one promo action per state', async () => {
+    const initial = {quoteId:'base',expiresAt:new Date(Date.now()+600000).toISOString(),currency:'USD',baseAmount:'20.00',prorationCredit:'0.00',discountAmount:'0.00',finalAmount:'20.00',transition:'purchase',promo:null};
+    const applied = {...initial,quoteId:'promo',prorationCredit:'2.50',discountAmount:'1.50',finalAmount:'16.00',promo:{code:'SAVE20'}};
+    const api = {getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,paymentProvider:'paypal'}),getBillingQuote:jasmine.createSpy().and.returnValues(Promise.resolve(initial),Promise.resolve(applied),Promise.resolve(initial))};
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(api.getBillingQuote).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('#promo-code')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.promo-remove')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.price-row').length).toBe(2);
+    fixture.componentInstance.promoCode='SAVE20';fixture.detectChanges();
+    await fixture.componentInstance.applyPromo();fixture.detectChanges();
+    expect(api.getBillingQuote).toHaveBeenCalledTimes(2);
+    expect(fixture.nativeElement.querySelector('.promo-apply')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.promo-remove')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.price-row').length).toBe(4);
+    expect(fixture.nativeElement.querySelector('.price-row--total').textContent).toContain('USD 16.00');
+    await fixture.componentInstance.applyPromo(true);fixture.detectChanges();
+    expect(api.getBillingQuote).toHaveBeenCalledTimes(3);
+    expect(fixture.nativeElement.querySelector('.promo-remove')).toBeNull();
+  });
+
+  it('keeps deterministic scheduled conflicts out of promo and PayPal paths', async () => {
+    const api = {getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,paymentProvider:'paypal'}),getBillingQuote:jasmine.createSpy().and.rejectWith(new HttpErrorResponse({status:409,error:{code:'SCHEDULED_PLAN_REVIEW_REQUIRED'}}))};
+    const sdk = {loadButtons:jasmine.createSpy(),release:jasmine.createSpy()};
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api},{provide:PayPalSdkLoaderService,useValue:sdk}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Upcoming paid plan already scheduled');
+    expect(fixture.nativeElement.textContent).not.toContain('Try Again');
+    expect(fixture.nativeElement.textContent).not.toContain('Payment methods');
+    expect(fixture.nativeElement.querySelector('#promo-code').disabled).toBeTrue();
+    expect(sdk.loadButtons).not.toHaveBeenCalled();
+    await fixture.componentInstance.applyPromo();
+    expect(api.getBillingQuote).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Apply and coalesces clicks while a promo quote is pending', async () => {
+    const quote={quoteId:'base',expiresAt:new Date(Date.now()+600000).toISOString(),currency:'USD',baseAmount:'9.99',prorationCredit:'0.00',discountAmount:'0.00',finalAmount:'9.99',transition:'purchase',promo:null};
+    let finish!: (value: typeof quote) => void;
+    const pending=new Promise<typeof quote>(resolve => { finish=resolve; });
+    const api={getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,paymentProvider:'paypal'}),getBillingQuote:jasmine.createSpy().and.returnValues(Promise.resolve(quote),pending)};
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();
+    fixture.componentInstance.promoCode='SAVE20';
+    const first=fixture.componentInstance.applyPromo();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.promo-apply').disabled).toBeTrue();
+    await fixture.componentInstance.applyPromo();
+    expect(api.getBillingQuote).toHaveBeenCalledTimes(2);
+    finish(quote);await first;
   });
 });

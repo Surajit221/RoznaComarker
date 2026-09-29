@@ -58,36 +58,18 @@
             <h3 class="font-bold text-2xl">Share This Class</h3>
 
             <div class="flex flex-col gap-1">
-              <label for="role" class="text-sm font-bold pl-2">Class Link</label>
-              <div class="relative w-full">
-                <i
-                  class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
-                  (click)="copyClassLink()"
-                ></i>
-                <input
-                  type="text"
-                  class="input-text bg-white pl-6"
-                  placeholder="Search Your Class"
-                  [value]="shareLink"
-                  readonly
-                />
+              <span class="text-sm font-bold pl-2">Class Link</span>
+              <div class="class-copy-field">
+                <span class="class-copy-field__value" [title]="shareLink">{{ shareLink }}</span>
+                <button type="button" class="class-copy-field__button" aria-label="Copy class link" (click)="copyClassLink()"><i class="bx bx-copy" aria-hidden="true"></i></button>
               </div>
             </div>
 
             <div class="flex flex-col gap-1">
-              <label for="role" class="text-sm font-bold pl-2">Class Code</label>
-              <div class="relative w-full">
-                <i
-                  class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
-                  (click)="copyClassCode()"
-                ></i>
-                <input
-                  type="text"
-                  class="input-text bg-white pl-6"
-                  placeholder="Search Your Class"
-                  [value]="classCode"
-                  readonly
-                />
+              <span class="text-sm font-bold pl-2">Class Code</span>
+              <div class="class-copy-field">
+                <span class="class-copy-field__value" [title]="classCode">{{ classCode }}</span>
+                <button type="button" class="class-copy-field__button" aria-label="Copy class code" (click)="copyClassCode()"><i class="bx bx-copy" aria-hidden="true"></i></button>
               </div>
             </div>
 
@@ -468,36 +450,18 @@
           </p>
         </div>
         <div class="flex flex-col gap-1">
-          <label for="role" class="text-sm font-bold pl-2">Class Link</label>
-          <div class="relative w-full">
-            <i
-              class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
-              (click)="copyClassLink()"
-            ></i>
-            <input
-              type="text"
-              class="input-text bg-white pl-6"
-              placeholder="Search Your Class"
-              [value]="shareLink"
-              readonly
-            />
+          <span class="text-sm font-bold pl-2">Class Link</span>
+          <div class="class-copy-field">
+            <span class="class-copy-field__value" [title]="shareLink">{{ shareLink }}</span>
+            <button type="button" class="class-copy-field__button" aria-label="Copy class link" (click)="copyClassLink()"><i class="bx bx-copy" aria-hidden="true"></i></button>
           </div>
         </div>
 
         <div class="flex flex-col gap-1">
-          <label for="role" class="text-sm font-bold pl-2">Class Code</label>
-          <div class="relative w-full">
-            <i
-              class="bx bx-copy absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 text-2xl cursor-pointer"
-              (click)="copyClassCode()"
-            ></i>
-            <input
-              type="text"
-              class="input-text bg-white pl-6"
-              placeholder="Search Your Class"
-              [value]="classCode"
-              readonly
-            />
+          <span class="text-sm font-bold pl-2">Class Code</span>
+          <div class="class-copy-field">
+            <span class="class-copy-field__value" [title]="classCode">{{ classCode }}</span>
+            <button type="button" class="class-copy-field__button" aria-label="Copy class code" (click)="copyClassCode()"><i class="bx bx-copy" aria-hidden="true"></i></button>
           </div>
         </div>
         <button class="btn-info-sm mt-2" (click)="onOpenQR()">Share This Class</button>

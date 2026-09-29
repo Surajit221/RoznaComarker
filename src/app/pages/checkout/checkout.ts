@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BackendPlan } from '../../api/plans-api.service';
-import { SubscriptionApiService } from '../../api/subscription-api.service';
+import { SubscriptionApiService, BillingQuote } from '../../api/subscription-api.service';
+import { billingFailure } from '../../api/billing-admin-api.service';
 import {
   billingIntervalUnit,
   formatPlanPeriod,
@@ -21,7 +23,7 @@ import {
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './checkout.html',
   styleUrl: './checkout.css',
 })
@@ -29,6 +31,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   plan: BackendPlan | null = null;
   loading = true;
   errorMessage = '';
+  billingConflict = false;
+  quote: BillingQuote | null = null;
+  promoCode = '';
+  promoError = '';
+  quoting = false;
+  orderStarted = false;
   private embeddedCheckout: any;
   private initializing = false;
   private destroyed = false;
@@ -61,7 +69,17 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.billingPeriod =
       this.route.snapshot.queryParamMap.get('billing') === 'annual' ? 'annual' : 'monthly';
     await this.initializeCheckout();
-    if (this.paymentProvider === 'paypal' && !this.errorMessage) await this.mountPayPalButtons();
+    if (this.canShowPayment) await this.mountPayPalButtons();
+  }
+
+  get canShowPayment(): boolean {
+    const amount = this.quote?.finalAmount;
+    return !this.loading && !this.billingConflict && !this.errorMessage && !!this.quote &&
+      typeof amount === 'string' && Number.isFinite(Number(amount)) && Number(amount) > 0;
+  }
+
+  hasNonZeroAmount(amount: string | undefined): boolean {
+    return !!amount && Number.isFinite(Number(amount)) && Number(amount) !== 0;
   }
 
   private async initializeCheckout(): Promise<void> {
@@ -72,6 +90,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.cleanupPayPal();
     this.loading = true;
     this.errorMessage = '';
+    this.billingConflict = false;
+    this.quote = null;
     try {
       this.embeddedCheckout?.destroy?.();
       this.embeddedCheckout = undefined;
@@ -80,6 +100,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       if (this.plan.paymentProvider !== 'paypal') throw new Error('CHECKOUT_UNAVAILABLE');
       this.paymentProvider = 'paypal';
       this.paypalCheckoutAttemptId = checkoutAttemptId;
+      if (!this.orderStarted) this.quote = await this.subscriptions.getBillingQuote(this.planCode, this.billingPeriod, this.promoCode.trim() || undefined);
     } catch (err: any) {
       const code = err?.error?.code;
       if (code === 'ALREADY_SUBSCRIBED') {
@@ -87,6 +108,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       } else if (code === 'SUBSCRIPTION_REQUIRES_MANAGEMENT') {
         this.errorMessage =
           'Your PayPal subscription needs attention. Use Manage Plan to review billing.';
+      } else if (['LEGACY_SUBSCRIPTION_ACTIVE', 'PRORATION_REVIEW_REQUIRED', 'SCHEDULED_PLAN_REVIEW_REQUIRED',
+        'LEGACY_ENTITLEMENT_REVIEW_REQUIRED', 'MINIMUM_PAYMENT', 'BILLING_CHECKOUT_PENDING'].includes(code)) {
+        this.billingConflict = code === 'SCHEDULED_PLAN_REVIEW_REQUIRED';
+        this.errorMessage = this.billingConflict
+          ? 'You already have paid plan coverage scheduled after your current plan. This upgrade cannot be calculated safely without changing that prepaid coverage.'
+          : err.error.message || 'This plan change requires billing review.';
       } else {
         this.errorMessage = 'Secure checkout is temporarily unavailable. Please try again.';
       }
@@ -96,14 +123,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     }
   }
   private async mountPayPalButtons(): Promise<void> {
-    if (!this.plan || !this.paypalCheckoutAttemptId) return;
+    if (!this.plan || !this.paypalCheckoutAttemptId || !this.canShowPayment) return;
     try {
       const capability = await this.credits.getPayPalCapabilities();
       if (!capability.paypalCheckout || !capability.clientId)
         throw new Error('PAYPAL_SDK_LOAD_FAILED');
       this.paypalSdkConfig = {
         clientId: capability.clientId,
-        currency: this.plan.currency || 'USD',
+        currency: this.quote?.currency || this.plan.currency || 'USD',
         mode: 'capture',
       };
       const sdk = await this.paypalSdk.loadButtons(this.paypalSdkConfig);
@@ -115,11 +142,17 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         fundingSource,
         createOrder: async () => {
           if (this.paypalOrderCreatePromise) return this.paypalOrderCreatePromise;
+          if (!this.quote || this.quoting || (!this.orderStarted && new Date(this.quote.expiresAt).getTime() <= Date.now())) {
+            this.errorMessage = 'Refresh the price quote before paying.';
+            throw new Error('BILLING_QUOTE_EXPIRED');
+          }
+          this.orderStarted = true;
           this.paypalOrderCreatePromise = (async () => {
             const created = await this.subscriptions.createPayPalPlanOrder(
               this.planCode,
               this.paypalCheckoutAttemptId!,
               this.billingPeriod,
+              this.quote!.quoteId,
             );
             if (!created.orderId) throw new Error('PAYPAL_ORDER_ID_MISSING');
             return created.orderId;
@@ -303,6 +336,41 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
   async retry(): Promise<void> {
     await this.initializeCheckout();
-    if (this.paymentProvider === 'paypal' && !this.errorMessage) await this.mountPayPalButtons();
+    if (this.canShowPayment) await this.mountPayPalButtons();
+  }
+  async applyPromo(remove = false): Promise<void> {
+    if (this.quoting || this.orderStarted || this.paypalSubmitting || this.billingConflict || !this.quote) return;
+    const requestedCode = remove ? '' : this.promoCode.trim();
+    if (!remove && !requestedCode) return;
+    const previousQuote = this.quote;
+    this.quoting = true; this.promoError = ''; this.quote = null;
+    this.cleanupPayPal();
+    try {
+      this.quote = await this.subscriptions.getBillingQuote(this.planCode, this.billingPeriod, requestedCode || undefined);
+      this.promoCode = requestedCode;
+      this.paypalCheckoutAttemptId = crypto.randomUUID();
+      this.errorMessage = '';
+    } catch (error) {
+      const failure = billingFailure(error);
+      if (failure.code === 'SCHEDULED_PLAN_REVIEW_REQUIRED') {
+        this.billingConflict = true;
+        this.errorMessage = 'You already have paid plan coverage scheduled after your current plan. This upgrade cannot be calculated safely without changing that prepaid coverage.';
+      } else {
+        this.quote = previousQuote;
+        this.promoError = failure.message || 'Unable to apply this promo code.';
+      }
+    }
+    finally { this.quoting = false; this.cdr.detectChanges(); }
+    if (this.quote && !this.destroyed) await this.mountPayPalButtons();
+  }
+  async restartOrder(): Promise<void> {
+    if (this.paypalSubmitting || this.paypalOrderCreatePromise || this.quoting) return;
+    this.quoting = true;
+    try {
+      await this.subscriptions.cancelPayPalPlanOrder(this.paypalCheckoutAttemptId!);
+      this.orderStarted = false; this.paypalCheckoutAttemptId = null; this.quote = null;
+    } catch (error) { this.errorMessage = billingFailure(error).message || 'Payment must be reconciled before starting another checkout.'; return; }
+    finally { this.quoting = false; }
+    await this.retry();
   }
 }

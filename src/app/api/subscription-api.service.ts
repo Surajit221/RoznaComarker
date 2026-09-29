@@ -10,6 +10,11 @@ type BackendResponse<T> = {
   data: T;
   message?: string;
 };
+export interface BillingQuote {
+  quoteId: string; expiresAt: string; planSlug: string; billingPeriod: 'monthly' | 'annual'; currency: string;
+  baseAmount: string; prorationCredit: string; subtotalBeforeDiscount: string; discountAmount: string; finalAmount: string;
+  transition: 'purchase' | 'upgrade' | 'downgrade' | 'renewal'; promo: { code: string } | null;
+}
 
 export type BackendSubscriptionUsage = {
   classes: number;
@@ -137,10 +142,18 @@ export class SubscriptionApiService {
     ));
     return resp.data;
   }
-  async createPayPalPlanOrder(planCode: string, checkoutAttemptId: string, billingPeriod: 'monthly' | 'annual'):
+  async getBillingQuote(planSlug: string, billingPeriod: 'monthly' | 'annual', promoCode?: string): Promise<BillingQuote> {
+    const response = await firstValueFrom(this.http.post<BackendResponse<BillingQuote>>(`${this.getApiBaseUrl()}/billing/quote`,
+      { planSlug, billingPeriod, ...(promoCode ? { promoCode } : {}) }));
+    return response.data;
+  }
+  async cancelPayPalPlanOrder(checkoutAttemptId: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/subscription/paypal/orders/cancel`, { checkoutAttemptId }));
+  }
+  async createPayPalPlanOrder(planCode: string, checkoutAttemptId: string, billingPeriod: 'monthly' | 'annual', quoteId?: string):
     Promise<{ attemptId: string; orderId: string; status: string }> {
     const resp = await firstValueFrom(this.http.post<BackendResponse<{ attemptId: string; orderId: string; status: string }>>(
-      `${this.getApiBaseUrl()}/subscription/paypal/orders/create`, { planCode, billingPeriod, checkoutAttemptId }));
+      `${this.getApiBaseUrl()}/subscription/paypal/orders/create`, { planCode, billingPeriod, checkoutAttemptId, ...(quoteId ? { quoteId } : {}) }));
     return resp.data;
   }
   async capturePayPalPlanOrder(checkoutAttemptId: string): Promise<PayPalPlanPurchase> {

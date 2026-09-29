@@ -8,12 +8,43 @@
       <p class="price">{{ summaryPrice }} <span>{{ summaryPeriod }}</span></p>
       <ul>@for (feature of features(); track feature) { <li><span>✓</span>{{ feature }}</li> }</ul>
       <div class="billing"><strong>Billing</strong><span>{{ billingDescription }}</span></div>
+      @if (quote) {
+        <dl class="price-breakdown" aria-label="Server price quote">
+          <div class="price-row"><dt>Plan price</dt><dd>{{ quote.currency }} {{ quote.baseAmount }}</dd></div>
+          @if (hasNonZeroAmount(quote.prorationCredit)) {
+            <div class="price-row"><dt>Unused-plan credit</dt><dd>−{{ quote.currency }} {{ quote.prorationCredit }}</dd></div>
+          }
+          @if (quote.promo && hasNonZeroAmount(quote.discountAmount)) {
+            <div class="price-row"><dt>Promo {{ quote.promo.code }}</dt><dd>−{{ quote.currency }} {{ quote.discountAmount }}</dd></div>
+          }
+          <div class="price-row price-row--total"><dt>Amount due today</dt><dd>{{ quote.currency }} {{ quote.finalAmount }}</dd></div>
+        </dl>
+        @if (quote.transition === 'upgrade') { <p>Your higher plan starts after verified payment with a new full term.</p> }
+        @if (quote.transition === 'downgrade' || quote.transition === 'renewal') { <p>Your paid term remains available. This purchase adds a term afterward.</p> }
+      }
+      <div class="promo-section">
+        @if (quote?.promo; as appliedPromo) {
+          <span class="promo-label">Promo code</span>
+          <div class="promo-applied"><span><strong>{{ appliedPromo.code }}</strong> applied</span><button type="button" class="promo-remove" (click)="applyPromo(true)" [disabled]="quoting || orderStarted || paypalSubmitting">Remove</button></div>
+        } @else {
+          <label for="promo-code">Promo code</label>
+          <div class="promo-controls">
+            <input id="promo-code" type="text" maxlength="40" placeholder="Enter promo code" autocomplete="off" [(ngModel)]="promoCode" [disabled]="quoting || orderStarted || billingConflict || !quote" [attr.aria-describedby]="promoError ? 'promo-error' : null">
+            <button type="button" class="promo-apply" (click)="applyPromo()" [disabled]="quoting || orderStarted || billingConflict || !quote || !promoCode.trim()">{{ quoting ? 'Applying…' : 'Apply' }}</button>
+          </div>
+        }
+        @if (billingConflict) { <p class="promo-help">Resolve your upcoming plan before applying a promo.</p> }
+        @if (promoError) { <p id="promo-error" class="promo-error" role="alert">{{ promoError }}</p> }
+      </div>
+      @if (orderStarted) { <button type="button" (click)="restartOrder()" [disabled]="paypalSubmitting || quoting">Cancel this checkout to change the promo</button> }
     </article>
     <article class="card payment">
       <h2>Secure Checkout</h2>
       @if (loading) { <div class="state" aria-live="polite"><span class="spinner"></span>Preparing secure checkout…</div> }
-      @if (errorMessage) { <div class="error" role="alert">{{ errorMessage }}<button type="button" (click)="retry()">Try Again</button><a routerLink="/pricing">Return to Pricing</a></div> }
-      @if(!loading && paymentProvider==='paypal'){
+      @if (billingConflict) {
+        <div class="error conflict" role="alert"><h3>Upcoming paid plan already scheduled</h3><p>{{ errorMessage }}</p><div class="conflict-actions"><a routerLink="/teacher/dashboard">View My Plan</a><a routerLink="/pricing">Return to Pricing</a></div></div>
+      } @else if (errorMessage) { <div class="error" role="alert">{{ errorMessage }}<button type="button" (click)="retry()">Try Again</button><a routerLink="/pricing">Return to Pricing</a></div> }
+      @if(canShowPayment && paymentProvider==='paypal'){
         <section class="paypal-methods" aria-labelledby="paypal-method-title">
           <h3 id="paypal-method-title">Payment methods</h3>
           @if(paypalButtonEligible){<div id="paypal-subscription-button" class="paypal-funding-button" aria-label="Pay with PayPal"></div>}
@@ -23,7 +54,7 @@
         </section>
       }
       <div id="embedded-checkout" [class.hidden]="loading || errorMessage || paymentProvider==='paypal'"></div>
-      <p class="secure">🔒 Secure payment powered by {{ paymentProvider === 'paypal' ? 'PayPal' : 'Stripe' }}</p>
+      @if (canShowPayment) { <p class="secure">🔒 Secure payment powered by PayPal</p> }
       <a class="cancel-link" routerLink="/checkout/cancel">Cancel checkout</a>
     </article>
   </div>

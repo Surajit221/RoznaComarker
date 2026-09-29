@@ -14,6 +14,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'credits' },
       { path: 'credits', loadComponent: () => import('./pages/admin/admin-credits').then((m) => m.AdminCredits) },
       { path: 'pricing', loadComponent: () => import('./pages/admin/admin-pricing').then((m) => m.AdminPricing) },
+      { path: 'billing', loadComponent: () => import('./pages/admin/admin-billing').then((m) => m.AdminBilling) },
       { path: 'retention', loadComponent: () => import('./pages/admin/admin-retention').then((m) => m.AdminRetention) },
       { path: 'retention-operations', loadComponent: () => import('./pages/admin/admin-retention-operations').then((m) => m.AdminRetentionOperations) },
     ],
