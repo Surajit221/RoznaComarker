@@ -78,6 +78,21 @@ describe('DialogViewSubmissions loading states', () => {
     expect(fixture.nativeElement.querySelectorAll('.submission-skeleton-row').length).toBe(3);
   });
 
+  it('shows View and an accessible trash button wired to the existing remove handler', async () => {
+    resolveRequest([{ _id: 'submission-1', student: { displayName: 'Student' } } as BackendSubmission]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const row = fixture.nativeElement.querySelector('.submission-actions') as HTMLElement;
+    expect(row.textContent).toContain('View');
+    expect(row.textContent).not.toContain('Remove Submission');
+    const remove = row.querySelector('.remove-action') as HTMLButtonElement;
+    expect(remove.getAttribute('aria-label')).toBe('Remove submission');
+    expect(remove.querySelector('.bx-trash')).toBeTruthy();
+    const handler = spyOn(component, 'removeSubmission').and.resolveTo();
+    remove.click();
+    expect(handler).toHaveBeenCalledOnceWith(component.students[0]);
+  });
+
   it('shows the empty state only after a successful empty response', async () => {
     resolveRequest([]);
     await fixture.whenStable();

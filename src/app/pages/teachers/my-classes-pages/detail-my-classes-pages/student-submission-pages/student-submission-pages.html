@@ -42,7 +42,8 @@
             } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl" [sourceLoading]="imageMediaState === 'fetching'"
               [sourceLoadError]="imageMediaState === 'error'" (retryRequested)="retryUploadedImage()"
-              [annotations]="activeAnnotations" alt="Student submission image"></app-correction-overlay>
+              [annotations]="activeAnnotations" [ocrWords]="activeOcrWords"
+              alt="Student submission image"></app-correction-overlay>
             <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
             }
           </div>

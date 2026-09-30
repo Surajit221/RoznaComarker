@@ -18,3 +18,11 @@
 @keyframes submission-pulse { to { opacity: .52; } }
 @media (max-width: 767px) { .submission-skeleton-row { grid-template-columns: 56px minmax(0, 1fr) 38px; min-height: 72px; gap: 10px; } .skeleton-circle { width: 56px; height: 56px; } }
 @media (prefers-reduced-motion: reduce) { .skeleton-line, .skeleton-button, .skeleton-circle { animation: none; } }
+
+.submission-actions { display: flex; align-items: center; justify-content: flex-end; gap: .25rem; flex-shrink: 0; }
+.remove-action { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; border: 0; border-radius: 10px; background: transparent; color: #b91c1c; cursor: pointer; }
+.remove-action:hover:not(:disabled) { background: #fee2e2; color: #991b1b; }
+.remove-action:disabled { opacity: .5; cursor: not-allowed; }
+.remove-action:focus-visible { outline: 3px solid #b91c1c; outline-offset: 2px; }
+.remove-action .bx { font-size: 1.25rem; }
+@media (max-width: 440px) { .submission-actions { gap: 0; } .submission-actions .view-action { font-size: .75rem; } }

@@ -17,8 +17,9 @@ import {
 } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
-import type { OcrBBox } from '../../models/ocr-token.model';
+import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
+import { buildAnnotationVisuals, type AnnotationSegment } from './annotation-geometry';
 
 type TooltipPlacement = 'right' | 'left' | 'bottom' | 'top' | 'mobile';
 
@@ -32,8 +33,6 @@ interface CorrectionMarker {
   label: string;
   textColor: string;
 }
-
-interface UnderlineSegment { id: string; left: number; top: number; width: number; color: string; }
 
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
 
@@ -50,6 +49,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Input() sourceLoading = false;
   @Input() sourceLoadError = false;
   @Input() annotations: FeedbackAnnotation[] | null = null;
+  @Input() ocrWords: OcrWord[] | null = null;
   @Input() page = 1;
   @Input() alt = 'Uploaded submission';
   @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
@@ -60,7 +60,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('tooltipEl', { static: true }) private tooltipEl!: ElementRef<HTMLElement>;
 
   markers: CorrectionMarker[] = [];
-  underlineSegments: UnderlineSegment[] = [];
+  underlineSegments: AnnotationSegment[] = [];
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
@@ -89,7 +89,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.displayImageUrl = null;
       this.setMediaState(this.sourceLoading ? 'fetching' : this.sourceLoadError ? 'error' : 'idle');
     }
-    if (changes['annotations'] || changes['page']) {
+    if (changes['annotations'] || changes['page'] || changes['ocrWords']) {
       const activeId = this.activeMarker?.annotation._id || null;
       this.rebuildMarkers();
       if (!activeId) return;
@@ -285,30 +285,21 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    const annotations = Array.isArray(this.annotations) ? this.annotations : [];
-    this.underlineSegments = annotations
-      .filter((annotation) => annotation && (!annotation.page || Number(annotation.page) === Number(this.page)))
-      .flatMap((annotation) => (annotation.bboxList || []).map((box, index) => {
-        const normalized = this.normalizedBox(box);
-        if (!normalized) return null;
-        return { id: `${annotation._id}_${index}`, left: normalized.x,
-          top: Math.min(99.8, normalized.y + normalized.h), width: normalized.w,
-          color: annotation.color || '#d64545' };
-      }).filter(Boolean) as UnderlineSegment[]);
+    const visuals = buildAnnotationVisuals(Array.isArray(this.annotations) ? this.annotations : [],
+      Array.isArray(this.ocrWords) ? this.ocrWords : [], this.page, this.imageWidth, this.imageHeight);
+    this.underlineSegments = visuals.flatMap((visual) => visual.segments);
     const positions: { left: number; top: number }[] = [];
-    this.markers = annotations
-      .filter((annotation) => annotation && Boolean(annotation.symbol?.trim()) && (!annotation.page || Number(annotation.page) === Number(this.page)))
-      .map((annotation) => {
-        const box = this.unionBox(annotation.bboxList || []);
-        if (!box) return null;
-        const usesPercentCoordinates = [box.x, box.y, box.w, box.h].every((value) => Math.abs(value) <= 100);
-        const x = usesPercentCoordinates || !this.imageWidth ? box.x : (box.x / this.imageWidth) * 100;
-        const y = usesPercentCoordinates || !this.imageHeight ? box.y : (box.y / this.imageHeight) * 100;
-        const w = usesPercentCoordinates || !this.imageWidth ? box.w : (box.w / this.imageWidth) * 100;
-        const h = usesPercentCoordinates || !this.imageHeight ? box.h : (box.h / this.imageHeight) * 100;
-        const left = Math.max(0.5, Math.min(99.5, x + w));
-        const top = Math.max(0.5, Math.min(99.5, y + Math.max(0, h * 0.15)));
-        const nearby = positions.filter((position) => Math.abs(position.left - left) < 1.5 && Math.abs(position.top - top) < 1.5).length;
+    const renderedWidth = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
+    const renderedHeight = this.imageEl?.nativeElement.clientHeight || this.imageHeight;
+    this.markers = visuals
+      .filter((visual) => Boolean(visual.annotation.symbol?.trim()))
+      .map(({ annotation, segments }) => {
+        const final = segments[segments.length - 1];
+        const left = final.left + final.width;
+        const top = final.anchorTop;
+        const nearby = positions.filter((position) =>
+          Math.abs(position.left - left) * renderedWidth / 100 < 29
+          && Math.abs(position.top - top) * renderedHeight / 100 < 29).length;
         positions.push({ left, top });
         const code = annotation.symbol!.trim();
         const color = annotation.color || '#d64545';
@@ -316,37 +307,14 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
           annotation,
           left,
           top,
-          offsetX: (nearby % 3) * 20,
-          offsetY: Math.floor(nearby / 3) * 18 + (nearby % 2 ? 8 : 0),
+          offsetX: nearby >= 2 ? (left > 50 ? -26 : 26) : 0,
+          offsetY: nearby === 1 || nearby >= 3 ? (top > 50 ? -26 : 26) : 0,
           code,
           label: `${code}: ${annotation.group || 'Correction'}`,
           textColor: this.contrastColor(color)
         };
-      })
-      .filter(Boolean) as CorrectionMarker[];
+      });
     this.cdr.markForCheck();
-  }
-
-  private unionBox(boxes: OcrBBox[]): OcrBBox | null {
-    const valid = boxes
-      .map((box) => ({ x: Number(box?.x), y: Number(box?.y), w: Number(box?.w), h: Number(box?.h) }))
-      .filter((box) => [box.x, box.y, box.w, box.h].every(Number.isFinite) && box.w > 0 && box.h > 0);
-    if (!valid.length) return null;
-    const left = Math.min(...valid.map((box) => box.x));
-    const top = Math.min(...valid.map((box) => box.y));
-    const right = Math.max(...valid.map((box) => box.x + box.w));
-    const bottom = Math.max(...valid.map((box) => box.y + box.h));
-    return { x: left, y: top, w: right - left, h: bottom - top };
-  }
-
-  private normalizedBox(box: OcrBBox): OcrBBox | null {
-    const raw = { x: Number(box?.x), y: Number(box?.y), w: Number(box?.w), h: Number(box?.h) };
-    if (![raw.x, raw.y, raw.w, raw.h].every(Number.isFinite) || raw.w <= 0 || raw.h <= 0) return null;
-    const percent = [raw.x, raw.y, raw.w, raw.h].every((value) => value >= 0 && value <= 100);
-    const result = percent ? raw : { x: raw.x / this.imageWidth * 100, y: raw.y / this.imageHeight * 100,
-      w: raw.w / this.imageWidth * 100, h: raw.h / this.imageHeight * 100 };
-    if (![result.x, result.y, result.w, result.h].every(Number.isFinite) || result.x < 0 || result.y < 0 || result.x + result.w > 100.5 || result.y + result.h > 100.5) return null;
-    return result;
   }
 
   private openTooltip(marker: CorrectionMarker, target: HTMLElement, pinned: boolean): void {

@@ -47,7 +47,8 @@
         <div class="w-full rounded-2xl overflow-visible">
           <app-correction-overlay [imageUrl]="uploadedFileUrl || null"
             [sourceLoading]="imageMediaState === 'fetching'" [sourceLoadError]="imageMediaState === 'error'"
-            (retryRequested)="retryUploadedImage()" [annotations]="activeAnnotations" alt="Submission image"></app-correction-overlay>
+            (retryRequested)="retryUploadedImage()" [annotations]="activeAnnotations"
+            [ocrWords]="activeOcrWords" alt="Submission image"></app-correction-overlay>
           <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
         </div>
         @if (submissionFileUrls.length > 1) {

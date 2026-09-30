@@ -25,14 +25,18 @@
   transition: opacity 180ms ease;
 }
 
+.correction-overlay__image-stage {
+  position: relative;
+  width: 100%;
+}
+
 .correction-overlay__image.is-loaded { opacity: 1; }
 
 .correction-overlay__underline {
   position: absolute;
   z-index: 2;
   height: 0;
-  border-bottom: 3px solid var(--underline-color, #d64545);
-  transform: translateY(2px);
+  border-bottom: 2px solid var(--underline-color, #d64545);
   pointer-events: none;
   border-radius: 2px;
 }
@@ -96,6 +100,8 @@
 
 .correction-overlay__marker {
   position: absolute;
+  left: clamp(14px, var(--marker-left), calc(100% - 14px));
+  top: clamp(14px, var(--marker-top), calc(100% - 14px));
   z-index: 5;
   display: inline-flex;
   align-items: center;

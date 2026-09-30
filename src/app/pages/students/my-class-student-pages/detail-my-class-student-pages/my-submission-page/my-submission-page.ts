@@ -1340,6 +1340,10 @@ export class MySubmissionPage {
     return this.activeAnnotationsCache;
   }
 
+  get activeOcrWords(): OcrWord[] {
+    return this.transcriptPageViews.find((view) => view.fileId === this.activeFileId && view.pageNumber === 1)?.words || [];
+  }
+
   private applyOcrPayloadState(submissionId: string, data: any): void {
     if (!this.submission || this.submission._id !== submissionId || !data || typeof data !== 'object') return;
     const submission = this.submission as any;

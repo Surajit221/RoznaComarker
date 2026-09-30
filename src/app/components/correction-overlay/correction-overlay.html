@@ -20,8 +20,8 @@
     </div>
   }
   @if (displayImageUrl) {
+    <div class="correction-overlay__image-stage">
     <img #imageEl class="correction-overlay__image" [class.is-loaded]="mediaState === 'loaded'" [src]="displayImageUrl" [alt]="alt" (load)="onImageLoad($event)" (error)="onImageError()" />
-  }
 
   @for (line of mediaState === 'loaded' ? underlineSegments : []; track line.id) {
     <span class="correction-overlay__underline" [style.left.%]="line.left" [style.top.%]="line.top"
@@ -32,8 +32,8 @@
     <button
       type="button"
       class="correction-overlay__marker"
-      [style.left.%]="marker.left"
-      [style.top.%]="marker.top"
+      [style.--marker-left]="marker.left + '%'"
+      [style.--marker-top]="marker.top + '%'"
       [style.--marker-offset-x.px]="marker.offsetX"
       [style.--marker-offset-y.px]="marker.offsetY"
       [style.--marker-color]="marker.annotation.color || '#d64545'"
@@ -48,6 +48,8 @@
       (click)="onMarkerClick(marker, $event)"
       (keydown)="onMarkerKeydown(marker, $event)"
     >{{ marker.code }}</button>
+  }
+    </div>
   }
 
   @if (activeMarker && isMobile) {

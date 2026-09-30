@@ -14,16 +14,23 @@
         </div>
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3">
+          <button type="button" class="google-button" (click)="onGoogleLogin()"
+            [disabled]="isLoading" [attr.aria-busy]="activeOperation === 'google'">
+            @if (activeOperation === 'google') { <span class="spinner spinner-teal" aria-hidden="true"></span> }
+            @else { <img src="icons/ic_google.svg" alt="" aria-hidden="true" /> }
+            <span>Continue with Google</span>
+          </button>
+          <div class="login-divider" role="separator" aria-label="OR"><span>OR</span></div>
           <!-- Email -->
           <div class="flex flex-col gap-1">
-            <label for="role" class="text-sm font-bold pl-2">Email</label>
+            <label for="email" class="text-sm font-bold pl-2">Email</label>
             <div class="relative">
               <input
                 type="email"
                 id="email"
                 formControlName="email"
                 class="input-text"
-                placeholder="Username"
+                placeholder="Enter your email"
                 autocomplete="username"
                 required
                 aria-label="Email"
@@ -34,7 +41,7 @@
 
           <!-- Password -->
           <div class="flex flex-col gap-1">
-            <label for="role" class="text-sm font-bold pl-2">Password</label>
+            <label for="password" class="text-sm font-bold pl-2">Password</label>
             <div class="relative">
               <input
                 [type]="showPassword ? 'text' : 'password'"
@@ -59,7 +66,7 @@
           </div>
 
           <!-- Remember & Forgot -->
-          <div class="flex items-center justify-between">
+          <div class="remember-row">
             <label class="flex items-center cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -76,39 +83,15 @@
           </div>
 
           <!-- Buttons -->
-          <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
-            <button type="button" class="btn-warning auth-button w-1/2" (click)="onSignup()" [disabled]="isLoading"
+          <div class="login-actions">
+            <button type="button" class="signup-action auth-button" (click)="onSignup()" [disabled]="isLoading"
               [attr.aria-busy]="activeOperation === 'signup'">
               <span class="button-content">@if (activeOperation === 'signup') { <span class="spinner" aria-hidden="true"></span><span>Creating account...</span> } @else { <span>Sign Up</span> }</span>
             </button>
-            <button type="submit" class="btn-primary auth-button w-1/2" [disabled]="isLoading"
+            <button type="submit" class="btn-primary auth-button login-primary" [disabled]="isLoading"
               [attr.aria-busy]="activeOperation === 'login'">
               <span class="button-content">@if (activeOperation === 'login') { <span class="spinner" aria-hidden="true"></span><span>Logging in...</span> } @else { <span>Login</span> }</span>
             </button>
-          </div>
-
-          <!-- Divider -->
-          <div class="relative flex items-center my-6">
-            <div class="grow border-t border-gray-300"></div>
-            <span class="shrink-0 mx-4 text-gray-500 text-base">Or continue with</span>
-            <div class="grow border-t border-gray-300"></div>
-          </div>
-
-          <!-- Social buttons -->
-          <div class="flex flex-row justify-center gap-3">
-            <button type="button"
-              class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-              (click)="onGoogleLogin()" [disabled]="isLoading" aria-label="Continue with Google"
-              [attr.aria-busy]="activeOperation === 'google'"
-            >
-              @if (activeOperation === 'google') { <span class="spinner" aria-hidden="true"></span> }
-              @else { <img src="icons/ic_google.svg" alt="" /> }
-            </button>
-            <div
-              class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-            >
-              <img src="icons/ic_apple.svg" alt="Apple" />
-            </div>
           </div>
         </form>
       </div>
@@ -128,17 +111,24 @@
       <p class="text-[#595959] mt-4">AI Essay Checker for Handwritten Work</p>
     </div>
 
-    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3 w-full px-6">
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3 w-full max-w-md px-6">
+          <button type="button" class="google-button" (click)="onGoogleLogin()"
+            [disabled]="isLoading" [attr.aria-busy]="activeOperation === 'google'">
+            @if (activeOperation === 'google') { <span class="spinner spinner-teal" aria-hidden="true"></span> }
+            @else { <img src="icons/ic_google.svg" alt="" aria-hidden="true" /> }
+            <span>Continue with Google</span>
+          </button>
+          <div class="login-divider" role="separator" aria-label="OR"><span>OR</span></div>
       <!-- Email -->
       <div class="flex flex-col gap-1">
-        <label for="role" class="text-sm font-bold pl-2">Email</label>
+        <label for="email" class="text-sm font-bold pl-2">Email</label>
         <div class="relative">
           <input
             type="email"
             id="email"
             formControlName="email"
             class="input-text"
-            placeholder="Username"
+            placeholder="Enter your email"
             autocomplete="username"
             required
             aria-label="Email"
@@ -149,7 +139,7 @@
 
       <!-- Password -->
       <div class="flex flex-col gap-1">
-        <label for="role" class="text-sm font-bold pl-2">Password</label>
+        <label for="password" class="text-sm font-bold pl-2">Password</label>
         <div class="relative">
           <input
             [type]="showPassword ? 'text' : 'password'"
@@ -174,7 +164,7 @@
       </div>
 
       <!-- Remember & Forgot -->
-      <div class="flex items-center justify-between">
+      <div class="remember-row">
         <label class="flex items-center cursor-pointer select-none">
           <input
             type="checkbox"
@@ -191,41 +181,17 @@
       </div>
 
       <!-- Buttons -->
-      <div class="flex flex-row gap-4 w-full justify-center items-center mt-4">
-        <button type="button" class="btn-warning auth-button w-1/2" (click)="onSignup()" [disabled]="isLoading"
+      <div class="login-actions">
+        <button type="button" class="signup-action auth-button" (click)="onSignup()" [disabled]="isLoading"
           [attr.aria-busy]="activeOperation === 'signup'">
           <span class="button-content">@if (activeOperation === 'signup') { <span class="spinner" aria-hidden="true"></span><span>Creating account...</span> } @else { <span>Sign Up</span> }</span>
         </button>
-        <button type="submit" class="btn-primary auth-button w-1/2" [disabled]="isLoading"
+        <button type="submit" class="btn-primary auth-button login-primary" [disabled]="isLoading"
           [attr.aria-busy]="activeOperation === 'login'">
           <span class="button-content">@if (activeOperation === 'login') { <span class="spinner" aria-hidden="true"></span><span>Logging in...</span> } @else { <span>Login</span> }</span>
         </button>
       </div>
-
-      <!-- Divider -->
-      <div class="relative flex items-center my-6">
-        <div class="grow border-t border-gray-300"></div>
-        <span class="shrink-0 mx-4 text-gray-500 text-base">Or continue with</span>
-        <div class="grow border-t border-gray-300"></div>
-      </div>
-
-      <!-- Social buttons -->
-      <div class="flex flex-row justify-center gap-3">
-        <button type="button"
-          class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-          (click)="onGoogleLogin()" [disabled]="isLoading" aria-label="Continue with Google"
-          [attr.aria-busy]="activeOperation === 'google'"
-        >
-          @if (activeOperation === 'google') { <span class="spinner spinner-teal" aria-hidden="true"></span> }
-          @else { <img src="icons/ic_google.svg" alt="" /> }
-        </button>
-        <div
-          class="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-gray-100 cursor-pointer hover: bg-[#F3F3F3]"
-        >
-          <img src="icons/ic_apple.svg" alt="Apple" />
-        </div>
-      </div>
-    </form>
+        </form>
     <!-- <div class="w-full max-w-sm"></div> -->
   </div>
   }
