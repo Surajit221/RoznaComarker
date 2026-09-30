@@ -25,6 +25,24 @@ describe('LoginPages', () => {
     expect(component).toBeTruthy();
   });
 
+  it('places the existing Google action before email and omits Apple', () => {
+    const form = fixture.nativeElement.querySelector('form') as HTMLFormElement;
+    const google = form.querySelector('.google-button') as HTMLButtonElement;
+    expect(google.textContent).toContain('Continue with Google');
+    expect(form.querySelector('.login-divider')?.textContent).toContain('OR');
+    expect(form.querySelector('input[type="email"]')).toBeTruthy();
+    expect(form.querySelector('input[type="password"]')).toBeTruthy();
+    expect(form.querySelector('input[type="checkbox"]')).toBeTruthy();
+    expect(form.textContent).toContain('Forgot Password?');
+    expect(form.textContent).toContain('Sign Up');
+    expect(form.innerHTML).not.toContain('ic_apple');
+    const email = form.querySelector('input[type="email"]') as HTMLInputElement;
+    expect(google.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const handler = spyOn(component, 'onGoogleLogin');
+    google.click();
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
   it('does not render or require a role selector', () => {
     expect(component.loginForm.contains('role')).toBeFalse();
     expect(fixture.nativeElement.querySelector('select')).toBeNull();

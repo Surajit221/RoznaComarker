@@ -145,14 +145,45 @@ describe('CorrectionOverlay media loading', () => {
 
     expect(buttons).toHaveSize(2);
     expect(buttons.map((button) => button.textContent?.trim())).toEqual(['REP', 'P']);
-    expect(buttons[0].style.left).toBe('28%');
-    expect(buttons[0].style.top).toBe('20.3%');
+    expect(parseFloat(buttons[0].style.getPropertyValue('--marker-left'))).toBeCloseTo(28, 0);
+    expect(buttons[0].style.getPropertyValue('--marker-top')).toBe('20.3%');
     expect(getComputedStyle(buttons[0]).borderRadius).toBe('999px');
 
     buttons[1].click();
     fixture.detectChanges();
     expect(component.activeMarker?.annotation._id).toBe('nearby-2');
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('places grouped underlines and badges inside the actual image stage', () => {
+    component.ocrWords = [
+      { id: 'w1', text: 'about', bbox: { x: 10, y: 20, w: 7, h: 3 } },
+      { id: 'w2', text: 'her', bbox: { x: 18, y: 20, w: 7, h: 3 } }
+    ];
+    const [badge] = renderMarkers([{ _id: 'group', symbol: 'P', wordIds: ['w1', 'w2'],
+      bboxList: [{ x: 10, y: 20, w: 7, h: 3 }, { x: 18, y: 20, w: 7, h: 3 }] }] as FeedbackAnnotation[]);
+    const stage = fixture.nativeElement.querySelector('.correction-overlay__image-stage') as HTMLElement;
+    const lines = stage.querySelectorAll('.correction-overlay__underline');
+    expect(stage.querySelector('img')).toBeTruthy();
+    expect(lines.length).toBe(1);
+    expect(stage.contains(badge)).toBeTrue();
+    expect(parseFloat((lines[0] as HTMLElement).style.width)).toBeGreaterThan(14);
+  });
+
+  it('keeps right-edge badges inside the image and separates nearby correction badges', () => {
+    const buttons = renderMarkers([
+      { _id: 'right-1', symbol: 'P', page: 1, bboxList: [{ x: 96, y: 1, w: 3, h: 2 }] },
+      { _id: 'right-2', symbol: 'CAP', page: 1, bboxList: [{ x: 96, y: 1, w: 3, h: 2 }] }
+    ] as FeedbackAnnotation[]);
+    const stage = fixture.nativeElement.querySelector('.correction-overlay__image-stage') as HTMLElement;
+    stage.style.width = '400px';
+    stage.style.height = '500px';
+    fixture.detectChanges();
+    const stageRect = stage.getBoundingClientRect();
+    const first = buttons[0].getBoundingClientRect();
+    expect(first.right).toBeLessThanOrEqual(stageRect.right + 1);
+    expect(first.top).toBeGreaterThanOrEqual(stageRect.top - 1);
+    expect(component.markers[1].offsetY).not.toBe(0);
   });
 
   it('opens and closes correction details by tap in compact view', () => {

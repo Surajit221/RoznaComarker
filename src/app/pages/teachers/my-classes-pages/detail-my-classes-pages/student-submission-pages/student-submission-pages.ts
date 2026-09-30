@@ -2650,6 +2650,10 @@ export class StudentSubmissionPages {
     return this.activeAnnotationsCache;
   }
 
+  get activeOcrWords(): OcrWord[] {
+    return this.transcriptPageViews.find((view) => view.fileId === this.activeFileId && view.pageNumber === 1)?.words || [];
+  }
+
   get activeFileUrlRaw(): string | null {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
     const url = urls[this.activeFileIndex];

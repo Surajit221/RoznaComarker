@@ -10,3 +10,15 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .auth-button { font-size: .875rem; padding-left: .5rem; padding-right: .5rem; }
   .button-content { gap: .35rem; }
 }
+
+.google-button { display: flex; align-items: center; justify-content: center; gap: .75rem; width: 100%; min-height: 3rem; border: 1px solid #cbd5e1; border-radius: .75rem; background: #fff; color: #3f3a3a; font: inherit; font-weight: 600; cursor: pointer; transition: background-color .15s, border-color .15s; }
+.google-button:hover:not(:disabled) { background: #f3fafa; border-color: #008081; }
+.google-button img { width: 1.25rem; height: 1.25rem; }
+.google-button:focus-visible, .signup-action:focus-visible, .auth-button:focus-visible { outline: 3px solid #008081; outline-offset: 3px; }
+.login-divider { display: flex; align-items: center; gap: 1rem; margin: 1.25rem 0; color: #64748b; font-size: .875rem; font-weight: 600; }
+.login-divider::before, .login-divider::after { content: ''; flex: 1; border-top: 1px solid #d1d5db; }
+.remember-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.login-actions { display: flex; flex-direction: column-reverse; align-items: center; gap: .75rem; padding-top: .5rem; }
+.login-primary { width: 100%; }
+.signup-action { border: 0; background: transparent; color: #006d6e; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.signup-action .spinner { border-color: rgba(0,128,129,.25); border-top-color: #008081; }
