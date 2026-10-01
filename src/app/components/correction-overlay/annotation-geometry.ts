@@ -8,11 +8,13 @@ export interface AnnotationSegment {
   width: number;
   color: string;
   anchorTop: number;
+  height?: number;
 }
 
 export interface AnnotationVisual {
   annotation: FeedbackAnnotation;
   segments: AnnotationSegment[];
+  semantic: boolean;
 }
 
 interface LocatedBox { box: OcrBBox; order: number; newLine: boolean; }
@@ -62,6 +64,9 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
   if (imageWidth <= 0 || imageHeight <= 0) return [];
   const wordIndex = new Map<string, { word: OcrWord; order: number }>();
   words.forEach((word, order) => { if (word.id) wordIndex.set(word.id, { word, order }); });
+  const pageBoxes = words.map((word) => word.bbox).filter(validBox);
+  const textLeft = pageBoxes.length ? Math.min(...pageBoxes.map((box) => box.x)) : 0;
+  const textRight = pageBoxes.length ? Math.max(...pageBoxes.map((box) => box.x + box.w)) : 100;
   const visuals: AnnotationVisual[] = [];
   for (const annotation of annotations) {
     if (!annotation || (annotation.page && Number(annotation.page) !== Number(page))) continue;
@@ -73,6 +78,21 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
     const located: LocatedBox[] = hasWordOrder ? mapped : (annotation.bboxList || [])
       .filter(validBox).map((box, order) => ({ box, order, newLine: false }));
     if (!located.length) continue;
+    const semantic = ['CONTENT', 'ORGANIZATION'].includes(String(annotation.category || annotation.group || '').toUpperCase())
+      || ['CON', 'DEV', 'ORG', 'REL', 'CONC'].includes(String(annotation.symbol || '').toUpperCase());
+    if (semantic) {
+      const top = clamp(Math.min(...located.map((item) => item.box.y)) - 0.3, 0, 100);
+      const bottom = clamp(Math.max(...located.map((item) => item.box.y + item.box.h)) + 0.3, 0, 100);
+      const leftFree = textLeft;
+      const rightFree = 100 - textRight;
+      const railX = leftFree >= 6 ? clamp(textLeft - 1.5, 1, 99)
+        : rightFree >= 6 ? clamp(textRight + 1.5, 1, 99)
+          : clamp(textLeft + 0.5, 1, 99);
+      visuals.push({ annotation, semantic: true, segments: [{ id: `${annotation._id}_semantic`,
+        left: railX, top, width: 0, height: Math.max(1, bottom - top),
+        color: annotation.color || '#d64545', anchorTop: top }] });
+      continue;
+    }
     const groups: LocatedBox[][] = [];
     for (const item of located) {
       const current = groups[groups.length - 1];
@@ -81,7 +101,7 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
       } else current.push(item);
     }
     const color = annotation.color || '#d64545';
-    visuals.push({ annotation, segments: groups.map((group, index) =>
+    visuals.push({ annotation, semantic: false, segments: groups.map((group, index) =>
       segment(`${annotation._id}_${index}`, group, color, imageWidth, imageHeight)) });
   }
   return visuals;
