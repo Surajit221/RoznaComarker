@@ -41,6 +41,21 @@
   border-radius: 2px;
 }
 
+.correction-overlay__semantic-rail {
+  position: absolute;
+  z-index: 2;
+  width: 3px;
+  min-height: 8px;
+  border-radius: 999px;
+  background: var(--underline-color, #d64545);
+  opacity: .72;
+  pointer-events: none;
+}
+
+.correction-overlay__marker--semantic {
+  border-radius: 8px;
+}
+
 .document-skeleton {
   position: absolute;
   inset: 0;

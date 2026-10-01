@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { BillingAdminApiService, AdminBillingPlan, PromoRecord, PromoInput, AdminBillingTarget, AdminAssignmentQuote, billingFailure } from '../../api/billing-admin-api.service';
+import { BillingAdminApiService, AdminBillingPlan, PromoRecord, PromoFormInput, AdminBillingTarget, AdminAssignmentQuote, billingFailure } from '../../api/billing-admin-api.service';
 import { AlertService } from '../../services/alert.service';
 
 @Component({ selector: 'app-admin-billing', standalone: true, imports: [CommonModule, FormsModule],
@@ -26,6 +26,25 @@ export class AdminBilling implements OnInit {
     return [...new Set(this.plans.filter(plan => plan.tier === this.planSlug).flatMap(plan => plan.periods))];
   }
   get promoPlans(): AdminBillingPlan[] { return this.plans.filter(plan => plan.promoEligible); }
+  private labelCatalog?: AdminBillingPlan[];
+  private planLabels = new Map<string, AdminBillingPlan>();
+  promoCatalogLabel(plan: AdminBillingPlan): string {
+    return plan.periods.length === 1 && plan.periods[0] === 'annual' && !/\b(annual|yearly)\b/i.test(plan.name)
+      ? `${plan.name} Annual` : plan.name;
+  }
+  promoPlanLabel(row: PromoRecord): string {
+    const restriction = row.billingPeriods.length === 1 ? (row.billingPeriods[0] === 'annual' ? 'Annual' : 'Monthly') : '';
+    if (!row.plans.length) return `All paid plans${restriction ? ` (${restriction})` : ''}`;
+    if (this.labelCatalog !== this.plans) {
+      this.labelCatalog = this.plans;
+      this.planLabels = new Map(this.plans.map(plan => [plan.slug, plan]));
+    }
+    return row.plans.map(slug => {
+      const plan = this.planLabels.get(slug);
+      const label = plan ? this.promoCatalogLabel(plan) : slug.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      return `${label}${restriction && (!plan || plan.periods.length !== 1 || !row.billingPeriods.includes(plan.periods[0])) ? ` (${restriction})` : ''}`;
+    }).join(', ');
+  }
   selectTier(): void { if (!this.availablePeriods.includes(this.billingPeriod as 'monthly' | 'annual')) this.billingPeriod = this.availablePeriods[0] || 'monthly'; }
   private selectedPlanSlug(): string | null {
     if (this.planSlug === 'free') return this.plans.some(plan => plan.slug === 'free') ? 'free' : null;
@@ -44,8 +63,8 @@ export class AdminBilling implements OnInit {
     const date = new Date(value);
     return Number.isFinite(date.getTime()) && this.toLocalDateTime(date.toISOString()) === value ? date.toISOString() : null;
   }
-  emptyPromo(): PromoInput { return { code: '', active: true, discountType: 'PERCENT', discountValue: '20', currency: 'USD',
-    validFrom: '', validUntil: '', plans: [] as string[], billingPeriods: [] as string[], totalLimit: null as number | null, perUserLimit: null as number | null }; }
+  emptyPromo(): PromoFormInput { return { code: '', active: true, discountType: 'PERCENT', discountValue: '20', currency: 'USD',
+    validFrom: '', validUntil: '', plans: [] as string[], totalLimit: null as number | null, perUserLimit: null as number | null }; }
   async ngOnInit() { try { [this.plans] = await Promise.all([this.api.plans(), this.loadPromos()]); } catch (e) { this.message = billingFailure(e).message || 'Unable to load billing tools.'; } }
   async loadPromos() { this.promos = (await this.api.promos(this.page)).items; }
   async changePage(delta: number) { this.page = Math.max(1, this.page + delta); try { await this.loadPromos(); } catch { this.message = 'Unable to load promo codes.'; } }
@@ -53,8 +72,7 @@ export class AdminBilling implements OnInit {
     this.editingId = row._id;
     this.promo = { code: row.code, active: row.active, discountType: row.discountType, discountValue: row.discountValue,
       currency: row.currency, validFrom: row.validFrom, validUntil: row.validUntil,
-      plans: row.plans, billingPeriods: row.billingPeriods, totalLimit: row.totalLimit, perUserLimit: row.perUserLimit };
-    this.promo.plans = [...row.plans]; this.promo.billingPeriods = [...row.billingPeriods];
+      plans: [...row.plans], totalLimit: row.totalLimit, perUserLimit: row.perUserLimit };
     this.promoDateFrom = this.toLocalDateTime(row.validFrom);
     this.promoDateUntil = this.toLocalDateTime(row.validUntil);
     this.originalDateFrom = this.promoDateFrom; this.originalDateUntil = this.promoDateUntil;

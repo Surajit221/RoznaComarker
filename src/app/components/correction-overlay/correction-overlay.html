@@ -28,10 +28,16 @@
       [style.width.%]="line.width" [style.--underline-color]="line.color" aria-hidden="true"></span>
   }
 
+  @for (rail of mediaState === 'loaded' ? semanticRails : []; track rail.id) {
+    <span class="correction-overlay__semantic-rail" [style.left.%]="rail.left" [style.top.%]="rail.top"
+      [style.height.%]="rail.height" [style.--underline-color]="rail.color" aria-hidden="true"></span>
+  }
+
   @for (marker of mediaState === 'loaded' ? markers : []; track marker.annotation._id) {
     <button
       type="button"
       class="correction-overlay__marker"
+      [class.correction-overlay__marker--semantic]="marker.semantic"
       [style.--marker-left]="marker.left + '%'"
       [style.--marker-top]="marker.top + '%'"
       [style.--marker-offset-x.px]="marker.offsetX"
@@ -67,7 +73,7 @@
       [attr.data-placement]="tooltipPlacement"
       [attr.role]="activeMarker ? (isMobile ? 'dialog' : 'tooltip') : null"
       [attr.aria-modal]="activeMarker && isMobile ? 'true' : null"
-      [attr.aria-label]="activeMarker ? activeMarker.code + ' correction details' : null"
+      [attr.aria-label]="activeMarker ? activeMarker.annotation.symbol + ' correction details' : null"
       [attr.aria-hidden]="activeMarker ? null : 'true'"
       [style.--marker-color]="activeMarker?.annotation?.color || '#d64545'"
       [ngStyle]="tooltipStyle"
@@ -76,7 +82,7 @@
       <div class="correction-overlay__tooltip-card">
         <div class="correction-overlay__accent" aria-hidden="true"></div>
       <header class="correction-overlay__header">
-        <span class="correction-overlay__code" [style.background]="activeMarker.annotation.color || '#d64545'" [style.color]="activeMarker.textColor">{{ activeMarker.code }}</span>
+        <span class="correction-overlay__code" [style.background]="activeMarker.annotation.color || '#d64545'" [style.color]="activeMarker.textColor">{{ activeMarker.annotation.symbol }}</span>
         <div class="correction-overlay__heading">
           <strong>{{ categoryName }}</strong>
           <span>Correction guidance</span>

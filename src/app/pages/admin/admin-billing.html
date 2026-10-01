@@ -28,8 +28,7 @@
       <label class="admin-field">Valid until (local date and time)<input type="datetime-local" [(ngModel)]="promoDateUntil" [disabled]="busy"></label>
       <label class="admin-field">Global limit<input type="number" min="1" [(ngModel)]="promo.totalLimit"></label>
       <label class="admin-field">Per-user limit<input type="number" min="1" [(ngModel)]="promo.perUserLimit"></label>
-      <label class="admin-field">Plans (none means all paid plans)<select multiple [(ngModel)]="promo.plans">@for (plan of promoPlans; track plan.slug) { <option [value]="plan.slug">{{ plan.name }}</option> }</select></label>
-      <label class="admin-field">Periods (none means both)<select multiple [(ngModel)]="promo.billingPeriods"><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label>
+      <label class="admin-field">Plans (none means all paid plans)<select multiple [(ngModel)]="promo.plans">@for (plan of promoPlans; track plan.slug) { <option [value]="plan.slug">{{ promoCatalogLabel(plan) }}</option> }</select></label>
       <label class="admin-active"><input type="checkbox" [(ngModel)]="promo.active"> Active</label>
     </div>
     @if (dateError) { <p class="admin-notice error" role="alert">{{ dateError }}</p> }
@@ -37,8 +36,8 @@
     <button class="admin-btn admin-btn-primary" (click)="savePromo()" [disabled]="busy">Save promo</button>
     <button class="admin-btn admin-btn-secondary" (click)="newPromo()" [disabled]="busy">New / clear</button>
     <p class="helper">Validation does not use a redemption. Orders reserve a slot; verified payment consumes it. Refunds do not restore usage. Zero-total checkout is not supported.</p>
-    <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Code</th><th>Discount</th><th>Status</th><th>Allocated / consumed</th><th>Action</th></tr></thead><tbody>
-      @for (row of promos; track row._id) { <tr><td>{{ row.code }}</td><td>{{ row.discountValue }} {{ row.discountType === 'PERCENT' ? '%' : row.currency }}</td><td>{{ row.active ? 'Active' : 'Inactive' }}</td><td>{{ row.allocated }} / {{ row.consumed }}</td><td><button class="admin-btn admin-btn-ghost" (click)="editPromo(row)" [disabled]="busy">Edit</button></td></tr> }
+    <div class="admin-table-wrap promo-table-wrap"><table class="admin-table promo-table"><thead><tr><th>Code</th><th>Discount</th><th>Applicable plans</th><th>Status</th><th>Allocated / consumed</th><th>Action</th></tr></thead><tbody>
+      @for (row of promos; track row._id) { <tr><td data-label="Code">{{ row.code }}</td><td data-label="Discount">{{ row.discountValue }} {{ row.discountType === 'PERCENT' ? '%' : row.currency }}</td><td data-label="Applicable plans">{{ promoPlanLabel(row) }}</td><td data-label="Status">{{ row.active ? 'Active' : 'Inactive' }}</td><td data-label="Allocated / consumed">{{ row.allocated }} / {{ row.consumed }}</td><td data-label="Action"><button class="admin-btn admin-btn-ghost" (click)="editPromo(row)" [disabled]="busy">Edit</button></td></tr> }
     </tbody></table></div>
     <button class="admin-btn" (click)="changePage(-1)" [disabled]="page === 1 || busy">Previous</button><span>Page {{ page }}</span><button class="admin-btn" (click)="changePage(1)" [disabled]="promos.length < 25 || busy">Next</button>
   </section>

@@ -11,6 +11,7 @@ export interface PromoInput {
   validFrom: string | null; validUntil: string | null; plans: string[]; billingPeriods: string[];
   totalLimit: number | null; perUserLimit: number | null;
 }
+export type PromoFormInput = Omit<PromoInput, 'billingPeriods'>;
 export interface PromoRecord extends PromoInput { _id: string; allocated: number; consumed: number }
 export interface AdminBillingTarget {
   userId: string; email: string; displayName?: string; currentPlan: string; currentExpiry: string | null;
@@ -35,7 +36,7 @@ export class BillingAdminApiService {
   private base = `${environment.apiUrl}/billing/admin`;
   async plans(): Promise<AdminBillingPlan[]> { return (await firstValueFrom(this.http.get<Result<AdminBillingPlan[]>>(`${this.base}/plans`))).data; }
   async promos(page = 1): Promise<{ items: PromoRecord[] }> { return (await firstValueFrom(this.http.get<Result<{ items: PromoRecord[] }>>(`${this.base}/promos`, { params: { page } }))).data; }
-  async savePromo(value: PromoInput, id?: string): Promise<PromoRecord> {
+  async savePromo(value: PromoFormInput, id?: string): Promise<PromoRecord> {
     return (await firstValueFrom(id ? this.http.put<Result<PromoRecord>>(`${this.base}/promos/${encodeURIComponent(id)}`, value)
       : this.http.post<Result<PromoRecord>>(`${this.base}/promos`, value))).data;
   }

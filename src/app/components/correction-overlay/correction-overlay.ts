@@ -32,6 +32,7 @@ interface CorrectionMarker {
   code: string;
   label: string;
   textColor: string;
+  semantic: boolean;
 }
 
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
@@ -61,6 +62,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   markers: CorrectionMarker[] = [];
   underlineSegments: AnnotationSegment[] = [];
+  semanticRails: AnnotationSegment[] = [];
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
@@ -282,18 +284,27 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (this.mediaState !== 'loaded' || !this.imageWidth || !this.imageHeight) {
       this.markers = [];
       this.underlineSegments = [];
+      this.semanticRails = [];
       this.cdr.markForCheck();
       return;
     }
     const visuals = buildAnnotationVisuals(Array.isArray(this.annotations) ? this.annotations : [],
       Array.isArray(this.ocrWords) ? this.ocrWords : [], this.page, this.imageWidth, this.imageHeight);
-    this.underlineSegments = visuals.flatMap((visual) => visual.segments);
+    const localSegments = visuals.filter((visual) => !visual.semantic).flatMap((visual) => visual.segments);
+    const seenSegments = new Set<string>();
+    this.underlineSegments = localSegments.filter((line) => {
+      const key = [line.left.toFixed(2), line.top.toFixed(2), line.width.toFixed(2)].join(':');
+      if (seenSegments.has(key)) return false;
+      seenSegments.add(key);
+      return true;
+    });
+    this.semanticRails = visuals.filter((visual) => visual.semantic).flatMap((visual) => visual.segments);
     const positions: { left: number; top: number }[] = [];
     const renderedWidth = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
     const renderedHeight = this.imageEl?.nativeElement.clientHeight || this.imageHeight;
     this.markers = visuals
       .filter((visual) => Boolean(visual.annotation.symbol?.trim()))
-      .map(({ annotation, segments }) => {
+      .map(({ annotation, segments, semantic }) => {
         const final = segments[segments.length - 1];
         const left = final.left + final.width;
         const top = final.anchorTop;
@@ -301,7 +312,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
           Math.abs(position.left - left) * renderedWidth / 100 < 29
           && Math.abs(position.top - top) * renderedHeight / 100 < 29).length;
         positions.push({ left, top });
-        const code = annotation.symbol!.trim();
+        const fullCode = annotation.symbol!.trim();
+        const code = semantic && (left <= 5 || left >= 95) ? fullCode.slice(0, 1) : fullCode;
         const color = annotation.color || '#d64545';
         return {
           annotation,
@@ -310,8 +322,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
           offsetX: nearby >= 2 ? (left > 50 ? -26 : 26) : 0,
           offsetY: nearby === 1 || nearby >= 3 ? (top > 50 ? -26 : 26) : 0,
           code,
-          label: `${code}: ${annotation.group || 'Correction'}`,
-          textColor: this.contrastColor(color)
+          label: `${fullCode}: ${annotation.group || 'Correction'}`,
+          textColor: this.contrastColor(color),
+          semantic
         };
       });
     this.cdr.markForCheck();

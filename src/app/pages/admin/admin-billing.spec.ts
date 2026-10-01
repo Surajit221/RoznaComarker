@@ -37,7 +37,7 @@ describe('Admin billing confirmed assignment', () => {
   });
   it('creates or disables a promo through the admin API', async () => {
     component.promo.code = 'TEST20'; await component.savePromo(); expect(api.savePromo.calls.first().args[0].code).toBe('TEST20');
-    component.editPromo({ ...component.emptyPromo(), _id: 'promo-id', code: 'TEST20', allocated: 0, consumed: 0 }); component.promo.active = false;
+    component.editPromo({ ...component.emptyPromo(), billingPeriods: [], _id: 'promo-id', code: 'TEST20', allocated: 0, consumed: 0 }); component.promo.active = false;
     await component.savePromo(); expect(api.savePromo.calls.mostRecent().args[1]).toBe('promo-id'); expect(api.savePromo.calls.mostRecent().args[0].active).toBeFalse();
   });
   it('uses one catalog for tier selection and paid promo restrictions', async () => {
@@ -61,7 +61,7 @@ describe('Admin billing confirmed assignment', () => {
   });
 
   it('uses date-time input, validates range, and preserves unchanged stored timestamps', async () => {
-    const row = { ...component.emptyPromo(), _id: 'promo-id', code: 'DATE20', allocated: 0, consumed: 0,
+    const row = { ...component.emptyPromo(), billingPeriods: [], _id: 'promo-id', code: 'DATE20', allocated: 0, consumed: 0,
       validFrom: '2026-09-28T18:00:23.000Z', validUntil: '2026-10-28T18:00:23.000Z' };
     component.editPromo(row);
     await component.savePromo();
@@ -83,5 +83,52 @@ describe('Admin billing confirmed assignment', () => {
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('input[type="datetime-local"]').length).toBe(2);
     expect(fixture.nativeElement.textContent).not.toContain('UTC ISO date');
+  });
+  it('renders promo restrictions and all existing row actions using the loaded catalog', async () => {
+    api.plans.and.resolveTo([
+      { slug: 'essential_annual', name: 'Essential Annual', periods: ['annual'], tier: 'essential', promoEligible: true },
+      { slug: 'pro_monthly', name: 'Pro', periods: ['monthly'], tier: 'pro', promoEligible: true }
+    ]);
+    api.promos.and.resolveTo({ items: [
+      { ...component.emptyPromo(), _id: 'tat', code: 'TAT', plans: ['essential_annual'], billingPeriods: ['annual'], allocated: 0, consumed: 0 },
+      { ...component.emptyPromo(), _id: 'pro', code: 'PRO15', plans: ['pro_monthly'], billingPeriods: ['monthly'], allocated: 2, consumed: 1 },
+      { ...component.emptyPromo(), billingPeriods: [], _id: 'all', code: 'ALL', allocated: 0, consumed: 0 }
+    ] });
+    const fixture = TestBed.createComponent(AdminBilling);
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const rows = fixture.nativeElement.querySelectorAll('.promo-table tbody tr');
+    for (const value of ['TAT', '20', 'Essential Annual', 'Annual', 'Active', '0 / 0', 'Edit']) expect(rows[0].textContent).toContain(value);
+    expect(rows[1].textContent).toContain('Pro');
+    expect(rows[2].textContent).toContain('All paid plans');
+    expect(api.plans).toHaveBeenCalledTimes(1); expect(api.promos).toHaveBeenCalledTimes(1);
+    expect(rows[0].querySelectorAll('[data-label]').length).toBe(6);
+    expect(fixture.nativeElement.querySelectorAll('select[multiple]').length).toBe(1);
+    expect(fixture.nativeElement.textContent).not.toContain('Periods (none means both)');
+    expect(fixture.nativeElement.querySelector('[data-label="Period"]')).toBeNull();
+  });
+  it('editing and saving retains exact restrictions and does not mutate the listed row', async () => {
+    const row = { ...component.emptyPromo(), _id: 'tat', code: 'TAT', plans: ['essential_annual'], billingPeriods: ['annual'], allocated: 0, consumed: 0 };
+    component.editPromo(row);
+    expect(component.promo.plans).not.toBe(row.plans);
+    expect('billingPeriods' in component.promo).toBeFalse();
+    await component.savePromo();
+    expect(api.savePromo.calls.mostRecent().args[0].plans).toEqual(['essential_annual']);
+    expect('billingPeriods' in api.savePromo.calls.mostRecent().args[0]).toBeFalse();
+    expect(row.plans).toEqual(['essential_annual']);
+  });
+  it('preserves multiple plan selections and sends only the edited plans for server derivation', async () => {
+    component.editPromo({ ...component.emptyPromo(), _id: 'mixed', code: 'MIXED', plans: ['essential', 'essential_annual'], billingPeriods: ['monthly', 'annual'], allocated: 0, consumed: 0 });
+    expect(component.promo.plans).toEqual(['essential', 'essential_annual']);
+    component.promo.plans = ['pro_annual'];
+    await component.savePromo();
+    expect(api.savePromo.calls.mostRecent().args[0].plans).toEqual(['pro_annual']);
+    expect('billingPeriods' in api.savePromo.calls.mostRecent().args[0]).toBeFalse();
+  });
+  it('shows legacy narrower restrictions inline and uses catalog annual metadata for labels', () => {
+    component.plans = [{ slug: 'essential', name: 'Essential', tier: 'essential', periods: ['monthly', 'annual'], promoEligible: true, price: 10, annualPrice: 100, currency: 'USD' }];
+    const row = { ...component.emptyPromo(), _id: 'old', code: 'OLD', billingPeriods: ['annual'], allocated: 0, consumed: 0 };
+    expect(component.promoPlanLabel(row)).toBe('All paid plans (Annual)');
+    expect(component.promoPlanLabel({ ...row, plans: ['essential'] })).toBe('Essential (Annual)');
+    expect(component.promoCatalogLabel({ ...component.plans[0], slug: 'essential_annual', periods: ['annual'] })).toBe('Essential Annual');
   });
 });

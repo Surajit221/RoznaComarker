@@ -66,4 +66,26 @@ describe('annotation geometry', () => {
     expect(visuals[0].segments[0].width).toBeGreaterThan(0);
     expect(visuals[0].segments[0].left + visuals[0].segments[0].width).toBeLessThanOrEqual(100);
   });
+
+  it('renders semantic corrections as side rails while local corrections keep precise segments', () => {
+    const semantic = { ...correction('content', words.map((item) => item.id), 1),
+      category: 'CONTENT', symbol: 'CON' };
+    const local = { ...correction('grammar', ['word_1_2']), category: 'GRAMMAR', symbol: 'AGR' };
+    const visuals = buildAnnotationVisuals([semantic, local], words, 1, 1000, 1200);
+    expect(visuals).toHaveSize(2);
+    expect(visuals[0].semantic).toBe(true);
+    expect(visuals[0].segments[0].width).toBe(0);
+    expect(visuals[0].segments[0].height).toBeGreaterThan(10);
+    expect(visuals[1].semantic).toBe(false);
+    expect(visuals[1].segments[0].width).toBeLessThan(9);
+  });
+
+  it('keeps semantic rails inside the stage with almost no OCR margin', () => {
+    const dense = [word('left', 1, 20), word('right', 91, 20)];
+    const [visual] = buildAnnotationVisuals([{ ...correction('org', ['left', 'right']),
+      category: 'ORGANIZATION', symbol: 'ORG' }], dense, 1, 1000, 1200);
+    expect(visual.semantic).toBe(true);
+    expect(visual.segments[0].left).toBeGreaterThanOrEqual(1);
+    expect(visual.segments[0].left).toBeLessThanOrEqual(99);
+  });
 });
