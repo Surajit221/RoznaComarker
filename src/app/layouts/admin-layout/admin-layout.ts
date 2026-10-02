@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { Component, ElementRef, HostListener, Inject, OnDestroy, ViewChild, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
+import { AuthService } from '../../auth/auth.service';
 
 export interface AdminNavItem {
   label: string;
@@ -42,10 +43,11 @@ export class AdminLayout implements OnDestroy {
   readonly navItems = ADMIN_NAV_ITEMS;
   readonly drawerOpen = signal(false);
   readonly currentUrl = signal('');
+  readonly loggingOut = signal(false);
   private readonly routerEvents: Subscription;
   private previousBodyOverflow = '';
 
-  constructor(private readonly router: Router, @Inject(DOCUMENT) private readonly document: Document) {
+  constructor(private readonly router: Router, private readonly auth: AuthService, @Inject(DOCUMENT) private readonly document: Document) {
     this.currentUrl.set(this.router.url);
     this.routerEvents = this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
@@ -76,6 +78,20 @@ export class AdminLayout implements OnDestroy {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.closeDrawer();
+  }
+
+  async logout(): Promise<void> {
+    if (this.loggingOut()) return;
+    this.loggingOut.set(true);
+    try {
+      await this.auth.logout();
+    } catch {
+      // AuthService clears private auth storage even if Firebase sign-out fails.
+    } finally {
+      this.closeDrawer(false);
+      await this.router.navigate(['/login']);
+      this.loggingOut.set(false);
+    }
   }
 
   ngOnDestroy(): void {
