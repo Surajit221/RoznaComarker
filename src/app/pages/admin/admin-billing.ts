@@ -1,14 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { A11yModule } from '@angular/cdk/a11y';
 import { BillingAdminApiService, AdminBillingPlan, PromoRecord, PromoFormInput, AdminBillingTarget, AdminAssignmentQuote, billingFailure } from '../../api/billing-admin-api.service';
-import { AlertService } from '../../services/alert.service';
 
-@Component({ selector: 'app-admin-billing', standalone: true, imports: [CommonModule, FormsModule],
+@Component({ selector: 'app-admin-billing', standalone: true, imports: [CommonModule, FormsModule, A11yModule],
   templateUrl: './admin-billing.html', styleUrls: ['./admin-ui.css', './admin-billing.css'] })
-export class AdminBilling implements OnInit {
+export class AdminBilling implements OnInit, OnDestroy {
   private api = inject(BillingAdminApiService);
-  private alerts = inject(AlertService);
+  @ViewChild('assignmentDialog') private assignmentDialog?: ElementRef<HTMLElement>;
+  confirmation: AdminAssignmentQuote | null = null;
+  assigning = false;
+  private confirmationTrigger: HTMLElement | null = null;
   plans: AdminBillingPlan[] = []; promos: PromoRecord[] = []; page = 1; email = ''; target: AdminBillingTarget | null = null;
   planSlug = 'essential'; billingPeriod = 'monthly'; reason = ''; busy = false; message = '';
   promoDateFrom = ''; promoDateUntil = ''; dateError = '';
@@ -49,6 +52,25 @@ export class AdminBilling implements OnInit {
   private selectedPlanSlug(): string | null {
     if (this.planSlug === 'free') return this.plans.some(plan => plan.slug === 'free') ? 'free' : null;
     return this.plans.find(plan => plan.tier === this.planSlug && plan.periods.includes(this.billingPeriod as 'monthly' | 'annual'))?.slug || null;
+  }
+  assignmentPlanName(slug: string): string {
+    const plan = this.plans.find(item => item.slug === slug);
+    if (plan) return plan.name.replace(/\s+(Monthly|Annual|Yearly)$/i, '');
+    return slug.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  }
+  assignmentTerm(period: string): string { return period === 'annual' ? 'Annual' : 'Monthly'; }
+  @HostListener('document:keydown.escape') onConfirmationEscape(): void {
+    if (this.confirmation && !this.assigning) this.cancelConfirmation();
+  }
+  ngOnDestroy(): void { if (this.confirmation) document.body.style.overflow = ''; }
+  cancelConfirmation(): void {
+    if (this.assigning) return;
+    this.confirmation = null;
+    this.assignment = undefined;
+    document.body.style.overflow = '';
+    const trigger = this.confirmationTrigger;
+    this.confirmationTrigger = null;
+    queueMicrotask(() => trigger?.focus());
   }
   private toLocalDateTime(value: string | null): string {
     if (!value) return '';
@@ -102,30 +124,50 @@ export class AdminBilling implements OnInit {
     finally { this.busy = false; }
   }
   async assign() {
-    if (this.busy || !this.target || this.target.blocked) return;
+    if (this.busy || this.confirmation || !this.target || this.target.blocked) return;
     const selectedSlug = this.selectedPlanSlug() || (this.plans.length ? null : this.planSlug);
     if (!selectedSlug) { this.message = 'Select an available plan and term.'; return; }
     this.busy = true; this.message = '';
+    this.confirmationTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     try {
       const input = { email: this.target.email, planSlug: selectedSlug, billingPeriod: this.planSlug === 'free' ? 'monthly' : this.billingPeriod, reason: this.reason };
       const identity = JSON.stringify(input);
       if (this.assignment?.identity !== identity) this.assignment = { identity, quote: await this.api.preview(input), operationId: crypto.randomUUID() };
-      const { quote, operationId } = this.assignment;
-      const confirmed = await this.alerts.showConfirm('Confirm manual plan assignment',
-        `User: ${quote.email}\nCurrent: ${quote.currentPlan}\nCurrent expiry: ${quote.currentExpiry || 'None'}\n`
-        + `Scheduled plans: ${quote.scheduled.map(p => `${p.planSlug} (${p.startsAt} to ${p.endsAt})`).join(', ') || 'None'}\n`
-        + `New: ${quote.planSlug} ${quote.billingPeriod}\nEffective: ${quote.startsAt}\nExpires: ${quote.endsAt || 'No expiry (Free)'}\n`
-        + `Reason: ${quote.reason}\n`
-        + 'Conflicting active and scheduled entitlements will be superseded. This changes access without a payment. Historical records and purchased/bonus credits are preserved.',
-        'Assign plan', 'Cancel');
-      if (!confirmed) { this.assignment = undefined; return; }
-      await this.api.assign(quote.quoteId, operationId);
-      this.assignment = undefined; this.target = await this.api.lookup(this.target.email);
-      this.message = 'Plan assigned and allowance reconciled. No payment was created.';
+      this.confirmation = this.assignment.quote;
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => this.assignmentDialog?.nativeElement.focus());
     } catch (e) {
       const failure = billingFailure(e);
       if (['ADMIN_PREVIEW_EXPIRED', 'ADMIN_PREVIEW_CHANGED'].includes(failure.code || '')) this.assignment = undefined;
       this.message = failure.message || 'The update could not be confirmed. Retry the same action to check its result.';
     } finally { this.busy = false; }
+  }
+  async confirmAssignment(): Promise<void> {
+    if (this.assigning || !this.confirmation || !this.assignment) return;
+    this.assigning = true;
+    this.message = '';
+    const { quote, operationId } = this.assignment;
+    try {
+      await this.api.assign(quote.quoteId, operationId);
+      this.confirmation = null;
+      document.body.style.overflow = '';
+      this.assignment = undefined;
+      const trigger = this.confirmationTrigger;
+      this.confirmationTrigger = null;
+      queueMicrotask(() => trigger?.focus());
+      this.target = await this.api.lookup(quote.email);
+      this.message = 'Plan assigned and allowance reconciled. No payment was created.';
+    } catch (e) {
+      const failure = billingFailure(e);
+      if (['ADMIN_PREVIEW_EXPIRED', 'ADMIN_PREVIEW_CHANGED'].includes(failure.code || '')) {
+        this.assignment = undefined;
+        this.confirmation = null;
+        document.body.style.overflow = '';
+        const trigger = this.confirmationTrigger;
+        this.confirmationTrigger = null;
+        queueMicrotask(() => trigger?.focus());
+      }
+      this.message = failure.message || 'The update could not be confirmed. Retry the same action to check its result.';
+    } finally { this.assigning = false; }
   }
 }

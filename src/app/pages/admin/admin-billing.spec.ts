@@ -1,12 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { AdminBilling } from './admin-billing';
 import { BillingAdminApiService } from '../../api/billing-admin-api.service';
-import { AlertService } from '../../services/alert.service';
 
 describe('Admin billing confirmed assignment', () => {
   let component: AdminBilling;
   let api: { plans: jasmine.Spy; promos: jasmine.Spy; lookup: jasmine.Spy; preview: jasmine.Spy; assign: jasmine.Spy; savePromo: jasmine.Spy };
-  let alerts: { showConfirm: jasmine.Spy };
   const target = { userId: 'teacher-id', message: null, email: 'teacher@example.test', currentPlan: 'Pro', currentExpiry: '2026-10-01', scheduled: [], blocked: false };
   const quote = { ...target, quoteId: 'server-quote', planSlug: 'essential', billingPeriod: 'annual', reason: 'Support correction',
     startsAt: '2026-09-29', endsAt: '2027-09-29', scheduled: [{ planSlug: 'pro', startsAt: '2026-10-01', endsAt: '2026-11-01' }] };
@@ -14,25 +12,90 @@ describe('Admin billing confirmed assignment', () => {
     api = { plans: jasmine.createSpy().and.resolveTo([]), promos: jasmine.createSpy().and.resolveTo({ items: [] }),
       lookup: jasmine.createSpy().and.resolveTo(target), preview: jasmine.createSpy().and.resolveTo(quote),
       assign: jasmine.createSpy().and.resolveTo({}), savePromo: jasmine.createSpy().and.resolveTo({}) };
-    alerts = { showConfirm: jasmine.createSpy().and.resolveTo(true) };
-    TestBed.configureTestingModule({ imports: [AdminBilling], providers: [{ provide: BillingAdminApiService, useValue: api }, { provide: AlertService, useValue: alerts }] });
+    TestBed.configureTestingModule({ imports: [AdminBilling], providers: [{ provide: BillingAdminApiService, useValue: api }] });
     component = TestBed.runInInjectionContext(() => new AdminBilling());
     component.target = target; component.reason = 'Support correction';
   });
-  it('shows target, old/future/new terms and supersession warning before writing', async () => {
-    await component.assign();
-    const text = alerts.showConfirm.calls.mostRecent().args[1];
-    for (const value of [target.email, 'Pro', '2026-10-01', '2026-11-01', 'essential annual', '2026-09-29', '2027-09-29', 'superseded', 'purchased/bonus']) expect(text).toContain(value);
+  afterEach(() => { document.body.style.overflow = ''; });
+  it('shows server preview in structured dialog before writing, with human labels and dates', async () => {
+    api.plans.and.resolveTo([{slug:'essential',tier:'essential',name:'Essential',periods:['monthly','annual'],promoEligible:true}]);
+    const fixture = TestBed.createComponent(AdminBilling);
+    fixture.detectChanges(); await fixture.whenStable();
+    fixture.componentInstance.target = target;
+    fixture.componentInstance.reason = quote.reason;
+    await fixture.componentInstance.assign(); fixture.detectChanges();
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    const text = dialog.textContent || '';
+    for (const value of ['Confirm manual plan assignment','Current user & plan','New plan details','Important',target.email,'Pro','Essential','Annual','Support correction','superseded','without a payment','purchased/bonus']) expect(text).toContain(value);
+    expect(text).not.toContain('essential_monthly');
+    expect(text).not.toContain('2026-09-29');
+    expect(api.assign).not.toHaveBeenCalled();
+    await fixture.componentInstance.confirmAssignment();
     expect(api.assign).toHaveBeenCalledOnceWith('server-quote', jasmine.any(String));
   });
-  it('cancelling confirmation never assigns', async () => { alerts.showConfirm.and.resolveTo(false); await component.assign(); expect(api.assign).not.toHaveBeenCalled(); });
+  it('cancelling confirmation never assigns', async () => { await component.assign(); component.cancelConfirmation(); expect(component.confirmation).toBeNull(); expect(api.assign).not.toHaveBeenCalled(); });
+  it('keeps long server values as text and formats scheduled dates', async () => {
+    api.preview.and.resolveTo({ ...quote, email:'very.long.address.with.sections@example.test', reason:'Support <script>alert(1)</script> correction',
+      planSlug:'essential_monthly', billingPeriod:'monthly', startsAt:'2026-10-03T08:44:45.253Z', endsAt:'2026-11-03T08:44:45.253Z',
+      scheduled:[{planSlug:'pro_annual',startsAt:'2026-10-05T08:44:45.253Z',endsAt:'2027-10-05T08:44:45.253Z'}] });
+    api.plans.and.resolveTo([{slug:'essential_monthly',tier:'essential',name:'Essential Monthly',periods:['monthly'],promoEligible:true},
+      {slug:'pro_annual',tier:'pro',name:'Pro Annual',periods:['annual'],promoEligible:true}]);
+    const fixture=TestBed.createComponent(AdminBilling);fixture.detectChanges();await fixture.whenStable();
+    fixture.componentInstance.target=target;fixture.componentInstance.reason=quote.reason;
+    await fixture.componentInstance.assign();fixture.detectChanges();
+    const dialog:HTMLElement=fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain('very.long.address.with.sections@example.test');
+    expect(dialog.textContent).toContain('Support <script>alert(1)</script> correction');
+    expect(dialog.querySelector('script')).toBeNull();
+    expect(dialog.textContent).toContain('Pro');
+    expect(dialog.textContent).not.toContain('pro_annual');
+    expect(dialog.textContent).not.toContain('2026-10-03T08:44:45.253Z');
+    expect(dialog.querySelector('[title="2026-10-03T08:44:45.253Z"]')).not.toBeNull();
+    expect(dialog.querySelectorAll('.assignment-row').length).toBe(9);
+  });
+  it('Escape and Cancel close without assigning and restore focus', async () => {
+    const fixture=TestBed.createComponent(AdminBilling);fixture.detectChanges();await fixture.whenStable();
+    fixture.componentInstance.target=target;fixture.componentInstance.reason=quote.reason;
+    const trigger:HTMLButtonElement=fixture.nativeElement.querySelector('.admin-card .admin-btn-primary');
+    trigger.focus();await fixture.componentInstance.assign();fixture.detectChanges();
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));fixture.detectChanges();
+    await Promise.resolve();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(api.assign).not.toHaveBeenCalled();
+    await fixture.componentInstance.assign();fixture.detectChanges();
+    const cancel:HTMLButtonElement=fixture.nativeElement.querySelector('.assignment-actions .admin-btn-secondary');
+    cancel.click();fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+    expect(api.assign).not.toHaveBeenCalled();
+  });
+  it('disables actions and sends exactly one confirm request while assignment is pending', async () => {
+    let finish!: (value: object) => void;
+    api.assign.and.returnValue(new Promise<object>(resolve=>{finish=resolve;}));
+    const fixture=TestBed.createComponent(AdminBilling);fixture.detectChanges();await fixture.whenStable();
+    fixture.componentInstance.target=target;fixture.componentInstance.reason=quote.reason;
+    await fixture.componentInstance.assign();fixture.detectChanges();
+    const action:HTMLButtonElement=fixture.nativeElement.querySelector('.assignment-actions .admin-btn-primary');
+    const first=fixture.componentInstance.confirmAssignment();fixture.detectChanges();
+    expect(action.disabled).toBeTrue();
+    expect(action.textContent).toContain('Assigning');
+    expect((fixture.nativeElement.querySelector('.assignment-actions .admin-btn-secondary') as HTMLButtonElement).disabled).toBeTrue();
+    await fixture.componentInstance.confirmAssignment();
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    expect(fixture.componentInstance.confirmation).not.toBeNull();
+    expect(api.assign).toHaveBeenCalledTimes(1);
+    finish({});await first;fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
+  });
   it('legacy recurring block never previews or assigns', async () => { component.target = { ...target, blocked: true }; await component.assign(); expect(api.preview).not.toHaveBeenCalled(); expect(api.assign).not.toHaveBeenCalled(); });
   it('ambiguous response retries the exact operation, not a second grant', async () => {
-    api.assign.and.rejectWith(new Error('network')); await component.assign(); const first = api.assign.calls.mostRecent().args;
-    api.assign.and.resolveTo({}); await component.assign(); expect(api.assign.calls.mostRecent().args).toEqual(first); expect(api.preview).toHaveBeenCalledTimes(1);
+    api.assign.and.rejectWith(new Error('network')); await component.assign(); await component.confirmAssignment(); const first = api.assign.calls.mostRecent().args;
+    api.assign.and.resolveTo({}); await component.confirmAssignment(); expect(api.assign.calls.mostRecent().args).toEqual(first); expect(api.preview).toHaveBeenCalledTimes(1);
   });
   it('stale preview requires a new preview on retry', async () => {
-    api.assign.and.rejectWith({ error: { code: 'ADMIN_PREVIEW_CHANGED' } }); await component.assign();
+    api.assign.and.rejectWith({ error: { code: 'ADMIN_PREVIEW_CHANGED' } }); await component.assign(); await component.confirmAssignment();
     api.assign.and.resolveTo({}); await component.assign(); expect(api.preview).toHaveBeenCalledTimes(2);
   });
   it('creates or disables a promo through the admin API', async () => {
@@ -55,6 +118,7 @@ describe('Admin billing confirmed assignment', () => {
     component.planSlug = 'essential'; component.billingPeriod = 'annual';
     await component.assign();
     expect(api.preview.calls.mostRecent().args[0].planSlug).toBe('essential_annual');
+    component.cancelConfirmation();
     component.planSlug = 'pro'; component.billingPeriod = 'monthly';
     await component.assign();
     expect(api.preview.calls.mostRecent().args[0].planSlug).toBe('pro_monthly');
