@@ -42,3 +42,43 @@
     <button class="admin-btn" (click)="changePage(-1)" [disabled]="page === 1 || busy">Previous</button><span>Page {{ page }}</span><button class="admin-btn" (click)="changePage(1)" [disabled]="promos.length < 25 || busy">Next</button>
   </section>
 </main>
+@if (confirmation; as quote) {
+  <div class="assignment-overlay">
+    <section #assignmentDialog class="assignment-dialog" role="dialog" aria-modal="true" aria-labelledby="assignment-title" aria-describedby="assignment-help" tabindex="-1" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+      <header class="assignment-header">
+        <span class="assignment-icon" aria-hidden="true">!</span>
+        <div><h2 id="assignment-title">Confirm manual plan assignment</h2><p id="assignment-help">Review the current access and the plan that will be assigned.</p></div>
+      </header>
+      <div class="assignment-content">
+        <section class="assignment-section" aria-labelledby="assignment-current-title">
+          <h3 id="assignment-current-title">Current user &amp; plan</h3>
+          <dl>
+            <div class="assignment-row"><dt>User</dt><dd>{{ quote.email }}</dd></div>
+            <div class="assignment-row"><dt>Current plan</dt><dd>{{ quote.currentPlan }}</dd></div>
+            <div class="assignment-row"><dt>Current expiry</dt><dd [attr.title]="quote.currentExpiry">{{ quote.currentExpiry ? (quote.currentExpiry | date:'MMM d, y · h:mm a') : 'No expiry' }}</dd></div>
+            <div class="assignment-row"><dt>Scheduled plans</dt><dd>@if (quote.scheduled.length) { @for (next of quote.scheduled; track $index) { <span class="assignment-scheduled">{{ assignmentPlanName(next.planSlug) }} · {{ next.startsAt | date:'MMM d, y · h:mm a' }} to {{ next.endsAt ? (next.endsAt | date:'MMM d, y · h:mm a') : 'No expiry' }}</span> } } @else { None }</dd></div>
+          </dl>
+        </section>
+        <section class="assignment-section" aria-labelledby="assignment-new-title">
+          <h3 id="assignment-new-title">New plan details</h3>
+          <dl>
+            <div class="assignment-row"><dt>Plan</dt><dd>{{ assignmentPlanName(quote.planSlug) }}</dd></div>
+            <div class="assignment-row"><dt>Billing term</dt><dd>{{ quote.planSlug === 'free' ? 'No term (Free)' : assignmentTerm(quote.billingPeriod) }}</dd></div>
+            <div class="assignment-row"><dt>Effective</dt><dd [attr.title]="quote.startsAt">{{ quote.startsAt | date:'MMM d, y · h:mm a' }}</dd></div>
+            <div class="assignment-row"><dt>Expires</dt><dd [attr.title]="quote.endsAt">{{ quote.endsAt ? (quote.endsAt | date:'MMM d, y · h:mm a') : 'No expiry (Free)' }}</dd></div>
+            <div class="assignment-row"><dt>Reason</dt><dd>{{ quote.reason }}</dd></div>
+          </dl>
+        </section>
+        <section class="assignment-warning" aria-labelledby="assignment-warning-title">
+          <span class="assignment-warning-icon" aria-hidden="true">!</span>
+          <div><h3 id="assignment-warning-title">Important</h3><p>Conflicting active and scheduled entitlements will be superseded.</p><p>This changes access without a payment.</p><p>Historical records and purchased/bonus credits are preserved.</p></div>
+        </section>
+        @if (message) { <p class="admin-notice error" role="alert">{{ message }}</p> }
+      </div>
+      <footer class="assignment-actions">
+        <button type="button" class="admin-btn admin-btn-secondary" (click)="cancelConfirmation()" [disabled]="assigning">Cancel</button>
+        <button type="button" class="admin-btn admin-btn-primary" (click)="confirmAssignment()" [disabled]="assigning">{{ assigning ? 'Assigning…' : 'Assign plan' }}</button>
+      </footer>
+    </section>
+  </div>
+}
