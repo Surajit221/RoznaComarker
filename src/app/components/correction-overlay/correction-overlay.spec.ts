@@ -111,29 +111,34 @@ describe('CorrectionOverlay media loading', () => {
     expect(fixture.nativeElement.querySelector('.correction-overlay__marker')).toBeNull();
   });
 
-  it('uses content-sized badges and a smaller shared compact marker', () => {
+  it('uses content-sized badges and a smaller shared compact marker', fakeAsync(() => {
     fixture.detectChanges();
     const rules = componentStyleRules();
     const desktop = rules.filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
       .find((rule) => rule.selectorText.includes('.correction-overlay__marker')
         && rule.style.width.includes('--badge-width'));
-    const compactMedia = rules.filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule)
-      .find((rule) => rule.conditionText.includes('1024px'));
-    const compact = Array.from(compactMedia?.cssRules || [])
-      .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
-      .find((rule) => rule.selectorText.includes('.correction-overlay__marker')
-        && !rule.selectorText.includes('::before') && rule.style.width.includes('--badge-width'));
-    const hitArea = Array.from(compactMedia?.cssRules || [])
-      .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
-      .find((rule) => rule.selectorText.includes('.correction-overlay__marker')
-        && rule.style.inset === '-6px');
-
-    expect(desktop?.style.height).toBe('28px');
     expect(desktop?.style.borderRadius).toBe('999px');
-    expect(compact?.style.height).toBe('26px');
-    expect(compact?.style.fontSize).toBe('9px');
-    expect(hitArea?.style.inset).toBe('-6px');
-  });
+    renderMarkers([{ _id: 'sizing', submissionId: 'test', source: 'AI', editable: false, symbol: 'T',
+      bboxList: [{ x: 20, y: 20, w: 8, h: 2 }] }]);
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    try {
+      for (const [viewport, height] of [[1440, 28], [1024, 26], [768, 24], [430, 20], [390, 19], [375, 19]]) {
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: viewport });
+        component.onViewportChange(); tick(32); fixture.detectChanges();
+        const button = fixture.nativeElement.querySelector('.correction-overlay__marker') as HTMLButtonElement;
+        expect(button.getBoundingClientRect().height).toBe(height);
+        if (viewport <= 480) {
+          const style = getComputedStyle(button);
+          expect(parseFloat(style.fontSize)).toBe(viewport <= 390 ? 7.5 : 8);
+          expect(parseFloat(style.paddingLeft)).toBe(3.5);
+        }
+        if (viewport <= 768) expect(parseFloat(getComputedStyle(button, '::before').height)).toBeGreaterThanOrEqual(39.9);
+      }
+    } finally {
+      if (descriptor) Object.defineProperty(window, 'innerWidth', descriptor);
+      component.onViewportChange(); tick(32);
+    }
+  }));
 
   it('groups nearby compact symbols and exposes each canonical correction', () => {
     spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);

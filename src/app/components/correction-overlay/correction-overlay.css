@@ -122,29 +122,37 @@
 .correction-overlay__marker {
   position: absolute;
   left: clamp(calc(var(--badge-width, 30px) / 2), var(--marker-left), calc(100% - var(--badge-width, 30px) / 2));
-  top: clamp(14px, var(--marker-top), calc(100% - 14px));
+  top: clamp(calc(var(--badge-height, 28px) / 2), var(--marker-top), calc(100% - var(--badge-height, 28px) / 2));
   z-index: 5;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--badge-width, 30px);
-  height: 28px;
-  min-width: 28px;
-  padding: 0 2px;
+  height: var(--badge-height, 28px);
+  min-width: 0;
+  padding: 0 var(--badge-padding-x, 2px);
   margin: 0;
   box-sizing: border-box;
-  border: 2px solid rgba(255, 255, 255, .96);
+  border: var(--badge-border, 2px) solid rgba(255, 255, 255, .96);
   border-radius: 999px;
   transform: translate(-50%, -50%);
   background: var(--marker-color, #d64545);
-  box-shadow: 0 2px 7px rgba(15, 23, 42, .32);
-  font: 800 9px/1 system-ui, sans-serif;
+  box-shadow: var(--badge-shadow, 0 2px 7px rgba(15, 23, 42, .32));
+  font: 800 var(--badge-font-size, 9px)/1 system-ui, sans-serif;
   letter-spacing: -.02em;
   text-align: center;
   white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
   transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.correction-overlay__marker::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * max(var(--badge-hit-padding, 0px), (var(--badge-hit-size, 0px) - var(--badge-height, 28px) + 2 * var(--badge-border, 2px)) / 2))
+    calc(-1 * max(var(--badge-hit-padding, 0px), (var(--badge-hit-size, 0px) - var(--badge-width, 30px) + 2 * var(--badge-border, 2px)) / 2));
+  border-radius: 999px;
 }
 
 .correction-overlay__marker:hover,
@@ -328,21 +336,6 @@
   .correction-overlay.is-loaded { min-height: 0; }
   .document-skeleton { padding: 14px; }
   .document-skeleton__page { width: 100%; min-height: 88%; padding: 24px 20px; }
-  .correction-overlay__marker {
-    width: var(--badge-width, 30px);
-    height: 26px;
-    min-width: 26px;
-    margin: 0;
-    font-size: 9px;
-    box-shadow: 0 1px 5px rgba(15, 23, 42, .3);
-  }
-
-  .correction-overlay__marker::before {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 999px;
-  }
 
   .correction-overlay__tooltip.is-mobile {
     inset: auto 8px max(8px, env(safe-area-inset-bottom));

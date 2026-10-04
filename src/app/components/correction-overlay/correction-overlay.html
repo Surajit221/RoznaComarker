@@ -1,4 +1,8 @@
 <div class="correction-overlay" #overlayEl [class.is-loaded]="mediaState === 'loaded'" [class.has-selection]="!!selectedId"
+  [style.--badge-height.px]="badgeMetrics.height" [style.--badge-font-size.px]="badgeMetrics.fontSize"
+  [style.--badge-padding-x.px]="badgeMetrics.paddingX" [style.--badge-border.px]="badgeMetrics.border"
+  [style.--badge-hit-size.px]="badgeMetrics.hitSize" [style.--badge-hit-padding.px]="badgeMetrics.hitPadding"
+  [style.--badge-shadow]="badgeMetrics.shadow"
   [attr.aria-busy]="mediaState === 'fetching' || mediaState === 'decoding'">
   @if (mediaState === 'fetching' || mediaState === 'decoding') {
     <div class="document-skeleton" aria-hidden="true">

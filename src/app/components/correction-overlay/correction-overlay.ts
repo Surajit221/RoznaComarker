@@ -21,6 +21,7 @@ import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
 import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
+import { annotationBadgeMetrics } from './annotation-badge-metrics';
 
 type TooltipPlacement = 'right' | 'left' | 'bottom' | 'top' | 'mobile';
 
@@ -70,6 +71,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
+  badgeMetrics = annotationBadgeMetrics(Infinity);
   tooltipPlacement: TooltipPlacement = 'right';
   tooltipStyle: Record<string, string> = { visibility: 'hidden' };
   mediaState: MediaLoadState = 'idle';
@@ -362,7 +364,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const width = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
     const height = width * this.imageHeight / this.imageWidth;
     this.renderedWidth = width;
-    this.markers = layoutAnnotationGroups(this.visuals, width, height).map((group) => ({
+    this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
+    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
       textColor: this.contrastColor(group.annotations[0].color || '#d64545')
     }));
@@ -377,7 +380,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (this.layoutFrame !== null) return;
     this.layoutFrame = requestAnimationFrame(() => {
       this.layoutFrame = null;
-      if (this.mediaState === 'loaded' && this.imageEl?.nativeElement.clientWidth !== this.renderedWidth) {
+      if (this.mediaState === 'loaded' && (this.imageEl?.nativeElement.clientWidth !== this.renderedWidth
+        || annotationBadgeMetrics(window.innerWidth).height !== this.badgeMetrics.height)) {
         this.layoutMarkers();
         this.cdr.detectChanges();
         if (this.activeMarker) {
