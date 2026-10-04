@@ -52,6 +52,12 @@
   pointer-events: none;
 }
 
+.correction-overlay__boundary {
+  height: 5px;
+  border-left: 2px solid var(--underline-color, #d64545);
+  border-bottom: 0;
+}
+
 .correction-overlay__marker--semantic {
   border-radius: 8px;
 }
@@ -115,23 +121,24 @@
 
 .correction-overlay__marker {
   position: absolute;
-  left: clamp(14px, var(--marker-left), calc(100% - 14px));
-  top: clamp(14px, var(--marker-top), calc(100% - 14px));
+  left: clamp(calc(var(--badge-width, 30px) / 2), var(--marker-left), calc(100% - var(--badge-width, 30px) / 2));
+  top: clamp(calc(var(--badge-height, 28px) / 2), var(--marker-top), calc(100% - var(--badge-height, 28px) / 2));
   z-index: 5;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  padding: 0 2px;
-  margin: -14px 0 0 -14px;
-  border: 2px solid rgba(255, 255, 255, .96);
+  width: var(--badge-width, 30px);
+  height: var(--badge-height, 28px);
+  min-width: 0;
+  padding: 0 var(--badge-padding-x, 2px);
+  margin: 0;
+  box-sizing: border-box;
+  border: var(--badge-border, 2px) solid rgba(255, 255, 255, .96);
   border-radius: 999px;
-  transform: translate(var(--marker-offset-x, 0px), var(--marker-offset-y, 0px));
+  transform: translate(-50%, -50%);
   background: var(--marker-color, #d64545);
-  box-shadow: 0 2px 7px rgba(15, 23, 42, .32);
-  font: 800 9px/1 system-ui, sans-serif;
+  box-shadow: var(--badge-shadow, 0 2px 7px rgba(15, 23, 42, .32));
+  font: 800 var(--badge-font-size, 9px)/1 system-ui, sans-serif;
   letter-spacing: -.02em;
   text-align: center;
   white-space: nowrap;
@@ -140,12 +147,20 @@
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
+.correction-overlay__marker::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * max(var(--badge-hit-padding, 0px), (var(--badge-hit-size, 0px) - var(--badge-height, 28px) + 2 * var(--badge-border, 2px)) / 2))
+    calc(-1 * max(var(--badge-hit-padding, 0px), (var(--badge-hit-size, 0px) - var(--badge-width, 30px) + 2 * var(--badge-border, 2px)) / 2));
+  border-radius: 999px;
+}
+
 .correction-overlay__marker:hover,
 .correction-overlay__marker:focus-visible,
 .correction-overlay__marker[aria-expanded='true'] {
   z-index: 7;
   outline: none;
-  transform: translate(var(--marker-offset-x, 0px), var(--marker-offset-y, 0px)) scale(1.1);
+  transform: translate(-50%, -50%);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, .82), 0 4px 12px rgba(15, 23, 42, .4);
 }
 
@@ -321,21 +336,6 @@
   .correction-overlay.is-loaded { min-height: 0; }
   .document-skeleton { padding: 14px; }
   .document-skeleton__page { width: 100%; min-height: 88%; padding: 24px 20px; }
-  .correction-overlay__marker {
-    width: 26px;
-    height: 26px;
-    min-width: 26px;
-    margin: -13px 0 0 -13px;
-    font-size: 9px;
-    box-shadow: 0 1px 5px rgba(15, 23, 42, .3);
-  }
-
-  .correction-overlay__marker::before {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 999px;
-  }
 
   .correction-overlay__tooltip.is-mobile {
     inset: auto 8px max(8px, env(safe-area-inset-bottom));
@@ -370,3 +370,18 @@
   }
   .skeleton-line { animation: none; }
 }
+
+/* Layers: image 1, geometry 2, badges 5/7, existing viewport detail dialog 20010. */
+.correction-overlay.is-loaded { min-height: 0; background: transparent; }
+.has-selection .correction-overlay__underline,
+.has-selection .correction-overlay__semantic-rail,
+.has-selection .correction-overlay__marker { opacity: .38; }
+.has-selection .is-selected { opacity: 1; }
+.correction-overlay__underline.is-selected { border-bottom-width: 3px; filter: brightness(.72); }
+.correction-overlay__semantic-rail.is-selected { width: 4px; filter: brightness(.72); }
+.correction-overlay__marker:focus-visible { outline: 2px solid #172033; outline-offset: 2px; }
+.correction-overlay__entries { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px; }
+.correction-overlay__entries button { font: inherit; font-size: 12px; text-align: left; padding: 8px;
+  border: 1px solid #cbd5e1; border-radius: 7px; color: #172033; background: #fff; cursor: pointer; }
+.correction-overlay__entries button[aria-pressed='true'] { border-color: #006b6c; background: #e7f5f5; }
+.correction-overlay__entries button:focus-visible { outline: 2px solid #006b6c; outline-offset: 2px; }

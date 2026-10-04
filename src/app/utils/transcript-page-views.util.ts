@@ -38,6 +38,9 @@ function annotation(correction: any, submissionId: string, wordIds: Set<string>)
   if (!scopedWordIds.length && !bboxList.length) return null;
   return { _id: correctionId, submissionId, fileId: id(correction?.fileId) || undefined,
     page: pageNumber(correction?.pageNumber ?? correction?.page), wordIds: scopedWordIds,
+    visualTarget: correction?.visualTarget, evidenceWordIds: correction?.evidenceWordIds,
+    quotedText: typeof correction?.quotedText === 'string' ? correction.quotedText : undefined,
+    ocrConfidence: correction?.ocrConfidence, ocrSuspect: correction?.ocrSuspect,
     bboxList, group: typeof correction?.category === 'string' ? correction.category : String(correction?.group || ''),
     symbol: String(correction?.symbol || ''), color: String(correction?.color || '#FF0000'), message: String(correction?.message || ''),
     suggestedText: String(correction?.suggestedText || ''), startChar: Number.isFinite(correction?.startChar) ? correction.startChar : undefined,

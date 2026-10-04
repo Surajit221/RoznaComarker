@@ -13,7 +13,7 @@
         <div><dt>Expiry</dt><dd>{{ formatDate(entitlement?.endsAt || billing?.currentPeriodEnd || subscription()?.planExpiresAt) }}</dd></div>
         <div><dt>Days remaining</dt><dd>{{ daysRemaining === null ? 'Not applicable' : daysRemaining }}</dd></div>
         <div><dt>Renewal</dt><dd>{{ entitlement ? 'Manual renewal' : (billing?.subscriptionId ? 'Automatic subscription' : 'Not applicable') }}</dd></div>
-        <div><dt>Status</dt><dd>{{ entitlement ? 'Active' : (billing?.subscriptionStatus || 'Free' | titlecase) }}</dd></div></dl>
+        <div><dt>Status</dt><dd>{{ entitlement ? (daysRemaining === 0 ? 'Expired' : 'Active') : (billing?.subscriptionStatus || 'Free' | titlecase) }}</dd></div></dl>
       @if (nextEntitlement) { <div class="pending" role="status"><strong>Next scheduled plan</strong><span>{{ nextEntitlement.planSlug | titlecase }} starts {{ formatDate(nextEntitlement.startsAt) }}</span></div> }
       @if (billing?.pendingPlanChange) { <div class="pending" role="status"><strong>Plan change pending</strong><span>Target: {{ getTargetPlanDisplayName() }}</span><div class="pending-actions"><button type="button" class="secondary" [disabled]="!!submitting" (click)="resumePendingPlanChange()">Resume Plan Change</button><button type="button" class="secondary danger" [disabled]="!!submitting" (click)="cancelPendingPlanChange()">Cancel Pending Change</button></div></div> }
       @if (billing?.pendingCancellation) { <div class="pending" role="status"><strong>Cancellation pending</strong><span>Waiting for confirmation</span></div> }

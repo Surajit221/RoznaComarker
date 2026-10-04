@@ -19,12 +19,17 @@ import {
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
-import { buildAnnotationVisuals, type AnnotationSegment } from './annotation-geometry';
+import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
+import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
+import { annotationBadgeMetrics } from './annotation-badge-metrics';
 
 type TooltipPlacement = 'right' | 'left' | 'bottom' | 'top' | 'mobile';
 
 interface CorrectionMarker {
+  id: string;
+  annotations: FeedbackAnnotation[];
   annotation: FeedbackAnnotation;
+  width: number;
   left: number;
   top: number;
   offsetX: number;
@@ -66,10 +71,15 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
+  badgeMetrics = annotationBadgeMetrics(Infinity);
   tooltipPlacement: TooltipPlacement = 'right';
   tooltipStyle: Record<string, string> = { visibility: 'hidden' };
   mediaState: MediaLoadState = 'idle';
   displayImageUrl: string | null = null;
+  selectedAnnotation: FeedbackAnnotation | null = null;
+  selectedId: string | null = null;
+  private static nextId = 0;
+  readonly detailId = `correction-detail-${CorrectionOverlay.nextId++}`;
 
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly device = inject(DeviceService);
@@ -82,8 +92,15 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private previousScrollY = 0;
   private originalBodyStyle = '';
   private suppressNextFocusReopen = false;
+  private visuals: AnnotationVisual[] = [];
+  private layoutFrame: number | null = null;
+  private hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private renderedWidth = 0;
+  private bodyLocked = false;
+  private blurFrame: number | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['page'] && !changes['page'].firstChange) this.closeTooltip();
     if (changes['imageUrl']) {
       this.beginImageLoad(this.imageUrl);
     }
@@ -92,15 +109,16 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.setMediaState(this.sourceLoading ? 'fetching' : this.sourceLoadError ? 'error' : 'idle');
     }
     if (changes['annotations'] || changes['page'] || changes['ocrWords']) {
-      const activeId = this.activeMarker?.annotation._id || null;
+      const activeId = this.selectedId;
       this.rebuildMarkers();
       if (!activeId) return;
-      const replacement = this.markers.find((marker) => marker.annotation._id === activeId) || null;
+      const replacement = this.markers.find((marker) => marker.annotations.some((a) => a._id === activeId)) || null;
       if (!replacement) {
         this.closeTooltip();
         return;
       }
       this.activeMarker = replacement;
+      this.selectedAnnotation = replacement.annotations.find((a) => a._id === activeId) || null;
       if (this.tooltipTarget) this.schedulePosition();
     }
   }
@@ -110,7 +128,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (this.displayImageUrl) this.checkCachedImage(this.displayImageUrl);
     document.addEventListener('scroll', this.documentScrollHandler, true);
     if (typeof ResizeObserver !== 'undefined' && this.overlayEl?.nativeElement) {
-      this.resizeObserver = new ResizeObserver(() => this.schedulePosition());
+      this.resizeObserver = new ResizeObserver(() => this.scheduleLayout());
       this.resizeObserver.observe(this.overlayEl.nativeElement);
     }
   }
@@ -121,6 +139,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     document.removeEventListener('scroll', this.documentScrollHandler, true);
     this.resizeObserver?.disconnect();
     if (this.positionFrame !== null) cancelAnimationFrame(this.positionFrame);
+    if (this.layoutFrame !== null) cancelAnimationFrame(this.layoutFrame);
+    if (this.blurFrame !== null) cancelAnimationFrame(this.blurFrame);
+    this.cancelHoverClose();
     this.unlockBodyScroll();
   }
 
@@ -139,9 +160,13 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   onImageError(): void {
+    this.closeTooltip();
     this.imageWidth = 0;
     this.imageHeight = 0;
     this.markers = [];
+    this.underlineSegments = [];
+    this.semanticRails = [];
+    this.visuals = [];
     this.setMediaState('error');
   }
 
@@ -165,12 +190,34 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   onMarkerEnter(marker: CorrectionMarker, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
+    this.cancelHoverClose();
     if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
   onMarkerLeave(marker: CorrectionMarker, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
-    if (!this.isPinned && this.activeMarker?.annotation._id === marker.annotation._id) this.closeTooltip();
+    if (!this.isPinned && this.activeMarker === marker) this.scheduleHoverClose();
+  }
+
+  cancelHoverClose(): void {
+    if (this.hoverCloseTimer !== null) clearTimeout(this.hoverCloseTimer);
+    this.hoverCloseTimer = null;
+  }
+
+  scheduleHoverClose(): void {
+    this.cancelHoverClose();
+    if (!this.isPinned) this.hoverCloseTimer = setTimeout(() => this.closeTooltip(), 220);
+  }
+
+  selectCorrection(annotation: FeedbackAnnotation): void {
+    this.selectedAnnotation = annotation;
+    this.selectedId = annotation._id;
+    this.isPinned = true;
+    this.schedulePosition();
+  }
+
+  isSelected(segment: AnnotationSegment): boolean {
+    return this.selectedId !== null && segment.correctionIds.includes(this.selectedId);
   }
 
   onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
@@ -185,7 +232,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   onMarkerBlur(): void {
     if (this.isPinned) return;
-    requestAnimationFrame(() => {
+    const marker = this.activeMarker;
+    if (this.blurFrame !== null) cancelAnimationFrame(this.blurFrame);
+    this.blurFrame = requestAnimationFrame(() => {
+      this.blurFrame = null;
+      if (this.isPinned || this.activeMarker !== marker) return;
       const active = document.activeElement as Element | null;
       if (!active?.closest('.correction-overlay__tooltip')) this.closeTooltip();
     });
@@ -232,6 +283,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.closeTooltip();
     if (!shouldRestoreFocus || !target) return;
     requestAnimationFrame(() => {
+      if (this.activeMarker) return;
       this.suppressNextFocusReopen = true;
       target.focus({ preventScroll: true });
       this.suppressNextFocusReopen = false;
@@ -248,35 +300,48 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    this.closeTooltip();
+    this.closeFromControl();
+  }
+
+  onDialogKeydown(event: KeyboardEvent): void {
+    if (!this.isMobile || event.key !== 'Tab') return;
+    const controls = Array.from(this.tooltipEl.nativeElement.querySelectorAll<HTMLElement>('button'));
+    const first = controls[0], last = controls[controls.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  get selectedTextColor(): string {
+    return this.contrastColor(this.selectedAnnotation?.color || '#d64545');
   }
 
   @HostListener('window:resize')
   @HostListener('window:orientationchange')
   onViewportChange(): void {
     this.updateResponsiveMode();
-    this.schedulePosition();
+    this.scheduleLayout();
   }
 
   get categoryName(): string {
-    return (this.activeMarker?.annotation.group || 'Correction').trim();
+    return (this.selectedAnnotation?.group || this.selectedAnnotation?.category || 'Correction').trim();
   }
 
   get explanation(): string {
-    return (this.activeMarker?.annotation.message || '').trim();
+    return (this.selectedAnnotation?.message || '').trim();
   }
 
   get suggestion(): string {
-    return (this.activeMarker?.annotation.suggestedText || '').trim();
+    return (this.selectedAnnotation?.suggestedText || '').trim();
   }
 
   get originalText(): string {
-    const annotation = this.activeMarker?.annotation as (FeedbackAnnotation & { originalText?: string; text?: string; quotedText?: string }) | undefined;
+    const annotation = this.selectedAnnotation as (FeedbackAnnotation & { originalText?: string; text?: string; quotedText?: string }) | null;
     return String(annotation?.originalText || annotation?.quotedText || annotation?.text || '').trim();
   }
 
   get tip(): string {
-    const annotation = this.activeMarker?.annotation as (FeedbackAnnotation & { tip?: string }) | undefined;
+    const annotation = this.selectedAnnotation as (FeedbackAnnotation & { tip?: string }) | null;
     return typeof annotation?.tip === 'string' ? annotation.tip.trim() : '';
   }
 
@@ -288,52 +353,53 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    const visuals = buildAnnotationVisuals(Array.isArray(this.annotations) ? this.annotations : [],
+    this.visuals = buildAnnotationVisuals(Array.isArray(this.annotations) ? this.annotations : [],
       Array.isArray(this.ocrWords) ? this.ocrWords : [], this.page, this.imageWidth, this.imageHeight);
-    const localSegments = visuals.filter((visual) => !visual.semantic).flatMap((visual) => visual.segments);
-    const seenSegments = new Set<string>();
-    this.underlineSegments = localSegments.filter((line) => {
-      const key = [line.left.toFixed(2), line.top.toFixed(2), line.width.toFixed(2)].join(':');
-      if (seenSegments.has(key)) return false;
-      seenSegments.add(key);
-      return true;
-    });
-    this.semanticRails = visuals.filter((visual) => visual.semantic).flatMap((visual) => visual.segments);
-    const positions: { left: number; top: number }[] = [];
-    const renderedWidth = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
-    const renderedHeight = this.imageEl?.nativeElement.clientHeight || this.imageHeight;
-    this.markers = visuals
-      .filter((visual) => Boolean(visual.annotation.symbol?.trim()))
-      .map(({ annotation, segments, semantic }) => {
-        const final = segments[segments.length - 1];
-        const left = final.left + final.width;
-        const top = final.anchorTop;
-        const nearby = positions.filter((position) =>
-          Math.abs(position.left - left) * renderedWidth / 100 < 29
-          && Math.abs(position.top - top) * renderedHeight / 100 < 29).length;
-        positions.push({ left, top });
-        const fullCode = annotation.symbol!.trim();
-        const code = semantic && (left <= 5 || left >= 95) ? fullCode.slice(0, 1) : fullCode;
-        const color = annotation.color || '#d64545';
-        return {
-          annotation,
-          left,
-          top,
-          offsetX: nearby >= 2 ? (left > 50 ? -26 : 26) : 0,
-          offsetY: nearby === 1 || nearby >= 3 ? (top > 50 ? -26 : 26) : 0,
-          code,
-          label: `${fullCode}: ${annotation.group || 'Correction'}`,
-          textColor: this.contrastColor(color),
-          semantic
-        };
-      });
+    this.underlineSegments = sharedSegments(this.visuals, false);
+    this.semanticRails = sharedSegments(this.visuals, true);
+    this.layoutMarkers();
+  }
+
+  private layoutMarkers(): void {
+    const width = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
+    const height = width * this.imageHeight / this.imageWidth;
+    this.renderedWidth = width;
+    this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
+    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
+      ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
+      textColor: this.contrastColor(group.annotations[0].color || '#d64545')
+    }));
+    if (this.selectedId) {
+      this.activeMarker = this.markers.find((m) => m.annotations.some((a) => a._id === this.selectedId)) || null;
+      if (!this.activeMarker) this.closeTooltip();
+    }
     this.cdr.markForCheck();
   }
 
+  private scheduleLayout(): void {
+    if (this.layoutFrame !== null) return;
+    this.layoutFrame = requestAnimationFrame(() => {
+      this.layoutFrame = null;
+      if (this.mediaState === 'loaded' && (this.imageEl?.nativeElement.clientWidth !== this.renderedWidth
+        || annotationBadgeMetrics(window.innerWidth).height !== this.badgeMetrics.height)) {
+        this.layoutMarkers();
+        this.cdr.detectChanges();
+        if (this.activeMarker) {
+          this.tooltipTarget = this.overlayEl?.nativeElement.querySelector<HTMLElement>(
+            '[data-marker-id="' + CSS.escape(this.activeMarker.id) + '"]') || null;
+        }
+      }
+      this.schedulePosition();
+    });
+  }
+
   private openTooltip(marker: CorrectionMarker, target: HTMLElement, pinned: boolean): void {
+    this.cancelHoverClose();
     this.updateResponsiveMode();
     const wasMobileOpen = this.isMobile && this.activeMarker !== null;
     this.activeMarker = marker;
+    this.selectedAnnotation = marker.annotation;
+    this.selectedId = marker.annotation._id;
     this.tooltipTarget = target;
     this.isPinned = pinned || this.isMobile;
     if (this.isMobile) {
@@ -341,6 +407,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.tooltipStyle = { visibility: 'visible' };
       if (!wasMobileOpen) this.lockBodyScroll();
       this.cdr.detectChanges();
+      this.tooltipEl.nativeElement.querySelector<HTMLElement>('.correction-overlay__close')?.focus({ preventScroll: true });
       return;
     }
     this.tooltipStyle = { visibility: 'hidden' };
@@ -407,17 +474,22 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const next = this.device.isMobile();
     if (next !== this.isMobile) {
       this.isMobile = next;
+      if (this.activeMarker) {
+        if (next) this.lockBodyScroll(); else this.unlockBodyScroll();
+      }
       this.cdr.markForCheck();
     }
   }
 
   private closeTooltip(): void {
-    const wasMobile = this.isMobile && this.activeMarker !== null;
+    this.cancelHoverClose();
     this.activeMarker = null;
+    this.selectedAnnotation = null;
+    this.selectedId = null;
     this.isPinned = false;
     this.tooltipTarget = null;
     this.tooltipStyle = { visibility: 'hidden' };
-    if (wasMobile) {
+    if (this.bodyLocked) {
       this.unlockBodyScroll();
     }
     this.cdr.markForCheck();
@@ -465,21 +537,20 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private lockBodyScroll(): void {
+    if (this.bodyLocked) return;
+    this.bodyLocked = true;
     this.previousScrollY = window.scrollY;
     this.originalBodyStyle = document.body.style.cssText || '';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${this.previousScrollY}px`;
     document.body.style.width = '100%';
+    document.body.style.boxSizing = 'border-box';
   }
 
   private unlockBodyScroll(): void {
-    if (this.originalBodyStyle !== '') {
-      document.body.style.cssText = this.originalBodyStyle;
-    } else {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-    }
+    if (!this.bodyLocked) return;
+    this.bodyLocked = false;
+    document.body.style.cssText = this.originalBodyStyle;
     window.scrollTo(0, this.previousScrollY);
     this.previousScrollY = 0;
     this.originalBodyStyle = '';

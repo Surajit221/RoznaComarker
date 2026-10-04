@@ -11,6 +11,12 @@ export interface FeedbackAnnotation {
     quotedText?: string;
     confidence?: number;
     wordIds?: string[];
+    evidenceWordIds?: string[];
+    visualTarget?: { version: 1; wordIds: string[]; anchors: {
+        wordId: string; side: 'before' | 'after'; operation: 'INSERT' | 'DELETE' | 'REPLACE'; punctuation?: string;
+    }[] };
+    ocrConfidence?: number | null;
+    ocrSuspect?: boolean;
     bboxList?: OcrBBox[];
     group?: string;
     symbol?: string;

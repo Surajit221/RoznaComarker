@@ -61,6 +61,28 @@ describe('PayPalManageComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
     for (const width of [320, 360, 375, 390, 412, 430]) { host.style.width = `${width}px`; expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth); }
   });
+  it('manual access uses authoritative dates and rounds partial 24-hour periods up', () => {
+    const start='2026-10-03T09:46:09.577Z', end='2026-11-03T09:46:09.577Z';
+    const clock=spyOn(Date,'now').and.returnValue(new Date(start).getTime());
+    accountState.subscription.set({...subscription,planStartedAt:'2000-01-01',planExpiresAt:'2099-01-01',entitlement:{source:'admin',billingPeriod:'monthly',startsAt:start,endsAt:end,autoRenew:false}});
+    fixture.detectChanges();
+    expect(fixture.componentInstance.daysRemaining).toBe(31);
+    expect(fixture.nativeElement.textContent).toContain(fixture.componentInstance.formatDate(start));
+    expect(fixture.nativeElement.textContent).toContain(fixture.componentInstance.formatDate(end));
+    expect(fixture.nativeElement.textContent).toContain('Manual renewal');
+    clock.and.returnValue(new Date(end).getTime()-1000);fixture.detectChanges();
+    expect(fixture.componentInstance.daysRemaining).toBe(1);
+    expect(fixture.nativeElement.textContent).not.toContain('Expired');
+    clock.and.returnValue(new Date(end).getTime());fixture.detectChanges();
+    expect(fixture.componentInstance.daysRemaining).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('Expired');
+    clock.and.returnValue(new Date(end).getTime()+86400000);fixture.detectChanges();
+    expect(fixture.componentInstance.daysRemaining).toBe(0);
+  });
+  it('formats UTC entitlement instants using the local display convention', () => {
+    const instant='2026-10-03T23:30:00.000Z';
+    expect(fixture.componentInstance.formatDate(instant)).toBe(new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(new Date(instant)));
+  });
 
   it('uses the shared catalog tiers without mutating the hash', () => {
     expect(fixture.componentInstance.tiers.map((tier) => tier.key)).toEqual(['essential', 'pro']);
