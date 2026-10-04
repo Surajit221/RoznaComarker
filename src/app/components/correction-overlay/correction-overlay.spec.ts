@@ -1,7 +1,8 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { SimpleChange } from '@angular/core';
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import { CorrectionOverlay } from './correction-overlay';
+import { DeviceService } from '../../services/device.service';
 
 describe('CorrectionOverlay media loading', () => {
   let fixture: ComponentFixture<CorrectionOverlay>;
@@ -110,18 +111,18 @@ describe('CorrectionOverlay media loading', () => {
     expect(fixture.nativeElement.querySelector('.correction-overlay__marker')).toBeNull();
   });
 
-  it('keeps the desktop marker dimensions unchanged and defines a smaller shared compact marker', () => {
+  it('uses content-sized badges and a smaller shared compact marker', () => {
     fixture.detectChanges();
     const rules = componentStyleRules();
     const desktop = rules.filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
       .find((rule) => rule.selectorText.includes('.correction-overlay__marker')
-        && rule.style.width === '28px');
+        && rule.style.width.includes('--badge-width'));
     const compactMedia = rules.filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule)
       .find((rule) => rule.conditionText.includes('1024px'));
     const compact = Array.from(compactMedia?.cssRules || [])
       .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
       .find((rule) => rule.selectorText.includes('.correction-overlay__marker')
-        && !rule.selectorText.includes('::before') && rule.style.width === '26px');
+        && !rule.selectorText.includes('::before') && rule.style.width.includes('--badge-width'));
     const hitArea = Array.from(compactMedia?.cssRules || [])
       .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
       .find((rule) => rule.selectorText.includes('.correction-overlay__marker')
@@ -134,8 +135,8 @@ describe('CorrectionOverlay media loading', () => {
     expect(hitArea?.style.inset).toBe('-6px');
   });
 
-  it('keeps compact symbols circular, anchored, and individually tappable', () => {
-    (component as any).device.width.set(390);
+  it('groups nearby compact symbols and exposes each canonical correction', () => {
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);
     const buttons = renderMarkers([
       { _id: 'nearby-1', symbol: 'REP', group: 'Repetition', color: '#287a55', page: 1,
         bboxList: [{ x: 20, y: 20, w: 8, h: 2 }] },
@@ -143,15 +144,21 @@ describe('CorrectionOverlay media loading', () => {
         bboxList: [{ x: 21, y: 20, w: 8, h: 2 }] }
     ] as FeedbackAnnotation[]);
 
-    expect(buttons).toHaveSize(2);
-    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['REP', 'P']);
-    expect(parseFloat(buttons[0].style.getPropertyValue('--marker-left'))).toBeCloseTo(28, 0);
-    expect(buttons[0].style.getPropertyValue('--marker-top')).toBe('20.3%');
+    expect(buttons).toHaveSize(1);
+    expect(buttons[0].textContent?.trim()).toBe('2 Issues');
+    const groupLeft = parseFloat(buttons[0].style.getPropertyValue('--marker-left'));
+    expect(groupLeft).toBeGreaterThan(27);
+    expect(groupLeft).toBeLessThan(30);
+    expect(parseFloat(buttons[0].style.getPropertyValue('--marker-top'))).toBeLessThan(20);
     expect(getComputedStyle(buttons[0]).borderRadius).toBe('999px');
 
-    buttons[1].click();
+    buttons[0].click();
     fixture.detectChanges();
-    expect(component.activeMarker?.annotation._id).toBe('nearby-2');
+    const entries = fixture.nativeElement.querySelectorAll('.correction-overlay__entries button');
+    expect(entries.length).toBe(2);
+    entries[1].click();
+    fixture.detectChanges();
+    expect(component.selectedId).toBe('nearby-2');
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
   });
 
@@ -170,7 +177,7 @@ describe('CorrectionOverlay media loading', () => {
     expect(parseFloat((lines[0] as HTMLElement).style.width)).toBeGreaterThan(14);
   });
 
-  it('keeps right-edge badges inside the image and separates nearby correction badges', () => {
+  it('keeps right-edge grouped badges inside the image', () => {
     const buttons = renderMarkers([
       { _id: 'right-1', symbol: 'P', page: 1, bboxList: [{ x: 96, y: 1, w: 3, h: 2 }] },
       { _id: 'right-2', symbol: 'CAP', page: 1, bboxList: [{ x: 96, y: 1, w: 3, h: 2 }] }
@@ -183,11 +190,12 @@ describe('CorrectionOverlay media loading', () => {
     const first = buttons[0].getBoundingClientRect();
     expect(first.right).toBeLessThanOrEqual(stageRect.right + 1);
     expect(first.top).toBeGreaterThanOrEqual(stageRect.top - 1);
-    expect(component.markers[1].offsetY).not.toBe(0);
+    expect(component.markers).toHaveSize(1);
+    expect(component.markers[0].annotations).toHaveSize(2);
   });
 
   it('opens and closes correction details by tap in compact view', () => {
-    (component as any).device.width.set(390);
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);
     fixture.detectChanges();
     const target = document.createElement('button');
     const marker = {
@@ -215,7 +223,7 @@ describe('CorrectionOverlay media loading', () => {
   });
 
   it('renders the real tooltip visibly on the first marker hover and keeps it pinned on click', () => {
-    (component as any).device.width.set(1440);
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
     const [marker] = renderMarkers([{ _id: 'test-agr', symbol: 'AGR', group: 'Subject-Verb Agreement',
       message: 'Plural subject requires plural verb form.', quotedText: 'Students sometimes spends',
       suggestedText: 'Students sometimes spend', page: 1,
@@ -237,7 +245,7 @@ describe('CorrectionOverlay media loading', () => {
   });
 
   it('renders the mobile dialog and backdrop on the first real marker tap', () => {
-    (component as any).device.width.set(390);
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);
     const [marker] = renderMarkers([{ _id: 'test-mobile', symbol: 'AGR', group: 'Agreement',
       message: 'Use plural agreement.', suggestedText: 'Students spend', page: 1,
       bboxList: [{ x: 20, y: 20, w: 12, h: 3 }] }] as FeedbackAnnotation[]);
@@ -253,7 +261,7 @@ describe('CorrectionOverlay media loading', () => {
   });
 
   it('preserves an open correction across equivalent annotation input churn and closes when removed', () => {
-    (component as any).device.width.set(1440);
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
     const annotation = { _id: 'stable-agr', symbol: 'AGR', group: 'Agreement', message: 'Current detail',
       suggestedText: 'Correct form', page: 1, bboxList: [{ x: 20, y: 20, w: 12, h: 3 }] } as any;
     const [marker] = renderMarkers([annotation]);
@@ -271,6 +279,75 @@ describe('CorrectionOverlay media loading', () => {
     component.ngOnChanges({ annotations: new SimpleChange([annotation], [], false) });
     fixture.detectChanges();
     expect(component.activeMarker).toBeNull();
+  });
+
+  it('selects each grouped correction, emphasizes its strokes, and leaves other corrections visible', () => {
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
+    component.ocrWords = [
+      { id: 'same', text: 'word', bbox: { x: 15, y: 20, w: 8, h: 3 } },
+      { id: 'far', text: 'other', bbox: { x: 70, y: 60, w: 8, h: 3 } }
+    ];
+    const annotations = ['SP', 'WC', 'AGR'].map((symbol, i) => ({ _id: `c${i}`, symbol,
+      wordIds: ['same'], message: `Message ${i}`, suggestedText: `Suggestion ${i}`, page: 1 }));
+    const buttons = renderMarkers([...annotations, { _id: 'far', symbol: 'SP', wordIds: ['far'], page: 1 }] as FeedbackAnnotation[]);
+    const geometry = component.underlineSegments;
+    buttons[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    fixture.detectChanges();
+    const entries = fixture.nativeElement.querySelectorAll('.correction-overlay__entries button');
+    expect(entries.length).toBe(3);
+    entries[2].click();
+    fixture.detectChanges();
+    expect(component.selectedId).toBe('c2');
+    expect(component.explanation).toBe('Message 2');
+    expect(component.suggestion).toBe('Suggestion 2');
+    expect(component.underlineSegments).toBe(geometry);
+    expect(fixture.nativeElement.querySelectorAll('.correction-overlay__underline.is-selected').length).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('.correction-overlay__underline').length).toBe(2);
+    component.closeFromControl();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.has-selection')).toBeNull();
+  });
+
+  it('keeps a hover preview open while the pointer enters its grouped details', fakeAsync(() => {
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
+    const [button] = renderMarkers([{ _id: 'c', symbol: 'SP', page: 1,
+      bboxList: [{ x: 20, y: 20, w: 8, h: 3 }] }] as FeedbackAnnotation[]);
+    button.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    button.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+    component.cancelHoverClose();
+    tick(250);
+    expect(component.activeMarker).not.toBeNull();
+    component.closeFromControl();
+  }));
+
+  it('does not let a previous marker blur close a newly pinned correction', fakeAsync(() => {
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
+    const buttons = renderMarkers([
+      { _id: 'first', symbol: 'SP', bboxList: [{ x: 10, y: 20, w: 8, h: 3 }] },
+      { _id: 'second', symbol: 'AGR', bboxList: [{ x: 70, y: 60, w: 8, h: 3 }] }
+    ] as FeedbackAnnotation[]);
+    buttons[0].focus();
+    component.onMarkerBlur();
+    buttons[1].click();
+    tick(32);
+    expect(component.selectedId).toBe('second');
+    expect(component.isPinned).toBeTrue();
+    component.closeFromControl();
+  }));
+
+  it('includes body padding in mobile scroll-lock width and restores the original inline styles', () => {
+    spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);
+    const previous = document.body.style.cssText;
+    document.body.style.padding = '16px';
+    const original = document.body.style.cssText;
+    try {
+      const [button] = renderMarkers([{ _id: 'c', symbol: 'SP',
+        bboxList: [{ x: 20, y: 20, w: 8, h: 3 }] }] as FeedbackAnnotation[]);
+      button.click();
+      expect(document.body.style.boxSizing).toBe('border-box');
+      component.closeFromControl();
+      expect(document.body.style.cssText).toBe(original);
+    } finally { document.body.style.cssText = previous; }
   });
 
   describe('correction interactions', () => {
@@ -359,8 +436,8 @@ describe('CorrectionOverlay media loading', () => {
       expect(component.activeMarker).toBeNull();
     });
 
-    it('opens on desktop mouse hover and closes on mouse leave when unpinned', () => {
-      (component as any).device.width.set(1440);
+    it('allows pointer travel into the detail card before closing an unpinned preview', fakeAsync(() => {
+      spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
       const target = document.createElement('button');
       const event = pointerEvent(target);
 
@@ -369,8 +446,10 @@ describe('CorrectionOverlay media loading', () => {
       expect(component.isPinned).toBeFalse();
 
       component.onMarkerLeave(marker, event);
+      expect(component.activeMarker).toBe(marker);
+      tick(221);
       expect(component.activeMarker).toBeNull();
-    });
+    }));
 
     it('pins on the first desktop click', () => {
       component.isMobile = false;
@@ -383,7 +462,7 @@ describe('CorrectionOverlay media loading', () => {
     });
 
     it('handles pointer-induced focus and click as one opening interaction', () => {
-      (component as any).device.width.set(1440);
+      spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
       const target = document.createElement('button');
       const openTooltip = spyOn<any>(component, 'openTooltip').and.callThrough();
 
@@ -396,7 +475,7 @@ describe('CorrectionOverlay media loading', () => {
     });
 
     it('opens from desktop keyboard focus', () => {
-      (component as any).device.width.set(1440);
+      spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(false);
       const target = document.createElement('button');
 
       component.onMarkerFocus(marker, { currentTarget: target } as unknown as FocusEvent);

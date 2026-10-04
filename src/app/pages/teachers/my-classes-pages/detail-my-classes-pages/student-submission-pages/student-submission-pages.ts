@@ -2927,6 +2927,10 @@ export class StudentSubmissionPages {
 
 
         wordIds: Array.isArray(c?.wordIds) ? c.wordIds : [],
+        visualTarget: c?.visualTarget,
+        evidenceWordIds: c?.evidenceWordIds,
+        ocrConfidence: c?.ocrConfidence,
+        ocrSuspect: c?.ocrSuspect,
 
 
 

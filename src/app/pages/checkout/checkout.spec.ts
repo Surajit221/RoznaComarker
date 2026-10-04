@@ -389,6 +389,24 @@ describe('Stripe checkout pages', () => {
     await fixture.componentInstance.applyPromo();
     expect(api.getBillingQuote).toHaveBeenCalledTimes(1);
   });
+  it('renders the full-price server upgrade quote with zero unused paid credit', async () => {
+    const quote={quoteId:'manual-upgrade',expiresAt:new Date(Date.now()+600000).toISOString(),currency:'USD',baseAmount:'19.99',prorationCredit:'0.00',discountAmount:'0.00',finalAmount:'19.99',transition:'upgrade',promo:null};
+    const api={getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,slug:'pro_monthly',price:19.99,paymentProvider:'paypal'}),getBillingQuote:jasmine.createSpy().and.resolveTo(quote)};
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.price-row--total').textContent).toContain('USD 19.99');
+    expect(fixture.nativeElement.textContent).not.toContain('Unused-plan credit');
+    expect(fixture.nativeElement.textContent).not.toContain('could not be verified');
+    expect(fixture.componentInstance.canShowPayment).toBeTrue();
+  });
+  it('continues to display the paid-history safety error and blocks payment', async () => {
+    const message='The amount paid for the current term could not be verified. Contact billing support.';
+    const api={getCheckoutPlan:jasmine.createSpy().and.resolveTo({...starter,paymentProvider:'paypal'}),getBillingQuote:jasmine.createSpy().and.rejectWith(new HttpErrorResponse({status:409,error:{code:'PRORATION_REVIEW_REQUIRED',message}}))};
+    await TestBed.configureTestingModule({imports:[CheckoutComponent],providers:[...routedComponentProviders(),{provide:SubscriptionApiService,useValue:api}]}).compileComponents();
+    const fixture=TestBed.createComponent(CheckoutComponent);fixture.detectChanges();await fixture.whenStable();fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(message);
+    expect(fixture.componentInstance.canShowPayment).toBeFalse();
+  });
 
   it('disables Apply and coalesces clicks while a promo quote is pending', async () => {
     const quote={quoteId:'base',expiresAt:new Date(Date.now()+600000).toISOString(),currency:'USD',baseAmount:'9.99',prorationCredit:'0.00',discountAmount:'0.00',finalAmount:'9.99',transition:'purchase',promo:null};
