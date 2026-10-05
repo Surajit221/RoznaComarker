@@ -34,10 +34,11 @@
           </div>
           <div class="w-full rounded-2xl overflow-visible">
             @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
+            @if (pdfReviewPages.length) { <app-submission-page-review [pages]="pdfReviewPages" /> }
             <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
               @if (pdfMediaState === 'fetching') { <div class="media-pdf-skeleton" aria-hidden="true"><div class="media-pdf-skeleton__page"><span class="media-pdf-line title"></span><span class="media-pdf-line meta"></span><span class="media-pdf-separator"></span><span class="media-pdf-line w95"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span><span class="media-pdf-line w95 group"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span></div></div><span class="sr-only" role="status">Loading submitted file</span> }
               @else if (pdfMediaState === 'error') { <div class="section-load-error" role="alert">Unable to load this submitted PDF. <button type="button" (click)="retryUploadedPdf()">Retry</button></div> }
-              @else { <a class="btn-info" [href]="essayImageUrl" target="_blank" rel="noopener">Open PDF</a> }
+              @else { <a class="btn-info" [href]="essayImageUrl" target="_blank" rel="noopener">Open Original PDF</a> }
             </div>
             } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl" [sourceLoading]="imageMediaState === 'fetching'"

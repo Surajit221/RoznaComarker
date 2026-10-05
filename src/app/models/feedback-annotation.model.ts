@@ -15,6 +15,8 @@ export interface FeedbackAnnotation {
     visualTarget?: { version: 1; wordIds: string[]; anchors: {
         wordId: string; side: 'before' | 'after'; operation: 'INSERT' | 'DELETE' | 'REPLACE'; punctuation?: string;
     }[] };
+    renderTarget?: { version: 1; source: 'visualTarget' | 'wordIds' | 'bboxList' | 'none';
+        wordIds: string[]; anchors: NonNullable<FeedbackAnnotation['visualTarget']>['anchors']; boxes: OcrBBox[] };
     ocrConfidence?: number | null;
     ocrSuspect?: boolean;
     bboxList?: OcrBBox[];

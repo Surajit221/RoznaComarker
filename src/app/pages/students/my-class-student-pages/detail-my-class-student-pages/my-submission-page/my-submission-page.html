@@ -10,13 +10,11 @@
       <h1 class="text-4xl text-center font-bold text-gray-800">Your Submissions</h1>
       <div class="flex flex-row gap-2">
         <button type="button" class="btn-info" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
-        @if (marksVisible) {
-        <button type="button" class="btn-primary" [disabled]="isPdfDownloading" (click)="downloadPdf()">
+        <button type="button" class="btn-primary" [disabled]="isPdfDownloading || !feedbackPdfReady" (click)="downloadPdf()">
           @if (isPdfDownloading) {
           <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
-          } @else { Download PDF }
+          } @else { Download Feedback PDF }
         </button>
-        }
         <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button>
       </div>
     </div>
@@ -32,15 +30,16 @@
         </div>
 
         @if (isPdfUpload) {
+        @if (pdfReviewPages.length) { <app-submission-page-review [pages]="pdfReviewPages" /> }
         <div class="media-pdf-card w-full bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-3" [attr.aria-busy]="pdfMediaState === 'fetching'">
           @if (pdfMediaState === 'fetching') {
           <div class="media-pdf-skeleton" aria-hidden="true"><div class="media-pdf-skeleton__page"><span class="media-pdf-line title"></span><span class="media-pdf-line meta"></span><span class="media-pdf-separator"></span><span class="media-pdf-line w95"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span><span class="media-pdf-line w95 group"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span></div></div><span class="sr-only" role="status">Loading submitted file</span>
           } @else if (pdfMediaState === 'error') {
           <div class="section-load-error" role="alert">Unable to load this submitted PDF. <button type="button" (click)="retryUploadedPdf()">Retry</button></div>
           } @else {
-          <p class="text-sm text-gray-700 font-medium">PDF uploaded successfully.</p>
+          <p class="text-sm text-gray-700 font-medium">Original PDF</p>
           <a class="btn-info w-fit" [href]="uploadedFileUrl" target="_blank" rel="noopener"
-            (click)="onOpenUploadedPdf($event)">Open PDF</a>
+            (click)="onOpenUploadedPdf($event)">Open Original PDF</a>
           }
         </div>
         } @else {
@@ -251,7 +250,7 @@
 
               <!-- Feedback and Suggestions -->
               <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="feedbackState === 'loading'">
-                <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [manualRetryAllowed]="false"></app-canonical-detailed-feedback>
+                <app-canonical-detailed-feedback [model]="detailedFeedbackDisplay" [marksVisible]="marksVisible" [manualRetryAllowed]="false"></app-canonical-detailed-feedback>
                 @if (false) { <ng-container *ngTemplateOutlet="feedbackSkeleton"></ng-container> }
                 @else if (false && feedbackState === 'error') { <div class="section-load-error" role="status">Unable to load detailed feedback.</div> }
                 @else if (false) {

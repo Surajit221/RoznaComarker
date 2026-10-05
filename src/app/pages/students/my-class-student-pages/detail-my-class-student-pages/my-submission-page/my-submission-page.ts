@@ -1,3 +1,4 @@
+import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -6,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { SubmissionApiService, type BackendSubmission } from '../../../../../api/submission-api.service';
 import { FeedbackApiService } from '../../../../../api/feedback-api.service';
 import { PdfApiService } from '../../../../../api/pdf-api.service';
+import { evaluationFeedbackComments, type EvaluationCommentItem } from '../../../../../utils/evaluation-feedback-comments.util';
 import { AlertService } from '../../../../../services/alert.service';
 import { ClassApiService } from '../../../../../api/class-api.service';
 import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
@@ -50,7 +52,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
+  imports: [SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
@@ -330,6 +332,11 @@ export class MySubmissionPage {
   readonly skeletonRows = [0, 1, 2, 3, 4];
   readonly feedbackSkeletonRows = [0, 1];
   isPdfDownloading = false;
+  get feedbackPdfReady(): boolean {
+    return Boolean(this.submission?._id)
+      && ['completed', 'partial'].includes(this.canonicalResultState?.correctionStatus || this.submission?.correctionStatus || '')
+      && !['pending', 'processing'].includes(this.submission?.ocrStatus || '');
+  }
   submission: BackendSubmission | null = null;
   feedback: SubmissionFeedback | null = null;
   assignment: BackendAssignment | null = null;
@@ -636,6 +643,7 @@ export class MySubmissionPage {
   ocrWords: OcrWord[] = [];
   annotations: FeedbackAnnotation[] = [];
   transcriptPageViews: TranscriptPageView[] = [];
+  get pdfReviewPages(): TranscriptPageView[] { return this.transcriptPageViews.filter(page => Boolean(page.imageUrl)); }
 
   private toRubricVm(category: string, item: RubricItem | null | undefined) {
     const labelMap: Record<string, string> = {
@@ -1475,8 +1483,8 @@ export class MySubmissionPage {
       this.alert.showWarning('No submission', 'Please upload a submission first.');
       return;
     }
-    if (!this.marksVisible) {
-      this.alert.showWarning('Marks not released', 'Your teacher has not released the marks for this assignment yet.');
+    if (!this.feedbackPdfReady) {
+      this.alert.showWarning('Report not ready', 'Your feedback report is still being prepared.');
       return;
     }
     if (this.isPdfDownloading) return;
@@ -1493,9 +1501,10 @@ export class MySubmissionPage {
 
   feedbackForm: FormGroup;
 
-  get feedbacks(): RubricFeedbackItem[] {
+  get feedbacks(): (RubricFeedbackItem | EvaluationCommentItem)[] {
     const fb = this.feedback;
     if (!fb || this.isCanonicalEvaluationPending) return [];
+    if (!this.marksVisible) return evaluationFeedbackComments(fb);
     if (this.isCustomRubricResult) return this.customRubricFeedbackItems;
     return rubricScoresToFeedbackItems((fb as any).rubricScores);
   }

@@ -64,10 +64,15 @@ function label(group: AnnotationGroup, metrics: Readonly<AnnotationBadgeMetrics>
   const count = group.annotations.length;
   const category = first.category || first.group;
   const sameCategory = group.annotations.every((a) => (a.category || a.group) === category);
-  group.code = count === 1 ? first.symbol?.trim() || 'Issue'
+  const previousLabel = count === 1 ? first.symbol?.trim() || 'Issue'
     : sameCategory ? `${first.symbol?.trim() || 'Issue'} +${count - 1}` : `${count} Issues`;
+  const codes = [...new Set(group.annotations.map((a) => a.symbol?.trim()).filter((code): code is string => !!code))];
+  const compact = codes.slice(0, 2).join('·') + (count > 2 ? `+${count - 2}` : '');
+  group.code = count === 1 ? previousLabel : codes.length === 1 ? `${codes[0]} +${count - 1}`
+    : compact.length <= previousLabel.length ? compact : `${codes[0] || 'Issue'} +${count - 1}`;
+  // Preserve placement widths so changing the label cannot change collision retries or membership.
   group.width = Math.max(metrics.minWidth, Math.min(metrics.maxWidth,
-    group.code.length * metrics.charWidth + metrics.widthAllowance));
+    previousLabel.length * metrics.charWidth + metrics.widthAllowance));
   group.label = `${count} correction${count === 1 ? '' : 's'}: `
     + group.annotations.map((a) => `${a.symbol || 'Issue'} ${a.group || a.category || ''}`).join('; ');
 }

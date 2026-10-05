@@ -5,6 +5,7 @@ import { By } from '@angular/platform-browser';
 
 import { MySubmissionPage } from './my-submission-page';
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
+import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 
@@ -39,6 +40,17 @@ describe('MySubmissionPage', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+  it('renders the shared raster review for PDF uploads and retains original PDF access', () => {
+    spyOnProperty(component, 'isPdfUpload', 'get').and.returnValue(true);
+    component.isUploadedFile = true;
+    const imageUrl = '/files/submissions/00000000-0000-0000-0000-000000000001.jpg';
+    component.transcriptPageViews = [{ key: 'pdf:1', fileId: 'pdf', pageNumber: 1, displayNumber: 1,
+      imageUrl, words: [], annotations: [], text: 'Page one', status: 'ready' }];
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.directive(SubmissionPageReview))).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Open Original PDF');
+    TestBed.inject(HttpTestingController).expectOne(req => req.url.endsWith(imageUrl)).flush(new Blob(['page']));
   });
 
   it('resets student sections independently for a new submission', () => {
@@ -320,7 +332,7 @@ describe('MySubmissionPage', () => {
 
     expect(mobile).toEqual(desktop);
     expect(mobile.counts).toEqual([0, 4, 0, 0, 2]);
-    expect(fixture.nativeElement.textContent).toContain('Download PDF');
+    expect(fixture.nativeElement.textContent).toContain('Download Feedback PDF');
     expect(fixture.nativeElement.textContent).toContain('View Rubric');
     expect(fixture.nativeElement.textContent).toContain('Teacher Comments');
     expect(fixture.nativeElement.querySelector('app-adaptive-writing-studio')).toBeTruthy();
@@ -674,6 +686,13 @@ describe('MySubmissionPage', () => {
       }
     } as any;
     component.teacherComment = 'Your structure is improving.';
+    const releasedFeedback = JSON.parse(JSON.stringify(component.feedback));
+    const redactedCategories = component.feedback!.rubricScores as Record<string, { score?: number; maxScore?: number; comment?: string }>;
+    for (const category of Object.values(redactedCategories)) {
+      delete category.score;
+      delete category.maxScore;
+    }
+    component.submission = { _id: 'submission-1', ocrStatus: 'completed', correctionStatus: 'completed' } as NonNullable<MySubmissionPage['submission']>;
     component.feedbackForm.patchValue({ message: component.teacherComment });
     component.isUploadedFile = false;
     component.scoreState = 'loaded';
@@ -705,10 +724,11 @@ describe('MySubmissionPage', () => {
         .toBe('Your structure is improving.');
     }
 
-    expect(fixture.nativeElement.textContent).not.toContain('Download PDF');
+    expect(fixture.nativeElement.textContent).toContain('Download Feedback PDF');
+    expect(component.feedbackPdfReady).toBeTrue();
 
     // The same persisted evaluation is immediately revealed when the teacher turns marks back on.
-    (component.feedback as any).marksVisible = true;
+    component.feedback = { ...releasedFeedback, marksVisible: true };
     (component.assignment as any).showMarksToStudent = true;
     for (const width of [1440, 390]) {
       window.dispatchEvent(new Event(width > 1024 ? 'resize' : 'orientationchange'));

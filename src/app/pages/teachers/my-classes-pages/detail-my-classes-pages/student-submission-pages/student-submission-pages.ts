@@ -1,3 +1,4 @@
+import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, EventEmitter, inject, Output } from '@angular/core';
 
 
@@ -158,7 +159,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [
+  imports: [SubmissionPageReview,
 
 
 
@@ -1852,6 +1853,7 @@ export class StudentSubmissionPages {
 
   annotations: FeedbackAnnotation[] = [];
   transcriptPageViews: TranscriptPageView[] = [];
+  get pdfReviewPages(): TranscriptPageView[] { return this.transcriptPageViews.filter(page => Boolean(page.imageUrl)); }
 
 
 

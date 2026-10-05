@@ -3,12 +3,24 @@ import { HttpTestingController } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
 
 import { StudentSubmissionPages } from './student-submission-pages';
+import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 
 describe('StudentSubmissionPages', () => {
+  it('renders the same raster review for teacher PDF review', () => {
+    spyOn(component, 'isProbablyPdfUrl').and.returnValue(true);
+    component.isUploadedFile = true;
+    const imageUrl = '/files/submissions/00000000-0000-0000-0000-000000000001.jpg';
+    component.transcriptPageViews = [{ key: 'pdf:1', fileId: 'pdf', pageNumber: 1, displayNumber: 1,
+      imageUrl, words: [], annotations: [], text: 'Page one', status: 'ready' }];
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.directive(SubmissionPageReview))).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Open Original PDF');
+    TestBed.inject(HttpTestingController).expectOne(req => req.url.endsWith(imageUrl)).flush(new Blob(['page']));
+  });
   afterEach(verifyHttpRequestsAfterEach);
   let component: StudentSubmissionPages;
   let fixture: ComponentFixture<StudentSubmissionPages>;

@@ -32,6 +32,19 @@ describe('annotation visual classification', () => {
 });
 
 describe('annotation presentation groups', () => {
+  for (const count of [1, 2, 3]) it(`labels ${count} same-code corrections without changing membership`, () => {
+    const items = Array.from({ length: count }, (_, i) => correction(`same-${i}`, 'AGR', ['w1']));
+    const [group] = layoutAnnotationGroups(visuals(items), 390, 468);
+    expect(group.code).toBe(count === 1 ? 'AGR' : `AGR +${count - 1}`);
+    expect(group.annotations).toEqual(items);
+  });
+  it('communicates mixed codes even when they share a category', () => {
+    const items = [correction('a', 'AGR', ['w1']), correction('b', 'WC', ['w1'])];
+    const [group] = layoutAnnotationGroups(visuals(items), 390, 468);
+    expect(group.code).toBe('AGR·WC');
+    expect(group.annotations).toEqual(items);
+    expect(group.label).toContain('AGR'); expect(group.label).toContain('WC');
+  });
   it('groups three same-target errors, reuses geometry and preserves every canonical object', () => {
     const annotations = ['SP', 'WC', 'AGR'].map((code) => correction(code, code, ['w1']));
     const before = JSON.stringify(annotations);
@@ -55,7 +68,8 @@ describe('annotation presentation groups', () => {
     expect(groups).toHaveSize(2);
     expect(groups[0].code).toBe('DEV +2');
     built[1].annotation = { ...built[1].annotation, symbol: 'COH', category: 'ORGANIZATION' };
-    expect(layoutAnnotationGroups(built, 390, 468)[0].code).toBe('3 Issues');
+    expect(layoutAnnotationGroups(built, 390, 468)[0].code).toBe('DEV +2');
+    expect(layoutAnnotationGroups(built, 390, 468)[0].label).toContain('COH');
   });
   it('keeps semantic rails separate from local geometry on the same sentence', () => {
     const built = visuals([correction('semantic', 'DEV', ['w0', 'w1', 'w8'], 'CONTENT'),

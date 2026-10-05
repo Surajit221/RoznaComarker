@@ -150,7 +150,7 @@ describe('CorrectionOverlay media loading', () => {
     ] as FeedbackAnnotation[]);
 
     expect(buttons).toHaveSize(1);
-    expect(buttons[0].textContent?.trim()).toBe('2 Issues');
+    expect(buttons[0].textContent?.trim()).toBe('REP·P');
     const groupLeft = parseFloat(buttons[0].style.getPropertyValue('--marker-left'));
     expect(groupLeft).toBeGreaterThan(27);
     expect(groupLeft).toBeLessThan(30);
