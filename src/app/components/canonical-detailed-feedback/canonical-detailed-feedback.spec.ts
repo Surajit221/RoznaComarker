@@ -29,6 +29,18 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('No major improvement areas were identified.');
   });
 
+  it('hides all area and strength scores while keeping evidence, explanations and revision guidance', () => {
+    fixture.componentRef.setInput('model', model());
+    fixture.componentRef.setInput('marksVisible', false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.score-badge')).toBeNull();
+    const content = fixture.nativeElement.textContent;
+    for (const text of ['Agreement is repeated.', '<students learns>', 'students learn', 'Readable.', 'OCR evidence', 'Review agreement.', '2 issues']) {
+      expect(content).toContain(text);
+    }
+    expect(content).not.toContain('20/25'); expect(content).not.toContain('5/5');
+  });
+
   it('renders explicit processing and blocked states while preserving manual Retry', () => {
     fixture.componentInstance.model = model({ status: 'processing', message: 'Preparing detailed feedback…', areasForImprovement: [], strengths: [], actionSteps: [] });
     fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Preparing detailed feedback');

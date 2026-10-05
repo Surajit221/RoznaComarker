@@ -95,8 +95,9 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
   const visuals: AnnotationVisual[] = [];
   for (const annotation of annotations) {
     if (!annotation || (annotation.page && Number(annotation.page) !== Number(page))) continue;
+    const resolved = annotation.renderTarget?.version === 1 ? annotation.renderTarget : undefined;
     const target = annotation.visualTarget;
-    const targetIds = target?.version === 1 && Array.isArray(target.wordIds) && Array.isArray(target.anchors)
+    const targetIds = resolved ? resolved : target?.version === 1 && Array.isArray(target.wordIds) && Array.isArray(target.anchors)
       && target.wordIds.length + target.anchors.length > 0 && target.wordIds.length + target.anchors.length <= 128
       && classifyCorrectionVisualType(annotation) !== 'semantic'
       && target.wordIds.every((id) => validBox(wordIndex.get(id)?.word.bbox))
@@ -108,10 +109,11 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
       .map((item) => ({ box: item.word.bbox!, order: item.order,
         line: item.line, newLine: item.word.separatorBefore === '\n' || item.word.separatorBefore === '\n\n' }));
     const hasWordOrder = mapped.length > 0;
-    const located: LocatedBox[] = hasWordOrder ? mapped : targetIds ? [] : legacyBoxes(annotation.bboxList || [], imageHeight);
+    const located: LocatedBox[] = hasWordOrder ? mapped : resolved
+      ? legacyBoxes(resolved.boxes, imageHeight) : targetIds ? [] : legacyBoxes(annotation.bboxList || [], imageHeight);
     const boundaries: AnnotationSegment[] = (targetIds?.anchors || []).flatMap((a, i) => {
-      const item = wordIndex.get(a.wordId)!; const box = item.word.bbox;
-      if (!validBox(box)) return [];
+      const item = wordIndex.get(a.wordId); const box = item?.word.bbox;
+      if (!item || !validBox(box)) return [];
       const edge = a.side === 'after' ? box.x + box.w : box.x;
       return [{ id: `${annotation._id}_boundary_${i}`, left: clamp(edge - 2 / imageWidth * 100, 0, 99),
         top: clamp(box.y + box.h, 0, 99), width: 4 / imageWidth * 100, boundary: true,

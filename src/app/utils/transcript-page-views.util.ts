@@ -9,6 +9,9 @@ export interface TranscriptPageView {
   displayNumber: number;
   fileId: string;
   pageNumber: number;
+  imageUrl?: string;
+  width?: number;
+  height?: number;
   words: OcrWord[];
   annotations: FeedbackAnnotation[];
   text: string;
@@ -39,6 +42,7 @@ function annotation(correction: any, submissionId: string, wordIds: Set<string>)
   return { _id: correctionId, submissionId, fileId: id(correction?.fileId) || undefined,
     page: pageNumber(correction?.pageNumber ?? correction?.page), wordIds: scopedWordIds,
     visualTarget: correction?.visualTarget, evidenceWordIds: correction?.evidenceWordIds,
+    renderTarget: correction?.renderTarget,
     quotedText: typeof correction?.quotedText === 'string' ? correction.quotedText : undefined,
     ocrConfidence: correction?.ocrConfidence, ocrSuspect: correction?.ocrSuspect,
     bboxList, group: typeof correction?.category === 'string' ? correction.category : String(correction?.group || ''),
@@ -77,6 +81,8 @@ export function buildTranscriptPageViews(options: { submissionId: string; fileId
       : words.length || String(page?.text || '').trim() ? 'ready' : explicitStatus === 'completed' ? 'ready'
         : options.overallOcrStatus === 'failed' ? 'failed' : 'processing';
     return { key: `${fileId}:${number}`, displayNumber: index + 1, fileId, pageNumber: number, words, annotations,
+      imageUrl: typeof page?.pageImageUrl === 'string' ? page.pageImageUrl : undefined,
+      width: page?.width, height: page?.height,
       text: typeof page?.text === 'string' ? page.text : '', status };
   });
 }

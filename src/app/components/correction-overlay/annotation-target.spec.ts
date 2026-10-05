@@ -5,6 +5,17 @@ import type { OcrWord } from '../../models/ocr-token.model';
 const words: OcrWord[] = ['one','two','three'].map((text,i)=>({id:`w${i}`,text,bbox:{x:10+i*10,y:10,w:8,h:3},separatorBefore:' '}));
 const correction = (): FeedbackAnnotation => ({_id:'c',submissionId:'s',symbol:'P',source:'AI',editable:false,wordIds:words.map(w=>w.id)});
 describe('canonical visual target precedence',()=>{
+  it('consumes the shared backend target without reselecting broad evidence',()=>{
+    const c=correction();c.visualTarget={version:1,wordIds:['w0','w1','w2'],anchors:[]};
+    c.renderTarget={version:1,source:'visualTarget',wordIds:['w1'],anchors:[],boxes:[words[1].bbox!]};
+    const [v]=buildAnnotationVisuals([c],words,1,1000,1200);
+    expect(v.segments.length).toBe(1);expect(v.segments[0].left).toBeGreaterThan(19);
+    expect(v.segments[0].width).toBeLessThan(9);
+    c.renderTarget={version:1,source:'visualTarget',wordIds:[],anchors:[{wordId:'w1',side:'after',operation:'INSERT'}],boxes:[]};
+    const [anchored]=buildAnnotationVisuals([c],words,1,1000,1200);
+    expect(anchored.segments.length).toBe(1);expect(anchored.segments[0].boundary).toBeTrue();
+    expect(anchored.segments[0].left).toBeGreaterThan(27);
+  });
   it('narrow IDs override broad evidence without text search',()=>{
     const c=correction();c.visualTarget={version:1,wordIds:['w1'],anchors:[]};
     const [v]=buildAnnotationVisuals([c],words,1,1000,1200);expect(v.segments.length).toBe(1);

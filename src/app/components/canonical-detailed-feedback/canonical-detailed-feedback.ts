@@ -7,6 +7,7 @@ import type { DetailedFeedbackDisplayModel } from '../../utils/detailed-feedback
 export class CanonicalDetailedFeedbackComponent {
   @Input({ required: true }) model!: DetailedFeedbackDisplayModel;
   @Input() teacher = false;
+  @Input() marksVisible = true;
   @Input() manualRetryAllowed = false;
   @Input() retrying = false;
   @Output() retryRequested = new EventEmitter<void>();

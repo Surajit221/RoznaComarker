@@ -5,6 +5,7 @@ export type EvaluationFreshness = 'current' | 'stale_rubric' | 'stale_policy' | 
   | 'stale_version' | 'processing' | 'overridden' | 'failed' | 'not_ready';
 
 export interface CanonicalResultViewState {
+  ocrFailureMessage?: string | null;
   ocrStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
   submissionId: string | null;
   correctionStatus: ResultStatus;
@@ -139,6 +140,7 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
   const terminal = explicitLifecycleActive ? false : value.terminal === undefined
     ? Boolean(previous?.terminal || prerequisiteFailed) : value.terminal === true;
   const next: CanonicalResultViewState = {
+    ocrFailureMessage: typeof value.ocrFailureMessage === 'string' ? value.ocrFailureMessage : null,
     ocrStatus: ['pending', 'processing', 'completed', 'failed'].includes(value.ocrStatus)
       ? value.ocrStatus : previous?.ocrStatus || null,
     submissionId,
@@ -234,6 +236,7 @@ export function shouldRetryEvaluationOnly(state: CanonicalResultViewState | null
 }
 
 export function canonicalFailureMessage(state: CanonicalResultViewState | null | undefined): string {
+  if (state?.ocrStatus === 'failed' && state.ocrFailureMessage) return state.ocrFailureMessage;
   return shouldRetryEvaluationOnly(state)
     ? 'Scoring and detailed feedback could not be completed. Your transcription and corrections are still available.'
     : 'Writing analysis did not complete.';

@@ -30,7 +30,7 @@
         <div class="feedback-grid">
           @for (area of model.areasForImprovement; track area.id) {
             <article class="feedback-card" [attr.data-category]="area.category">
-              <header><h5>{{ area.title }}</h5><div class="card-badges"><span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span><span class="issue-badge">{{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }}</span></div></header>
+              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">{{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }}</span></div></header>
               <p class="summary">{{ area.explanation || (area.issueCount + ' distinct issues affected this category.') }}</p>
               @if (area.dominantSymbols.length) {<div class="symbols" aria-label="Dominant correction symbols">@for (symbol of area.dominantSymbols; track symbol) {<span>{{ symbol }}</span>}</div>}
               @for (example of area.examples; track example.correctionId) {
@@ -47,7 +47,7 @@
 
     @if (model.strengths.length) {
       <section class="feedback-group" aria-labelledby="strength-title"><h4 id="strength-title"><i class="fas fa-star" aria-hidden="true"></i>Evidence-based Strengths</h4><div class="feedback-grid strengths-grid">
-        @for (strength of model.strengths; track strength.id) {<article class="feedback-card strength-card" [attr.data-category]="strength.category"><header><h5>{{ strength.title }}</h5><div class="card-badges"><span class="score-badge">{{ strength.score }}/{{ strength.maxScore }}</span>@if (strength.provisional) {<span class="provisional-badge">Provisional</span>}</div></header><p class="summary">{{ strength.explanation }}</p>@for (evidence of strength.evidence; track evidence) {<p class="strength-evidence"><i class="fas fa-check" aria-hidden="true"></i>{{ evidence }}</p>}</article>}
+        @for (strength of model.strengths; track strength.id) {<article class="feedback-card strength-card" [attr.data-category]="strength.category"><header><h5>{{ strength.title }}</h5><div class="card-badges">@if (marksVisible) {<span class="score-badge">{{ strength.score }}/{{ strength.maxScore }}</span>}@if (strength.provisional) {<span class="provisional-badge">Provisional</span>}</div></header><p class="summary">{{ strength.explanation }}</p>@for (evidence of strength.evidence; track evidence) {<p class="strength-evidence"><i class="fas fa-check" aria-hidden="true"></i>{{ evidence }}</p>}</article>}
       </div></section>
     }
 
