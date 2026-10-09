@@ -141,6 +141,13 @@ export class FeedbackApiService {
     return resp.data;
   }
 
+  async generateTeacherCommentDraft(submissionId: string): Promise<{ comment: string }> {
+    const resp = await firstValueFrom(this.http.post<BackendResponse<{ comment: string }>>(
+      `${this.getApiBaseUrl()}/feedback/${encodeURIComponent(submissionId)}/teacher-comments/ai-draft`, {}
+    ));
+    return resp.data;
+  }
+
   async generateAiSubmissionFeedback(submissionId: string): Promise<SubmissionFeedback> {
     const apiBaseUrl = this.getApiBaseUrl();
     const resp = await firstValueFrom(

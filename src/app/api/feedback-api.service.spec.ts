@@ -16,6 +16,15 @@ describe('FeedbackApiService teacher comments', () => {
 
   afterEach(() => http.verify());
 
+  it('requests a draft with only the submission identifier and no assessment data', async () => {
+    const pending = service.generateTeacherCommentDraft('submission 1');
+    const request = http.expectOne(`${environment.apiUrl}/feedback/submission%201/teacher-comments/ai-draft`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    request.flush({ success: true, data: { comment: 'Editable draft.' } });
+    expect(await pending).toEqual({ comment: 'Editable draft.' });
+  });
+
   it('PATCHes only teacherComments to the environment-based endpoint', async () => {
     const pending = service.updateTeacherComments('submission 1', 'Line one\nLine two');
     const request = http.expectOne(`${environment.apiUrl}/feedback/submission%201/teacher-comments`);
