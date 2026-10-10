@@ -3570,6 +3570,41 @@ export class StudentSubmissionPages {
 
   feedbackForm: FormGroup;
   isTeacherCommentSaving = false;
+  isTeacherCommentGenerating = false;
+  private teacherCommentDraftDestroyed = false;
+
+  async generateTeacherCommentDraft(): Promise<void> {
+    const submission = this.currentSubmission;
+    if (!submission?._id || this.isTeacherCommentGenerating || this.isTeacherCommentSaving || this.feedbackForm.disabled || this.teacherCommentState === 'loading') return;
+    this.isTeacherCommentGenerating = true;
+    const initialText = String(this.feedbackForm.controls['message'].value || '');
+    const active = () => !this.teacherCommentDraftDestroyed && this.currentSubmission === submission;
+    try {
+      const draft = await this.feedbackApi.generateTeacherCommentDraft(submission._id);
+      if (!active()) return;
+      if (typeof draft?.comment !== 'string' || !draft.comment.trim() || draft.comment.length > 1000) throw new Error('Invalid draft');
+      const current = String(this.feedbackForm.controls['message'].value || '');
+      if (current.trim() || current !== initialText) {
+        const replace = await this.alert.showConfirm('Replace your comment?',
+          'Replace your current comment with the AI-generated draft?', 'Replace', 'Keep my comment');
+        if (!replace || !active()) return;
+        // Confirmation covers the text displayed when the dialog opened only.
+        if (String(this.feedbackForm.controls['message'].value || '') !== current) return;
+      }
+      if (this.isTeacherCommentSaving || this.feedbackForm.disabled) return;
+      this.feedbackForm.controls['message'].setValue(draft.comment.trim());
+      this.feedbackForm.controls['message'].markAsDirty();
+    } catch (error: unknown) {
+      if (active()) {
+        const status = (error as { status?: number })?.status;
+        this.alert.showError('Unable to generate comment', status === 404 || status === 409
+          ? 'AI feedback is not available for this submission yet.'
+          : 'Unable to generate a comment right now. Please try again.');
+      }
+    } finally {
+      this.isTeacherCommentGenerating = false;
+    }
+  }
 
 
 
@@ -5680,6 +5715,7 @@ export class StudentSubmissionPages {
 
 
   ngOnDestroy() {
+    this.teacherCommentDraftDestroyed = true;
 
 
 

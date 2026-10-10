@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
 
+import { FeedbackApiService } from '../../../../../api/feedback-api.service';
+import { AlertService } from '../../../../../services/alert.service';
 import { StudentSubmissionPages } from './student-submission-pages';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
@@ -41,6 +43,97 @@ describe('StudentSubmissionPages', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  describe('AI teacher comment drafts', () => {
+    beforeEach(() => {
+      component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
+      component.feedbackForm.enable();
+      component.teacherCommentState = 'loaded';
+      component.feedbackForm.patchValue({ message: '' });
+    });
+    it('renders the action, prevents duplicate clicks and fills an editable unsaved draft', async () => {
+      let resolve!: (value: { comment: string }) => void;
+      const call = spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.returnValue(new Promise(r => resolve = r));
+      const submit = spyOn(component, 'submitFeedback');
+      fixture.detectChanges();
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('.teacher-comment-ai-draft');
+      expect(button.textContent).toContain('Generate AI Draft');
+      button.click();
+      await component.generateTeacherCommentDraft();
+      fixture.detectChanges();
+      expect(button.disabled).toBeTrue(); expect(button.textContent).toContain('Generating...');
+      expect(call).toHaveBeenCalledOnceWith('submission-1');
+      resolve({ comment: 'A useful draft.' });
+      await fixture.whenStable();
+      TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/progress'))
+        .forEach(req => req.flush({ success: true, data: {} }));
+      expect(component.feedbackForm.value.message).toBe('A useful draft.');
+      expect(component.feedbackForm.controls['message'].enabled).toBeTrue();
+      component.feedbackForm.controls['message'].setValue('My edited draft.');
+      expect(component.feedbackForm.value.message).toBe('My edited draft.');
+      expect(submit).not.toHaveBeenCalled();
+      expect(component.isTeacherCommentGenerating).toBeFalse();
+    });
+    it('protects existing saved/manual text unless replacement is confirmed', async () => {
+      component.feedbackForm.patchValue({ message: 'My saved comment.' });
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.resolveTo({ comment: 'New draft.' });
+      const confirm = spyOn(TestBed.inject(AlertService), 'showConfirm').and.resolveTo(false);
+      await component.generateTeacherCommentDraft();
+      expect(component.feedbackForm.value.message).toBe('My saved comment.');
+      expect(confirm).toHaveBeenCalled();
+      confirm.and.resolveTo(true);
+      await component.generateTeacherCommentDraft();
+      expect(component.feedbackForm.value.message).toBe('New draft.');
+    });
+    it('protects text entered during generation and during confirmation', async () => {
+      let resolve!: (value: { comment: string }) => void;
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.returnValue(new Promise(r => resolve = r));
+      spyOn(TestBed.inject(AlertService), 'showConfirm').and.callFake(async () => {
+        component.feedbackForm.patchValue({ message: 'Latest edit.' }); return true;
+      });
+      const pending = component.generateTeacherCommentDraft();
+      component.feedbackForm.patchValue({ message: 'Typed while waiting.' });
+      resolve({ comment: 'New draft.' }); await pending;
+      expect(component.feedbackForm.value.message).toBe('Latest edit.');
+    });
+    it('preserves text on network/provider failure', async () => {
+      component.feedbackForm.patchValue({ message: 'Keep this.' });
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.rejectWith({ status: 503 });
+      const alert = spyOn(TestBed.inject(AlertService), 'showError');
+      await component.generateTeacherCommentDraft();
+      expect(component.feedbackForm.value.message).toBe('Keep this.');
+      expect(alert).toHaveBeenCalled(); expect(component.isTeacherCommentGenerating).toBeFalse();
+    });
+    it('requires confirmation when existing text is deleted during generation', async () => {
+      component.feedbackForm.patchValue({ message: 'Original draft.' });
+      let resolve!: (value: { comment: string }) => void;
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.returnValue(new Promise(r => resolve = r));
+      const confirm = spyOn(TestBed.inject(AlertService), 'showConfirm').and.resolveTo(false);
+      const pending = component.generateTeacherCommentDraft();
+      component.feedbackForm.patchValue({ message: '' });
+      resolve({ comment: 'New draft.' }); await pending;
+      expect(confirm).toHaveBeenCalled(); expect(component.feedbackForm.value.message).toBe('');
+    });
+    it('ignores a late draft after switching submissions', async () => {
+      let resolve!: (value: { comment: string }) => void;
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.returnValue(new Promise(r => resolve = r));
+      const pending = component.generateTeacherCommentDraft();
+      component.currentSubmission = { _id: 'submission-2' } as NonNullable<typeof component.currentSubmission>;
+      component.feedbackForm.patchValue({ message: 'Other submission.' });
+      resolve({ comment: 'Old draft.' }); await pending;
+      expect(component.feedbackForm.value.message).toBe('Other submission.');
+    });
+    it('saves an edited draft only through the existing Submit flow', async () => {
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.resolveTo({ comment: 'New draft.' });
+      const save = spyOn(TestBed.inject(FeedbackApiService), 'updateTeacherComments').and.resolveTo({ submissionId: 'submission-1', teacherComments: 'Edited draft.', teacherCommentsUpdatedAt: '', teacherCommentsUpdatedBy: 'teacher-1' });
+      spyOn(TestBed.inject(AlertService), 'showToast');
+      await component.generateTeacherCommentDraft();
+      expect(save).not.toHaveBeenCalled();
+      component.feedbackForm.patchValue({ message: 'Edited draft.' });
+      await component.submitFeedback();
+      expect(save).toHaveBeenCalledOnceWith('submission-1', 'Edited draft.');
+    });
   });
 
   it('preserves weights and totalPoints through assignment save and reload without a score override', async () => {
