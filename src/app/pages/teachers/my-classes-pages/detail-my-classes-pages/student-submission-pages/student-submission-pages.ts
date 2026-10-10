@@ -3577,13 +3577,14 @@ export class StudentSubmissionPages {
     const submission = this.currentSubmission;
     if (!submission?._id || this.isTeacherCommentGenerating || this.isTeacherCommentSaving || this.feedbackForm.disabled || this.teacherCommentState === 'loading') return;
     this.isTeacherCommentGenerating = true;
+    const initialText = String(this.feedbackForm.controls['message'].value || '');
     const active = () => !this.teacherCommentDraftDestroyed && this.currentSubmission === submission;
     try {
       const draft = await this.feedbackApi.generateTeacherCommentDraft(submission._id);
       if (!active()) return;
       if (typeof draft?.comment !== 'string' || !draft.comment.trim() || draft.comment.length > 1000) throw new Error('Invalid draft');
       const current = String(this.feedbackForm.controls['message'].value || '');
-      if (current.trim()) {
+      if (current.trim() || current !== initialText) {
         const replace = await this.alert.showConfirm('Replace your comment?',
           'Replace your current comment with the AI-generated draft?', 'Replace', 'Keep my comment');
         if (!replace || !active()) return;

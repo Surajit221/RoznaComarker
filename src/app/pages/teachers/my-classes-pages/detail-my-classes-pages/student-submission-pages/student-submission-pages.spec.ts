@@ -105,6 +105,16 @@ describe('StudentSubmissionPages', () => {
       expect(component.feedbackForm.value.message).toBe('Keep this.');
       expect(alert).toHaveBeenCalled(); expect(component.isTeacherCommentGenerating).toBeFalse();
     });
+    it('requires confirmation when existing text is deleted during generation', async () => {
+      component.feedbackForm.patchValue({ message: 'Original draft.' });
+      let resolve!: (value: { comment: string }) => void;
+      spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.returnValue(new Promise(r => resolve = r));
+      const confirm = spyOn(TestBed.inject(AlertService), 'showConfirm').and.resolveTo(false);
+      const pending = component.generateTeacherCommentDraft();
+      component.feedbackForm.patchValue({ message: '' });
+      resolve({ comment: 'New draft.' }); await pending;
+      expect(confirm).toHaveBeenCalled(); expect(component.feedbackForm.value.message).toBe('');
+    });
     it('ignores a late draft after switching submissions', async () => {
       let resolve!: (value: { comment: string }) => void;
       spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft').and.returnValue(new Promise(r => resolve = r));
