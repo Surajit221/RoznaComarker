@@ -11,6 +11,9 @@ import { DeviceService } from '../../../services/device.service';
 import { AuthService } from '../../../auth/auth.service';
 import { AlertService } from '../../../services/alert.service';
 import { Auth, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from '@angular/fire/auth';
+import { newPasswordValidator } from '../../../auth/password-policy.util';
+import { PasswordRequirements } from '../../../components/password-requirements/password-requirements';
+import { authErrorMessage } from '../../../auth/auth-error.util';
 import { environment } from '../../../../environments/environment';
 
 import { ClassApiService } from '../../../api/class-api.service';
@@ -20,7 +23,7 @@ import { FeedbackApiService } from '../../../api/feedback-api.service';
 
 @Component({
   selector: 'app-my-profile-pages',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, PasswordRequirements],
   templateUrl: './my-profile-pages.html',
   styleUrl: './my-profile-pages.css',
 })
@@ -128,9 +131,9 @@ export class MyProfilePages {
 
   securityForm = this.fb.nonNullable.group(
     {
-      currentPassword: ['', [Validators.required, Validators.minLength(6)]],
-      newPassword: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required, Validators.minLength(6)]],
+      currentPassword: ['', [Validators.required]],
+      newPassword: ['', [Validators.required, newPasswordValidator]],
+      confirmPassword: ['', [Validators.required]],
     },
     { validators: [this.passwordMatchValidator] }
   );
@@ -368,7 +371,9 @@ export class MyProfilePages {
     } catch (err: any) {
       const code = err?.code ? String(err.code) : '';
       const msg =
-        code === 'auth/wrong-password'
+        (code === 'auth/weak-password' || code === 'auth/password-does-not-meet-requirements')
+          ? authErrorMessage(err, 'signup')
+          : code === 'auth/wrong-password'
           ? 'Current password is incorrect.'
           : code === 'auth/requires-recent-login'
             ? 'Please log in again and retry changing your password.'

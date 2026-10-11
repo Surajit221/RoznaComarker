@@ -5,6 +5,7 @@ import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEma
 
 import { environment } from '../../environments/environment';
 import { clearPrivateAuthStorage, decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
+import { assertNewPassword } from './password-policy.util';
 
 type BackendLoginResponse = {
   success: boolean;
@@ -108,6 +109,7 @@ export class AuthService {
   }
 
   async signupWithEmail(email: string, password: string) {
+    assertNewPassword(password);
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
     clearPrivateAuthStorage();
     let deliveryWarning = false;
