@@ -2,7 +2,8 @@ export type AuthErrorContext = 'signup' | 'login' | 'verification' | 'forgot-pas
 
 const messages: Record<string, string> = {
   'auth/email-already-in-use': 'An account already exists for this email. Try logging in instead.',
-  'auth/weak-password': 'Choose a stronger password with at least 6 characters.',
+  'auth/weak-password': 'Your password does not meet the security requirements.',
+  'auth/password-does-not-meet-requirements': 'Your password does not meet the security requirements.',
   'auth/invalid-email': 'Please enter a valid email address.',
   'auth/invalid-credential': 'The email or password is incorrect.',
   'auth/user-not-found': 'The email or password is incorrect.',

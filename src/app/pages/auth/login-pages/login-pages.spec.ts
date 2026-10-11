@@ -77,7 +77,7 @@ describe('LoginPages', () => {
     });
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     const showError = spyOn(alert, 'showError');
-    component.loginForm.patchValue({ email: 'person@example.test', password: 'secret1' });
+    component.loginForm.patchValue({ email: 'person@example.test', password: 'Abcdef1!' });
 
     await component.onSignup();
 
@@ -116,4 +116,60 @@ describe('LoginPages', () => {
     expect(fixture.nativeElement.textContent).toContain('Logging in...');
     expect(buttons.every(button => button.disabled)).toBeTrue();
   });
+
+  it('keeps weak legacy passwords valid for normal login without showing a checklist', async () => {
+    const auth = TestBed.inject(AuthService) as any;
+    auth.loginWithEmail = jasmine.createSpy().and.resolveTo({ verificationRequired: true });
+    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    component.loginForm.patchValue({ email: 'person@example.test', password: 'old' });
+    expect(component.loginForm.valid).toBeTrue();
+    expect(fixture.nativeElement.querySelector('app-password-requirements')).toBeNull();
+    await component.onSubmit();
+    expect(auth.loginWithEmail).toHaveBeenCalledWith('person@example.test', 'old');
+  });
+
+  for (const width of [360, 768, 1280]) {
+    it('shows signup requirements only after choosing signup at width ' + width, async () => {
+      (component.device as any).width.set(width);
+      fixture.detectChanges();
+      const auth = TestBed.inject(AuthService) as any;
+      auth.signupWithEmail = jasmine.createSpy().and.resolveTo({ verificationRequired: true });
+      spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      component.loginForm.patchValue({ email: 'person@example.test', password: 'abc' });
+      fixture.nativeElement.querySelector('.signup-action').click();
+      fixture.detectChanges();
+      expect(component.signupMode).toBeTrue();
+      expect(fixture.nativeElement.querySelector('app-password-requirements')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.login-primary').disabled).toBeTrue();
+      await component.onSignup();
+      expect(auth.signupWithEmail).not.toHaveBeenCalled();
+      const input = fixture.nativeElement.querySelector('[formControlName="password"]') as HTMLInputElement;
+      input.value = 'Abcdef1!';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.login-primary').disabled).toBeFalse();
+      expect(fixture.nativeElement.querySelector('[role="status"]').textContent).toContain('Password strong');
+      await component.onSignup();
+      expect(auth.signupWithEmail).toHaveBeenCalledTimes(1);
+      component.toggleSignupMode();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('app-password-requirements')).toBeNull();
+      expect(input.autocomplete).toBe('current-password');
+    });
+  }
+
+  it('toggles password visibility with an accessible non-submit button', () => {
+    const eye = fixture.nativeElement.querySelector('button[aria-label="Show password"]') as HTMLButtonElement;
+    const input = fixture.nativeElement.querySelector('[formControlName="password"]') as HTMLInputElement;
+    expect(eye.type).toBe('button');
+    expect(eye.tabIndex).toBe(0);
+    eye.click();
+    fixture.detectChanges();
+    expect(input.type).toBe('text');
+    expect(eye.getAttribute('aria-label')).toBe('Hide password');
+    eye.click();
+    fixture.detectChanges();
+    expect(input.type).toBe('password');
+  });
+
 });
