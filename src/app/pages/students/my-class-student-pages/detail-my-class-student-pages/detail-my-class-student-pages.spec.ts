@@ -135,6 +135,7 @@ describe('DetailMyClassStudentPages', () => {
     const file = new File(['essay'], 'essay.txt', { type: 'text/plain' });
     component.selectedAssignmentId = 'assignment-1';
     component.selectedFiles = [file];
+    component.imagePreflightReady = true;
     component.isLoading = false;
     const pending = new Subject<any>();
     const submit = spyOn((component as any).uploadApi, 'submitSubmissionFiles').and.returnValue(pending.asObservable());
@@ -187,6 +188,9 @@ describe('DetailMyClassStudentPages', () => {
 
     component.onFilesSelected([new File(['essay'], 'essay.jpg', { type: 'image/jpeg' })]);
     fixture.detectChanges();
+    expect(buttons[1].disabled).toBeTrue();
+    component.imagePreflightReady = true;
+    fixture.detectChanges();
     expect(buttons[1].disabled).toBeFalse();
     buttons[1].click();
     expect(submit).toHaveBeenCalledTimes(1);
@@ -205,6 +209,7 @@ describe('DetailMyClassStudentPages', () => {
     const file = new File(['essay'], 'a-very-long-essay-filename-that-must-not-push-the-controls-off-screen.jpg',
       { type: 'image/jpeg' });
     component.selectedFiles = [file];
+    component.imagePreflightReady = true;
     component.uploadProgressPercent = 100;
     component.uploadErrorMessage = 'Too many requests. Please wait before trying again.';
     fixture.detectChanges();
@@ -221,5 +226,15 @@ describe('DetailMyClassStudentPages', () => {
         expect(button.getBoundingClientRect().height).withContext(`${width}px touch target`).toBeGreaterThanOrEqual(44);
       }
     }
+  });
+  it('does not call the submission API when image preflight is pending or failed', async () => {
+    component.selectedAssignmentId = 'assignment-1';
+    component.selectedFiles = [new File(['test'], 'page.png', { type: 'image/png' })];
+    component.isLoading = false;
+    component.imagePreflightReady = false;
+    const submit = spyOn((component as any).uploadApi, 'submitSubmissionFiles');
+    await component.uploadFiles();
+    expect(submit).not.toHaveBeenCalled();
+    expect(component.isLoading).toBeFalse();
   });
 });

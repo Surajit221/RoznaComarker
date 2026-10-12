@@ -235,67 +235,66 @@
 
             <div class="flex flex-col gap-4 max-w-md">
               <div class="flex flex-col gap-2">
-                <label class="font-semibold text-sm ml-1" for="currentPassword-1">Current Password</label>
+                <label class="font-semibold text-sm ml-1">Current Password</label>
                 <div class="relative">
                   <input
                     [type]="showCurrentPassword ? 'text' : 'password'"
-                    class="input-text pr-14"
+                    class="input-text"
                     placeholder="••••••••"
-                    formControlName="currentPassword" id="currentPassword-1" autocomplete="current-password"
+                    formControlName="currentPassword"
                   >
                   <button
                     type="button"
                     (click)="toggleCurrentPassword()"
                     class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
-                    [attr.aria-label]="showCurrentPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showCurrentPassword"
+                    aria-label="Toggle password visibility"
                   >
                     <i class="bx text text-2xl" [ngClass]="showCurrentPassword ? 'bx-show' : 'bx-hide'"></i>
                   </button>
                 </div>
               </div>
               <div class="flex flex-col gap-2">
-                <label class="font-semibold text-sm ml-1" for="newPassword-1">New Password</label>
+                <label class="font-semibold text-sm ml-1">New Password</label>
                 <div class="relative">
                   <input
                     [type]="showNewPassword ? 'text' : 'password'"
-                    class="input-text pr-14"
+                    class="input-text"
                     placeholder="••••••••"
-                    formControlName="newPassword" id="newPassword-1" autocomplete="new-password" aria-describedby="requirements-1"
+                    formControlName="newPassword"
                   >
                   <button
                     type="button"
                     (click)="toggleNewPassword()"
                     class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
-                    [attr.aria-label]="showNewPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showNewPassword"
+                    aria-label="Toggle password visibility"
                   >
                     <i class="bx text text-2xl" [ngClass]="showNewPassword ? 'bx-show' : 'bx-hide'"></i>
                   </button>
                 </div>
-                <app-password-requirements id="requirements-1" [password]="securityForm.controls.newPassword.value" />
               </div>
               <div class="flex flex-col gap-2">
-                <label class="font-semibold text-sm ml-1" for="confirmPassword-1">Confirm Password</label>
+                <label class="font-semibold text-sm ml-1">Confirm Password</label>
                 <div class="relative">
                   <input
                     [type]="showConfirmPassword ? 'text' : 'password'"
-                    class="input-text pr-14"
+                    class="input-text"
                     placeholder="••••••••"
-                    formControlName="confirmPassword" id="confirmPassword-1" autocomplete="new-password"
+                    formControlName="confirmPassword"
                   >
                   <button
                     type="button"
                     (click)="toggleConfirmPassword()"
                     class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
-                    [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showConfirmPassword"
+                    aria-label="Toggle password visibility"
                   >
                     <i class="bx text text-2xl" [ngClass]="showConfirmPassword ? 'bx-show' : 'bx-hide'"></i>
                   </button>
                 </div>
-                @if(securityForm.controls.confirmPassword.touched && securityForm.errors?.['passwordMismatch']){
+                @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
                 <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
                 }
               </div>
-              <button class="btn-info w-fit mt-2" type="submit" [disabled]="isUpdatingPassword || securityForm.invalid">
+              <button class="btn-info w-fit mt-2" type="submit" [disabled]="isUpdatingPassword">
                 {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
               </button>
             </div>
@@ -511,19 +510,19 @@
           <h3 class="font-bold text-[#203864] border-b-2 border-[#F0F0F0] pb-2">Account Security</h3>
 
           <div class="flex flex-col gap-1">
-            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]" for="currentPassword-2">Current Password</label>
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Current Password</label>
             <div class="relative">
               <input
                 [type]="showCurrentPassword ? 'text' : 'password'"
-                class="input-text py-2 pr-14"
+                class="input-text py-2"
                 placeholder="••••••••"
-                formControlName="currentPassword" id="currentPassword-2" autocomplete="current-password"
+                formControlName="currentPassword"
               >
               <button
                 type="button"
                 (click)="toggleCurrentPassword()"
                 class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
-                [attr.aria-label]="showCurrentPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showCurrentPassword"
+                aria-label="Toggle password visibility"
               >
                 <i class="bx text text-2xl" [ngClass]="showCurrentPassword ? 'bx-show' : 'bx-hide'"></i>
               </button>
@@ -531,50 +530,49 @@
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]" for="newPassword-2">New Password</label>
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">New Password</label>
             <div class="relative">
               <input
                 [type]="showNewPassword ? 'text' : 'password'"
-                class="input-text py-2 pr-14"
+                class="input-text py-2"
                 placeholder="••••••••"
-                formControlName="newPassword" id="newPassword-2" autocomplete="new-password" aria-describedby="requirements-2"
+                formControlName="newPassword"
               >
               <button
                 type="button"
                 (click)="toggleNewPassword()"
                 class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
-                [attr.aria-label]="showNewPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showNewPassword"
+                aria-label="Toggle password visibility"
               >
                 <i class="bx text text-2xl" [ngClass]="showNewPassword ? 'bx-show' : 'bx-hide'"></i>
               </button>
             </div>
-            <app-password-requirements id="requirements-2" [password]="securityForm.controls.newPassword.value" />
           </div>
 
           <div class="flex flex-col gap-1">
-            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]" for="confirmPassword-2">Confirm Password</label>
+            <label class="font-semibold text-xs ml-1 text-[#7A7A7A]">Confirm Password</label>
             <div class="relative">
               <input
                 [type]="showConfirmPassword ? 'text' : 'password'"
-                class="input-text py-2 pr-14"
+                class="input-text py-2"
                 placeholder="••••••••"
-                formControlName="confirmPassword" id="confirmPassword-2" autocomplete="new-password"
+                formControlName="confirmPassword"
               >
               <button
                 type="button"
                 (click)="toggleConfirmPassword()"
                 class="absolute inset-y-0 right-3 pr-3 flex items-center text-gray-500"
-                [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showConfirmPassword"
+                aria-label="Toggle password visibility"
               >
                 <i class="bx text text-2xl" [ngClass]="showConfirmPassword ? 'bx-show' : 'bx-hide'"></i>
               </button>
             </div>
-            @if(securityForm.controls.confirmPassword.touched && securityForm.errors?.['passwordMismatch']){
+            @if(securityForm.touched && securityForm.errors?.['passwordMismatch']){
             <p class="text-xs font-semibold text-[#EE4E4E] ml-1">Passwords do not match.</p>
             }
           </div>
 
-          <button class="btn-info w-full mt-2" type="submit" [disabled]="isUpdatingPassword || securityForm.invalid">
+          <button class="btn-info w-full mt-2" type="submit" [disabled]="isUpdatingPassword">
             {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
           </button>
         </div>

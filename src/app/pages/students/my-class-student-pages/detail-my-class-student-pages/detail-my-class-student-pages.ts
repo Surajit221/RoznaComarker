@@ -391,6 +391,7 @@ export class DetailMyClassStudentPages {
   selectedFile: File | null = null;
 
   selectedFiles: File[] = [];
+  imagePreflightReady = false;
 
   uploadProgressPercent: number | null = null;
   uploadErrorMessage: string | null = null;
@@ -399,6 +400,7 @@ export class DetailMyClassStudentPages {
 
   onFilesSelected(files: File[]) {
     this.selectedFiles = files;
+    this.imagePreflightReady = false;
   }
 
   async uploadFiles(event?: Event) {
@@ -421,6 +423,10 @@ export class DetailMyClassStudentPages {
     }
 
     if (this.isLoading) return;
+    if (!this.imagePreflightReady) {
+      this.alert.showWarning('Check image quality', 'Wait for the image checks, then retry or remove any image that needs attention.');
+      return;
+    }
     this.isLoading = true;
     this.uploadProgressPercent = 0;
     this.uploadErrorMessage = null;
