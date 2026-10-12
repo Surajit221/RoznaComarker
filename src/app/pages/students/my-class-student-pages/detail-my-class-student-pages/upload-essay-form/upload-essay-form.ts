@@ -6,17 +6,29 @@ import {
   EventEmitter,
   inject,
   Output,
+  Input,
   ViewChild,
 } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { ImagePreflightResult, ImagePreflightService } from '../../../../../services/image-preflight.service';
+import { ImageQualityChecklist } from '../../../../../components/image-quality-checklist/image-quality-checklist';
 import { DeviceService } from '../../../../../services/device.service';
+
+interface UploadEntry {
+  file: File; name: string; size: number; preview?: string;
+  qualityState?: 'queued' | 'checking' | 'done' | 'unavailable';
+  quality?: ImagePreflightResult; qualityError?: string;
+}
 
 @Component({
   selector: 'app-upload-essay-form',
-  imports: [CommonModule],
+  imports: [CommonModule, ImageQualityChecklist],
   templateUrl: './upload-essay-form.html',
   styleUrl: './upload-essay-form.css',
 })
 export class UploadEssayForm {
+  @Input() disabled = false;
+  @Output() readinessChange = new EventEmitter<boolean>();
   @Output() filesSelected = new EventEmitter<File[]>();
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('imageInput') imageInput!: ElementRef<HTMLInputElement>;
@@ -24,8 +36,12 @@ export class UploadEssayForm {
   device = inject(DeviceService);
   private cdr = inject(ChangeDetectorRef);
 
+  private preflight = inject(ImagePreflightService);
+  private active?: { entry: UploadEntry; request: Subscription };
+  private destroyed = false;
+
   isDragging = false;
-  files: { file: File; name: string; size: number; preview?: string }[] = [];
+  files: UploadEntry[] = [];
   validationError: string | null = null;
 
   private readonly maxFileSizeBytes = 10 * 1024 * 1024;
@@ -37,6 +53,7 @@ export class UploadEssayForm {
   private _pickerOpen = false;
 
   openImagePicker(): void {
+    if (this.disabled || this.destroyed) return;
     // Keep this click synchronous with the student's button press. Mobile
     // browsers may reject file pickers opened from a later timer callback.
     this.imageInput.nativeElement.value = '';
@@ -44,6 +61,7 @@ export class UploadEssayForm {
   }
 
   openFilePicker(event: Event): void {
+    if (this.disabled || this.destroyed) return;
     event.preventDefault();
     event.stopPropagation();
 
@@ -74,6 +92,7 @@ export class UploadEssayForm {
   }
 
   onDrop(event: DragEvent): void {
+    if (this.disabled || this.destroyed) return;
     event.preventDefault();
     event.stopPropagation();
     this.isDragging = false;
@@ -111,9 +130,10 @@ export class UploadEssayForm {
   }
 
   private processFiles(fileList: FileList | File[]): void {
+    if (this.disabled || this.destroyed) return;
     this.validationError = null;
     const incoming = Array.from(fileList);
-    const toAdd: { file: File; name: string; size: number; preview?: string }[] = [];
+    const toAdd: UploadEntry[] = [];
 
     for (const file of incoming) {
       if (this.files.length + toAdd.length >= this.maxFiles) {
@@ -130,37 +150,41 @@ export class UploadEssayForm {
       ) || toAdd.some((f) => f.name === file.name && f.size === file.size);
       if (isDuplicate) continue;
 
-      const entry: { file: File; name: string; size: number; preview?: string } = {
+      const entry: UploadEntry = {
         file,
         name: file.name,
         size: file.size,
       };
       toAdd.push(entry);
 
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          entry.preview = e.target?.result as string;
-          this.cdr.detectChanges();
-        };
-        reader.readAsDataURL(file);
+      const isImage = file.type.startsWith('image/') || /\.(jpe?g|png)$/i.test(file.name);
+      if (isImage) {
+        entry.preview = URL.createObjectURL(file);
+        entry.qualityState = 'queued';
       }
     }
 
     this.files = [...this.files, ...toAdd];
     this.filesSelected.emit(this.files.map((f) => f.file));
+    this.updateReadiness();
     this.cdr.detectChanges();
   }
 
   removeFile(event: Event, index: number): void {
+    if (this.disabled || this.destroyed) return;
     event.preventDefault();
     event.stopPropagation();
+    const removed = this.files[index];
+    if (removed?.preview) URL.revokeObjectURL(removed.preview);
+    if (this.active?.entry === removed) { this.active.request.unsubscribe(); this.active = undefined; }
     this.files = this.files.filter((_, i) => i !== index);
     this.filesSelected.emit(this.files.map((f) => f.file));
+    this.updateReadiness();
     this.cdr.detectChanges();
   }
 
   moveFile(event: Event, index: number, direction: -1 | 1): void {
+    if (this.disabled || this.destroyed) return;
     event.preventDefault();
     event.stopPropagation();
     const target = index + direction;
@@ -169,10 +193,12 @@ export class UploadEssayForm {
     [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
     this.files = reordered;
     this.filesSelected.emit(this.files.map((entry) => entry.file));
+    this.updateReadiness();
     this.cdr.detectChanges();
   }
 
   reset(): void {
+    this.cancelChecks();
     this.files = [];
     this.validationError = null;
     this.isDragging = false;
@@ -184,7 +210,64 @@ export class UploadEssayForm {
       this.imageInput.nativeElement.value = '';
     }
     this.filesSelected.emit([]);
+    this.updateReadiness();
     this.cdr.detectChanges();
+  }
+
+  get ready(): boolean {
+    return this.files.length > 0 && this.files.every(entry => !entry.qualityState
+      || (entry.qualityState === 'done' && entry.quality?.ready === true));
+  }
+
+  retryQuality(entry: UploadEntry): void {
+    if (this.disabled || this.destroyed || this.active?.entry === entry || !this.files.includes(entry)) return;
+    entry.quality = undefined;
+    entry.qualityError = undefined;
+    entry.qualityState = 'queued';
+    this.updateReadiness();
+  }
+
+  private updateReadiness(): void {
+    if (this.destroyed) return;
+    this.readinessChange.emit(this.ready);
+    if (this.active) return;
+    const entry = this.files.find(file => file.qualityState === 'queued');
+    if (!entry) return;
+    entry.qualityState = 'checking';
+    const task = { entry, request: new Subscription() };
+    this.active = task;
+    task.request.add(this.preflight.check(entry.file).subscribe({
+      next: result => {
+        if (this.destroyed || this.active !== task || !this.files.includes(entry)) return;
+        entry.quality = result;
+        entry.qualityState = 'done';
+      },
+      error: () => {
+        if (this.destroyed || this.active !== task || !this.files.includes(entry)) return;
+        entry.qualityState = 'unavailable';
+        entry.qualityError = 'We could not check this image. Please retry the check.';
+        this.finishCheck(task);
+      },
+      complete: () => this.finishCheck(task),
+    }));
+  }
+
+  private finishCheck(task: { entry: UploadEntry; request: Subscription }): void {
+    if (this.destroyed || this.active !== task) return;
+    this.active = undefined;
+    this.updateReadiness();
+    this.cdr.markForCheck();
+  }
+
+  private cancelChecks(): void {
+    this.active?.request.unsubscribe();
+    this.active = undefined;
+    for (const entry of this.files) if (entry.preview) URL.revokeObjectURL(entry.preview);
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.cancelChecks();
   }
 
   private isFileAllowed(file: File): boolean {

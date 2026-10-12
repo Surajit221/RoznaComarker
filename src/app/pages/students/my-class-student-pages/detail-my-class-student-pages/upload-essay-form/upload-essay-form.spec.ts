@@ -1,14 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { of, Subject } from 'rxjs';
+import { ImagePreflightService, ImagePreflightResult } from '../../../../../services/image-preflight.service';
 import { UploadEssayForm } from './upload-essay-form';
 
 describe('UploadEssayForm', () => {
+  const ready: ImagePreflightResult = { ready: true, checks: [
+    { id: 'resolution', label: 'Resolution', required: true, status: 'pass' },
+    { id: 'lighting', label: 'Exposure', required: true, status: 'pass' },
+    { id: 'orientation', label: 'Upright image', required: true, status: 'pass' },
+    { id: 'clarity', label: 'Image clarity', required: false, status: 'unavailable', message: 'Check yourself' },
+  ] };
+  let check: jasmine.Spy;
   let component: UploadEssayForm;
   let fixture: ComponentFixture<UploadEssayForm>;
 
   beforeEach(async () => {
+    check = jasmine.createSpy().and.returnValue(of(ready));
     await TestBed.configureTestingModule({
-      imports: [UploadEssayForm]
+      imports: [UploadEssayForm], providers: [{ provide: ImagePreflightService, useValue: { check } }]
     })
     .compileComponents();
 
@@ -99,4 +109,109 @@ describe('UploadEssayForm', () => {
     expect(component.files.length).toBe(20);
     expect(component.validationError).toContain('20 files');
   });
+
+  function select(name: string) {
+    const file = new File(['test'], name, { type: 'image/png' });
+    const selection = new DataTransfer(); selection.items.add(file);
+    component.onFilesSelected({ target: { files: selection.files, value: '' } } as unknown as Event);
+    return file;
+  }
+
+  it('blocks while checking and emits ready only when every image passes', () => {
+    const a = new Subject<ImagePreflightResult>(), b = new Subject<ImagePreflightResult>();
+    check.and.returnValues(a, b);
+    const states: boolean[] = [];
+    component.readinessChange.subscribe(state => states.push(state));
+    select('a.png'); select('b.png');
+    expect(component.ready).toBeFalse();
+    expect(check).toHaveBeenCalledTimes(1);
+    a.next(ready); a.complete();
+    expect(check).toHaveBeenCalledTimes(2);
+    expect(component.ready).toBeFalse();
+    b.next({ ready: false, checks: [{ id: 'orientation', label: 'Upright image', required: true, status: 'fail' }] }); b.complete();
+    expect(component.files[0].quality?.ready).toBeTrue();
+    expect(component.files[1].quality?.ready).toBeFalse();
+    expect(states.at(-1)).toBeFalse();
+    component.removeFile(new Event('click'), 1);
+    expect(states.at(-1)).toBeTrue();
+  });
+
+  it('ignores late results from a removed image and evaluates its replacement', () => {
+    const a = new Subject<ImagePreflightResult>(), b = new Subject<ImagePreflightResult>();
+    check.and.returnValues(a, b);
+    select('a.png');
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    component.removeFile(new Event('click'), 0);
+    select('b.png');
+    a.next({ ready: false, checks: [] }); a.complete();
+    expect(component.files[0].name).toBe('b.png');
+    expect(component.files[0].quality).toBeUndefined();
+    b.next(ready); b.complete();
+    expect(component.ready).toBeTrue();
+    expect(revoke).toHaveBeenCalled();
+  });
+
+  it('shows a technical retry state and does not duplicate an active check', () => {
+    const pending = new Subject<ImagePreflightResult>();
+    check.and.returnValue(pending);
+    select('retry.png');
+    component.retryQuality(component.files[0]);
+    expect(check).toHaveBeenCalledTimes(1);
+    pending.error(new Error('offline'));
+    fixture.detectChanges();
+    expect(component.ready).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('We could not check this image');
+    expect(fixture.nativeElement.textContent).not.toContain('unreadable');
+    check.and.returnValue(of(ready));
+    component.retryQuality(component.files[0]);
+    expect(component.ready).toBeTrue();
+  });
+
+  it('cancels checks on reset and destruction', () => {
+    const pending = new Subject<ImagePreflightResult>();
+    check.and.returnValue(pending);
+    select('a.png'); component.reset(); pending.next(ready);
+    expect(component.files).toEqual([]);
+    select('b.png'); component.ngOnDestroy(); pending.next(ready); pending.complete();
+    expect(component.files[0].quality).toBeUndefined();
+  });
+
+  it('prevents changing files while the parent uploads a checked batch', () => {
+    select('a.png'); component.disabled = true;
+    component.removeFile(new Event('click'), 0); select('b.png');
+    expect(component.files.length).toBe(1);
+    expect(check).toHaveBeenCalledTimes(1);
+  });
+
+  for (const width of [360, 768, 1280]) {
+    it('keeps checklist content and controls within its container at ' + width + 'px', () => {
+      select('a-long-assignment-image-filename.png');
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      host.style.display = 'block'; host.style.width = width + 'px';
+      expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
+      expect(host.querySelectorAll('app-image-quality-checklist li.passed').length).toBe(3);
+      expect(host.textContent).toContain('Check yourself');
+      expect(host.querySelector('[role="status"]')?.getAttribute('aria-live')).toBe('polite');
+    });
+  }
+
+  it('clears a rotated failure when replaced by an upright image', () => {
+    check.and.returnValue(of({ready:false,checks:[{id:'orientation',label:'Upright image',required:true,status:'fail',message:'Please rotate the image so the writing is upright.'}]}));
+    select('sideways.png'); fixture.detectChanges();
+    expect(component.ready).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Please rotate');
+    component.removeFile(new Event('click'),0);
+    check.and.returnValue(of(ready)); select('upright.png'); fixture.detectChanges();
+    expect(component.ready).toBeTrue();
+    expect(fixture.nativeElement.textContent).not.toContain('Please rotate');
+  });
+  it('blocks unavailable required orientation without showing rotated', () => {
+    check.and.returnValue(of({ready:false,checks:[{id:'orientation',label:'Upright image',required:true,status:'unavailable',message:'Could not verify orientation. Please try again.'}]}));
+    select('uncertain.png'); fixture.detectChanges();
+    expect(component.ready).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Could not check');
+    expect(fixture.nativeElement.querySelector('li.failed')).toBeNull();
+  });
+
 });

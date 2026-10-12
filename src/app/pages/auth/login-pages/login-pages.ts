@@ -7,15 +7,12 @@ import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.se
 import { AlertService } from '../../../services/alert.service';
 import { DeviceService } from '../../../services/device.service';
 import { AuthErrorContext, authErrorMessage } from '../../../auth/auth-error.util';
-import { evaluatePasswordRequirements } from '../../../auth/password-policy.util';
-import { PasswordRequirements } from '../../../components/password-requirements/password-requirements';
 
-@Component({ selector: 'app-login-pages', imports: [CommonModule, ReactiveFormsModule, PasswordRequirements],
+@Component({ selector: 'app-login-pages', imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './login-pages.html', styleUrl: './login-pages.css' })
 export class LoginPages implements OnInit {
   loginForm: FormGroup;
   showPassword = false;
-  signupMode = false;
   device = inject(DeviceService);
   isLoading = false;
   activeOperation: 'login' | 'signup' | 'google' | null = null;
@@ -49,16 +46,6 @@ export class LoginPages implements OnInit {
   }
 
   togglePassword(): void { this.showPassword = !this.showPassword; }
-
-  toggleSignupMode(): void {
-    if (this.isLoading) return;
-    this.signupMode = !this.signupMode;
-    this.showPassword = false;
-  }
-
-  get signupPasswordValid(): boolean {
-    return evaluatePasswordRequirements(this.loginForm.controls['password'].value || '').valid;
-  }
 
   openForgotPassword(): void {
     this.forgotEmail = String(this.loginForm.value.email || '').trim();
@@ -112,7 +99,7 @@ export class LoginPages implements OnInit {
   }
 
   async onSignup(): Promise<void> {
-    if (this.isLoading || this.loginForm.invalid || !this.signupPasswordValid) return;
+    if (this.isLoading || this.loginForm.invalid) return;
     this.isLoading = true;
     this.activeOperation = 'signup';
     try {

@@ -153,7 +153,7 @@
       }
     </div>
     <div class="upload-section-heading"><div><p>Upload Image or PDF</p><span>JPG, PNG or PDF · Maximum 10 MB per file</span></div></div>
-    <app-upload-essay-form #uploadFormDialog (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
+    <app-upload-essay-form [disabled]="isLoading" #uploadFormDialog (filesSelected)="onFilesSelected($event)" (readinessChange)="imagePreflightReady = $event"></app-upload-essay-form>
 
     @if (uploadProgressPercent !== null) {
     <div class="w-full mt-6">
@@ -197,8 +197,8 @@
         type="button"
         class="btn-primary"
         (click)="uploadFiles($event)"
-        [disabled]="isLoading"
-        [class.opacity-50]="isLoading"
+        [disabled]="isLoading || !imagePreflightReady"
+        [class.opacity-50]="isLoading || !imagePreflightReady"
       >
         <i class="bx bx-upload" aria-hidden="true"></i> {{ selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
       </button>
@@ -360,7 +360,7 @@
         }
       </div>
       <div class="upload-section-heading"><div><p>Upload Image or PDF</p><span>JPG, PNG or PDF · Maximum 10 MB per file</span></div></div>
-      <app-upload-essay-form #uploadFormSheet (filesSelected)="onFilesSelected($event)"></app-upload-essay-form>
+      <app-upload-essay-form [disabled]="isLoading" #uploadFormSheet (filesSelected)="onFilesSelected($event)" (readinessChange)="imagePreflightReady = $event"></app-upload-essay-form>
 
     @if (uploadProgressPercent !== null) {
     <div class="w-full mt-6">
@@ -402,8 +402,8 @@
         type="button"
         class="btn-primary-sm w-full"
         (click)="uploadFiles($event)"
-        [disabled]="isLoading || selectedFiles.length === 0"
-        [class.opacity-50]="isLoading || selectedFiles.length === 0"
+        [disabled]="isLoading || selectedFiles.length === 0 || !imagePreflightReady"
+        [class.opacity-50]="isLoading || selectedFiles.length === 0 || !imagePreflightReady"
       >
         <i class="bx bx-upload" aria-hidden="true"></i> Submit
       </button>
