@@ -7,6 +7,7 @@ import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.se
 import { AlertService } from '../../../services/alert.service';
 import { DeviceService } from '../../../services/device.service';
 import { AuthErrorContext, authErrorMessage } from '../../../auth/auth-error.util';
+import { isQrJoinUrl, safeInternalReturnUrl } from '../../../auth/safe-return-url';
 
 @Component({ selector: 'app-login-pages', imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './login-pages.html', styleUrl: './login-pages.css' })
@@ -34,6 +35,21 @@ export class LoginPages implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
+      const qrReturn = this.returnUrl();
+      if (isQrJoinUrl(qrReturn)) {
+        const session = await this.auth.ensureQrBackendSession();
+        if (session.state === 'ready') {
+          await this.postAuth.navigate({ role: session.role }, qrReturn);
+          return;
+        }
+        if (session.state === 'verification') {
+          await this.router.navigate(['/verify-email'], { queryParams: { returnUrl: qrReturn }, replaceUrl: true });
+          return;
+        }
+        const response = await this.auth.completeGoogleRedirectIfPresent();
+        if (response) await this.finishAuthentication(response);
+        return;
+      }
       if (this.auth.getBackendJwt()) {
         await this.postAuth.navigate({ role: this.auth.getBackendRole() }, this.returnUrl());
         return;
@@ -103,7 +119,10 @@ export class LoginPages implements OnInit {
     this.isLoading = true;
     this.activeOperation = 'signup';
     try {
-      const response = await this.auth.signupWithEmail(this.loginForm.value.email, this.loginForm.value.password);
+      const returnUrl = this.returnUrl();
+      const response = isQrJoinUrl(returnUrl)
+        ? await this.auth.signupWithEmail(this.loginForm.value.email, this.loginForm.value.password, returnUrl)
+        : await this.auth.signupWithEmail(this.loginForm.value.email, this.loginForm.value.password);
       await this.finishAuthentication(response);
     } catch (err: any) {
       this.handleLoginError(err, 'Signup failed', 'signup');
@@ -131,6 +150,7 @@ export class LoginPages implements OnInit {
     if (response?.verificationRequired) {
       return this.router.navigate(['/verify-email'], {
         replaceUrl: true,
+        ...(isQrJoinUrl(this.returnUrl()) ? { queryParams: { returnUrl: this.returnUrl() } } : {}),
         state: { verificationDeliveryWarning: response.deliveryWarning === true }
       });
     }
@@ -138,7 +158,8 @@ export class LoginPages implements OnInit {
   }
 
   private returnUrl(): string | null {
-    return this.route.snapshot.queryParamMap.get('redirect') || this.route.snapshot.queryParamMap.get('returnUrl');
+    return safeInternalReturnUrl(this.route.snapshot.queryParamMap.get('redirect'))
+      || safeInternalReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
   }
 
   private handleLoginError(err: any, title: string, context: AuthErrorContext): void {

@@ -4,6 +4,8 @@ import { Observable, catchError, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { classifyBackendRequest } from './backend-request.util';
+import { QR_JOIN_AUTH_RECOVERY } from './qr-join-context';
+import { readStorage } from './safe-browser-storage';
 
 @Injectable()
 export class AuthErrorInterceptor implements HttpInterceptor {
@@ -12,11 +14,12 @@ export class AuthErrorInterceptor implements HttpInterceptor {
   private handling = false;
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     return next.handle(req).pipe(catchError((err: unknown) => {
+      if (req.context.get(QR_JOIN_AUTH_RECOVERY)) return throwError(() => err);
       const sent = req.headers.get('Authorization')?.replace(/^Bearer /, '');
       const backend = classifyBackendRequest(req.url);
       const invalid = err instanceof HttpErrorResponse && err.status === 401 && ['AUTH_INVALID','AUTH_EXPIRED'].includes(err.error?.code);
       const authEndpoint = backend.pathname === '/api/auth' || backend.pathname?.startsWith('/api/auth/');
-      if (backend.access === 'authenticated' && invalid && sent && sent === localStorage.getItem('backend_jwt')
+      if (backend.access === 'authenticated' && invalid && sent && sent === readStorage('backend_jwt')
         && !authEndpoint && !this.handling) {
         this.handling = true;
         const attemptedUrl = this.router.url;

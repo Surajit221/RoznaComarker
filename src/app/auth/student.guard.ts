@@ -1,16 +1,20 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject } from '@angular/core';
 import { CanActivate, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { JoinIntentService } from '../services/join-intent.service';
 import { decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
+import { AuthService } from './auth.service';
+import { isQrJoinUrl } from './safe-return-url';
 
 @Injectable({ providedIn: 'root' })
 export class StudentGuard implements CanActivate {
+  private injector = inject(Injector);
   constructor(
     private router: Router,
     private joinIntent: JoinIntentService
   ) {}
 
-  canActivate(_route: unknown, state: RouterStateSnapshot): boolean | UrlTree {
+  canActivate(_route: unknown, state: RouterStateSnapshot): boolean | UrlTree | Promise<boolean | UrlTree> {
+    if (isQrJoinUrl(state.url)) return this.canActivateQr(state.url);
     const token = readUsableBackendJwt();
     if (!token) {
       this.captureJoinIntentIfPresent(state.url);
@@ -27,6 +31,19 @@ export class StudentGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private async canActivateQr(url: string): Promise<boolean | UrlTree> {
+    this.joinIntent.captureUrl(url);
+    const redirect = (path: string) => this.router.createUrlTree([path], { queryParams: { returnUrl: url } });
+    try {
+      const session = await this.injector.get(AuthService).ensureQrBackendSession();
+      if (session.state === 'anonymous') return redirect('/login');
+      if (session.state === 'verification') return redirect('/verify-email');
+      if (!session.role) return redirect('/select-role');
+      if (session.role !== 'student') return this.router.createUrlTree([session.role === 'teacher' ? '/teacher/my-classes' : '/']);
+      return true;
+    } catch { return redirect('/login'); }
   }
 
   private captureJoinIntentIfPresent(attemptedUrl: string) {
