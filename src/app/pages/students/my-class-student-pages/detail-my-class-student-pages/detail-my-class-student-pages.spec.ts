@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 
 import { DetailMyClassStudentPages } from './detail-my-class-student-pages';
 import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
@@ -237,4 +238,47 @@ describe('DetailMyClassStudentPages', () => {
     expect(submit).not.toHaveBeenCalled();
     expect(component.isLoading).toBeFalse();
   });
+
+  for (const desktop of [true, false]) {
+    it('renders Upload Essay as a button and opens the same uploader on ' + (desktop ? 'desktop' : 'mobile'), () => {
+      Object.assign(component.device, { isDesktop: () => desktop, isMobile: () => !desktop, isTablet: () => false });
+      component.isLoading = false;
+      component.assignments = [{ id: 'assignment-1', title: 'Essay', dueDate: '', submitted: 0, total: 1, status: 'waiting', showMarksToStudent: true, allowResubmission: false }];
+      const upload = spyOn(component, 'openUpload').and.callThrough(); fixture.detectChanges();
+      const button = fixture.nativeElement.querySelector('.student-assignment-card .submission-action-button') as HTMLButtonElement;
+      expect(button.tagName).toBe('BUTTON'); expect(button.type).toBe('button'); expect(button.textContent?.trim()).toBe('Upload Essay');
+      expect(button.classList.contains('btn-primary-sm')).toBeTrue(); button.click();
+      expect(upload).toHaveBeenCalledOnceWith('assignment-1'); expect(component.selectedAssignmentId).toBe('assignment-1');
+      expect(component.showDialog).toBe(desktop); expect(component.openSheet).toBe(!desktop);
+      document.body.classList.remove('overflow-hidden');
+    });
+
+    it('keeps the student View Submission route and class query on ' + (desktop ? 'desktop' : 'mobile'), () => {
+      Object.assign(component.device, { isDesktop: () => desktop, isMobile: () => !desktop, isTablet: () => false });
+      component.isLoading = false; component.classId = 'class-1';
+      component.assignments = [{ id: 'assignment-1', title: 'Essay', dueDate: '', submitted: 1, total: 1, status: 'completed', showMarksToStudent: true, allowResubmission: false }];
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true); fixture.detectChanges();
+      const button = fixture.nativeElement.querySelector('.student-assignment-card .submission-action-button') as HTMLButtonElement;
+      expect(button.textContent?.trim()).toBe('View Submission'); button.click();
+      expect(navigate).toHaveBeenCalledOnceWith(['/student/my-classes/detail/my-submissions', 'assignment-1'], { queryParams: { classId: 'class-1' } });
+    });
+  }
+
+  it('keeps essay buttons inside assignment cards at phone, tablet and desktop widths', () => {
+    component.isLoading = false;
+    component.assignments = [
+      { id: 'assignment-1', title: 'Long essay title '.repeat(8), dueDate: 'October 15, 2026', submitted: 0, total: 1, status: 'waiting', showMarksToStudent: true, allowResubmission: false },
+      { id: 'assignment-2', title: 'Completed essay', dueDate: 'October 15, 2026', submitted: 1, total: 1, status: 'completed', showMarksToStudent: true, allowResubmission: false }
+    ];
+    for (const width of [360, 768, 1280]) {
+      Object.assign(component.device, { isDesktop: () => width >= 1024, isMobile: () => width < 768, isTablet: () => width >= 768 && width < 1024 });
+      fixture.nativeElement.style.display = 'block'; fixture.nativeElement.style.width = width + 'px'; fixture.detectChanges();
+      for (const card of Array.from(fixture.nativeElement.querySelectorAll('.student-assignment-card')) as HTMLElement[]) {
+        const button = card.querySelector('.submission-action-button') as HTMLButtonElement;
+        expect(button.getBoundingClientRect().right).withContext(width + 'px button overflow').toBeLessThanOrEqual(card.getBoundingClientRect().right + 1);
+        expect(card.scrollWidth).withContext(width + 'px card overflow').toBeLessThanOrEqual(card.clientWidth + 1);
+      }
+    }
+  });
+
 });

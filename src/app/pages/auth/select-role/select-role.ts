@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../auth/auth.service';
 import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.service';
 import { SubscriptionApiService } from '../../../api/subscription-api.service';
+import { readStorage, removeStorage } from '../../../auth/safe-browser-storage';
 
 type OnboardingRole = 'teacher' | 'student';
 
@@ -31,10 +32,10 @@ export class SelectRole {
     this.errorMessage = '';
     try {
       const response = await this.auth.setMyRole(this.selectedRole);
-      const referral = sessionStorage.getItem('pending_referral_code');
+      const referral = readStorage('pending_referral_code', 'sessionStorage');
       if (referral) {
         try { await this.subscriptions.claimReferral(referral); }
-        finally { sessionStorage.removeItem('pending_referral_code'); }
+        finally { removeStorage('pending_referral_code', 'sessionStorage'); }
       }
       await this.postAuth.navigate(response.user, this.route.snapshot.queryParamMap.get('returnUrl'));
     } catch (err: any) {

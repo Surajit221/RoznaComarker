@@ -230,4 +230,52 @@ describe('DialogViewSubmissions loading states', () => {
 
     expect(assignmentApi.getStaleEvaluationSummary).toHaveBeenCalledTimes(2);
   });
+
+  for (const desktop of [true, false]) {
+    it('keeps the View button route, IDs, delete action and disabled state on ' + (desktop ? 'desktop' : 'mobile'), async () => {
+      spyOn(TestBed.inject(DeviceService), 'isDesktop').and.returnValue(desktop);
+      resolveRequest([{ _id: 'submission-1', student: { _id: 'student-1', displayName: 'Student' }, class: 'class-1' } as BackendSubmission]);
+      await fixture.whenStable(); fixture.detectChanges();
+      const view = fixture.nativeElement.querySelector('.submission-actions .submission-action-button') as HTMLButtonElement;
+      expect(view.tagName).toBe('BUTTON'); expect(view.type).toBe('button');
+      expect(view.textContent?.trim()).toBe('View'); expect(view.classList.contains('btn-primary-sm')).toBeTrue();
+      view.click();
+      expect(TestBed.inject(Router).navigate).toHaveBeenCalledOnceWith(['/teacher/my-classes/detail/student-submissions', 'student-1'], {
+        queryParams: { classId: 'class-1', assignmentId: 'assignment-a', submissionId: 'submission-1' }
+      });
+      expect(api.removeSubmission).not.toHaveBeenCalled();
+      const remove = fixture.nativeElement.querySelector('.remove-action') as HTMLButtonElement;
+      const handler = spyOn(component, 'removeSubmission').and.resolveTo(); remove.click();
+      expect(handler).toHaveBeenCalledOnceWith(component.students[0]);
+      component.removingSubmissionId = 'submission-1'; fixture.detectChanges();
+      expect(remove.disabled).toBeTrue(); expect(remove.getAttribute('aria-label')).toBe('Remove submission');
+    });
+  }
+
+  it('keeps the embedded selection flow instead of adding navigation', async () => {
+    component.navigateOnSelect = false;
+    resolveRequest([{ _id: 'submission-1', student: { _id: 'student-1', displayName: 'Student' } } as BackendSubmission]);
+    await fixture.whenStable(); fixture.detectChanges();
+    const selected = jasmine.createSpy(); component.selected.subscribe(selected);
+    (fixture.nativeElement.querySelector('.submission-actions .submission-action-button') as HTMLButtonElement).click();
+    expect(selected).toHaveBeenCalledOnceWith('submission-1'); expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps long student information separate from View and delete at phone, tablet and desktop widths', async () => {
+    const desktop = spyOn(TestBed.inject(DeviceService), 'isDesktop');
+    resolveRequest([{ _id: 'submission-1', student: { _id: 'student-1', displayName: 'Alexandria'.repeat(10) } } as BackendSubmission]);
+    await fixture.whenStable();
+    for (const width of [360, 768, 1280]) {
+      desktop.and.returnValue(width >= 1024); fixture.nativeElement.style.display = 'block';
+      fixture.nativeElement.style.width = (width - 48) + 'px'; fixture.detectChanges();
+      const actions = fixture.nativeElement.querySelector('.submission-actions') as HTMLElement;
+      const row = actions.parentElement!;
+      const view = actions.querySelector('.submission-action-button') as HTMLButtonElement;
+      const remove = actions.querySelector('.remove-action') as HTMLButtonElement;
+      expect(row.scrollWidth).withContext(width + 'px row overflow').toBeLessThanOrEqual(row.clientWidth + 1);
+      expect(view.getBoundingClientRect().right).toBeLessThanOrEqual(remove.getBoundingClientRect().left + 1);
+      expect(row.querySelector('p')!.getBoundingClientRect().right).toBeLessThanOrEqual(view.getBoundingClientRect().left + 1);
+    }
+  });
+
 });

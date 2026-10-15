@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { firstValueFrom, timeout } from 'rxjs';
+import { QR_JOIN_AUTH_RECOVERY } from '../auth/qr-join-context';
 
 import { environment } from '../../environments/environment';
 import { CacheService } from '../services/cache.service';
@@ -43,29 +44,31 @@ export class MembershipApiService {
     return environment.apiUrl;
   }
 
-  async getMyMemberships(): Promise<BackendMembership[]> {
+  async getMyMemberships(refresh = false, context?: HttpContext): Promise<BackendMembership[]> {
     const apiBaseUrl = this.getApiBaseUrl();
     const cacheKey = 'my-memberships';
-    const cached = this.cache.get<BackendMembership[]>(cacheKey);
-    if (cached) {
+    const qrOwned = context?.get(QR_JOIN_AUTH_RECOVERY) === true;
+    if (qrOwned) this.cache.delete(cacheKey);
+    const cached = qrOwned ? null : this.cache.get<BackendMembership[]>(cacheKey);
+    if (cached && !refresh) {
       return cached;
     }
 
-    const resp = await firstValueFrom(
-      this.http.get<BackendResponse<BackendMembership[]>>(`${apiBaseUrl}/memberships/mine`)
-    );
+    const request = this.http.get<BackendResponse<BackendMembership[]>>(`${apiBaseUrl}/memberships/mine`, { context });
+    const resp = await firstValueFrom(context?.get(QR_JOIN_AUTH_RECOVERY) ? request.pipe(timeout(30_000)) : request);
     const data = resp?.data || [];
     
     // Cache for 2 minutes
-    this.cache.set(cacheKey, data, 2 * 60 * 1000);
+    // A QR read may finish after navigation/account changes. Do not publish
+    // its result into the shared class-list cache.
+    if (!qrOwned) this.cache.set(cacheKey, data, 2 * 60 * 1000);
     return data;
   }
 
-  async joinClassByCode(joinCode: string): Promise<JoinClassResponse> {
+  async joinClassByCode(joinCode: string, context?: HttpContext): Promise<JoinClassResponse> {
     const apiBaseUrl = this.getApiBaseUrl();
-    const resp = await firstValueFrom(
-      this.http.post<BackendResponse<JoinClassResponse>>(`${apiBaseUrl}/memberships/join`, { joinCode })
-    );
+    const request = this.http.post<BackendResponse<JoinClassResponse>>(`${apiBaseUrl}/memberships/join`, { joinCode }, { context });
+    const resp = await firstValueFrom(context?.get(QR_JOIN_AUTH_RECOVERY) ? request.pipe(timeout(30_000)) : request);
     
     // Clear memberships cache after joining new class
     this.cache.delete('my-memberships');

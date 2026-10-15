@@ -97,15 +97,15 @@
                       (click)="viewWorksheetResult(item)"
                     >&#128202; View result</p>
                   } @else if(item.status == 'waiting') {
-                    <p
-                      class="text-sm underline cursor-pointer text-gray-800 hover:text-gray-600"
+                    <button type="button"
+                      class="btn-primary-sm submission-action-button"
                       (click)="openUpload(item.id)"
                     >
                       Upload Essay
-                    </p>
+                    </button>
                   } @else {
                     <div class="student-assignment-actions">
-                      <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
+                      <button type="button" class="btn-primary-sm submission-action-button" (click)="toViewSubmission(item.id)">View Submission</button>
                       @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && (!item.requireAdaptiveBeforeResubmission || item.adaptiveResubmissionSatisfied)) {
                         <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
                       } @else if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && item.requireAdaptiveBeforeResubmission) {
@@ -311,15 +311,15 @@
                 (click)="viewWorksheetResult(item)"
               >&#128202; View result</p>
             } @else if(item.status == 'waiting') {
-              <p
-                class="text-xs underline cursor-pointer text-gray-800 hover:text-gray-600"
+              <button type="button"
+                class="btn-primary-sm submission-action-button"
                 (click)="openUpload(item.id)"
               >
                 Upload Essay
-              </p>
+              </button>
             } @else {
               <div class="student-assignment-actions student-assignment-actions--mobile">
-                <button type="button" (click)="toViewSubmission(item.id)">View Submission</button>
+                <button type="button" class="btn-primary-sm submission-action-button" (click)="toViewSubmission(item.id)">View Submission</button>
                 @if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && (!item.requireAdaptiveBeforeResubmission || item.adaptiveResubmissionSatisfied)) {
                   <button type="button" class="student-assignment-actions__resubmit" (click)="openUpload(item.id)">Submit Another Draft</button>
                 } @else if ((!item.resourceType || item.resourceType === 'essay') && item.allowResubmission && item.requireAdaptiveBeforeResubmission) {

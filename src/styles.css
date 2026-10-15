@@ -97,6 +97,15 @@
     @apply bg-[#008081] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#136C6D] shadow-[0px_4px_0_#136C6D] hover:bg-[#079696]  cursor-pointer;
   }
 
+  .submission-action-button {
+    @apply inline-flex min-h-11 max-w-full items-center justify-center text-center no-underline transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#136C6D] active:scale-95;
+    overflow-wrap: anywhere;
+  }
+
+  .submission-action-button:hover {
+    background-color: var(--color-primary-dark);
+  }
+
   .btn-danger-sm {
     @apply bg-[#EE4E4E] text-sm font-semibold text-white py-2 px-4 rounded-xl border-2 border-[#E63D3D] shadow-[0px_4px_0_#E63D3D] hover:bg-[#f15c5c]  cursor-pointer;
   }

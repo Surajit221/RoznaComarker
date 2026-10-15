@@ -1,10 +1,16 @@
 import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, from, timeout } from 'rxjs';
 import { Auth, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, sendEmailVerification, sendPasswordResetEmail } from '@angular/fire/auth';
 
 import { environment } from '../../environments/environment';
-import { clearPrivateAuthStorage, decodeBackendJwt, readUsableBackendJwt } from './backend-token.util';
+import { clearPrivateAuthStorage, decodeBackendJwt, isBackendJwtUsable, readUsableBackendJwt } from './backend-token.util';
+import { writeStorage } from './safe-browser-storage';
+import { qrDiagnostic } from './qr-join-context';
+import { authContinuationUrl } from './safe-return-url';
+
+export type QrSession = { state: 'anonymous' } | { state: 'verification' }
+  | { state: 'ready'; uid: string; role: string | null };
 
 type BackendLoginResponse = {
   success: boolean;
@@ -69,8 +75,46 @@ export type BackendUser = {
 export class AuthService {
   private readonly backendJwtKey = 'backend_jwt';
   private readonly injector = inject(EnvironmentInjector);
+  private qrSession: Promise<QrSession> | null = null;
+  private qrReadyUid: string | null = null;
 
   constructor(private auth: Auth, private http: HttpClient) {}
+
+  ensureQrBackendSession(forceRefresh = false): Promise<QrSession> {
+    if (this.qrSession) return this.qrSession;
+    this.qrSession = this.restoreQrSession(forceRefresh).finally(() => { this.qrSession = null; });
+    return this.qrSession;
+  }
+
+  isQrSessionCurrent(uid: string): boolean {
+    return this.auth.currentUser?.uid === uid && this.auth.currentUser.emailVerified;
+  }
+
+  private async restoreQrSession(forceRefresh: boolean): Promise<QrSession> {
+    qrDiagnostic('qr_auth_wait_started');
+    await firstValueFrom(from(this.auth.authStateReady()).pipe(timeout(30_000)));
+    const user = this.auth.currentUser;
+    if (!user) { this.qrReadyUid = null; clearPrivateAuthStorage(); return { state: 'anonymous' }; }
+    qrDiagnostic('qr_auth_restored');
+    if (!user.emailVerified) {
+      clearPrivateAuthStorage(); this.qrReadyUid = null;
+      return { state: 'verification' };
+    }
+    if (forceRefresh || this.qrReadyUid !== user.uid || !this.getBackendJwt()) {
+      const token = await firstValueFrom(from(user.getIdToken(forceRefresh)).pipe(timeout(30_000)));
+      const response = await this.exchangeWithBackend(token, true);
+      if (this.auth.currentUser?.uid !== user.uid) throw new Error('QR authentication changed');
+      if (!response?.success || !isBackendJwtUsable(response.token)) {
+        clearPrivateAuthStorage();
+        throw new Error('QR backend authentication unavailable');
+      }
+      this.persistBackendSession(response);
+      if (!this.getBackendJwt()) throw new Error('QR backend authentication unavailable');
+      this.qrReadyUid = user.uid;
+    }
+    qrDiagnostic('qr_backend_auth_ready');
+    return { state: 'ready', uid: user.uid, role: this.getBackendRole() };
+  }
 
   private getApiBaseUrl(): string {
     return environment.apiUrl;
@@ -107,12 +151,12 @@ export class AuthService {
     return resp;
   }
 
-  async signupWithEmail(email: string, password: string) {
+  async signupWithEmail(email: string, password: string, qrReturnUrl?: string | null) {
     const cred = await createUserWithEmailAndPassword(this.auth, email, password);
     clearPrivateAuthStorage();
     let deliveryWarning = false;
     try {
-      await sendEmailVerification(cred.user, this.actionCodeSettings('/verify-email'));
+      await sendEmailVerification(cred.user, this.actionCodeSettings('/verify-email', qrReturnUrl));
     } catch (error) {
       deliveryWarning = true;
       console.error('[signupWithEmail] Account created but verification delivery failed', error);
@@ -124,12 +168,12 @@ export class AuthService {
     await sendPasswordResetEmail(this.auth, email.trim().toLowerCase(), this.actionCodeSettings('/login'));
   }
 
-  async resendVerificationEmail(): Promise<string> {
+  async resendVerificationEmail(qrReturnUrl?: string | null): Promise<string> {
     await this.auth.authStateReady();
     const user = this.auth.currentUser;
     if (!user) throw Object.assign(new Error('Authentication is required'), { code: 'auth/no-current-user' });
     await user.reload();
-    if (!user.emailVerified) await sendEmailVerification(user, this.actionCodeSettings('/verify-email'));
+    if (!user.emailVerified) await sendEmailVerification(user, this.actionCodeSettings('/verify-email', qrReturnUrl));
     return user.email || '';
   }
 
@@ -298,19 +342,19 @@ export class AuthService {
 
   private persistBackendSession(resp: BackendLoginResponse | null | undefined) {
     if (resp?.token) {
-      localStorage.setItem(this.backendJwtKey, resp.token);
+      writeStorage(this.backendJwtKey, resp.token);
+      this.qrReadyUid = this.auth.currentUser?.uid ?? null;
     }
   }
 
-  private actionCodeSettings(path: '/verify-email' | '/login') {
-    return { url: `${environment.FRONTEND_URL.replace(/\/+$/u, '')}${path}`, handleCodeInApp: false };
+  private actionCodeSettings(path: '/verify-email' | '/login', qrReturnUrl?: string | null) {
+    return { url: authContinuationUrl(environment.FRONTEND_URL, path, qrReturnUrl), handleCodeInApp: false };
   }
 
-  private async exchangeWithBackend(firebaseToken: string): Promise<BackendLoginResponse> {
+  private async exchangeWithBackend(firebaseToken: string, qrOwned = false): Promise<BackendLoginResponse> {
     const apiBaseUrl = this.getApiBaseUrl();
     try {
-      const resp = await firstValueFrom(
-        this.http.post<BackendLoginResponse>(
+      const request = this.http.post<BackendLoginResponse>(
           `${apiBaseUrl}/auth/login`,
           {},
           {
@@ -318,11 +362,11 @@ export class AuthService {
               Authorization: `Bearer ${firebaseToken}`
             }
           }
-        )
-      );
+        );
+      const resp = await firstValueFrom(qrOwned ? request.pipe(timeout(30_000)) : request);
       return resp;
     } catch (err: unknown) {
-      this.logHttpError('exchangeWithBackend', err);
+      if (!qrOwned) this.logHttpError('exchangeWithBackend', err);
       throw err;
     }
   }

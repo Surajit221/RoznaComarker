@@ -1,13 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../auth/auth.service';
 import { PostAuthNavigationService } from '../../../auth/post-auth-navigation.service';
 import { authErrorMessage } from '../../../auth/auth-error.util';
+import { isQrJoinUrl, safeInternalReturnUrl } from '../../../auth/safe-return-url';
 
 @Component({ selector: 'app-verify-email', imports: [CommonModule],
   templateUrl: './verify-email.html', styleUrl: './verify-email.css' })
 export class VerifyEmail implements OnInit, OnDestroy {
+  private route = inject(ActivatedRoute);
   email = '';
   checking = false;
   resending = false;
@@ -19,10 +21,20 @@ export class VerifyEmail implements OnInit, OnDestroy {
   constructor(private auth: AuthService, private postAuth: PostAuthNavigationService,
     private router: Router) {}
 
+  private qrReturn(): string | null {
+    const url = safeInternalReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
+    return isQrJoinUrl(url) ? url : null;
+  }
+
+  private loginOptions() {
+    const returnUrl = this.qrReturn();
+    return { replaceUrl: true, ...(returnUrl ? { queryParams: { returnUrl } } : {}) };
+  }
+
   async ngOnInit(): Promise<void> {
     const email = await this.auth.pendingVerificationEmail();
     if (!email) {
-      await this.router.navigate(['/login'], { replaceUrl: true });
+      await this.router.navigate(['/login'], this.loginOptions());
       return;
     }
     this.email = email;
@@ -52,10 +64,12 @@ export class VerifyEmail implements OnInit, OnDestroy {
         this.error = "Your email is not verified yet. Please open the verification link, then try again. If you can't find the email, check your Spam or Junk folder.";
         return;
       }
-      await this.postAuth.navigate(response.user);
+      const returnUrl = this.qrReturn();
+      if (returnUrl) await this.postAuth.navigate(response.user, returnUrl);
+      else await this.postAuth.navigate(response.user);
     } catch (err: any) {
       if (err?.code === 'auth/no-current-user' || err?.status === 401) {
-        await this.router.navigate(['/login'], { replaceUrl: true });
+        await this.router.navigate(['/login'], this.loginOptions());
       } else {
         this.error = authErrorMessage(err, 'verification');
       }
@@ -68,19 +82,21 @@ export class VerifyEmail implements OnInit, OnDestroy {
     this.message = '';
     this.error = '';
     try {
-      await this.auth.resendVerificationEmail();
+      const returnUrl = this.qrReturn();
+      if (returnUrl) await this.auth.resendVerificationEmail(returnUrl);
+      else await this.auth.resendVerificationEmail();
       this.message = 'Verification email sent. Please check your inbox and Spam/Junk folder.';
       this.cooldown = 60;
       this.startCooldown();
     } catch (err: any) {
-      if (err?.code === 'auth/no-current-user') await this.router.navigate(['/login'], { replaceUrl: true });
+      if (err?.code === 'auth/no-current-user') await this.router.navigate(['/login'], this.loginOptions());
       else this.error = authErrorMessage(err, 'verification');
     } finally { this.resending = false; }
   }
 
   async backToLogin(): Promise<void> {
     await this.auth.logout();
-    await this.router.navigate(['/login'], { replaceUrl: true });
+    await this.router.navigate(['/login'], this.loginOptions());
   }
 
   private startCooldown(): void {

@@ -1,3 +1,5 @@
+import { readStorage, removeStorage } from './safe-browser-storage';
+
 export interface BackendJwtPayload {
   id?: string;
   sub?: string;
@@ -27,19 +29,13 @@ export function isBackendJwtUsable(token: string | null, nowMs = Date.now()): bo
 }
 
 export function readUsableBackendJwt(): string | null {
-  const token = localStorage.getItem('backend_jwt');
+  const token = readStorage('backend_jwt');
   if (isBackendJwtUsable(token)) return token;
-  localStorage.removeItem('backend_jwt');
+  removeStorage('backend_jwt');
   return null;
 }
 
 export function clearPrivateAuthStorage(): void {
-  localStorage.removeItem('backend_jwt');
-  localStorage.removeItem('token');
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('role');
-  localStorage.removeItem('intended_role');
-  localStorage.removeItem('preferred_role');
-  sessionStorage.removeItem('token');
-  sessionStorage.removeItem('authToken');
+  for (const key of ['backend_jwt', 'token', 'authToken', 'role', 'intended_role', 'preferred_role']) removeStorage(key);
+  for (const key of ['token', 'authToken']) removeStorage(key, 'sessionStorage');
 }

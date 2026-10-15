@@ -58,7 +58,7 @@ describe('StudentSubmissionPages', () => {
       const submit = spyOn(component, 'submitFeedback');
       fixture.detectChanges();
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('.teacher-comment-ai-draft');
-      expect(button.textContent).toContain('Generate AI Draft');
+      expect(button.textContent).toContain('Generate AI Comments');
       button.click();
       await component.generateTeacherCommentDraft();
       fixture.detectChanges();
