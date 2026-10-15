@@ -52,7 +52,7 @@
                 <p class="text-gray-500 text-sm mt-1 break-words">Submission Date: {{ student.lastActivity }}</p>
               </div>
               <div class="submission-actions">
-                <button type="button" class="view-action" (click)="toStudentSubmission(student)">View</button>
+                <button type="button" class="btn-primary-sm submission-action-button" (click)="toStudentSubmission(student)">View</button>
                 <button type="button" class="remove-action" aria-label="Remove submission" title="Remove submission"
                   [disabled]="removingSubmissionId !== null" [attr.aria-busy]="removingSubmissionId === student.submissionId"
                   (click)="removeSubmission(student)">
@@ -62,12 +62,12 @@
             </div>
           } @else {
             <div class="w-full flex flex-row justify-between items-center gap-2 p-2 bg-[#F3F3F3] rounded-xl">
-              <div class="flex flex-row gap-2 items-center min-w-0">
-                <img [src]="student.image" [alt]="student.name" class="w-18 h-18 rounded-xl object-cover" />
+              <div class="flex flex-1 flex-row gap-2 items-center min-w-0">
+                <img [src]="student.image" [alt]="student.name" class="w-18 h-18 shrink-0 rounded-xl object-cover" />
                 <div class="flex flex-col min-w-0"><p class="text-lg font-semibold text-gray-900 mb-0 break-words">{{ student.name }}</p><p class="text-gray-500 text-sm break-words">Date: {{ student.lastActivity }}</p></div>
               </div>
               <div class="submission-actions">
-                <button type="button" class="view-action text-xs" (click)="toStudentSubmission(student)">View</button>
+                <button type="button" class="btn-primary-sm submission-action-button" (click)="toStudentSubmission(student)">View</button>
                 <button type="button" class="remove-action" aria-label="Remove submission" title="Remove submission"
                   [disabled]="removingSubmissionId !== null" [attr.aria-busy]="removingSubmissionId === student.submissionId"
                   (click)="removeSubmission(student)">
