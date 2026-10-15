@@ -19,6 +19,11 @@ const clamp = (n: number, min: number, max: number): number => Math.max(min, Mat
 const signature = (s: AnnotationSegment): string => [s.left, s.top, s.width, s.height || 0, Number(!!s.boundary)]
   .map((n) => n.toFixed(3)).join(':');
 
+/** Maximum badge-center displacement from its local source anchor, in rendered pixels. */
+export function badgeLocalityRadius(metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): number {
+  return Math.hypot(metrics.maxWidth / 2 + 2, metrics.height * 2);
+}
+
 /** Shared strokes retain membership, so selecting any original correction highlights its geometry. */
 export function sharedSegments(visuals: AnnotationVisual[], semantic: boolean): AnnotationSegment[] {
   const unique = new Map<string, AnnotationSegment>();
@@ -79,40 +84,25 @@ function label(group: AnnotationGroup, metrics: Readonly<AnnotationBadgeMetrics>
 
 /** Deterministic grouping; spatial bins avoid scanning all previously placed badges. */
 export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: number, height: number,
-  densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  _densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  // Keep the existing call signature; density no longer merges distinct targets.
+  void _densityCellWidth;
   if (width <= 0 || height <= 0) return [];
   const groups: AnnotationGroup[] = [];
   const targets = new Map<string, AnnotationGroup>();
-  const semanticLines = new Map<string, AnnotationGroup>();
-  const densityCells = new Map<string, AnnotationGroup>();
   for (const visual of [...visuals].sort((a, b) => a.segments[0].top - b.segments[0].top
     || a.segments[0].left - b.segments[0].left || a.annotation._id.localeCompare(b.annotation._id))) {
-    const anchor = visual.semantic ? visual.segments[0] : visual.segments[visual.segments.length - 1];
-    const left = anchor.left + anchor.width;
+    const anchor = visual.segments[0];
+    const left = anchor.left + (visual.semantic ? anchor.width : anchor.width / 2);
     const top = anchor.anchorTop;
-    const target = `${visual.semantic}:${visual.segments.map(signature).join('|')}`;
-    const firstLine = visual.lineKeys[0];
-    const columns = Math.max(1, Math.floor(width / densityCellWidth));
-    const densityKey = `${firstLine}:${Math.min(columns - 1, Math.floor(left / 100 * columns))}`;
+    const source = visual.annotation.renderTarget || visual.annotation.visualTarget;
+    const ids = source?.wordIds || visual.annotation.wordIds || [];
+    const identity = ids.length || source?.anchors?.length
+      ? JSON.stringify([[...ids].sort(), [...(source?.anchors || [])].sort((a, b) =>
+        a.wordId.localeCompare(b.wordId) || a.side.localeCompare(b.side))]) : visual.segments.map(signature).join('|');
+    const target = `${visual.semantic}:${identity}`;
     let group = targets.get(target);
-    if (!group && visual.semantic) {
-      const overlaps = new Map<AnnotationGroup, number>();
-      for (const key of visual.lineKeys) {
-        const candidate = semanticLines.get(key);
-        if (candidate) overlaps.set(candidate, (overlaps.get(candidate) || 0) + 1);
-      }
-      for (const [candidate, overlap] of overlaps) {
-        if (Math.abs(candidate.anchorTop - top) <= Math.max((anchor.height || 1) * 2, 5)
-          && overlap >= Math.min(visual.lineKeys.length, candidate.lineKeys.size) / 2) { group = candidate; break; }
-      }
-    }
-    if (!group && !visual.semantic) {
-      // Only nearby targets on the same visual line can share a dense local badge.
-      group = densityCells.get(densityKey);
-    }
     if (group) {
-      if (!visual.semantic) group.anchorLeft = (group.anchorLeft * group.annotations.length + left)
-        / (group.annotations.length + 1);
       group.annotations.push(visual.annotation);
       for (const key of visual.lineKeys) group.lineKeys.add(key);
     } else {
@@ -120,14 +110,11 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
         lineKeys: new Set(visual.lineKeys), anchorLeft: left, anchorTop: top,
         left, top, width: 30, code: '', label: '' };
       groups.push(group);
-      if (!visual.semantic) densityCells.set(densityKey, group);
     }
-    if (visual.semantic) for (const key of visual.lineKeys) semanticLines.set(key, group);
     targets.set(target, group);
   }
   // A bounded spatial hash; each occupied cell contains only nearby placed rectangles.
   const cells = new Map<string, AnnotationGroup[]>();
-  let unresolved = false;
   const keys = (x: number, y: number, w: number): string[] => {
     const result: string[] = [];
     for (let row = Math.floor((y - metrics.collisionHeight / 2) / 32); row <= Math.floor((y + metrics.collisionHeight / 2) / 32); row++) {
@@ -139,13 +126,14 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
     label(group, metrics);
     const anchorX = group.anchorLeft * width / 100;
     const anchorY = group.anchorTop * height / 100;
-    const candidates = [[0, -metrics.offsetY], ...Array.from({ length: 12 }, (_, i) => (i + 1) * 8)
-      .flatMap((offset) => [[-offset, -metrics.offsetY], [offset, -metrics.offsetY]]),
-      [0, -metrics.fallbackOffsetY], [0, metrics.offsetY]];
+    const shift = metrics.height;
+    const candidates = [[0, -metrics.offsetY], [-shift / 2, -metrics.offsetY], [shift / 2, -metrics.offsetY],
+      [0, -shift * 1.5], [-shift, -shift * 1.5], [shift, -shift * 1.5]];
     let best: { x: number; y: number; collisions: number } | undefined;
     for (const [dx, dy] of candidates) {
       const x = clamp(anchorX + dx, group.width / 2 + 2, width - group.width / 2 - 2);
       const y = clamp(anchorY + dy, metrics.edgeY, height - metrics.edgeY);
+      if (Math.hypot(x - anchorX, y - anchorY) > badgeLocalityRadius(metrics)) continue;
       const nearby = new Set(keys(x, y, group.width).flatMap((key) => cells.get(key) || []));
       let collisions = 0;
       for (const other of nearby) {
@@ -155,14 +143,15 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
       if (!best || collisions < best.collisions) best = { x, y, collisions };
       if (!collisions) break;
     }
-    group.left = best!.x / width * 100;
+    // On an extremely small hidden/thumbnail stage visibility may be impossible;
+    // keep the nearest edge position rather than searching unrelated page space.
+    best ||= { x: clamp(anchorX, group.width / 2 + 2, width - group.width / 2 - 2),
+      y: clamp(anchorY, metrics.edgeY, height - metrics.edgeY), collisions: 0 };
+    group.left = best.x / width * 100;
     group.top = best!.y / height * 100;
-    unresolved ||= best!.collisions > 0;
     for (const key of keys(best!.x, best!.y, group.width)) {
       const cell = cells.get(key) || []; cell.push(group); cells.set(key, cell);
     }
   }
-  // At most two denser retries, still restricted to compatible same-line local targets.
-  if (unresolved && densityCellWidth < 190) return layoutAnnotationGroups(visuals, width, height, densityCellWidth + 40, metrics);
   return groups;
 }

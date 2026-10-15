@@ -57,7 +57,7 @@ describe('annotation presentation groups', () => {
     expect(sharedSegments(built, false)[0].correctionIds).toHaveSize(3);
     expect(JSON.stringify(annotations)).toBe(before);
   });
-  it('groups nearby semantic corrections, uses mixed labels, and separates distant lines', () => {
+  it('keeps distinct semantic source targets separate even when their lines overlap', () => {
     const built = visuals([
       correction('dev1', 'DEV', ['w0', 'w1'], 'CONTENT'),
       correction('dev2', 'DEV', ['w1', 'w2'], 'CONTENT'),
@@ -65,11 +65,10 @@ describe('annotation presentation groups', () => {
       correction('far', 'DEV', ['w32'], 'CONTENT')
     ]);
     const groups = layoutAnnotationGroups(built, 390, 468);
-    expect(groups).toHaveSize(2);
-    expect(groups[0].code).toBe('DEV +2');
+    expect(groups).toHaveSize(4);
+    expect(groups[0].code).toBe('DEV');
     built[1].annotation = { ...built[1].annotation, symbol: 'COH', category: 'ORGANIZATION' };
-    expect(layoutAnnotationGroups(built, 390, 468)[0].code).toBe('DEV +2');
-    expect(layoutAnnotationGroups(built, 390, 468)[0].label).toContain('COH');
+    expect(layoutAnnotationGroups(built, 390, 468).find(g => g.id === 'dev2')?.code).toBe('COH');
   });
   it('keeps semantic rails separate from local geometry on the same sentence', () => {
     const built = visuals([correction('semantic', 'DEV', ['w0', 'w1', 'w8'], 'CONTENT'),

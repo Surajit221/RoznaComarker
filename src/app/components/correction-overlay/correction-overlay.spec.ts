@@ -25,6 +25,9 @@ describe('CorrectionOverlay media loading', () => {
     const image = fixture.nativeElement.querySelector('img') as HTMLImageElement;
     Object.defineProperty(image, 'naturalWidth', { value: 1200, configurable: true });
     Object.defineProperty(image, 'naturalHeight', { value: 1600, configurable: true });
+    // A mocked decoded image needs an actual layout height; production measures
+    // the browser rectangle rather than reconstructing it from natural dimensions.
+    image.style.aspectRatio = '3 / 4';
     component.onImageLoad({ target: image } as unknown as Event);
     fixture.detectChanges();
     return Array.from(fixture.nativeElement.querySelectorAll('.correction-overlay__marker'));
@@ -140,7 +143,7 @@ describe('CorrectionOverlay media loading', () => {
     }
   }));
 
-  it('groups nearby compact symbols and exposes each canonical correction', () => {
+  it('keeps nearby distinct targets separate and exposes each canonical correction', () => {
     spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);
     const buttons = renderMarkers([
       { _id: 'nearby-1', symbol: 'REP', group: 'Repetition', color: '#287a55', page: 1,
@@ -149,19 +152,19 @@ describe('CorrectionOverlay media loading', () => {
         bboxList: [{ x: 21, y: 20, w: 8, h: 2 }] }
     ] as FeedbackAnnotation[]);
 
-    expect(buttons).toHaveSize(1);
-    expect(buttons[0].textContent?.trim()).toBe('REP·P');
+    expect(buttons).toHaveSize(2);
+    expect(buttons[0].textContent?.trim()).toBe('REP');
     const groupLeft = parseFloat(buttons[0].style.getPropertyValue('--marker-left'));
-    expect(groupLeft).toBeGreaterThan(27);
-    expect(groupLeft).toBeLessThan(30);
+    expect(groupLeft).toBeCloseTo(24, 0);
     expect(parseFloat(buttons[0].style.getPropertyValue('--marker-top'))).toBeLessThan(20);
     expect(getComputedStyle(buttons[0]).borderRadius).toBe('999px');
 
     buttons[0].click();
     fixture.detectChanges();
     const entries = fixture.nativeElement.querySelectorAll('.correction-overlay__entries button');
-    expect(entries.length).toBe(2);
-    entries[1].click();
+    expect(entries.length).toBe(0);
+    component.closeFromControl();
+    buttons[1].click();
     fixture.detectChanges();
     expect(component.selectedId).toBe('nearby-2');
     expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();

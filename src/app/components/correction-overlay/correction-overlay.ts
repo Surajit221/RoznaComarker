@@ -96,6 +96,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private layoutFrame: number | null = null;
   private hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private renderedWidth = 0;
+  private renderedHeight = 0;
   private bodyLocked = false;
   private blurFrame: number | null = null;
 
@@ -154,6 +155,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     }
     this.imageWidth = image.naturalWidth;
     this.imageHeight = image.naturalHeight;
+    this.resizeObserver?.observe(image);
     this.setMediaState('loaded');
     this.rebuildMarkers();
     this.schedulePosition();
@@ -361,9 +363,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private layoutMarkers(): void {
-    const width = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
-    const height = width * this.imageHeight / this.imageWidth;
+    const rect = this.imageEl?.nativeElement.getBoundingClientRect();
+    const width = rect?.width || 0;
+    const height = rect?.height || 0;
     this.renderedWidth = width;
+    this.renderedHeight = height;
     this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
     this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
@@ -380,7 +384,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (this.layoutFrame !== null) return;
     this.layoutFrame = requestAnimationFrame(() => {
       this.layoutFrame = null;
-      if (this.mediaState === 'loaded' && (this.imageEl?.nativeElement.clientWidth !== this.renderedWidth
+      const rect = this.imageEl?.nativeElement.getBoundingClientRect();
+      if (this.mediaState === 'loaded' && (Math.abs((rect?.width || 0) - this.renderedWidth) > 0.25
+        || Math.abs((rect?.height || 0) - this.renderedHeight) > 0.25
         || annotationBadgeMetrics(window.innerWidth).height !== this.badgeMetrics.height)) {
         this.layoutMarkers();
         this.cdr.detectChanges();
@@ -507,6 +513,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   private beginImageLoad(url: string | null): void {
     this.closeTooltip();
+    if (this.imageEl) this.resizeObserver?.unobserve(this.imageEl.nativeElement);
+    this.renderedWidth = 0;
+    this.renderedHeight = 0;
     this.imageWidth = 0;
     this.imageHeight = 0;
     this.markers = [];
