@@ -75,21 +75,21 @@ export function buildEvaluationStatusPresentation({
     const policyStale = (canonical?.reevaluationReason || canonical?.evaluationStaleReason) === 'policy';
     return {
       state: 'stale',
-      title: teacher ? 'Re-evaluation required' : 'Your teacher is updating this evaluation.',
+      title: teacher ? 'Re-evaluation required' : 'Feedback is being updated by your teacher',
       message: teacher
         ? rubricStale
-          ? 'This score and feedback were generated using a previous rubric. Re-evaluate to apply the current rubric.'
+          ? 'This score and feedback were generated using a previous rubric. Re-evaluate to apply the current rubric. Re-evaluation uses Assessment Credits.'
           : policyStale
-            ? 'This score and feedback were generated using previous grading settings. Re-evaluate to apply the current settings.'
-            : 'This evaluation is outdated. Re-evaluate to apply the current settings.'
+            ? 'This score and feedback were generated using previous grading settings. Re-evaluate to apply the current settings. Re-evaluation uses Assessment Credits.'
+            : 'This evaluation is outdated. Re-evaluate to apply the current settings. Re-evaluation uses Assessment Credits.'
         : 'The previous evaluation is outdated. An updated result will appear after your teacher re-evaluates it.',
       actionLabel: teacher
         ? rubricStale ? 'Re-evaluate with current rubric'
-          : policyStale ? 'Re-evaluate with current settings' : null
+          : 'Re-evaluate with current settings'
         : null,
       showPanel: true,
-      showAction: teacher && !canonical?.teacherOverride && (rubricStale || policyStale)
-        && Boolean(canonical?.manualRetryAllowed),
+      showAction: teacher && !canonical?.teacherOverride
+        && Boolean(canonical?.manualRetryAllowed || evaluationStatus === 'stale'),
       showPreviousScore: hasPrevious,
       role: 'status'
     };

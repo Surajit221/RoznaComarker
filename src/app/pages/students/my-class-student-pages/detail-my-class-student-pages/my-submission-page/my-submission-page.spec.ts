@@ -8,6 +8,7 @@ import { CorrectionOverlay } from '../../../../../components/correction-overlay/
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
+import { buildAnnotationVisuals } from '../../../../../components/correction-overlay/annotation-geometry';
 
 describe('MySubmissionPage', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -40,6 +41,33 @@ describe('MySubmissionPage', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+  it('retains the API render target instead of drawing the broader evidence span', async () => {
+    component.submission = { _id: 'submission-1' } as NonNullable<typeof component.submission>;
+    const internals = component as unknown as { ensureWritingCorrectionsLegendLoaded(): Promise<void>;
+      getOcrPayload(id: string, reason: string): Promise<unknown>; loadOcrCorrections(id: string): Promise<unknown> };
+    spyOn(internals, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
+    const words = [{ id: 'w1', text: 'time', bbox: { x: 10, y: 40, w: 10, h: 5 } },
+      { id: 'w2', text: 'time', bbox: { x: 70, y: 40, w: 10, h: 5 } }];
+    const correction = { id: 'c1', fileId: 'file-a', page: 1, symbol: 'SP', category: 'MECHANICS',
+      wordIds: ['w1', 'w2'], evidenceWordIds: ['w1', 'w2'], message: 'Frozen message', suggestedText: 'Frozen suggestion',
+      bboxList: [words[0].bbox], visualTarget: { version: 1 as const, wordIds: ['w2'], anchors: [] },
+      renderTarget: { version: 1 as const, source: 'visualTarget' as const, wordIds: ['w2'], anchors: [], boxes: [words[1].bbox] } };
+    const payload = { success: true, data: { ocrStatus: 'completed', correctionStatus: 'completed',
+      ocr: [{ fileId: 'file-a', pageNumber: 1, words }], corrections: [correction], score: 72 } };
+    const before = JSON.stringify(payload);
+    spyOn(internals, 'getOcrPayload').and.resolveTo(payload);
+    await internals.loadOcrCorrections('submission-1');
+    expect(component.annotations).toHaveSize(1);
+    const mapped = component.annotations[0];
+    expect(mapped.renderTarget).toBe(correction.renderTarget);
+    expect(mapped.visualTarget).toBe(correction.visualTarget);
+    expect(mapped.evidenceWordIds).toBe(correction.evidenceWordIds);
+    expect(mapped.wordIds).toEqual(correction.wordIds);
+    const [visual] = buildAnnotationVisuals(component.annotations, words, 1, 600, 800);
+    expect(visual.segments).toHaveSize(1);
+    expect(visual.segments[0].left).toBeGreaterThan(69);
+    expect(JSON.stringify(payload)).toBe(before);
   });
   it('renders the shared raster review for PDF uploads and retains original PDF access', () => {
     spyOnProperty(component, 'isPdfUpload', 'get').and.returnValue(true);
@@ -565,7 +593,7 @@ describe('MySubmissionPage', () => {
 
     expect(component.evaluationStatusPresentation.state).toBe('stale');
     expect(component.evaluationStatusPresentation.showPreviousScore).toBeTrue();
-    expect(fixture.nativeElement.textContent).toContain('Your teacher is updating this evaluation');
+    expect(fixture.nativeElement.textContent).toContain('Feedback is being updated by your teacher');
     expect(fixture.nativeElement.textContent).toContain('Previous score: 72 / 100 (outdated)');
     expect(fixture.nativeElement.textContent).not.toContain('Re-evaluate with current rubric');
     expect(fixture.nativeElement.querySelector(

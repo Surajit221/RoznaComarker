@@ -83,7 +83,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     const student = typeof s.student === 'string'
       ? null
       : s.student as BackendUserLite & { photoUrl?: string; avatar?: string; image?: string };
-    const name = (student && (student.displayName || student.email)) || 'Student';
+    const name = s.guest?.displayName ? `${s.guest.displayName} (Guest)` : (student && (student.displayName || student.email)) || 'Student';
     const rawPhoto = student && (student.photoURL || student.photoUrl || student.avatar || student.image);
     const image = this.avatarUrlFromPhoto(rawPhoto);
     const date = s && s.submittedAt ? new Date(s.submittedAt) : null;
@@ -138,7 +138,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
 
     const submission = this.submissions.find((s) => s._id === student.submissionId);
     const studentObj = submission && typeof submission.student !== 'string' ? submission.student : null;
-    const studentId = studentObj?._id;
+    const studentId = submission?.submissionMode === 'guest' ? 'guest' : studentObj?._id;
 
     if (!studentId) {
       this.alert.showError('Missing student', 'Unable to open submission: student id is missing.');

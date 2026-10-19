@@ -45,6 +45,8 @@
         } @else {
         <div class="w-full rounded-2xl overflow-visible">
           <app-correction-overlay [imageUrl]="uploadedFileUrl || null"
+            [fileId]="activeFileId" [submissionId]="submission?._id || null"
+            [sourceGeometry]="activeSourceGeometry"
             [sourceLoading]="imageMediaState === 'fetching'" [sourceLoadError]="imageMediaState === 'error'"
             (retryRequested)="retryUploadedImage()" [annotations]="activeAnnotations"
             [ocrWords]="activeOcrWords" alt="Submission image"></app-correction-overlay>

@@ -26,6 +26,14 @@
   @if (displayImageUrl) {
     <div class="correction-overlay__image-stage">
     <img #imageEl class="correction-overlay__image" [class.is-loaded]="mediaState === 'loaded'" [src]="displayImageUrl" [alt]="alt" (load)="onImageLoad($event)" (error)="onImageError()" />
+    @if (debugOverlay && mediaState === 'loaded') {
+      @for (word of debugWords; track word.id) {
+        @if (word.bbox) {
+          <span class="correction-overlay__debug-word" [style.left.%]="word.bbox.x" [style.top.%]="word.bbox.y"
+            [style.width.%]="word.bbox.w" [style.height.%]="word.bbox.h" aria-hidden="true">{{ word.id }}</span>
+        }
+      }
+    }
 
   @for (line of mediaState === 'loaded' ? underlineSegments : []; track line.id) {
     <span class="correction-overlay__underline" [class.correction-overlay__boundary]="line.boundary" [class.is-selected]="isSelected(line)" [style.left.%]="line.left" [style.top.%]="line.top"

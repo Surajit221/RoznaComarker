@@ -384,7 +384,7 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: visible;
 }
 .submission-review-page *, .submission-review-page *::before, .submission-review-page *::after { box-sizing: border-box; }
 .submission-review-page .canonical-transcript-viewport,

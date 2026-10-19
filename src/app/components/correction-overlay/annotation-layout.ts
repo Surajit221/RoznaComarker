@@ -73,11 +73,10 @@ function label(group: AnnotationGroup, metrics: Readonly<AnnotationBadgeMetrics>
     : sameCategory ? `${first.symbol?.trim() || 'Issue'} +${count - 1}` : `${count} Issues`;
   const codes = [...new Set(group.annotations.map((a) => a.symbol?.trim()).filter((code): code is string => !!code))];
   const compact = codes.slice(0, 2).join('·') + (count > 2 ? `+${count - 2}` : '');
-  group.code = count === 1 ? previousLabel : codes.length === 1 ? `${codes[0]} +${count - 1}`
-    : compact.length <= previousLabel.length ? compact : `${codes[0] || 'Issue'} +${count - 1}`;
-  // Preserve placement widths so changing the label cannot change collision retries or membership.
+  group.code = count === 1 ? previousLabel : codes.length === 1 ? `${codes[0]} +${count - 1}` : compact;
+  // Size the visible compact label, including every character in the +N suffix.
   group.width = Math.max(metrics.minWidth, Math.min(metrics.maxWidth,
-    previousLabel.length * metrics.charWidth + metrics.widthAllowance));
+    group.code.length * metrics.charWidth + metrics.widthAllowance));
   group.label = `${count} correction${count === 1 ? '' : 's'}: `
     + group.annotations.map((a) => `${a.symbol || 'Issue'} ${a.group || a.category || ''}`).join('; ');
 }
@@ -113,6 +112,25 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
     }
     targets.set(target, group);
   }
+  placeGroups(groups, width, height, metrics);
+  return groupCollidingBadges(groups, width, height, metrics);
+}
+
+interface BadgeAnchor { left: number; top: number; }
+
+function localCandidates(group: AnnotationGroup, width: number, height: number,
+  metrics: Readonly<AnnotationBadgeMetrics>, anchors: BadgeAnchor[]): { x: number; y: number }[] {
+  const shift = metrics.height;
+  return [[0, -metrics.offsetY], [-shift / 2, -metrics.offsetY], [shift / 2, -metrics.offsetY],
+    [0, -shift * 1.5], [-shift, -shift * 1.5], [shift, -shift * 1.5]].map(([dx, dy]) => ({
+      x: clamp(group.anchorLeft * width / 100 + dx, group.width / 2 + 2, width - group.width / 2 - 2),
+      y: clamp(group.anchorTop * height / 100 + dy, metrics.edgeY, height - metrics.edgeY)
+    })).filter(({ x, y }) => anchors.every(a => Math.hypot(x - a.left * width / 100,
+      y - a.top * height / 100) <= badgeLocalityRadius(metrics)));
+}
+
+function placeGroups(groups: AnnotationGroup[], width: number, height: number,
+  metrics: Readonly<AnnotationBadgeMetrics>, origins?: Map<AnnotationGroup, BadgeAnchor[]>): void {
   // A bounded spatial hash; each occupied cell contains only nearby placed rectangles.
   const cells = new Map<string, AnnotationGroup[]>();
   const keys = (x: number, y: number, w: number): string[] => {
@@ -126,14 +144,8 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
     label(group, metrics);
     const anchorX = group.anchorLeft * width / 100;
     const anchorY = group.anchorTop * height / 100;
-    const shift = metrics.height;
-    const candidates = [[0, -metrics.offsetY], [-shift / 2, -metrics.offsetY], [shift / 2, -metrics.offsetY],
-      [0, -shift * 1.5], [-shift, -shift * 1.5], [shift, -shift * 1.5]];
     let best: { x: number; y: number; collisions: number } | undefined;
-    for (const [dx, dy] of candidates) {
-      const x = clamp(anchorX + dx, group.width / 2 + 2, width - group.width / 2 - 2);
-      const y = clamp(anchorY + dy, metrics.edgeY, height - metrics.edgeY);
-      if (Math.hypot(x - anchorX, y - anchorY) > badgeLocalityRadius(metrics)) continue;
+    for (const { x, y } of localCandidates(group, width, height, metrics, origins?.get(group) || [group])) {
       const nearby = new Set(keys(x, y, group.width).flatMap((key) => cells.get(key) || []));
       let collisions = 0;
       for (const other of nearby) {
@@ -152,6 +164,50 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
     for (const key of keys(best!.x, best!.y, group.width)) {
       const cell = cells.get(key) || []; cell.push(group); cells.set(key, cell);
     }
+  }
+}
+
+/** Collapse only unresolved local rectangle collisions; correction/target objects are never merged. */
+export function groupCollidingBadges(placed: AnnotationGroup[], width: number, height: number,
+  metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  let groups = placed;
+  const origins = new Map(groups.map(g => [g, [{ left: g.anchorLeft, top: g.anchorTop }]]));
+  const order = new Map(groups.flatMap(g => g.annotations).map((a, i) => [a, i]));
+  const annotations = (items: AnnotationGroup[]): FeedbackAnnotation[] => items.flatMap(g => g.annotations)
+    .sort((a, b) => order.get(a)! - order.get(b)!);
+  // Each successful pass reduces badge count. Recheck because a compact group is wider.
+  while (groups.length > 1) {
+    const parents = groups.map((_, i) => i);
+    const members = groups.map(g => [g]);
+    const root = (i: number): number => { while (parents[i] !== i) i = parents[i]; return i; };
+    let merged = false;
+    for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) {
+      const a = groups[i], b = groups[j];
+      if (Math.abs(a.left - b.left) * width / 100 >= (a.width + b.width) / 2 + 4
+        || Math.abs(a.top - b.top) * height / 100 >= metrics.collisionHeight
+        || Math.abs(a.anchorTop - b.anchorTop) * height / 100 > metrics.height * 2) continue;
+      const r1 = root(i), r2 = root(j);
+      if (r1 === r2) continue;
+      const first = Math.min(r1, r2), last = Math.max(r1, r2);
+      const combined = [...members[first], ...members[last]].sort((a, b) => groups.indexOf(a) - groups.indexOf(b));
+      const primary = combined[0];
+      const candidate = { ...primary, annotations: annotations(combined) };
+      label(candidate, metrics);
+      const anchors = combined.flatMap(g => origins.get(g)!);
+      if (!localCandidates(candidate, width, height, metrics, anchors).length) continue;
+      parents[last] = first; members[first] = combined; merged = true;
+    }
+    if (!merged) break;
+    groups = groups.flatMap((g, i) => {
+      if (root(i) !== i) return [];
+      if (members[i].length === 1) return [g];
+      const combined = members[i];
+      const group = { ...combined[0], annotations: annotations(combined),
+        lineKeys: new Set(combined.flatMap(g => [...g.lineKeys])) };
+      origins.set(group, combined.flatMap(g => origins.get(g)!));
+      return [group];
+    });
+    placeGroups(groups, width, height, metrics, origins);
   }
   return groups;
 }

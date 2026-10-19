@@ -70,8 +70,8 @@ describe('evaluation status presentation', () => {
       previousEvaluation,
       teacher: true
     });
-    expect(presentation.actionLabel).toBeNull();
-    expect(presentation.showAction).toBeFalse();
+    expect(presentation.actionLabel).toBe('Re-evaluate with current settings');
+    expect(presentation.showAction).toBeTrue();
   });
 
   it('shows processing and failure states while preserving the prior-score affordance', () => {
@@ -170,7 +170,7 @@ describe('evaluation status presentation', () => {
       previousEvaluation,
       teacher: false
     });
-    expect(student.title).toBe('Your teacher is updating this evaluation.');
+    expect(student.title).toBe('Feedback is being updated by your teacher');
     expect(student.showAction).toBeFalse();
     expect(student.actionLabel).toBeNull();
 

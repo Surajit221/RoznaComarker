@@ -43,6 +43,16 @@ describe('CorrectionOverlay media loading', () => {
       }
     });
   }
+  it('uses the exact image content box as its coordinate stage without clipping', () => {
+    renderMarkers([]);
+    const image = fixture.nativeElement.querySelector('img') as HTMLImageElement;
+    const stage = image.parentElement!;
+    const style = getComputedStyle(stage);
+    expect(style.display).toBe('block'); expect(style.position).toBe('relative');
+    expect(style.paddingTop).toBe('0px'); expect(style.paddingRight).toBe('0px');
+    expect(style.borderTopWidth).toBe('0px'); expect(style.overflow).toBe('visible');
+    expect(stage.getBoundingClientRect().width).toBeCloseTo(image.getBoundingClientRect().width, 1);
+  });
 
   it('keeps the skeleton visible until image decoding completes', () => {
     component.imageUrl = 'blob:test-image';
@@ -144,6 +154,9 @@ describe('CorrectionOverlay media loading', () => {
   }));
 
   it('keeps nearby distinct targets separate and exposes each canonical correction', () => {
+    // Collision grouping depends on available pixels; isolate this roomy-stage
+    // assertion from viewport/style changes made by other full-suite fixtures.
+    fixture.nativeElement.style.width = '768px';
     spyOn(TestBed.inject(DeviceService), 'isMobile').and.returnValue(true);
     const buttons = renderMarkers([
       { _id: 'nearby-1', symbol: 'REP', group: 'Repetition', color: '#287a55', page: 1,

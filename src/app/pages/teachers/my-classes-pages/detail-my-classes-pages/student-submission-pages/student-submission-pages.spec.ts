@@ -10,6 +10,7 @@ import { authenticatedUserProviders, httpTestingProviders, routedComponentProvid
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
+import { buildAnnotationVisuals } from '../../../../../components/correction-overlay/annotation-geometry';
 
 describe('StudentSubmissionPages', () => {
   it('renders the same raster review for teacher PDF review', () => {
@@ -43,6 +44,30 @@ describe('StudentSubmissionPages', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+  it('preserves authoritative renderTarget and the already-correct visualTarget fallback', async () => {
+    component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
+    const internals = component as unknown as { ensureWritingCorrectionsLegendLoaded(): Promise<void>;
+      getOcrCorrectionsPayload(id: string): Promise<unknown>; loadOcrCorrections(id: string): Promise<unknown> };
+    spyOn(internals, 'ensureWritingCorrectionsLegendLoaded').and.resolveTo();
+    const words = [{ id: 'w1', text: 'time', bbox: { x: 10, y: 40, w: 10, h: 5 } },
+      { id: 'w2', text: 'time', bbox: { x: 70, y: 40, w: 10, h: 5 } }];
+    const correction = { id: 'c1', fileId: 'file-a', page: 1, symbol: 'SP', category: 'MECHANICS',
+      wordIds: ['w1', 'w2'], evidenceWordIds: ['w1', 'w2'], message: 'Frozen message', suggestedText: 'Frozen suggestion',
+      bboxList: [words[0].bbox], visualTarget: { version: 1 as const, wordIds: ['w2'], anchors: [] },
+      renderTarget: { version: 1 as const, source: 'visualTarget' as const, wordIds: ['w2'], anchors: [], boxes: [words[1].bbox] } };
+    const payload = { success: true, data: { ocrStatus: 'completed', correctionStatus: 'completed',
+      ocr: [{ fileId: 'file-a', pageNumber: 1, words }], corrections: [correction], score: 72 } };
+    const before = JSON.stringify(payload);
+    spyOn(internals, 'getOcrCorrectionsPayload').and.resolveTo(payload);
+    await internals.loadOcrCorrections('submission-1');
+    expect(component.annotations).toHaveSize(1);
+    expect(component.annotations[0].renderTarget).toBe(correction.renderTarget);
+    expect(component.annotations[0].wordIds).toEqual(correction.wordIds);
+    const [visual] = buildAnnotationVisuals(component.annotations, words, 1, 600, 800);
+    expect(visual.segments).toHaveSize(1);
+    expect(visual.segments[0].left).toBeGreaterThan(69);
+    expect(JSON.stringify(payload)).toBe(before);
   });
 
   describe('AI teacher comment drafts', () => {

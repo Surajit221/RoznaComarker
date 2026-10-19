@@ -28,6 +28,11 @@ describe('authenticated backend request classification', () => {
       '/uploads/templates/template.jpg'
     ]) expect(classifyBackendRequest(`${backend}${path}?v=1`).access).toBe('public');
   });
+  it('keeps guest endpoints separate from registered bearer authentication', () => {
+    expect(classifyBackendRequest(`${backend}/api/guest/submissions/id`).access).toBe('public');
+    expect(classifyBackendRequest(`${backend}/api/guest-private/submissions/id`).access).toBe('authenticated');
+    expect(classifyBackendRequest(`https://evil.example/api/guest/submissions/id`).access).toBe('external');
+  });
 
   it('fails closed for external, deceptive, protocol-relative, and malformed URLs', () => {
     for (const url of [

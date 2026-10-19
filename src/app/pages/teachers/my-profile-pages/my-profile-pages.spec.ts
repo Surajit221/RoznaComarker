@@ -63,7 +63,7 @@ describe('MyProfilePages', () => {
     await component.onSaveAiConfig();
 
     expect(toast).toHaveBeenCalledWith(
-      'AI settings updated; existing evaluations will refresh when reopened'
+      'AI settings saved. Updating evaluation status is pending; some evaluations may need teacher re-evaluation, which uses Assessment Credits.'
     );
   });
 });

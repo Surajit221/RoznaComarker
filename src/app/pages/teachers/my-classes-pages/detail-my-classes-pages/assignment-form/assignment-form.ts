@@ -91,6 +91,7 @@ export class AssignmentForm {
         writingType: a.writingType || '',
         startDate: dateOnly,
         message: a.instructions || '',
+        allowGuestSubmission: a.allowGuestSubmission === true,
         showMarksToStudent: a.showMarksToStudent !== false,
         allowResubmission: a.allowResubmission === true,
         requireAdaptiveBeforeResubmission:
@@ -106,6 +107,7 @@ export class AssignmentForm {
     const today = new Date().toISOString().split('T')[0];
     this.classForm.get('startDate')?.setValue(today);
     this.classForm.patchValue({
+      allowGuestSubmission: false,
       showMarksToStudent: true,
       allowResubmission: false,
       requireAdaptiveBeforeResubmission: false
@@ -122,6 +124,7 @@ export class AssignmentForm {
         writingType: ['', Validators.required],
         startDate: ['', Validators.required],
         message: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
+        allowGuestSubmission: [false],
         showMarksToStudent: [true],
         allowResubmission: [false],
         requireAdaptiveBeforeResubmission: [false],
@@ -187,7 +190,10 @@ export class AssignmentForm {
       if (this.capabilities.allowResubmission) payload.allowResubmission = this.classForm.value.allowResubmission === true;
       if (this.capabilities.requireAdaptiveBeforeResubmission) payload.requireAdaptiveBeforeResubmission =
         this.classForm.value.allowResubmission === true && this.classForm.value.requireAdaptiveBeforeResubmission === true;
-      if (!this.isResourceAssignment) payload.writingType = writingType;
+      if (!this.isResourceAssignment) {
+        payload.writingType = writingType;
+        payload.allowGuestSubmission = this.classForm.value.allowGuestSubmission === true;
+      }
       
       // Existing assignments retain their rubric edit support. Creation never
       // sends a draft rubric: the parent opens the persisted-assignment editor.

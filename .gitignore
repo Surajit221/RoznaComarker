@@ -14,10 +14,10 @@
 npm-debug.log
 yarn-error.log
 
- # env
- .env
- .env.*
- !.env.example
+# env
+.env
+.env.*
+!.env.example
 
 # IDEs and editors
 .idea/

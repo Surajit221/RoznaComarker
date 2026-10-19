@@ -22,6 +22,49 @@ describe('AssignmentForm', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('keeps guest submission disabled by default and explains the opt-in', () => {
+    expect(component.classForm.get('allowGuestSubmission')?.value).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Allow submission without login');
+  });
+
+  it('places the guest control first inside Student access with the existing right-hand controls', () => {
+    const form: HTMLFormElement = fixture.nativeElement.querySelector('form');
+    const card = form.querySelector('fieldset.assignment-settings')!;
+    expect(card.querySelector('legend')?.textContent).toBe('Student access');
+    const rows = Array.from(card.querySelectorAll('label.assignment-setting'));
+    expect(rows.map(row => row.querySelector('strong')?.textContent)).toEqual([
+      'Allow submission without login', 'Show marks to students', 'Allow another draft'
+    ]);
+    expect(form.querySelectorAll('[formControlName="allowGuestSubmission"]').length).toBe(1);
+    expect(rows[0].lastElementChild?.getAttribute('formControlName')).toBe('allowGuestSubmission');
+    expect(rows[0].querySelector('small')?.textContent).toBe(
+      'Students with the assignment link or QR code can submit using their name and email without creating an account.');
+  });
+
+  it('saves the guest opt-in on creation without changing the other student access settings', async () => {
+    component.classId = 'class-1';
+    component.classForm.patchValue({ className: 'Guest essay', writingType: 'Narrative', startDate: '2099-08-11',
+      message: 'Write clearly.', allowGuestSubmission: true, showMarksToStudent: false,
+      allowResubmission: true, requireAdaptiveBeforeResubmission: true });
+    const create = spyOn((component as any).assignmentApi, 'createAssignment').and.resolveTo({ _id: 'created', title: 'Guest essay' });
+    spyOn((component as any).alert, 'showToast');
+    await (component as any).handleSubmit();
+    expect(create).toHaveBeenCalledOnceWith(jasmine.objectContaining({ allowGuestSubmission: true,
+      showMarksToStudent: false, allowResubmission: true, requireAdaptiveBeforeResubmission: true }));
+  });
+
+  it('preserves enabled guest access on edit and saves an explicit disable', async () => {
+    component.assignment = { _id: 'assignment-1', title: 'Guest essay', writingType: 'Narrative',
+      deadline: '2099-08-11', instructions: 'Write clearly.', allowGuestSubmission: true } as any;
+    (component as any).applyAssignmentToForm(); fixture.detectChanges();
+    expect(component.classForm.value.allowGuestSubmission).toBeTrue();
+    component.classForm.patchValue({ allowGuestSubmission: false });
+    const update = spyOn((component as any).assignmentApi, 'updateAssignment').and.resolveTo(component.assignment);
+    spyOn((component as any).alert, 'showToast');
+    await (component as any).handleSubmit();
+    expect(update).toHaveBeenCalledOnceWith('assignment-1', jasmine.objectContaining({ allowGuestSubmission: false,
+      showMarksToStudent: true, allowResubmission: false, requireAdaptiveBeforeResubmission: false }));
+  });
 
   it('does not expose a rubric action while creating a writing assignment', () => {
     component.assignment = null;
@@ -65,6 +108,7 @@ describe('AssignmentForm', () => {
 
   it('uses safe defaults for new and historical assignments', () => {
     expect(component.classForm.value.showMarksToStudent).toBeTrue();
+    expect(component.classForm.value.allowGuestSubmission).toBeFalse();
     expect(component.classForm.value.allowResubmission).toBeFalse();
     expect(component.classForm.value.requireAdaptiveBeforeResubmission).toBeFalse();
 
@@ -72,6 +116,7 @@ describe('AssignmentForm', () => {
     (component as any).applyAssignmentToForm();
 
     expect(component.classForm.value.showMarksToStudent).toBeTrue();
+    expect(component.classForm.value.allowGuestSubmission).toBeFalse();
     expect(component.classForm.value.allowResubmission).toBeFalse();
     expect(component.classForm.value.requireAdaptiveBeforeResubmission).toBeFalse();
   });

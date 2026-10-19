@@ -48,6 +48,7 @@ export function classifyBackendRequest(
 ): BackendRequestClassification {
   const pathname = backendPathname(rawUrl, backendUrl);
   if (!pathname) return { access: 'external', pathname: null };
+  if (matchesRoot(pathname, '/api/guest')) return { access: 'public', pathname };
   if (PUBLIC_UPLOAD_ROOTS.some((root) => matchesRoot(pathname, root))) {
     return { access: 'public', pathname };
   }

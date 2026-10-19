@@ -31,6 +31,8 @@ export type BackendFile = {
 };
 
 export type BackendSubmission = {
+  submissionMode?: 'registered' | 'guest';
+  guest?: { displayName: string; normalizedEmail?: string };
   _id: string;
   student: BackendUserLite | string;
   assignment: any;
