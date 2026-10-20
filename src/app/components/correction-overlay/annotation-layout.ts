@@ -19,6 +19,11 @@ const clamp = (n: number, min: number, max: number): number => Math.max(min, Mat
 const signature = (s: AnnotationSegment): string => [s.left, s.top, s.width, s.height || 0, Number(!!s.boundary)]
   .map((n) => n.toFixed(3)).join(':');
 
+/** Maximum badge-center displacement from its local source anchor, in rendered pixels. */
+export function badgeLocalityRadius(metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): number {
+  return Math.hypot(metrics.maxWidth / 2 + 2, metrics.height * 2);
+}
+
 /** Shared strokes retain membership, so selecting any original correction highlights its geometry. */
 export function sharedSegments(visuals: AnnotationVisual[], semantic: boolean): AnnotationSegment[] {
   const unique = new Map<string, AnnotationSegment>();
@@ -68,51 +73,35 @@ function label(group: AnnotationGroup, metrics: Readonly<AnnotationBadgeMetrics>
     : sameCategory ? `${first.symbol?.trim() || 'Issue'} +${count - 1}` : `${count} Issues`;
   const codes = [...new Set(group.annotations.map((a) => a.symbol?.trim()).filter((code): code is string => !!code))];
   const compact = codes.slice(0, 2).join('·') + (count > 2 ? `+${count - 2}` : '');
-  group.code = count === 1 ? previousLabel : codes.length === 1 ? `${codes[0]} +${count - 1}`
-    : compact.length <= previousLabel.length ? compact : `${codes[0] || 'Issue'} +${count - 1}`;
-  // Preserve placement widths so changing the label cannot change collision retries or membership.
+  group.code = count === 1 ? previousLabel : codes.length === 1 ? `${codes[0]} +${count - 1}` : compact;
+  // Size the visible compact label, including every character in the +N suffix.
   group.width = Math.max(metrics.minWidth, Math.min(metrics.maxWidth,
-    previousLabel.length * metrics.charWidth + metrics.widthAllowance));
+    group.code.length * metrics.charWidth + metrics.widthAllowance));
   group.label = `${count} correction${count === 1 ? '' : 's'}: `
     + group.annotations.map((a) => `${a.symbol || 'Issue'} ${a.group || a.category || ''}`).join('; ');
 }
 
 /** Deterministic grouping; spatial bins avoid scanning all previously placed badges. */
 export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: number, height: number,
-  densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  _densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  // Keep the existing call signature; density no longer merges distinct targets.
+  void _densityCellWidth;
   if (width <= 0 || height <= 0) return [];
   const groups: AnnotationGroup[] = [];
   const targets = new Map<string, AnnotationGroup>();
-  const semanticLines = new Map<string, AnnotationGroup>();
-  const densityCells = new Map<string, AnnotationGroup>();
   for (const visual of [...visuals].sort((a, b) => a.segments[0].top - b.segments[0].top
     || a.segments[0].left - b.segments[0].left || a.annotation._id.localeCompare(b.annotation._id))) {
-    const anchor = visual.semantic ? visual.segments[0] : visual.segments[visual.segments.length - 1];
-    const left = anchor.left + anchor.width;
+    const anchor = visual.segments[0];
+    const left = anchor.left + (visual.semantic ? anchor.width : anchor.width / 2);
     const top = anchor.anchorTop;
-    const target = `${visual.semantic}:${visual.segments.map(signature).join('|')}`;
-    const firstLine = visual.lineKeys[0];
-    const columns = Math.max(1, Math.floor(width / densityCellWidth));
-    const densityKey = `${firstLine}:${Math.min(columns - 1, Math.floor(left / 100 * columns))}`;
+    const source = visual.annotation.renderTarget || visual.annotation.visualTarget;
+    const ids = source?.wordIds || visual.annotation.wordIds || [];
+    const identity = ids.length || source?.anchors?.length
+      ? JSON.stringify([[...ids].sort(), [...(source?.anchors || [])].sort((a, b) =>
+        a.wordId.localeCompare(b.wordId) || a.side.localeCompare(b.side))]) : visual.segments.map(signature).join('|');
+    const target = `${visual.semantic}:${identity}`;
     let group = targets.get(target);
-    if (!group && visual.semantic) {
-      const overlaps = new Map<AnnotationGroup, number>();
-      for (const key of visual.lineKeys) {
-        const candidate = semanticLines.get(key);
-        if (candidate) overlaps.set(candidate, (overlaps.get(candidate) || 0) + 1);
-      }
-      for (const [candidate, overlap] of overlaps) {
-        if (Math.abs(candidate.anchorTop - top) <= Math.max((anchor.height || 1) * 2, 5)
-          && overlap >= Math.min(visual.lineKeys.length, candidate.lineKeys.size) / 2) { group = candidate; break; }
-      }
-    }
-    if (!group && !visual.semantic) {
-      // Only nearby targets on the same visual line can share a dense local badge.
-      group = densityCells.get(densityKey);
-    }
     if (group) {
-      if (!visual.semantic) group.anchorLeft = (group.anchorLeft * group.annotations.length + left)
-        / (group.annotations.length + 1);
       group.annotations.push(visual.annotation);
       for (const key of visual.lineKeys) group.lineKeys.add(key);
     } else {
@@ -120,14 +109,30 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
         lineKeys: new Set(visual.lineKeys), anchorLeft: left, anchorTop: top,
         left, top, width: 30, code: '', label: '' };
       groups.push(group);
-      if (!visual.semantic) densityCells.set(densityKey, group);
     }
-    if (visual.semantic) for (const key of visual.lineKeys) semanticLines.set(key, group);
     targets.set(target, group);
   }
+  placeGroups(groups, width, height, metrics);
+  return groupCollidingBadges(groups, width, height, metrics);
+}
+
+interface BadgeAnchor { left: number; top: number; }
+
+function localCandidates(group: AnnotationGroup, width: number, height: number,
+  metrics: Readonly<AnnotationBadgeMetrics>, anchors: BadgeAnchor[]): { x: number; y: number }[] {
+  const shift = metrics.height;
+  return [[0, -metrics.offsetY], [-shift / 2, -metrics.offsetY], [shift / 2, -metrics.offsetY],
+    [0, -shift * 1.5], [-shift, -shift * 1.5], [shift, -shift * 1.5]].map(([dx, dy]) => ({
+      x: clamp(group.anchorLeft * width / 100 + dx, group.width / 2 + 2, width - group.width / 2 - 2),
+      y: clamp(group.anchorTop * height / 100 + dy, metrics.edgeY, height - metrics.edgeY)
+    })).filter(({ x, y }) => anchors.every(a => Math.hypot(x - a.left * width / 100,
+      y - a.top * height / 100) <= badgeLocalityRadius(metrics)));
+}
+
+function placeGroups(groups: AnnotationGroup[], width: number, height: number,
+  metrics: Readonly<AnnotationBadgeMetrics>, origins?: Map<AnnotationGroup, BadgeAnchor[]>): void {
   // A bounded spatial hash; each occupied cell contains only nearby placed rectangles.
   const cells = new Map<string, AnnotationGroup[]>();
-  let unresolved = false;
   const keys = (x: number, y: number, w: number): string[] => {
     const result: string[] = [];
     for (let row = Math.floor((y - metrics.collisionHeight / 2) / 32); row <= Math.floor((y + metrics.collisionHeight / 2) / 32); row++) {
@@ -139,13 +144,8 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
     label(group, metrics);
     const anchorX = group.anchorLeft * width / 100;
     const anchorY = group.anchorTop * height / 100;
-    const candidates = [[0, -metrics.offsetY], ...Array.from({ length: 12 }, (_, i) => (i + 1) * 8)
-      .flatMap((offset) => [[-offset, -metrics.offsetY], [offset, -metrics.offsetY]]),
-      [0, -metrics.fallbackOffsetY], [0, metrics.offsetY]];
     let best: { x: number; y: number; collisions: number } | undefined;
-    for (const [dx, dy] of candidates) {
-      const x = clamp(anchorX + dx, group.width / 2 + 2, width - group.width / 2 - 2);
-      const y = clamp(anchorY + dy, metrics.edgeY, height - metrics.edgeY);
+    for (const { x, y } of localCandidates(group, width, height, metrics, origins?.get(group) || [group])) {
       const nearby = new Set(keys(x, y, group.width).flatMap((key) => cells.get(key) || []));
       let collisions = 0;
       for (const other of nearby) {
@@ -155,14 +155,59 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
       if (!best || collisions < best.collisions) best = { x, y, collisions };
       if (!collisions) break;
     }
-    group.left = best!.x / width * 100;
+    // On an extremely small hidden/thumbnail stage visibility may be impossible;
+    // keep the nearest edge position rather than searching unrelated page space.
+    best ||= { x: clamp(anchorX, group.width / 2 + 2, width - group.width / 2 - 2),
+      y: clamp(anchorY, metrics.edgeY, height - metrics.edgeY), collisions: 0 };
+    group.left = best.x / width * 100;
     group.top = best!.y / height * 100;
-    unresolved ||= best!.collisions > 0;
     for (const key of keys(best!.x, best!.y, group.width)) {
       const cell = cells.get(key) || []; cell.push(group); cells.set(key, cell);
     }
   }
-  // At most two denser retries, still restricted to compatible same-line local targets.
-  if (unresolved && densityCellWidth < 190) return layoutAnnotationGroups(visuals, width, height, densityCellWidth + 40, metrics);
+}
+
+/** Collapse only unresolved local rectangle collisions; correction/target objects are never merged. */
+export function groupCollidingBadges(placed: AnnotationGroup[], width: number, height: number,
+  metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  let groups = placed;
+  const origins = new Map(groups.map(g => [g, [{ left: g.anchorLeft, top: g.anchorTop }]]));
+  const order = new Map(groups.flatMap(g => g.annotations).map((a, i) => [a, i]));
+  const annotations = (items: AnnotationGroup[]): FeedbackAnnotation[] => items.flatMap(g => g.annotations)
+    .sort((a, b) => order.get(a)! - order.get(b)!);
+  // Each successful pass reduces badge count. Recheck because a compact group is wider.
+  while (groups.length > 1) {
+    const parents = groups.map((_, i) => i);
+    const members = groups.map(g => [g]);
+    const root = (i: number): number => { while (parents[i] !== i) i = parents[i]; return i; };
+    let merged = false;
+    for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) {
+      const a = groups[i], b = groups[j];
+      if (Math.abs(a.left - b.left) * width / 100 >= (a.width + b.width) / 2 + 4
+        || Math.abs(a.top - b.top) * height / 100 >= metrics.collisionHeight
+        || Math.abs(a.anchorTop - b.anchorTop) * height / 100 > metrics.height * 2) continue;
+      const r1 = root(i), r2 = root(j);
+      if (r1 === r2) continue;
+      const first = Math.min(r1, r2), last = Math.max(r1, r2);
+      const combined = [...members[first], ...members[last]].sort((a, b) => groups.indexOf(a) - groups.indexOf(b));
+      const primary = combined[0];
+      const candidate = { ...primary, annotations: annotations(combined) };
+      label(candidate, metrics);
+      const anchors = combined.flatMap(g => origins.get(g)!);
+      if (!localCandidates(candidate, width, height, metrics, anchors).length) continue;
+      parents[last] = first; members[first] = combined; merged = true;
+    }
+    if (!merged) break;
+    groups = groups.flatMap((g, i) => {
+      if (root(i) !== i) return [];
+      if (members[i].length === 1) return [g];
+      const combined = members[i];
+      const group = { ...combined[0], annotations: annotations(combined),
+        lineKeys: new Set(combined.flatMap(g => [...g.lineKeys])) };
+      origins.set(group, combined.flatMap(g => origins.get(g)!));
+      return [group];
+    });
+    placeGroups(groups, width, height, metrics, origins);
+  }
   return groups;
 }

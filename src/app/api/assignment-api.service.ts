@@ -24,6 +24,7 @@ export type BackendAssignment = {
   teacher: any;
   qrToken: string;
   allowLateResubmission?: boolean;
+  allowGuestSubmission?: boolean;
   showMarksToStudent?: boolean;
   allowResubmission?: boolean;
   requireAdaptiveBeforeResubmission?: boolean;
@@ -96,7 +97,8 @@ export class AssignmentApiService {
     rubric?: any;
     rubrics?: any;
     allowLateResubmission?: boolean;
-    showMarksToStudent?: boolean;
+    allowGuestSubmission?: boolean;
+  showMarksToStudent?: boolean;
     allowResubmission?: boolean;
     requireAdaptiveBeforeResubmission?: boolean;
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
@@ -145,7 +147,8 @@ export class AssignmentApiService {
       rubrics?: any;
       deadline?: string;
       allowLateResubmission?: boolean;
-      showMarksToStudent?: boolean;
+      allowGuestSubmission?: boolean;
+  showMarksToStudent?: boolean;
       allowResubmission?: boolean;
       requireAdaptiveBeforeResubmission?: boolean;
     }

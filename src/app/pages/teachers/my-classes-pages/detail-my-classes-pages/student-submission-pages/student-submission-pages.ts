@@ -100,7 +100,7 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 
 
 import type { OcrWord } from '../../../../../models/ocr-token.model';
-import { annotationsForFileId, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
+import { annotationsForFileId, correctionGeometryTargets, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
 
 
 
@@ -1710,7 +1710,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (!s) return '';
+    if (!s) return this.currentSubmission?.guest?.displayName ? `${this.currentSubmission.guest.displayName} (Guest)` : '';
 
 
 
@@ -2656,6 +2656,10 @@ export class StudentSubmissionPages {
     return this.transcriptPageViews.find((view) => view.fileId === this.activeFileId && view.pageNumber === 1)?.words || [];
   }
 
+  get activeSourceGeometry() {
+    return this.transcriptPageViews.find(view => view.fileId === this.activeFileId && view.pageNumber === 1)?.sourceGeometry || null;
+  }
+
   get activeFileUrlRaw(): string | null {
     const urls = Array.isArray(this.submissionFileUrls) ? this.submissionFileUrls : [];
     const url = urls[this.activeFileIndex];
@@ -2929,8 +2933,7 @@ export class StudentSubmissionPages {
 
 
         wordIds: Array.isArray(c?.wordIds) ? c.wordIds : [],
-        visualTarget: c?.visualTarget,
-        evidenceWordIds: c?.evidenceWordIds,
+        ...correctionGeometryTargets(c),
         ocrConfidence: c?.ocrConfidence,
         ocrSuspect: c?.ocrSuspect,
 
@@ -7034,7 +7037,7 @@ export class StudentSubmissionPages {
 
 
 
-    if (!this.studentId) {
+    if (!this.studentId || this.studentId === 'guest') {
 
 
 

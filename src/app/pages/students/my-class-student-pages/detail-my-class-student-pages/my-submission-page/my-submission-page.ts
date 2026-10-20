@@ -46,7 +46,7 @@ import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-r
 import { CanonicalSubmissionResultCoordinator,
   type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
-import { annotationsForFileId, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
+import { annotationsForFileId, correctionGeometryTargets, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
@@ -1259,6 +1259,7 @@ export class MySubmissionPage {
               fileId: typeof c?.fileId === 'string' && c.fileId.trim() ? c.fileId.trim() : undefined,
               page: typeof c?.page === 'number' && Number.isFinite(c.page) ? c.page : 1,
               wordIds,
+              ...correctionGeometryTargets(c),
               bboxList,
               group: typeof c?.category === 'string' ? c.category : (typeof c?.group === 'string' ? c.group : ''),
               symbol: typeof c?.symbol === 'string' ? c.symbol : '',
@@ -1350,6 +1351,10 @@ export class MySubmissionPage {
 
   get activeOcrWords(): OcrWord[] {
     return this.transcriptPageViews.find((view) => view.fileId === this.activeFileId && view.pageNumber === 1)?.words || [];
+  }
+
+  get activeSourceGeometry() {
+    return this.transcriptPageViews.find(view => view.fileId === this.activeFileId && view.pageNumber === 1)?.sourceGeometry || null;
   }
 
   private applyOcrPayloadState(submissionId: string, data: any): void {

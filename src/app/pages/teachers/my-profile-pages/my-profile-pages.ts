@@ -1,3 +1,4 @@
+import { policyPropagationMessage } from '../../../utils/policy-propagation-message.util';
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import {
@@ -74,9 +75,7 @@ export class MyProfilePages {
           }
         }
       });
-      this.alert.showToast(updated.evaluationPropagation?.status === 'pending'
-        ? 'AI settings updated; existing evaluations will refresh when reopened'
-        : 'AI settings updated');
+      this.alert.showToast(policyPropagationMessage(updated.evaluationPropagation));
     } catch (err: any) {
       this.alert.showError('Failed to update AI settings', err?.error?.message || err?.message || 'Please try again');
     } finally {

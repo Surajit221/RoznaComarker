@@ -16,10 +16,12 @@ export interface FeedbackAnnotation {
         wordId: string; side: 'before' | 'after'; operation: 'INSERT' | 'DELETE' | 'REPLACE'; punctuation?: string;
     }[] };
     renderTarget?: { version: 1; source: 'visualTarget' | 'wordIds' | 'bboxList' | 'none';
+        coordinateSpace?: 'encoded-image' | 'display-image';
         wordIds: string[]; anchors: NonNullable<FeedbackAnnotation['visualTarget']>['anchors']; boxes: OcrBBox[] };
     ocrConfidence?: number | null;
     ocrSuspect?: boolean;
     bboxList?: OcrBBox[];
+    bboxCoordinateSpace?: 'encoded-image' | 'display-image';
     group?: string;
     symbol?: string;
     color?: string;

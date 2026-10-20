@@ -9,7 +9,7 @@
         <button type="button" class="btn-primary" (click)="openSheetSubmission = true">
           View All Submission
         </button>
-        <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button>
+        <button type="button" class="btn-danger" (click)="toBack()">{{ currentSubmission?.submissionMode === 'guest' ? 'Back to class' : 'Back To Student Profile' }}</button>
       </div>
     </div>
 
@@ -17,6 +17,9 @@
       <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
       <div class="flex flex-col justify-center items-center">
         <p class="font-bold text-2xl">{{ studentName }}</p>
+        @if (currentSubmission?.submissionMode === 'guest') {
+          <p class="text-sm text-gray-500">{{ currentSubmission?.guest?.normalizedEmail }}</p>
+        }
         <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
       </div>
       <button class="btn-primary" [disabled]="!canGoNext" (click)="onNextSubmission()">Next</button>
@@ -42,6 +45,8 @@
             </div>
             } @else {
             <app-correction-overlay [imageUrl]="essayImageUrl" [sourceLoading]="imageMediaState === 'fetching'"
+              [fileId]="activeFileId" [submissionId]="currentSubmission?._id || null"
+              [sourceGeometry]="activeSourceGeometry"
               [sourceLoadError]="imageMediaState === 'error'" (retryRequested)="retryUploadedImage()"
               [annotations]="activeAnnotations" [ocrWords]="activeOcrWords"
               alt="Student submission image"></app-correction-overlay>

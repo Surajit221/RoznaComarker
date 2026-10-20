@@ -4,6 +4,10 @@ import { AdminGuard } from './auth/admin.guard';
 import { AdminLayout } from './layouts/admin-layout/admin-layout';
 
 export const routes: Routes = [
+  { path: 'student/assignments/qr/:qrToken', loadComponent: () =>
+    import('./pages/students/guest-submission/guest-submission').then(m => m.GuestSubmissionPage) },
+  { path: 'guest/results/:submissionId', loadComponent: () =>
+    import('./pages/students/guest-submission/guest-submission').then(m => m.GuestSubmissionPage) },
   { path: 'institution/invites/:token', canActivate: [TeacherGuard], loadComponent: () =>
     import('./pages/teachers/institution/institution-invite').then((m) => m.InstitutionInvitePage) },
   {

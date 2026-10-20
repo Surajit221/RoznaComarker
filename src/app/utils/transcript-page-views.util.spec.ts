@@ -1,6 +1,21 @@
 import { buildTranscriptPageViews } from './transcript-page-views.util';
 
 describe('complete transcript page views', () => {
+  it('preserves optional display geometry on its own file and page without changing words', () => {
+    const sourceGeometry = { version: 1 as const, fileId: 'f1', pageNumber: 1, width: 1600,
+      height: 1200, orientation: 3 as const, coordinateSpace: 'encoded-image' as const };
+    const words = [{ id: 'w', text: 'How', bbox: { x: 84.625, y: 90.1667, w: 7.375, h: 3.8333 } }];
+    const input = { submissionId: 's', fileIds: ['f1', 'f2'], corrections: [], ocrPages: [
+      { fileId: 'f1', pageNumber: 1, words, sourceGeometry },
+      { fileId: 'f2', pageNumber: 1, words: [] }
+    ] };
+    const snapshot = JSON.stringify(input);
+    const views = buildTranscriptPageViews(input);
+    expect(views[0].sourceGeometry).toBe(sourceGeometry);
+    expect(views[1].sourceGeometry).toBeUndefined();
+    expect(views[0].words[0].bbox).toEqual(words[0].bbox);
+    expect(JSON.stringify(input)).toBe(snapshot);
+  });
   const page = (fileId: string, text: string, pageNumber = 1, wordId = 'word-1') => ({ fileId, pageNumber, text,
     status: 'completed', words: [{ id: wordId, text, separatorBefore: '', bbox: null }] });
 

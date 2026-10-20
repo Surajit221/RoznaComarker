@@ -1,10 +1,29 @@
-import { annotationsForFileId, normalizeCorrectionBox, normalizeCorrectionBboxList } from './correction-bbox.util';
+import { annotationMatchesImage, annotationsForFileId, correctionGeometryTargets, normalizeCorrectionBox, normalizeCorrectionBboxList } from './correction-bbox.util';
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
 
 const annotation = (id: string, fileId?: string): FeedbackAnnotation => ({ _id: id, submissionId: 's', fileId,
   source: 'AI', editable: false, page: 1, bboxList: [{ x: 1, y: 2, w: 3, h: 4 }] });
 
 describe('canonical correction bbox utilities', () => {
+  it('forwards canonical targets by identity without rewriting evidence or legacy boxes', () => {
+    const input: FeedbackAnnotation = { ...annotation('canonical', 'file-a'), wordIds: ['evidence'], evidenceWordIds: ['evidence'],
+      visualTarget: { version: 1, wordIds: ['target'], anchors: [] },
+      renderTarget: { version: 1, source: 'visualTarget', wordIds: ['target'], anchors: [], boxes: [{ x: 70, y: 40, w: 10, h: 5 }] } };
+    const before = JSON.stringify(input), output = correctionGeometryTargets(input);
+    expect(output.renderTarget).toBe(input.renderTarget);
+    expect(output.visualTarget).toBe(input.visualTarget);
+    expect(output.evidenceWordIds).toBe(input.evidenceWordIds);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+  it('rejects explicit image identity mismatches and retains missing legacy metadata', () => {
+    const context = { fileId: 'file-a', submissionId: 's', page: 1 };
+    expect(annotationMatchesImage(annotation('same', 'file-a'), context)).toBeTrue();
+    expect(annotationMatchesImage(annotation('wrong-file', 'file-b'), context)).toBeFalse();
+    expect(annotationMatchesImage({ ...annotation('wrong-submission', 'file-a'), submissionId: 'other' }, context)).toBeFalse();
+    expect(annotationMatchesImage({ ...annotation('wrong-page', 'file-a'), page: 2 }, context)).toBeFalse();
+    expect(annotationMatchesImage(annotation('legacy'), context)).toBeTrue();
+    expect(correctionGeometryTargets(annotation('legacy')).renderTarget).toBeUndefined();
+  });
   it('converts corner boxes and preserves normalized boxes', () => {
     expect(normalizeCorrectionBox({ x0: 10, y0: 20, x1: 30, y1: 45 })).toEqual({ x: 10, y: 20, w: 20, h: 25 });
     expect(normalizeCorrectionBox({ x: 1, y: 2, w: 3, h: 4 })).toEqual({ x: 1, y: 2, w: 3, h: 4 });

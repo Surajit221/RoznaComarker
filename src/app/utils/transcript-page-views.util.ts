@@ -3,6 +3,7 @@
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
 import type { OcrWord } from '../models/ocr-token.model';
 import { normalizeCorrectionBboxList } from './correction-bbox.util';
+import type { AnnotationImageGeometry } from '../components/correction-overlay/annotation-image-geometry';
 
 export interface TranscriptPageView {
   key: string;
@@ -12,6 +13,7 @@ export interface TranscriptPageView {
   imageUrl?: string;
   width?: number;
   height?: number;
+  sourceGeometry?: AnnotationImageGeometry;
   words: OcrWord[];
   annotations: FeedbackAnnotation[];
   text: string;
@@ -83,6 +85,7 @@ export function buildTranscriptPageViews(options: { submissionId: string; fileId
     return { key: `${fileId}:${number}`, displayNumber: index + 1, fileId, pageNumber: number, words, annotations,
       imageUrl: typeof page?.pageImageUrl === 'string' ? page.pageImageUrl : undefined,
       width: page?.width, height: page?.height,
+      sourceGeometry: page?.sourceGeometry,
       text: typeof page?.text === 'string' ? page.text : '', status };
   });
 }

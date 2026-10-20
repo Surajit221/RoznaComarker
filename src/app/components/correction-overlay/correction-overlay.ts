@@ -13,7 +13,8 @@ import {
   Output,
   SimpleChanges,
   ViewChild,
-  inject
+  inject,
+  isDevMode
 } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
@@ -22,6 +23,8 @@ import { DeviceService } from '../../services/device.service';
 import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
 import { annotationBadgeMetrics } from './annotation-badge-metrics';
+import { annotationMatchesImage } from '../../utils/correction-bbox.util';
+import { imagePresentationGeometry, sourceGeometryMatchesImage, type AnnotationImageGeometry } from './annotation-image-geometry';
 
 type TooltipPlacement = 'right' | 'left' | 'bottom' | 'top' | 'mobile';
 
@@ -57,6 +60,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Input() annotations: FeedbackAnnotation[] | null = null;
   @Input() ocrWords: OcrWord[] | null = null;
   @Input() page = 1;
+  @Input() fileId: string | null = null;
+  @Input() submissionId: string | null = null;
+  @Input() sourceGeometry: AnnotationImageGeometry | null = null;
   @Input() alt = 'Uploaded submission';
   @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
   @Output() retryRequested = new EventEmitter<void>();
@@ -78,6 +84,13 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   displayImageUrl: string | null = null;
   selectedAnnotation: FeedbackAnnotation | null = null;
   selectedId: string | null = null;
+  debugWords: OcrWord[] = [];
+  get debugOverlay(): boolean {
+    return isDevMode() && typeof location !== 'undefined' && new URLSearchParams(location.search).get('debugOverlay') === '1';
+  }
+  private geometryWarningShown = false;
+  private destroyed = false;
+  private readonly fontLoadHandler = (): void => this.scheduleLayout();
   private static nextId = 0;
   readonly detailId = `correction-detail-${CorrectionOverlay.nextId++}`;
 
@@ -96,6 +109,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private layoutFrame: number | null = null;
   private hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private renderedWidth = 0;
+  private renderedHeight = 0;
   private bodyLocked = false;
   private blurFrame: number | null = null;
 
@@ -108,7 +122,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.displayImageUrl = null;
       this.setMediaState(this.sourceLoading ? 'fetching' : this.sourceLoadError ? 'error' : 'idle');
     }
-    if (changes['annotations'] || changes['page'] || changes['ocrWords']) {
+    if (changes['annotations'] || changes['page'] || changes['ocrWords'] || changes['fileId'] || changes['submissionId'] || changes['sourceGeometry']) {
       const activeId = this.selectedId;
       this.rebuildMarkers();
       if (!activeId) return;
@@ -127,6 +141,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.updateResponsiveMode();
     if (this.displayImageUrl) this.checkCachedImage(this.displayImageUrl);
     document.addEventListener('scroll', this.documentScrollHandler, true);
+    document.fonts?.addEventListener('loadingdone', this.fontLoadHandler);
+    document.fonts?.ready.then(() => { if (!this.destroyed) this.scheduleLayout(); });
     if (typeof ResizeObserver !== 'undefined' && this.overlayEl?.nativeElement) {
       this.resizeObserver = new ResizeObserver(() => this.scheduleLayout());
       this.resizeObserver.observe(this.overlayEl.nativeElement);
@@ -136,6 +152,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    document.fonts?.removeEventListener('loadingdone', this.fontLoadHandler);
     document.removeEventListener('scroll', this.documentScrollHandler, true);
     this.resizeObserver?.disconnect();
     if (this.positionFrame !== null) cancelAnimationFrame(this.positionFrame);
@@ -154,6 +172,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     }
     this.imageWidth = image.naturalWidth;
     this.imageHeight = image.naturalHeight;
+    this.resizeObserver?.observe(image);
     this.setMediaState('loaded');
     this.rebuildMarkers();
     this.schedulePosition();
@@ -353,17 +372,31 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    this.visuals = buildAnnotationVisuals(Array.isArray(this.annotations) ? this.annotations : [],
-      Array.isArray(this.ocrWords) ? this.ocrWords : [], this.page, this.imageWidth, this.imageHeight);
+    const annotations = (Array.isArray(this.annotations) ? this.annotations : []).filter(annotation =>
+      annotationMatchesImage(annotation, { fileId: this.fileId, submissionId: this.submissionId, page: this.page }));
+    if (!sourceGeometryMatchesImage(this.sourceGeometry, this.fileId, this.page, this.imageWidth, this.imageHeight)) {
+      if (isDevMode() && !this.geometryWarningShown) {
+        console.warn({ event: 'annotation_geometry_mismatch', ambiguous: this.sourceGeometry?.ambiguous === true });
+        this.geometryWarningShown = true;
+      }
+      this.markers = []; this.underlineSegments = []; this.semanticRails = []; this.visuals = []; this.debugWords = [];
+      this.cdr.markForCheck(); return;
+    }
+    const presentation = imagePresentationGeometry(annotations, Array.isArray(this.ocrWords) ? this.ocrWords : [],
+      this.sourceGeometry, this.fileId, this.page, this.imageWidth, this.imageHeight);
+    this.debugWords = presentation.words;
+    this.visuals = buildAnnotationVisuals(presentation.annotations, presentation.words, this.page, this.imageWidth, this.imageHeight);
     this.underlineSegments = sharedSegments(this.visuals, false);
     this.semanticRails = sharedSegments(this.visuals, true);
     this.layoutMarkers();
   }
 
   private layoutMarkers(): void {
-    const width = this.imageEl?.nativeElement.clientWidth || this.imageWidth;
-    const height = width * this.imageHeight / this.imageWidth;
+    const rect = this.imageEl?.nativeElement.getBoundingClientRect();
+    const width = rect?.width || 0;
+    const height = rect?.height || 0;
     this.renderedWidth = width;
+    this.renderedHeight = height;
     this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
     this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
@@ -380,7 +413,9 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (this.layoutFrame !== null) return;
     this.layoutFrame = requestAnimationFrame(() => {
       this.layoutFrame = null;
-      if (this.mediaState === 'loaded' && (this.imageEl?.nativeElement.clientWidth !== this.renderedWidth
+      const rect = this.imageEl?.nativeElement.getBoundingClientRect();
+      if (this.mediaState === 'loaded' && (Math.abs((rect?.width || 0) - this.renderedWidth) > 0.25
+        || Math.abs((rect?.height || 0) - this.renderedHeight) > 0.25
         || annotationBadgeMetrics(window.innerWidth).height !== this.badgeMetrics.height)) {
         this.layoutMarkers();
         this.cdr.detectChanges();
@@ -507,6 +542,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   private beginImageLoad(url: string | null): void {
     this.closeTooltip();
+    if (this.imageEl) this.resizeObserver?.unobserve(this.imageEl.nativeElement);
+    this.renderedWidth = 0;
+    this.geometryWarningShown = false;
+    this.renderedHeight = 0;
     this.imageWidth = 0;
     this.imageHeight = 0;
     this.markers = [];

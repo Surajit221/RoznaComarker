@@ -1,6 +1,25 @@
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
 import type { OcrBBox } from '../models/ocr-token.model';
 
+type CorrectionTargets = Pick<FeedbackAnnotation, 'visualTarget' | 'renderTarget' | 'evidenceWordIds'>;
+
+/** Response targets already use canonical normalized image-content coordinates.
+ * Forward them intact; rebuilding targets from evidence/legacy boxes loses the contract.
+ */
+export function correctionGeometryTargets(correction: CorrectionTargets | null | undefined): CorrectionTargets {
+  return { visualTarget: correction?.visualTarget, renderTarget: correction?.renderTarget,
+    evidenceWordIds: correction?.evidenceWordIds };
+}
+
+/** Rendering-only identity check. Missing legacy metadata never invents a transform. */
+export function annotationMatchesImage(annotation: FeedbackAnnotation | null | undefined,
+  context: { fileId: string | null; submissionId: string | null; page: number }): boolean {
+  if (!annotation) return false;
+  return !(context.fileId && annotation.fileId && context.fileId !== annotation.fileId)
+    && !(context.submissionId && annotation.submissionId && context.submissionId !== annotation.submissionId)
+    && (!annotation.page || Number(annotation.page) === Number(context.page));
+}
+
 export function normalizeCorrectionBox(value: unknown): OcrBBox | null {
   const box = value && typeof value === 'object' ? value as Record<string, unknown> : null;
   if (!box) return null;
