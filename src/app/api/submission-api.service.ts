@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import type { SourceFidelity } from '../components/source-fidelity/source-fidelity';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
@@ -31,6 +32,7 @@ export type BackendFile = {
 };
 
 export type BackendSubmission = {
+  sourceFidelity?: SourceFidelity;
   submissionMode?: 'registered' | 'guest';
   guest?: { displayName: string; normalizedEmail?: string };
   _id: string;

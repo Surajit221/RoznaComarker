@@ -1,6 +1,16 @@
 import { buildTranscriptPageViews } from './transcript-page-views.util';
 
 describe('complete transcript page views', () => {
+  it('keeps every GPT source word and correction ID with only 60 percent geometry coverage', () => {
+    const words = Array.from({ length: 100 }, (_, i) => ({ id: `word_f_1_gpt_${i + 1}`, text: i ? `word${i}` : 'Social',
+      bbox: i >= 20 && i < 80 ? { x: 3, y: 10, w: 6, h: 5 } : null, separatorBefore: i ? ' ' : '' }));
+    const views = buildTranscriptPageViews({ submissionId: 's', fileIds: ['f'], ocrPages: [{ fileId: 'f', pageNumber: 1, words }],
+      corrections: [{ id: 'c', fileId: 'f', page: 1, wordIds: [words[0].id], quotedText: 'Social', symbol: 'SP' }] });
+    expect(views[0].words.length).toBe(100);expect(views[0].words.filter(w => w.bbox === null).length).toBe(40);
+    expect(views[0].words.map(w => w.id)).toEqual(words.map(w => w.id));
+    expect(views[0].words.map(w => w.separatorBefore + w.text).join('')).toBe(words.map(w => w.separatorBefore + w.text).join(''));
+    expect(views[0].annotations[0].wordIds).toEqual([words[0].id]);
+  });
   it('preserves optional display geometry on its own file and page without changing words', () => {
     const sourceGeometry = { version: 1 as const, fileId: 'f1', pageNumber: 1, width: 1600,
       height: 1200, orientation: 3 as const, coordinateSpace: 'encoded-image' as const };

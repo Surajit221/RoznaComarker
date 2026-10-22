@@ -153,7 +153,7 @@
       }
     </div>
     <div class="upload-section-heading"><div><p>Upload Image or PDF</p><span>JPG, PNG or PDF · Maximum 10 MB per file</span></div></div>
-    <app-upload-essay-form [disabled]="isLoading" #uploadFormDialog (filesSelected)="onFilesSelected($event)" (readinessChange)="imagePreflightReady = $event"></app-upload-essay-form>
+    <app-upload-essay-form [assignmentId]="selectedAssignmentId" [disabled]="isLoading" #uploadFormDialog (filesSelected)="onFilesSelected($event)" (readinessChange)="imagePreflightReady = $event"></app-upload-essay-form>
 
     @if (uploadProgressPercent !== null) {
     <div class="w-full mt-6">
@@ -198,9 +198,11 @@
         class="btn-primary"
         (click)="uploadFiles($event)"
         [disabled]="isLoading || !imagePreflightReady"
+        [attr.aria-busy]="uploadFormDialog.handwritingChecking"
         [class.opacity-50]="isLoading || !imagePreflightReady"
       >
-        <i class="bx bx-upload" aria-hidden="true"></i> {{ selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
+        <i class="bx" [class.bx-upload]="!uploadFormDialog.handwritingChecking" [class.bx-loader-alt]="uploadFormDialog.handwritingChecking" [class.handwriting-button-spinner]="uploadFormDialog.handwritingChecking" aria-hidden="true"></i>
+        {{ uploadFormDialog.handwritingChecking ? 'Checking handwriting...' : selectedAssignmentIsResubmission ? 'Submit New Draft' : 'Upload Essay' }}
       </button>
       }
     </div>
@@ -360,7 +362,7 @@
         }
       </div>
       <div class="upload-section-heading"><div><p>Upload Image or PDF</p><span>JPG, PNG or PDF · Maximum 10 MB per file</span></div></div>
-      <app-upload-essay-form [disabled]="isLoading" #uploadFormSheet (filesSelected)="onFilesSelected($event)" (readinessChange)="imagePreflightReady = $event"></app-upload-essay-form>
+      <app-upload-essay-form [assignmentId]="selectedAssignmentId" [disabled]="isLoading" #uploadFormSheet (filesSelected)="onFilesSelected($event)" (readinessChange)="imagePreflightReady = $event"></app-upload-essay-form>
 
     @if (uploadProgressPercent !== null) {
     <div class="w-full mt-6">
@@ -403,9 +405,11 @@
         class="btn-primary-sm w-full"
         (click)="uploadFiles($event)"
         [disabled]="isLoading || selectedFiles.length === 0 || !imagePreflightReady"
+        [attr.aria-busy]="uploadFormSheet.handwritingChecking"
         [class.opacity-50]="isLoading || selectedFiles.length === 0 || !imagePreflightReady"
       >
-        <i class="bx bx-upload" aria-hidden="true"></i> Submit
+        <i class="bx" [class.bx-upload]="!uploadFormSheet.handwritingChecking" [class.bx-loader-alt]="uploadFormSheet.handwritingChecking" [class.handwriting-button-spinner]="uploadFormSheet.handwritingChecking" aria-hidden="true"></i>
+        {{ uploadFormSheet.handwritingChecking ? 'Checking handwriting...' : 'Submit' }}
       </button>
       <button
         type="button"

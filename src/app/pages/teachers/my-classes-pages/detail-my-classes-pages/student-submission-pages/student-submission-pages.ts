@@ -1,3 +1,4 @@
+import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, EventEmitter, inject, Output } from '@angular/core';
 
@@ -159,7 +160,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [SubmissionPageReview,
+  imports: [SourceFidelityComponent,SubmissionPageReview,
 
 
 
@@ -214,6 +215,11 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 export class StudentSubmissionPages {
+  onHumanSourceReviewed(source:SourceFidelity):void {
+    if(!this.currentSubmission)return;
+    this.currentSubmission.sourceFidelity=source;
+    if(source.assessmentAllowed)this.resultCoordinator.start(this.currentSubmission._id,(id,sequence)=>this.refreshRetriedAnalysis(id,sequence));
+  }
   canonicalResultState: CanonicalResultViewState | null = null;
   get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
   get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.currentFeedback); }
@@ -2792,6 +2798,7 @@ export class StudentSubmissionPages {
       const data = resp && typeof resp === 'object' ? (resp as any).data : null;
 
       if (seq !== this.loadOcrCorrectionsSeq) return false;
+      if (data?.sourceFidelity && this.currentSubmission?._id === submissionId) this.currentSubmission.sourceFidelity = data.sourceFidelity;
 
       if (data?.processing === true) {
         this.correctionsError = null;

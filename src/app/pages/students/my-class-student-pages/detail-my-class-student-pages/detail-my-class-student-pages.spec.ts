@@ -6,6 +6,7 @@ import { routedHttpTestProviders } from '../../../../testing/routed-http-test.pr
 import { AuthService } from '../../../../auth/auth.service';
 import { of, Subject } from 'rxjs';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { ImagePreflightResult, ImagePreflightService } from '../../../../services/image-preflight.service';
 
 describe('DetailMyClassStudentPages', () => {
   let component: DetailMyClassStudentPages;
@@ -198,6 +199,49 @@ describe('DetailMyClassStudentPages', () => {
     buttons[2].click();
     expect(component.openSheet).toBeFalse();
   });
+
+  for (const desktop of [true, false]) {
+    it('shows a disabled checking button and usable cancel without moving ' + (desktop ? 'desktop' : 'mobile') + ' controls', () => {
+      Object.assign(component.device, { isDesktop: () => desktop, isMobile: () => !desktop, isTablet: () => false });
+      component.showDialog = desktop; component.openSheet = !desktop;
+      component.selectedAssignmentId = 'assignment-1'; component.isLoading = false;
+      const pending = new Subject<ImagePreflightResult>();
+      const nextFile = new Subject<ImagePreflightResult>();
+      const check = spyOn(TestBed.inject(ImagePreflightService), 'check').and.returnValues(pending, nextFile);
+      fixture.detectChanges();
+      const uploader = desktop ? component.uploadFormDialog! : component.uploadFormSheet!;
+      const file = new File(['essay'], 'page.png', { type: 'image/png' });
+      uploader.onFilesSelected({ target: { files: [file], value: '' } } as unknown as Event);
+      pending.next({ ready: false, basicChecksPassed: true, sourceReadRequired: true, sourceReadStatus: 'CHECKING',
+        checks: [{ id: 'handwritingReadability', label: 'Handwriting readability', required: true, status: 'checking' }] });
+      fixture.detectChanges();
+      const actions = fixture.nativeElement.querySelector(desktop ? '.upload-modal-actions' : '.student-sheet-actions') as HTMLElement;
+      const buttons = Array.from(actions.querySelectorAll('button')) as HTMLButtonElement[];
+      const submit = buttons.find(button => button.textContent?.includes('Checking handwriting'))!;
+      const cancel = buttons.find(button => button.textContent?.trim() === 'Cancel')!;
+      expect(submit.disabled).toBeTrue(); expect(submit.getAttribute('aria-busy')).toBe('true');
+      expect(submit.querySelector('.handwriting-button-spinner')).toBeTruthy();
+      expect(cancel.disabled).toBeFalse();
+      expect(buttons.map(button => button.textContent?.trim())).toEqual(desktop
+        ? ['Cancel', 'Checking handwriting...'] : ['Upload Image', 'Checking handwriting...', 'Cancel']);
+      // A second file cannot become ready while the first/next source check is pending.
+      const another = new File(['next'], 'next.png', { type: 'image/png' });
+      uploader.onFilesSelected({ target: { files: [another], value: '' } } as unknown as Event);
+      pending.next({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true }); pending.complete();
+      nextFile.next({ ready: false, checks: [], sourceReadRequired: true, sourceReadStatus: 'CHECKING' });
+      fixture.detectChanges();
+      expect(check.calls.count()).toBe(2);
+      expect(submit.disabled).toBeTrue(); expect(uploader.ready).toBeFalse();
+      expect(uploader.files[0].quality?.sourceReadStatus).toBe('PASSED');
+      nextFile.next({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true }); nextFile.complete();
+      fixture.detectChanges();
+      expect(submit.disabled).toBeFalse(); expect(submit.getAttribute('aria-busy')).toBe('false');
+      expect(submit.textContent?.trim()).toBe(desktop ? 'Upload Essay' : 'Submit');
+      expect(submit.querySelector('.handwriting-button-spinner')).toBeNull();
+      cancel.click(); fixture.detectChanges();
+      expect(desktop ? component.showDialog : component.openSheet).toBeFalse();
+    });
+  }
 
   it('fits mobile submission controls and long filenames at 375, 390, and 430px', () => {
     Object.assign(component.device, {

@@ -104,3 +104,6 @@
 .student-assignment-actions--mobile { align-items: flex-start; }
 .student-assignment-actions--mobile button:not(.submission-action-button) { font-size: .75rem; }
 .student-assignment-actions--mobile .student-assignment-actions__adaptive-required { text-align: left; }
+.handwriting-button-spinner { display: inline-block; animation: handwriting-button-spin 1s linear infinite; }
+@keyframes handwriting-button-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .handwriting-button-spinner { animation: none; } }

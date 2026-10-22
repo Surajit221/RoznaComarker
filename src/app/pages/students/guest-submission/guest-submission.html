@@ -44,7 +44,8 @@
             }
             @if (result.feedback.teacherComments) { <h3>Teacher feedback</h3><p class="instructions">{{ result.feedback.teacherComments }}</p> }
           }
-          <h3>Transcription</h3><p class="instructions">{{ result.transcript }}</p>
+          <app-source-fidelity [source]="result.sourceFidelity" />
+          @if (!result.sourceFidelity) { <h3>Transcription</h3><p class="instructions">{{ result.transcript }}</p> }
           @if (result.feedback) {
             <div class="actions">
               <button type="button" class="secondary-button" (click)="downloadPdf()" [disabled]="busy">Download feedback PDF</button>
