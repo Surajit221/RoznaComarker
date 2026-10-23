@@ -8,6 +8,7 @@
 
   <!-- ✅ DESKTOP -->
   <main class="submission-review-page">
+    <app-analysis-progress [progress]="canonicalResultState?.processingProgress || null" />
 
     <div class="mb-6 flex flex-row justify-between items-center">
       <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>

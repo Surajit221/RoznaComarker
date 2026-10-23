@@ -88,6 +88,7 @@ import { TokenizedTranscript } from '../../../../../components/submission-detail
 import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
 import { WritingCorrectionsLegendComponent } from '../../../../../components/writing-corrections-legend/writing-corrections-legend';
 import { CanonicalDetailedFeedbackComponent } from '../../../../../components/canonical-detailed-feedback/canonical-detailed-feedback';
+import { AnalysisProgress } from '../../../../../components/analysis-progress/analysis-progress';
 
 
 
@@ -182,7 +183,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
     TokenizedTranscript,
     CorrectionOverlay,
     WritingCorrectionsLegendComponent,
-    CanonicalDetailedFeedbackComponent,
+    CanonicalDetailedFeedbackComponent, AnalysisProgress,
 
 
 

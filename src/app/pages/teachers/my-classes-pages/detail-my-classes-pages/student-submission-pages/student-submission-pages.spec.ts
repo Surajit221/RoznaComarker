@@ -45,6 +45,14 @@ describe('StudentSubmissionPages', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('uses the same server progress and never animates a persisted completed result',()=>{
+    component.canonicalResultState=normalizeCanonicalResult({processingActive:true,terminal:false,
+      processingProgress:{status:'processing',stage:'corrections',percent:50,message:'Analyzing writing corrections',active:true,failed:false,completed:false}});
+    fixture.detectChanges();expect(fixture.nativeElement.querySelector('app-analysis-progress [role="progressbar"]').getAttribute('aria-valuenow')).toBe('50');
+    component.canonicalResultState=normalizeCanonicalResult({processingActive:false,terminal:true,semanticStatus:'completed',evaluationStatus:'completed',
+      detailedFeedbackStatus:'completed',processingProgress:{status:'completed',stage:'completed',percent:100,message:'Result ready',active:false,failed:false,completed:true}});
+    fixture.detectChanges();expect(fixture.nativeElement.querySelector('app-analysis-progress section')).toBeNull();
+  });
   it('keeps uncertain exact source visible to the teacher without showing final scores', () => {
     component.currentSubmission={_id:'submission-1',sourceFidelity:{mode:'astra_verified',status:'OCR_UNCERTAIN',
       assessmentAllowed:false,transcriptExact:'sence\nSocial',pages:[]}} as unknown as NonNullable<typeof component.currentSubmission>;

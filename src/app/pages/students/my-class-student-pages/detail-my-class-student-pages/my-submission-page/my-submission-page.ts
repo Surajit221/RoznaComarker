@@ -18,6 +18,7 @@ import { TokenizedTranscript } from '../../../../../components/submission-detail
 import { CorrectionOverlay, type MediaLoadState } from '../../../../../components/correction-overlay/correction-overlay';
 import { WritingCorrectionsLegendComponent } from '../../../../../components/writing-corrections-legend/writing-corrections-legend';
 import { CanonicalDetailedFeedbackComponent } from '../../../../../components/canonical-detailed-feedback/canonical-detailed-feedback';
+import { AnalysisProgress } from '../../../../../components/analysis-progress/analysis-progress';
 import { WritingCorrectionsApiService, type WritingCorrectionIssue } from '../../../../../api/writing-corrections-api.service';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../../../models/ocr-token.model';
@@ -53,7 +54,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
+  imports: [AnalysisProgress,SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
@@ -1853,9 +1854,12 @@ export class MySubmissionPage {
 
       this.revokeObjectUrls();
       const mediaStartedAt = performance.now();
-      await this.setUploadedFileUrl(this.activeFileUrlRaw || submission?.fileUrl || null);
-      this.logRequestLifecycle('media', submission?._id || '', 'initial',
-        performance.now() - mediaStartedAt, false, false);
+      // Media has its own loading/error state. Do not hold persisted text,
+      // corrections and feedback behind an original-image/PDF download.
+      void this.setUploadedFileUrl(this.activeFileUrlRaw || submission?.fileUrl || null).then(() => {
+        if (!this.destroyed && seq === this.loadSeq) this.logRequestLifecycle('media', submission?._id || '', 'initial',
+          performance.now() - mediaStartedAt, false, false);
+      });
 
       this.rebuildOcrWords();
 
@@ -1879,9 +1883,10 @@ export class MySubmissionPage {
 
       this.transcriptState = this.ocrErrorMessage && !this.extractedText ? 'error' : 'loaded';
 
-      this.syncOcrPolling();
-
       await feedbackPromise;
+      // The initial canonical read already owns freshness. Do not start an
+      // immediate duplicate poll while that same read is still in flight.
+      this.syncOcrPolling();
 
       if (this.destroyed || seq !== this.loadSeq) return;
 
