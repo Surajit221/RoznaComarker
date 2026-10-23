@@ -1,14 +1,17 @@
-import { ChangeDetectorRef, Component, Input, OnChanges, OnDestroy, inject } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { ImagePreflightResult } from '../../services/image-preflight.service';
+import { AnalysisProgress } from '../analysis-progress/analysis-progress';
 
 @Component({
   selector: 'app-image-quality-checklist',
+  imports: [AnalysisProgress],
   template: `
     <section aria-label="Image requirements" class="checklist" [attr.aria-busy]="checking">
       <p class="heading">Image requirements</p>
       @if (checking) {
         @if (!handwritingChecking) {
           <p>{{ queued ? 'Waiting for the previous file check...' : 'Preparing image...' }}</p>
+          <div class="reading-progress" role="progressbar" aria-label="Preparing image and checking quality"><span></span></div>
         }
       }
       @if (result) {
@@ -31,7 +34,9 @@ import { ImagePreflightResult } from '../../services/image-preflight.service';
           }
         </ul>
       }
-      @if (handwritingChecking) {
+      @if (result?.processingProgress) {
+        <app-analysis-progress [progress]="result?.processingProgress || null" [showCompleted]="true" [preflight]="true" />
+      } @else if (handwritingChecking) {
         <div class="reading-progress" role="progressbar" aria-label="Checking handwriting readability">
           <span></span>
         </div>
@@ -64,44 +69,15 @@ import { ImagePreflightResult } from '../../services/image-preflight.service';
     @media (prefers-reduced-motion: reduce) { .reading-spinner, .reading-progress span { animation: none; } }
   `,
 })
-export class ImageQualityChecklist implements OnChanges, OnDestroy {
+export class ImageQualityChecklist {
   @Input() result?: ImagePreflightResult;
   @Input() checking = false;
   @Input() queued = false;
   @Input() error?: string;
-  stageMessage = '';
-  private cdr = inject(ChangeDetectorRef);
-  private stageTimers: ReturnType<typeof setTimeout>[] = [];
-  private reading = false;
+  get stageMessage(): string { return this.handwritingChecking ? 'Image checks passed. Reading handwriting...' : ''; }
 
   get handwritingChecking(): boolean {
     return this.checking && this.result?.sourceReadStatus === 'CHECKING';
   }
 
-  ngOnChanges(): void {
-    const reading = this.handwritingChecking;
-    if (reading === this.reading) return;
-    this.clearTimers();
-    this.reading = reading;
-    this.stageMessage = reading ? 'Image checks passed. Reading handwriting...' : '';
-    if (!reading) return;
-    // Display hints only. Actual check transitions always come from the existing result.
-    for (const [delay, message] of [
-      [5000, 'Reading handwriting carefully...'],
-      [20000, 'Checking handwriting, edits, and crossed-out text...'],
-      [45000, 'Still checking. Detailed handwriting can take a little longer.'],
-    ] as const) {
-      this.stageTimers.push(setTimeout(() => {
-        this.stageMessage = message;
-        this.cdr.markForCheck();
-      }, delay));
-    }
-  }
-
-  private clearTimers(): void {
-    this.stageTimers.forEach(timer => clearTimeout(timer));
-    this.stageTimers = [];
-  }
-
-  ngOnDestroy(): void { this.clearTimers(); }
 }

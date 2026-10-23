@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { concat, map, of, switchMap, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
+import type { ProcessingProgress } from '../components/analysis-progress/analysis-progress';
 
 export type ImageCheckId = 'orientation' | 'resolution' | 'clarity' | 'lighting' | 'pageVisibility' | 'writingVisibility' | 'handwritingReadability';
 export interface ImageQualityCheck {
@@ -11,7 +12,7 @@ export interface ImageQualityCheck {
   status: 'checking' | 'pass' | 'fail' | 'unavailable';
   message?: string;
 }
-export interface ImagePreflightResult { ready: boolean; checks: ImageQualityCheck[]; basicChecksPassed?: boolean; sourceReadRequired?: boolean;
+export interface ImagePreflightResult { processingProgress?: ProcessingProgress; ready: boolean; checks: ImageQualityCheck[]; basicChecksPassed?: boolean; sourceReadRequired?: boolean;
   sourceReadStatus?: 'CHECKING' | 'PASSED' | 'FAILED_IMAGE' | 'FAILED_SERVICE'; canSubmit?: boolean; sourceReadErrorCode?: string; message?: string; }
 
 @Injectable({ providedIn: 'root' })

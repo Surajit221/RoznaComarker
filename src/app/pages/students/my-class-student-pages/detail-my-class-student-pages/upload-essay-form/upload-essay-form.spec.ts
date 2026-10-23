@@ -145,23 +145,23 @@ describe('UploadEssayForm', () => {
     pending.next({ ...state, sourceReadStatus: 'FAILED_IMAGE', checks: [{ ...state.checks[0], status: 'fail' }] });pending.complete();fixture.detectChanges();
     expect(component.ready).toBeFalse();expect(fixture.nativeElement.textContent).toContain('Needs a clearer image');
   });
-  it('keeps timed handwriting hints display-only, clears them on file removal and checks a replacement once', fakeAsync(() => {
+  it('keeps server progress fixed, cancels removed files and checks a replacement once', fakeAsync(() => {
     const old = new Subject<ImagePreflightResult>(), replacement = new Subject<ImagePreflightResult>();
     check.and.returnValues(old, replacement);
     const pending: ImagePreflightResult = { ready: false, sourceReadRequired: true, sourceReadStatus: 'CHECKING',
+      processingProgress:{status:'processing',stage:'source',percent:60,message:'Reading handwriting and verifying readability',active:true,completed:false,failed:false},
       checks: [{ id: 'handwritingReadability', label: 'Handwriting readability', required: true, status: 'checking' }] };
     select('old.png'); old.next(pending); fixture.detectChanges();
     expect(component.handwritingChecking).toBeTrue();
     tick(60000); fixture.detectChanges(); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Still checking.');
+    expect(fixture.nativeElement.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBe('60');
     expect(check).toHaveBeenCalledTimes(1);
-    const clear = spyOn(window, 'clearTimeout').and.callThrough();
     component.removeFile(new Event('click'), 0);
-    expect(clear).toHaveBeenCalledTimes(3);
+    expect(old.observed).toBeFalse();
     expect(component.handwritingChecking).toBeFalse();
     expect(fixture.nativeElement.querySelector('[role="progressbar"]')).toBeNull();
     select('replacement.png'); replacement.next(pending); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Image checks passed. Reading handwriting...');
+    expect(fixture.nativeElement.textContent).toContain('Reading handwriting and verifying readability');
     old.next({ ...ready, sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true });
     expect(component.ready).toBeFalse();
     replacement.next({ ...ready, sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true }); replacement.complete(); fixture.detectChanges();
@@ -170,19 +170,18 @@ describe('UploadEssayForm', () => {
     tick(60000); expect(check).toHaveBeenCalledTimes(2);
   }));
 
-  it('removes loading timers when reset or destroyed without extra checks', fakeAsync(() => {
+  it('uses no timed stage guesses and cancels checks on reset or destroy', fakeAsync(() => {
     // Keep the source pending as the real two-phase service does.
     const pending = new Subject<ImagePreflightResult>(); check.and.returnValue(pending);
     const state: ImagePreflightResult = { ready: false, sourceReadRequired: true, sourceReadStatus: 'CHECKING', checks: [] };
     const schedule = spyOn(window, 'setTimeout').and.callThrough();
     select('reset.png'); pending.next(state); fixture.detectChanges();
-    const clear = spyOn(window, 'clearTimeout').and.callThrough();
     component.reset();
     select('destroy.png'); pending.next(state); fixture.detectChanges();
     fixture.destroy();
     const stageHandles = schedule.calls.all().filter(call => [5000, 20000, 45000].includes(Number(call.args[1]))).map(call => call.returnValue);
-    expect(stageHandles.length).toBe(6);
-    stageHandles.forEach(handle => expect(clear).toHaveBeenCalledWith(handle));
+    expect(stageHandles).toEqual([]);
+    expect(pending.observed).toBeFalse();
     tick(60000); expect(check).toHaveBeenCalledTimes(2);
   }));
   it('requires explicit accepted exact source status even if an inconsistent response says ready', () => {

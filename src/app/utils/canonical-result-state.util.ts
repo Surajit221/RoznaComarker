@@ -1,3 +1,4 @@
+import type { ProcessingProgress } from '../components/analysis-progress/analysis-progress';
 export type Availability = 'pending' | 'available' | 'partial' | 'failed';
 export type ResultStatus = 'pending' | 'processing' | 'completed' | 'partial' | 'failed' | 'stale' | 'blocked';
 export type CanonicalCategory = 'content' | 'grammar' | 'organization' | 'vocabulary' | 'mechanics';
@@ -5,6 +6,7 @@ export type EvaluationFreshness = 'current' | 'stale_rubric' | 'stale_policy' | 
   | 'stale_version' | 'processing' | 'overridden' | 'failed' | 'not_ready';
 
 export interface CanonicalResultViewState {
+  processingProgress?: ProcessingProgress | null;
   ocrFailureMessage?: string | null;
   ocrStatus?: 'pending' | 'processing' | 'completed' | 'failed' | null;
   submissionId: string | null;
@@ -144,6 +146,7 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     ocrStatus: ['pending', 'processing', 'completed', 'failed'].includes(value.ocrStatus)
       ? value.ocrStatus : previous?.ocrStatus || null,
     submissionId,
+    processingProgress: value.processingProgress || null,
     correctionStatus,
     statisticsStatus: value.statisticsStatus || (completeness === 'canonical' ? 'complete' : completeness === 'language_only' ? 'partial' : 'processing'),
     statisticsCompleteness: completeness,

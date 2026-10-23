@@ -8,6 +8,7 @@ import { CorrectionOverlay } from '../../../../../components/correction-overlay/
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
+import { CanonicalSubmissionResultCoordinator } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildAnnotationVisuals } from '../../../../../components/correction-overlay/annotation-geometry';
 
 describe('MySubmissionPage', () => {
@@ -41,6 +42,23 @@ describe('MySubmissionPage', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+  it('does not start polling for a fresh persisted result',()=>{
+    const start=spyOn(TestBed.inject(CanonicalSubmissionResultCoordinator),'start');
+    component.submission={_id:'submission-1',ocrStatus:'completed'} as NonNullable<typeof component.submission>;
+    component.canonicalResultState=normalizeCanonicalResult({terminal:true,processingActive:false,automaticPollingAllowed:false,
+      correctionStatus:'completed',semanticStatus:'completed',evaluationStatus:'completed',detailedFeedbackStatus:'completed'});
+    (component as unknown as {syncOcrPolling():void}).syncOcrPolling();
+    expect(start).not.toHaveBeenCalled();
+  });
+  it('resumes the server stage on refresh and skips progress for a stored completed result',()=>{
+    component.canonicalResultState=normalizeCanonicalResult({processingActive:true,terminal:false,
+      processingProgress:{status:'processing',stage:'evaluation',percent:80,message:'Calculating the score and rubric',active:true,failed:false,completed:false}});
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-analysis-progress [role="progressbar"]').getAttribute('aria-valuenow')).toBe('80');
+    component.canonicalResultState=normalizeCanonicalResult({processingActive:false,terminal:true,semanticStatus:'completed',evaluationStatus:'completed',
+      detailedFeedbackStatus:'completed',processingProgress:{status:'completed',stage:'completed',percent:100,message:'Result ready',active:false,failed:false,completed:true}});
+    fixture.detectChanges();expect(fixture.nativeElement.querySelector('app-analysis-progress section')).toBeNull();
   });
   it('shows provisional exact source and suppresses final assessment when source review is required', () => {
     component.submission = { _id:'submission-1',sourceFidelity:{mode:'astra_verified',status:'OCR_UNCERTAIN',
