@@ -24,6 +24,7 @@ import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual }
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
 import type { AnnotationLeader } from './annotation-placement';
 import { annotationBadgeMetrics } from './annotation-badge-metrics';
+import { refineBadgeStrokeClearance } from './annotation-badge-clearance';
 import { annotationMatchesImage } from '../../utils/correction-bbox.util';
 import { imagePresentationGeometry, sourceGeometryMatchesImage, type AnnotationImageGeometry } from './annotation-image-geometry';
 
@@ -400,7 +401,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.renderedWidth = width;
     this.renderedHeight = height;
     this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
-    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics, this.debugWords).map((group) => ({
+    const groups = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics, this.debugWords);
+    this.markers = refineBadgeStrokeClearance(groups, this.visuals, width, height, this.badgeMetrics, this.debugWords).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
       textColor: this.contrastColor(group.annotations[0].color || '#d64545')
     }));
