@@ -1,6 +1,8 @@
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { AnnotationSegment, AnnotationVisual } from './annotation-geometry';
 import { DESKTOP_BADGE_METRICS, type AnnotationBadgeMetrics } from './annotation-badge-metrics';
+import { clarifyAnnotationPlacement, type AnnotationLeader } from './annotation-placement';
+import type { OcrWord } from '../../models/ocr-token.model';
 
 export interface AnnotationGroup {
   id: string;
@@ -14,6 +16,7 @@ export interface AnnotationGroup {
   width: number;
   code: string;
   label: string;
+  leaders?: AnnotationLeader[];
 }
 const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
 const signature = (s: AnnotationSegment): string => [s.left, s.top, s.width, s.height || 0, Number(!!s.boundary)]
@@ -83,7 +86,8 @@ function label(group: AnnotationGroup, metrics: Readonly<AnnotationBadgeMetrics>
 
 /** Deterministic grouping; spatial bins avoid scanning all previously placed badges. */
 export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: number, height: number,
-  _densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
+  _densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS,
+  words: OcrWord[] = []): AnnotationGroup[] {
   // Keep the existing call signature; density no longer merges distinct targets.
   void _densityCellWidth;
   if (width <= 0 || height <= 0) return [];
@@ -113,7 +117,8 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
     targets.set(target, group);
   }
   placeGroups(groups, width, height, metrics);
-  return groupCollidingBadges(groups, width, height, metrics);
+  return clarifyAnnotationPlacement(groupCollidingBadges(groups, width, height, metrics), visuals,
+    width, height, metrics, badgeLocalityRadius(metrics), words);
 }
 
 interface BadgeAnchor { left: number; top: number; }
