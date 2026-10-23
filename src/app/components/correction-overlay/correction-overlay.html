@@ -37,6 +37,7 @@
 
   @for (line of mediaState === 'loaded' ? underlineSegments : []; track line.id) {
     <span class="correction-overlay__underline" [class.correction-overlay__boundary]="line.boundary" [class.is-selected]="isSelected(line)" [style.left.%]="line.left" [style.top.%]="line.top"
+      [style.--underline-clearance]="line.underlineBottom === undefined ? null : (line.underlineBottom - line.top) + '%'"
       [style.width.%]="line.width" [style.--underline-color]="line.color" aria-hidden="true"></span>
   }
 
