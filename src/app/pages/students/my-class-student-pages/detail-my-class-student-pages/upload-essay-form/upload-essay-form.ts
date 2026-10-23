@@ -28,6 +28,7 @@ interface UploadEntry {
 })
 export class UploadEssayForm {
   @Input() disabled = false;
+  @Input() assignmentId: string | null = null;
   @Output() readinessChange = new EventEmitter<boolean>();
   @Output() filesSelected = new EventEmitter<File[]>();
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -162,6 +163,7 @@ export class UploadEssayForm {
         entry.preview = URL.createObjectURL(file);
         entry.qualityState = 'queued';
       }
+      if (!isImage && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) entry.qualityState = 'queued';
     }
 
     this.files = [...this.files, ...toAdd];
@@ -214,9 +216,14 @@ export class UploadEssayForm {
     this.cdr.detectChanges();
   }
 
+  get handwritingChecking(): boolean {
+    return this.files.some(entry => entry.qualityState === 'checking' && entry.quality?.sourceReadStatus === 'CHECKING');
+  }
+
   get ready(): boolean {
     return this.files.length > 0 && this.files.every(entry => !entry.qualityState
-      || (entry.qualityState === 'done' && entry.quality?.ready === true));
+      || (entry.qualityState === 'done' && entry.quality?.ready === true
+        && (!entry.quality.sourceReadRequired || entry.quality.sourceReadStatus === 'PASSED' && entry.quality.canSubmit === true)));
   }
 
   retryQuality(entry: UploadEntry): void {
@@ -236,11 +243,11 @@ export class UploadEssayForm {
     entry.qualityState = 'checking';
     const task = { entry, request: new Subscription() };
     this.active = task;
-    task.request.add(this.preflight.check(entry.file).subscribe({
+    task.request.add(this.preflight.check(entry.file, this.assignmentId).subscribe({
       next: result => {
         if (this.destroyed || this.active !== task || !this.files.includes(entry)) return;
         entry.quality = result;
-        entry.qualityState = 'done';
+        entry.qualityState = result.sourceReadStatus === 'CHECKING' ? 'checking' : 'done';
       },
       error: () => {
         if (this.destroyed || this.active !== task || !this.files.includes(entry)) return;
@@ -255,6 +262,7 @@ export class UploadEssayForm {
   private finishCheck(task: { entry: UploadEntry; request: Subscription }): void {
     if (this.destroyed || this.active !== task) return;
     this.active = undefined;
+    if (task.entry.qualityState === 'checking') task.entry.qualityState = 'done';
     this.updateReadiness();
     this.cdr.markForCheck();
   }

@@ -141,9 +141,9 @@
           </button>
         </div>
       </div>
-      @if (file.qualityState) {
+      @if (file.qualityState && (file.preview || file.quality?.sourceReadRequired)) {
         <app-image-quality-checklist [checking]="file.qualityState === 'queued' || file.qualityState === 'checking'"
-          [result]="file.quality" [error]="file.qualityError" />
+          [queued]="file.qualityState === 'queued'" [result]="file.quality" [error]="file.qualityError" />
         @if (file.qualityState === 'unavailable' || (file.qualityState === 'done' && !file.quality?.ready)) {
           <button type="button" (click)="retryQuality(file)" [disabled]="disabled" class="text-sm font-semibold underline text-[#006d6e] my-2">Retry image check</button>
         }

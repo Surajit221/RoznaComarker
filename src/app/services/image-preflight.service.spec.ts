@@ -5,6 +5,18 @@ import { ImagePreflightService } from './image-preflight.service';
 import { environment } from '../../environments/environment';
 
 describe('ImagePreflightService', () => {
+  it('emits source-checking after basic checks, then performs one explicit assignment-bound source request', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const received = jasmine.createSpy(),http = TestBed.inject(HttpTestingController);
+    TestBed.inject(ImagePreflightService).check(new File(['x'], 'x.png'), 'assignment').subscribe(received);
+    const basic = http.expectOne(`${environment.apiUrl}/submissions/image-preflight`);
+    expect(basic.request.body.get('phase')).toBe('basic');expect(basic.request.body.get('assignmentId')).toBe('assignment');
+    basic.flush({ success: true, data: { ready: false, checks: [], basicChecksPassed: true, sourceReadRequired: true, sourceReadStatus: 'CHECKING' } });
+    expect(received.calls.mostRecent().args[0].sourceReadStatus).toBe('CHECKING');
+    const source = http.expectOne(`${environment.apiUrl}/submissions/image-preflight`);expect(source.request.body.get('phase')).toBe('source');
+    source.flush({ success: true, data: { ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true } });
+    expect(received.calls.count()).toBe(2);http.verify();
+  });
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] }));
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 

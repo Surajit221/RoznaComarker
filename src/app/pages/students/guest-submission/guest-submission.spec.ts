@@ -238,4 +238,12 @@ describe('guest assignment page presentation', () => {
     expect(fixture.nativeElement.querySelector('#guest-files')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-assignment-qr-redirect')).toBeNull();
   });
+  it('renders an optional source-fidelity result without requiring feedback', () => {
+    page.result={title:'Essay',name:'Student',submittedAt:new Date().toISOString(),feedback:null,
+      sourceFidelity:{mode:'astra_verified',status:'OCR_UNCERTAIN',assessmentAllowed:false,transcriptExact:'sence\nSocial',pages:[]}};
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.source-text').textContent).toBe('sence\nSocial');
+    expect(text(fixture.nativeElement)).toContain('Source review required');
+    expect(fixture.nativeElement.querySelector('.score')).toBeNull();
+  });
 });

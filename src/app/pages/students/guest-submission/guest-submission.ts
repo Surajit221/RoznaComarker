@@ -1,3 +1,4 @@
+import { SourceFidelityComponent } from '../../../components/source-fidelity/source-fidelity';
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { AssignmentQrRedirect } from '../assignment-qr-redirect/assignment-qr-re
 
 @Component({
   selector: 'app-guest-submission',
-  imports: [CommonModule, FormsModule, RouterLink, AssignmentQrRedirect],
+  imports: [SourceFidelityComponent,CommonModule, FormsModule, RouterLink, AssignmentQrRedirect],
   templateUrl: './guest-submission.html',
   styleUrl: './guest-submission.css',
 })

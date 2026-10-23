@@ -45,6 +45,14 @@ describe('StudentSubmissionPages', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('keeps uncertain exact source visible to the teacher without showing final scores', () => {
+    component.currentSubmission={_id:'submission-1',sourceFidelity:{mode:'astra_verified',status:'OCR_UNCERTAIN',
+      assessmentAllowed:false,transcriptExact:'sence\nSocial',pages:[]}} as unknown as NonNullable<typeof component.currentSubmission>;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.source-text').textContent).toBe('sence\nSocial');
+    expect(fixture.nativeElement.querySelector('.submission-review-page')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Back');
+  });
   it('preserves authoritative renderTarget and the already-correct visualTarget fallback', async () => {
     component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
     const internals = component as unknown as { ensureWritingCorrectionsLegendLoaded(): Promise<void>;

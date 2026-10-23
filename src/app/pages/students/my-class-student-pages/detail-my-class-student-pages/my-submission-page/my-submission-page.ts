@@ -1,3 +1,4 @@
+import { SourceFidelityComponent } from '../../../../../components/source-fidelity/source-fidelity';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -52,7 +53,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
+  imports: [SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
@@ -1360,6 +1361,7 @@ export class MySubmissionPage {
   private applyOcrPayloadState(submissionId: string, data: any): void {
     if (!this.submission || this.submission._id !== submissionId || !data || typeof data !== 'object') return;
     const submission = this.submission as any;
+    if (data.sourceFidelity) submission.sourceFidelity = data.sourceFidelity;
     const ocrStatus = String(data.ocrStatus || '').toLowerCase();
     const correctionStatus = String(data.correctionStatus || '').toLowerCase();
     const semanticStatus = String(data.semanticStatus || '').toLowerCase();

@@ -42,6 +42,14 @@ describe('MySubmissionPage', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('shows provisional exact source and suppresses final assessment when source review is required', () => {
+    component.submission = { _id:'submission-1',sourceFidelity:{mode:'astra_verified',status:'OCR_UNCERTAIN',
+      assessmentAllowed:false,transcriptExact:'  sence\nSocial  ',pages:[]} } as unknown as NonNullable<typeof component.submission>;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.source-text').textContent).toBe('  sence\nSocial  ');
+    expect(fixture.nativeElement.textContent).toContain('Source review required');
+    expect(fixture.nativeElement.querySelector('.submission-review-page')).toBeNull();
+  });
   it('retains the API render target instead of drawing the broader evidence span', async () => {
     component.submission = { _id: 'submission-1' } as NonNullable<typeof component.submission>;
     const internals = component as unknown as { ensureWritingCorrectionsLegendLoaded(): Promise<void>;

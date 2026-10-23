@@ -60,6 +60,15 @@
               ],
               "outputHashing": "all"
             },
+            "local-shadow": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [{
+                "replace": "src/environments/environment.ts",
+                "with": "src/environments/environment.local-shadow.ts"
+              }]
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -77,6 +86,12 @@
           "configurations": {
             "production": {
               "buildTarget": "rozna-comarker-fe:build:production"
+            },
+            "local-shadow": {
+              "buildTarget": "rozna-comarker-fe:build:local-shadow",
+              "headers": {
+                "Content-Security-Policy": "default-src 'self'; connect-src 'self' http://127.0.0.1:5001 ws://localhost:4200 ws://127.0.0.1:4200; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://127.0.0.1:5001; font-src 'self' data:; frame-src 'none'; form-action 'self'"
+              }
             },
             "development": {
               "buildTarget": "rozna-comarker-fe:build:development"

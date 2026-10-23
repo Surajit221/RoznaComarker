@@ -4,6 +4,25 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { TokenizedTranscript } from './tokenized-transcript';
 
 describe('TokenizedTranscript canonical separators', () => {
+  it('renders and exposes all 100 GPT words even when the first words and 40 total words have no boxes', async () => {
+    await TestBed.configureTestingModule({ imports: [TokenizedTranscript] }).compileComponents();
+    const fixture = TestBed.createComponent(TokenizedTranscript), component = fixture.componentInstance;
+    const first = 'Social and cultural expectations shape Louise Mallard because the society'.split(' ');
+    component.ocrWords = Array.from({ length: 100 }, (_, i) => ({ id: `word_f_1_gpt_${i + 1}`, text: first[i] || `word${i}`,
+      bbox: i >= 20 && i < 80 ? { x: 3, y: 10, w: 6, h: 5 } : null, separatorBefore: i ? ' ' : '' }));
+    component.annotations = [{ _id: 'c', submissionId: 's', wordIds: [component.ocrWords[0].id], symbol: 'SP', message: 'Source correction', source: 'AI', editable: false }];
+    component.ngOnChanges({ ocrWords: new SimpleChange(null, component.ocrWords, true), annotations: new SimpleChange(null, component.annotations, true) });
+    fixture.detectChanges();
+    const rendered = () => component.tokens.map(t => t.kind === 'word' ? t.word.text : t.value).join('');
+    const complete = component.ocrWords.map(w => w.text).join(' ');
+    expect(rendered()).toBe(complete);expect(rendered().startsWith('Social and cultural expectations shape Louise Mallard because the')).toBeTrue();
+    expect(component.tokens.filter(t => t.kind === 'word').length).toBe(100);
+    const domWords = fixture.nativeElement.querySelectorAll('.tokenized-transcript > span');
+    expect(domWords[0].textContent.trim()).toBe('Social');expect(domWords[0].classList.contains('correction-highlight')).toBeTrue();
+    component.ocrWords = component.ocrWords.map(w => ({ ...w, bbox: null }));
+    component.ngOnChanges({ ocrWords: new SimpleChange(null, component.ocrWords, false) });fixture.detectChanges();expect(rendered()).toBe(complete);
+    fixture.destroy();
+  });
   it('renders only backend separators and never infers line breaks from geometry', () => {
     const component = new TokenizedTranscript();
     component.ocrWords = [

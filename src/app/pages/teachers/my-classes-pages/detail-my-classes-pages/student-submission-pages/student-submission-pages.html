@@ -1,4 +1,10 @@
 <ng-container>
+  @if (currentSubmission?.sourceFidelity && !currentSubmission?.sourceFidelity?.assessmentAllowed) {
+    <header class="source-review-shell mb-6 flex flex-wrap justify-between items-center gap-3"><h1 class="text-4xl font-bold text-gray-800">Student Submissions</h1>
+      <button type="button" class="btn-danger" (click)="toBack()">Back to class</button></header>
+  }
+  <app-source-fidelity [source]="currentSubmission?.sourceFidelity" [submissionId]="currentSubmission?._id" (sourceChanged)="onHumanSourceReviewed($event)" />
+  @if (!currentSubmission?.sourceFidelity || currentSubmission?.sourceFidelity?.assessmentAllowed) {
 
   <!-- ✅ DESKTOP -->
   <main class="submission-review-page">
@@ -208,7 +214,8 @@
 
                   <!-- Essay with Corrections -->
                   <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="transcriptState === 'loading'">
-                    @if (transcriptState === 'loading') {
+                    @if (currentSubmission?.sourceFidelity) { <p>See the exact source transcription above. Correction findings remain separate below.</p> }
+                    @else if (transcriptState === 'loading') {
                     <ng-container *ngTemplateOutlet="transcriptSkeleton"></ng-container>
                     } @else if (transcriptState === 'error') {
                     <div class="section-load-error" role="status">Unable to load the transcribed text.</div>
@@ -527,4 +534,9 @@
       (selected)="onSubmissionSelected($event)" (closed)="onCloseSubmission()"></app-dialog-view-submissions>
   </app-modal-dialog>
 
+  } @else {
+    <button type="button" class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
+    <button type="button" class="btn-warning" [disabled]="!canGoNext" (click)="onNextSubmission()">Next</button>
+    <button type="button" class="btn-danger" (click)="toBack()">Back</button>
+  }
 </ng-container>

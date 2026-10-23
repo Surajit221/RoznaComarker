@@ -1,4 +1,10 @@
 <ng-container>
+  @if (submission?.sourceFidelity && !submission?.sourceFidelity?.assessmentAllowed) {
+    <header class="source-review-shell mb-6 flex flex-wrap justify-between items-center gap-3"><h1 class="text-4xl font-bold text-gray-800">Your Submissions</h1>
+      <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button></header>
+  }
+  <app-source-fidelity [source]="submission?.sourceFidelity" />
+  @if (!submission?.sourceFidelity || submission?.sourceFidelity?.assessmentAllowed) {
   @if (assignmentUnavailable) {
     <div class="section-load-error" role="status">Assignment details are unavailable. Submission results remain available below.</div>
   }
@@ -195,7 +201,8 @@
 
               <!-- Essay with Corrections -->
               <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="transcriptState === 'loading'">
-                @if (transcriptState === 'loading') { <ng-container *ngTemplateOutlet="transcriptSkeleton"></ng-container> }
+                @if (submission?.sourceFidelity) { <p>See the exact source transcription above. Correction findings remain separate below.</p> }
+                @else if (transcriptState === 'loading') { <ng-container *ngTemplateOutlet="transcriptSkeleton"></ng-container> }
                 @else if (transcriptState === 'error') { <div class="section-load-error" role="status">Unable to load the transcribed text.</div> }
                 @else {
                 <div class="result-metadata-header flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
@@ -500,4 +507,5 @@
     </div>
   </app-modal-dialog>
 
+  }
 </ng-container>
