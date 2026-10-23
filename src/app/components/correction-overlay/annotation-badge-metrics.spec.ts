@@ -14,8 +14,11 @@ describe('responsive badge sizing', () => {
     expect(annotationBadgeMetrics(1440)).toBe(DESKTOP_BADGE_METRICS);
     expect(annotationBadgeMetrics(1024)).toEqual(jasmine.objectContaining({ height: 26, charWidth: 6,
       minWidth: 30, collisionHeight: 32, offsetY: 17, fallbackOffsetY: 47 }));
-    expect(layoutAnnotationGroups(visuals, 1000, 1200)).toEqual(
-      layoutAnnotationGroups(visuals, 1000, 1200, 110, annotationBadgeMetrics(1024)));
+    // The badge dimensions/position stay compatible; leaders meet the actual
+    // visible edge of the 26px vs 28px badge, so their endpoints can differ.
+    const positions = (metrics: typeof DESKTOP_BADGE_METRICS) => layoutAnnotationGroups(visuals, 1000, 1200, 110, metrics)
+      .map(({left,top,width,code}) => ({left,top,width,code}));
+    expect(positions(DESKTOP_BADGE_METRICS)).toEqual(positions(annotationBadgeMetrics(1024)));
   });
   for (const width of [430, 390, 375]) {
     it(`reduces local and group size at ${width}px without changing canonical targets`, () => {

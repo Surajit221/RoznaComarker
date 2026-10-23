@@ -22,6 +22,7 @@ import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
 import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
+import type { AnnotationLeader } from './annotation-placement';
 import { annotationBadgeMetrics } from './annotation-badge-metrics';
 import { annotationMatchesImage } from '../../utils/correction-bbox.util';
 import { imagePresentationGeometry, sourceGeometryMatchesImage, type AnnotationImageGeometry } from './annotation-image-geometry';
@@ -41,6 +42,7 @@ interface CorrectionMarker {
   label: string;
   textColor: string;
   semantic: boolean;
+  leaders?: AnnotationLeader[];
 }
 
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
@@ -398,7 +400,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.renderedWidth = width;
     this.renderedHeight = height;
     this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
-    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
+    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics, this.debugWords).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
       textColor: this.contrastColor(group.annotations[0].color || '#d64545')
     }));

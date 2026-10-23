@@ -46,6 +46,16 @@
       [style.height.%]="rail.height" [style.--underline-color]="rail.color" aria-hidden="true"></span>
   }
 
+  @if (mediaState === 'loaded') {
+    <svg class="correction-overlay__leaders" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      @for (marker of markers; track marker.id) {
+        @for (leader of marker.leaders || []; track leader.id) {
+          <polyline class="correction-overlay__leader" [class.is-selected]="activeMarker === marker"
+            [attr.points]="leader.points" [attr.stroke]="leader.color" />
+        }
+      }
+    </svg>
+  }
   @for (marker of mediaState === 'loaded' ? markers : []; track marker.id) {
     <button
       type="button"
