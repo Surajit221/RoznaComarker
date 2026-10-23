@@ -13,6 +13,8 @@ export interface AnnotationSegment {
   correctionIds: string[];
   lineKey?: string;
   boundary?: boolean;
+  /** Lowest permitted stroke edge in image-percent coordinates. */
+  underlineBottom?: number;
 }
 
 export interface AnnotationVisual {
@@ -62,7 +64,7 @@ function legacyBoxes(boxes: OcrBBox[], imageHeight: number): LocatedBox[] {
 }
 
 function segment(id: string, boxes: LocatedBox[], color: string, imageWidth: number,
-  imageHeight: number): AnnotationSegment {
+  imageHeight: number, nextLineTop = 100): AnnotationSegment {
   const left = Math.min(...boxes.map((item) => item.box.x));
   const right = Math.max(...boxes.map((item) => item.box.x + item.box.w));
   const bottom = Math.max(...boxes.map((item) => item.box.y + item.box.h));
@@ -70,9 +72,25 @@ function segment(id: string, boxes: LocatedBox[], color: string, imageWidth: num
   const padX = Math.min(1.5 / imageWidth * 100, height * imageHeight / imageWidth * 0.08);
   const x1 = clamp(left - padX, 0, 100);
   const x2 = clamp(Math.max(right + padX, x1 + 2 / imageWidth * 100), 0, 100);
-  const top = clamp(bottom + Math.max(1.5 / imageHeight * 100, height * 0.12), 0, 99.8);
-  return { id, left: x1, top, width: x2 - x1, color,
+  const heights = boxes.map(item => item.box.h).sort((a, b) => a - b);
+  const middle = Math.floor(heights.length / 2);
+  const medianHeight = heights.length % 2 ? heights[middle] : (heights[middle - 1] + heights[middle]) / 2;
+  const clearance = computeUnderlineClearance(bottom, medianHeight, nextLineTop);
+  return { id, left: x1, ...clearance, width: x2 - x1, color,
     correctionIds: [], anchorTop: clamp(Math.min(...boxes.map((item) => item.box.y)), 0, 100) };
+}
+
+/** Render-only percentages: reserve room for the entire stroke, including selection. */
+export function computeUnderlineClearance(targetBottom: number, wordHeight: number,
+  nextLineTop = 100): { top: number; underlineBottom: number } {
+  const space = Math.max(0, nextLineTop - targetBottom);
+  const padding = Math.min(wordHeight * 0.04, space * 0.2);
+  const strokeRoom = Math.min(wordHeight * 0.08, (space - padding) * 0.4);
+  const gap = Math.min(wordHeight * 0.06, 0.18, Math.max(0, space - padding - strokeRoom));
+  const top = targetBottom + gap;
+  // Touching/overlapping source boxes offer no exterior clearance. Keep the
+  // original target edge and a minimal stroke rather than hide or remap it.
+  return { top, underlineBottom: space > 0 ? nextLineTop - padding : top + wordHeight * 0.01 };
 }
 
 /** OCR coordinates and returned geometry are percentages of the same image content rectangle. */
@@ -90,6 +108,12 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
     previous = word;
   });
   const pageBoxes = words.map((word) => word.bbox).filter(validBox);
+  const pageLines = new Map<number, OcrBBox[]>();
+  for (const item of wordIndex.values()) {
+    if (!validBox(item.word.bbox)) continue;
+    const row = pageLines.get(item.line) || [];
+    row.push(item.word.bbox); pageLines.set(item.line, row);
+  }
   const textLeft = pageBoxes.length ? Math.min(...pageBoxes.map((box) => box.x)) : 0;
   const textRight = pageBoxes.length ? Math.max(...pageBoxes.map((box) => box.x + box.w)) : 100;
   const visuals: AnnotationVisual[] = [];
@@ -152,8 +176,15 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
       } else current.push(item);
     }
     const color = annotation.color || '#d64545';
+    const lineBoxes = hasWordOrder ? pageLines : new Map<number, OcrBBox[]>();
+    if (!hasWordOrder) for (const item of located) {
+      const row = lineBoxes.get(item.line) || [];
+      row.push(item.box); lineBoxes.set(item.line, row);
+    }
     visuals.push({ annotation, semantic: false, lineKeys, segments: [...groups.map((group, index) =>
-      ({ ...segment(`${annotation._id}_${index}`, group, color, imageWidth, imageHeight),
+      ({ ...segment(`${annotation._id}_${index}`, group, color, imageWidth, imageHeight,
+        Math.min(100, ...[...lineBoxes].filter(([row]) => row > group[0].line)
+          .flatMap(([, row]) => row.map(box => box.y)))),
         lineKey: lineKey(group[0]), correctionIds: [annotation._id] })), ...boundaries] });
   }
   return visuals;

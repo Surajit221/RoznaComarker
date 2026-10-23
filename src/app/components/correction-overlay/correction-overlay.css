@@ -42,8 +42,8 @@
 .correction-overlay__underline {
   position: absolute;
   z-index: 2;
-  height: 0;
-  border-bottom: 2px solid var(--underline-color, #d64545);
+  height: min(2px, var(--underline-clearance, 2px));
+  background: var(--underline-color, #d64545);
   pointer-events: none;
   border-radius: 2px;
 }
@@ -61,6 +61,7 @@
 
 .correction-overlay__boundary {
   height: 5px;
+  background: transparent;
   border-left: 2px solid var(--underline-color, #d64545);
   border-bottom: 0;
 }
@@ -384,7 +385,8 @@
 .has-selection .correction-overlay__semantic-rail,
 .has-selection .correction-overlay__marker { opacity: .38; }
 .has-selection .is-selected { opacity: 1; }
-.correction-overlay__underline.is-selected { border-bottom-width: 3px; filter: brightness(.72); }
+.correction-overlay__underline.is-selected { height: min(3px, var(--underline-clearance, 3px)); filter: brightness(.72); }
+.correction-overlay__boundary.is-selected { height: 5px; }
 .correction-overlay__semantic-rail.is-selected { width: 4px; filter: brightness(.72); }
 .correction-overlay__marker:focus-visible { outline: 2px solid #172033; outline-offset: 2px; }
 .correction-overlay__entries { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px; }
