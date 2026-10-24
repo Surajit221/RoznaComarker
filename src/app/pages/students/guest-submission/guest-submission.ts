@@ -1,3 +1,4 @@
+import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { SourceFidelityComponent } from '../../../components/source-fidelity/source-fidelity';
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
@@ -16,6 +17,13 @@ import { AssignmentQrRedirect } from '../assignment-qr-redirect/assignment-qr-re
   styleUrl: './guest-submission.css',
 })
 export class GuestSubmissionPage {
+  private guestFeature = inject(GuestSubmissionFeature);
+  guestUnavailable = false;
+  private async guestAvailable(): Promise<boolean> {
+    this.guestUnavailable = !(await this.guestFeature.load());
+    if (this.guestUnavailable) this.loading = false;
+    return !this.guestUnavailable;
+  }
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -53,6 +61,7 @@ export class GuestSubmissionPage {
       this.token = this.route.snapshot.fragment || '';
       // Keep bearer material only in memory. Remove it before API requests or rendering links.
       history.replaceState(history.state, '', location.pathname + location.search);
+      if (!(await this.guestAvailable())) return;
       await this.loadResults();
       return;
     }
@@ -70,10 +79,12 @@ export class GuestSubmissionPage {
         await this.router.navigate(['/verify-email'], { queryParams: { returnUrl: this.currentPath } });
         return;
       }
+      if (!(await this.guestAvailable())) return;
       const response = await firstValueFrom(this.http.get<any>(`${this.base}/assignments/${encodeURIComponent(this.qrToken)}`));
       this.assignment = response.data;
     } catch (error: any) {
-      if (error?.status === 404) {
+      if (error?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
+      else if (error?.status === 404) {
         await this.router.navigate(['/login'], { queryParams: { returnUrl: this.currentPath } });
       } else this.error = 'Unable to open this assignment. Please try again.';
     } finally { this.loading = false; }
@@ -108,6 +119,7 @@ export class GuestSubmissionPage {
       this.confirmation = response.data;
       this.recoveryEmail = this.email;
     } catch (error: any) {
+      if (error?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
       this.error = error?.error?.message || 'Submission could not be confirmed. Retry with the same files or recover your return link.';
       if ([400, 422].includes(error?.status)) this.requestKey = '';
     } finally { this.busy = false; }
@@ -119,6 +131,7 @@ export class GuestSubmissionPage {
         { headers: new HttpHeaders({ 'X-Guest-Token': this.token }) }));
       this.result = response.data;
     } catch (error: any) {
+      if (error?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
       if ([401, 403, 404, 410].includes(error?.status)) {
         this.result = null; this.practice = null;
         this.answers = {}; this.answerResults = {}; this.draftMessage = '';

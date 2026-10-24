@@ -1,3 +1,4 @@
+import { GuestSubmissionFeature } from '../../../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { AssignmentForm } from './assignment-form';
@@ -10,7 +11,7 @@ describe('AssignmentForm', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AssignmentForm], providers: [...routedComponentProviders(), ...httpTestingProviders]
+      imports: [AssignmentForm], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } }, ...routedComponentProviders(), ...httpTestingProviders]
     })
     .compileComponents();
 
@@ -64,6 +65,19 @@ describe('AssignmentForm', () => {
     await (component as any).handleSubmit();
     expect(update).toHaveBeenCalledOnceWith('assignment-1', jasmine.objectContaining({ allowGuestSubmission: false,
       showMarksToStudent: true, allowResubmission: false, requireAdaptiveBeforeResubmission: false }));
+  });
+
+  it('hides the guest option and omits its payload while preserving historical opt-in', async () => {
+    spyOn(component.guestFeature, 'enabled').and.returnValue(false);
+    component.assignment = { _id: 'assignment-1', title: 'Existing essay', writingType: 'Narrative',
+      deadline: '2099-08-11', instructions: 'Write clearly.', allowGuestSubmission: true } as any;
+    (component as any).applyAssignmentToForm(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[formControlName="allowGuestSubmission"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Allow submission without login');
+    expect(component.classForm.value.allowGuestSubmission).toBeTrue();
+    const update = spyOn((component as any).assignmentApi, 'updateAssignment').and.resolveTo(component.assignment);
+    spyOn((component as any).alert, 'showToast'); await (component as any).handleSubmit();
+    expect(update).toHaveBeenCalled(); expect((update.calls.mostRecent().args[1] as Record<string, unknown>)['allowGuestSubmission']).toBeUndefined();
   });
 
   it('does not expose a rubric action while creating a writing assignment', () => {
