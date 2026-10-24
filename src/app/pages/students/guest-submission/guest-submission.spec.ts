@@ -1,3 +1,4 @@
+import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -14,7 +15,7 @@ describe('guest assignment entry', () => {
   beforeEach(() => {
     auth = { ensureQrBackendSession: jasmine.createSpy().and.resolveTo({ state: 'anonymous' }) };
     router = { navigate: jasmine.createSpy().and.resolveTo(true) };
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(),
+    TestBed.configureTestingModule({ providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } }, provideHttpClient(), provideHttpClientTesting(),
       { provide: AuthService, useValue: auth }, { provide: Router, useValue: router },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ qrToken: 'share-code' }), fragment: null } } }
     ] });
@@ -27,13 +28,33 @@ describe('guest assignment entry', () => {
     await page.ngOnInit(); expect(page.registered).toBeTrue();
     http.expectNone(`${environment.apiUrl}/guest/assignments/share-code`);
   });
+  it('blocks anonymous entry when global availability is false without requesting assignment data', async () => {
+    spyOn(TestBed.inject(GuestSubmissionFeature), 'load').and.resolveTo(false);
+    await page.ngOnInit(); expect(page.guestUnavailable).toBeTrue(); expect(page.loading).toBeFalse();
+    http.expectNone(request => request.url.includes('/guest/assignments/'));
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+  it('preserves registered QR access without checking the disabled guest feature', async () => {
+    const availability = spyOn(TestBed.inject(GuestSubmissionFeature), 'load').and.resolveTo(false);
+    auth.ensureQrBackendSession.and.resolveTo({ state: 'ready', role: 'student' });
+    await page.ngOnInit(); expect(page.registered).toBeTrue(); expect(availability).not.toHaveBeenCalled();
+    http.expectNone(request => request.url.includes('/guest/'));
+  });
+  it('blocks saved return links before result/token access when globally disabled', async () => {
+    spyOn(TestBed.inject(GuestSubmissionFeature), 'load').and.resolveTo(false);
+    Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'saved' }), fragment: 'saved-token' });
+    const scrub = spyOn(history, 'replaceState'); await page.ngOnInit();
+    expect(scrub).toHaveBeenCalled(); expect(page.guestUnavailable).toBeTrue();
+    http.expectNone(request => request.url.includes('/guest/submissions/')); expect(router.navigate).not.toHaveBeenCalled();
+  });
+
   it('loads only public assignment metadata for an anonymous visitor', async () => {
-    const pending = page.ngOnInit(); await Promise.resolve();
+    const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0)); await Promise.resolve();
     http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({ data: { title: 'Essay', allowGuestSubmission: true } });
     await pending; expect(page.assignment.title).toBe('Essay'); expect(page.loading).toBeFalse();
   });
   it('preserves login return behavior when guest submissions are disabled', async () => {
-    const pending = page.ngOnInit(); await Promise.resolve();
+    const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0)); await Promise.resolve();
     http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({}, { status: 404, statusText: 'Unavailable' });
     await pending; expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/student/assignments/qr/share-code' } });
   });
@@ -75,7 +96,7 @@ describe('guest assignment entry', () => {
   it('removes a return token from browser history and uses only its scoped header', async () => {
     Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'submission-a' }), fragment: 'private-token' });
     const replace = spyOn(history, 'replaceState');
-    const pending = page.ngOnInit();
+    const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
     const req = http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a`);
     expect(req.request.headers.get('X-Guest-Token')).toBe('private-token');
     expect(req.request.url).not.toContain('private-token'); expect(replace).toHaveBeenCalled();
@@ -85,7 +106,7 @@ describe('guest assignment entry', () => {
   it('shows the expired return-link state without navigating into account flows', async () => {
     Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'submission-a' }), fragment: 'expired-token' });
     spyOn(history, 'replaceState');
-    const pending = page.ngOnInit();
+    const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
     http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a`).flush({ message: 'This link has expired. Request a new link.' }, { status: 410, statusText: 'Expired' });
     await pending; expect(page.error).toContain('expired'); expect(router.navigate).not.toHaveBeenCalled();
   });
@@ -99,7 +120,7 @@ describe('guest assignment entry', () => {
     });
     const replace = spyOn(history, 'replaceState');
     const storage = spyOn(Storage.prototype, 'setItem');
-    const pending = page.ngOnInit();
+    const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
     const req = http.expectOne(`${environment.apiUrl}/guest/submissions/507f1f77bcf86cd799439011`);
     expect(req.request.headers.get('X-Guest-Token')).toBe(token);
     expect(replace.calls.mostRecent().args[2]?.toString()).not.toContain(token);
@@ -130,7 +151,7 @@ describe('guest assignment page presentation', () => {
   let fixture: ComponentFixture<GuestSubmissionPage>;
   let http: HttpTestingController;
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [GuestSubmissionPage], providers: [
+    await TestBed.configureTestingModule({ imports: [GuestSubmissionPage], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } },
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
       { provide: AuthService, useValue: { ensureQrBackendSession: jasmine.createSpy().and.resolveTo({ state: 'anonymous' }) } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ qrToken: 'share-code' }), fragment: null } } }
@@ -141,11 +162,18 @@ describe('guest assignment page presentation', () => {
     page.assignment = { title: 'A place that matters', instructions: 'Describe a place that is special to you.',
       deadline: '2099-08-11T12:00:00Z', rubric: 'PRIVATE RUBRIC', teacherEmail: 'private@example.com' };
     http = TestBed.inject(HttpTestingController);
-    fixture.detectChanges(); await Promise.resolve();
+    fixture.detectChanges(); await new Promise<void>(resolve => setTimeout(resolve, 0));
     http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({ data: page.assignment });
     await fixture.whenStable(); fixture.detectChanges();
   });
   afterEach(() => { http.verify(); fixture.destroy(); });
+  it('renders only the temporary-unavailable message without guest forms', () => {
+    page.guestUnavailable = true; fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Guest submission is temporarily unavailable');
+    expect(fixture.nativeElement.textContent).toContain('Please contact your teacher.');
+    expect(fixture.nativeElement.querySelector('input')).toBeNull();
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+  });
   const text = (element: HTMLElement) => element.textContent || '';
 
   it('shows safe assignment information and the dedicated submission form with linked labels', () => {

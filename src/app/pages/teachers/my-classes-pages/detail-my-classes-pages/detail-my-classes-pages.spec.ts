@@ -1,3 +1,4 @@
+import { GuestSubmissionFeature } from '../../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 
 import { DetailMyClassesPages } from './detail-my-classes-pages';
@@ -13,7 +14,7 @@ describe('DetailMyClassesPages', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DetailMyClassesPages], providers: [...routedComponentProviders(), ...httpTestingProviders,
+      imports: [DetailMyClassesPages], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => false, load: () => Promise.resolve(false) } }, ...routedComponentProviders(), ...httpTestingProviders,
         ...authenticatedUserProviders('teacher')]
     })
     .compileComponents();

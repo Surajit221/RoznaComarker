@@ -1,3 +1,4 @@
+import { GuestSubmissionFeature } from '../../../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, inject, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
 import {
@@ -27,6 +28,7 @@ import { getAssignmentCapabilities } from '../../../../../utils/assignment-capab
   styleUrl: './assignment-form.css',
 })
 export class AssignmentForm {
+  guestFeature = inject(GuestSubmissionFeature);
   @ViewChild(RubricDesignerModal) rubricEditor?: RubricDesignerModal;
   classForm: FormGroup;
   @Input() classId: string | null = null;
@@ -65,6 +67,7 @@ export class AssignmentForm {
   }
 
   ngOnInit(): void {
+    void this.guestFeature.load();
     this.applyAssignmentToForm();
   }
 
@@ -192,7 +195,7 @@ export class AssignmentForm {
         this.classForm.value.allowResubmission === true && this.classForm.value.requireAdaptiveBeforeResubmission === true;
       if (!this.isResourceAssignment) {
         payload.writingType = writingType;
-        payload.allowGuestSubmission = this.classForm.value.allowGuestSubmission === true;
+        if (this.guestFeature.enabled()) payload.allowGuestSubmission = this.classForm.value.allowGuestSubmission === true;
       }
       
       // Existing assignments retain their rubric edit support. Creation never

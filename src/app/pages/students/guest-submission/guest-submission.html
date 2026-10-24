@@ -1,4 +1,9 @@
 @if (registered) { <app-assignment-qr-redirect /> }
+@else if (guestUnavailable) {
+  <main class="guest-page"><section class="card guest-shell" role="status">
+    <h1>Guest submission is temporarily unavailable</h1><p>Please contact your teacher.</p>
+  </section></main>
+}
 @else {
   <main class="guest-page" aria-labelledby="assignment-title">
     <div class="guest-shell">
