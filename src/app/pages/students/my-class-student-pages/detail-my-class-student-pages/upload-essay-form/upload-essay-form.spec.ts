@@ -114,6 +114,8 @@ describe('UploadEssayForm', () => {
     const file = new File(['test'], name, { type: 'image/png' });
     const selection = new DataTransfer(); selection.items.add(file);
     component.onFilesSelected({ target: { files: selection.files, value: '' } } as unknown as Event);
+    const entry = component.files.find(item => item.file === file);
+    if (entry) component.useImage(entry);
     return file;
   }
 
@@ -145,7 +147,7 @@ describe('UploadEssayForm', () => {
     pending.next({ ...state, sourceReadStatus: 'FAILED_IMAGE', checks: [{ ...state.checks[0], status: 'fail' }] });pending.complete();fixture.detectChanges();
     expect(component.ready).toBeFalse();expect(fixture.nativeElement.textContent).toContain('Needs a clearer image');
   });
-  it('keeps server progress fixed, cancels removed files and checks a replacement once', fakeAsync(() => {
+  it('keeps source progress indeterminate, cancels removed files and checks a replacement once', fakeAsync(() => {
     const old = new Subject<ImagePreflightResult>(), replacement = new Subject<ImagePreflightResult>();
     check.and.returnValues(old, replacement);
     const pending: ImagePreflightResult = { ready: false, sourceReadRequired: true, sourceReadStatus: 'CHECKING',
@@ -154,7 +156,8 @@ describe('UploadEssayForm', () => {
     select('old.png'); old.next(pending); fixture.detectChanges();
     expect(component.handwritingChecking).toBeTrue();
     tick(60000); fixture.detectChanges(); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBe('60');
+    expect(fixture.nativeElement.querySelector('[role="progressbar"]').hasAttribute('aria-valuenow')).toBeFalse();
+    expect(fixture.nativeElement.textContent).not.toContain('60%');
     expect(check).toHaveBeenCalledTimes(1);
     component.removeFile(new Event('click'), 0);
     expect(old.observed).toBeFalse();
@@ -184,6 +187,26 @@ describe('UploadEssayForm', () => {
     expect(pending.observed).toBeFalse();
     tick(60000); expect(check).toHaveBeenCalledTimes(2);
   }));
+  it('blocks basic-only checking and enables submission only when source verification passes', () => {
+    const pending = new Subject<ImagePreflightResult>();check.and.returnValue(pending);
+    select('pending.png');
+    pending.next({ready:false,checks:[],sourceReadRequired:true,sourceReadStatus:'CHECKING',basicChecksPassed:true,canSubmit:false});
+    expect(component.ready).toBeFalse();
+    pending.next({ready:true,checks:[],sourceReadRequired:true,sourceReadStatus:'PASSED',basicChecksPassed:true,canSubmit:true});pending.complete();
+    expect(component.ready).toBeTrue();
+  });
+  it('retries service failure with the same selected image and displays its error only once', () => {
+    const message = 'Handwriting verification is temporarily unavailable. Please try again later.';
+    check.and.returnValues(of({ready:false,sourceReadRequired:true,sourceReadStatus:'FAILED_SERVICE',canSubmit:false,message,
+      checks:[{id:'handwritingReadability',label:'Handwriting readability',required:true,status:'unavailable',message}],
+      processingProgress:{status:'failed',stage:'source',percent:60,message,active:false,completed:false,failed:true}}),
+      of({ready:true,checks:[],sourceReadRequired:true,sourceReadStatus:'PASSED',canSubmit:true}));
+    const file = select('retry.png');fixture.detectChanges();expect(component.ready).toBeFalse();
+    const text = fixture.nativeElement.textContent as string;expect(text.split(message).length - 1).toBe(1);
+    expect(text).toMatch(/Retry image check/i);
+    component.retryQuality(component.files[0]);fixture.detectChanges();
+    expect(component.files.length).toBe(1);expect(check.calls.mostRecent().args[0]).toBe(file);expect(component.ready).toBeTrue();
+  });
   it('requires explicit accepted exact source status even if an inconsistent response says ready', () => {
     check.and.returnValue(of({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'FAILED_SERVICE', canSubmit: false }));select('blocked.png');expect(component.ready).toBeFalse();
     component.reset();check.and.returnValue(of({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true }));select('accepted.png');expect(component.ready).toBeTrue();

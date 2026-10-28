@@ -1,4 +1,5 @@
 import { SourceFidelityComponent } from '../../../../../components/source-fidelity/source-fidelity';
+import { GuestStudentAccess } from '../../../../../services/guest-student-access.service';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -59,6 +60,8 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
   styleUrl: './my-submission-page.css',
 })
 export class MySubmissionPage {
+  private readonly guestAccess = inject(GuestStudentAccess, { optional: true });
+  get backNavigationLabel(): string { return this.guestAccess ? 'Back To Assignment' : 'Back To Student Profile'; }
   canonicalResultState: CanonicalResultViewState | null = null;
   get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
   get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.feedback); }
@@ -355,6 +358,7 @@ export class MySubmissionPage {
 
   submitNewDraft(): void {
     if (!this.allowResubmission || !this.assignmentId) return;
+    if (this.guestAccess) { this.guestAccess.onRevisionRequested?.(); return; }
     if (this.classId) {
       this.router.navigate(['/student/my-classes/detail', this.classId], {
         queryParams: { assignmentId: this.assignmentId, resubmit: true }
@@ -441,7 +445,8 @@ export class MySubmissionPage {
     if (forceRefresh) this.mediaBlobRequests.delete(normalizedUrl);
     const cached = this.mediaBlobRequests.get(normalizedUrl);
     if (cached) return cached;
-    const request = firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob' }));
+    const request = firstValueFrom(this.http.get(normalizedUrl, { responseType: 'blob',
+      ...(this.guestAccess ? { headers: this.guestAccess.mediaHeaders(normalizedUrl) } : {}) }));
     this.mediaBlobRequests.set(normalizedUrl, request);
     void request.catch(() => {
       if (this.mediaBlobRequests.get(normalizedUrl) === request) this.mediaBlobRequests.delete(normalizedUrl);
@@ -1317,7 +1322,8 @@ export class MySubmissionPage {
     }
     const startedAt = performance.now();
     const request = firstValueFrom(this.http.get<any>(
-      `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`
+      this.guestAccess ? this.guestAccess.url('ocr-corrections') : `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections`,
+      this.guestAccess ? { headers: this.guestAccess.headers } : {}
     )).then((response) => {
       const data = response?.data;
       const status = String(data?.ocrStatus || '').toLowerCase();
@@ -1738,7 +1744,7 @@ export class MySubmissionPage {
   }
 
   async ngOnInit() {
-    this.assignmentId = this.route.snapshot.paramMap.get('slug');
+    this.assignmentId = this.guestAccess?.submissionId || this.route.snapshot.paramMap.get('slug');
     this.classId = this.route.snapshot.queryParamMap.get('classId');
     this.lastRefreshToken = this.route.snapshot.queryParamMap.get('refresh');
 
@@ -2052,6 +2058,11 @@ export class MySubmissionPage {
   }
 
   toBack() {
+    if (this.guestAccess) {
+      const qrToken = this.assignment?.qrToken;
+      if (qrToken) void this.router.navigate(['/student/assignments/qr', qrToken]);
+      return;
+    }
     if (this.classId) {
       this.router.navigate(['/student/my-classes/detail', this.classId]);
       return;

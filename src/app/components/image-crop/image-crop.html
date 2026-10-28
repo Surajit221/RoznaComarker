@@ -1,0 +1,32 @@
+<section class="editor" aria-label="Crop image" [attr.aria-busy]="busy">
+  <h3 #heading tabindex="-1">Crop Image</h3>
+  <p>Keep all assignment content. Drag the crop or its corners, or adjust the edges below.</p>
+  <div class="surface">
+    <img #photo [src]="url || null" alt="Original essay image for cropping" (load)="onLoad()"
+      (error)="error = 'Unable to open this image. Cancel and choose another JPG or PNG.'" draggable="false" />
+    @if (loaded) {
+      <div class="selection" [style.left.%]="rect.x * 100" [style.top.%]="rect.y * 100"
+        [style.width.%]="rect.width * 100" [style.height.%]="rect.height * 100">
+        <button type="button" class="move" aria-label="Move crop (or use the edge fields below)"
+          [disabled]="busy || disabled" (pointerdown)="start($event, 'move')" (pointermove)="move($event)"
+          (pointerup)="end()" (pointercancel)="end()" (lostpointercapture)="end()"></button>
+        @for (corner of corners; track corner) {
+          <button type="button" [class]="'handle ' + corner" [attr.aria-label]="'Resize crop ' + corner + ' (or use edge fields)'"
+            [disabled]="busy || disabled" (pointerdown)="start($event, corner)" (pointermove)="move($event)"
+            (pointerup)="end()" (pointercancel)="end()" (lostpointercapture)="end()"></button>
+        }
+      </div>
+    }
+  </div>
+  <div class="edges">
+    @for (side of edges; track side) {
+      <label>{{ side }} (%) <input type="number" min="0" max="100" step="0.1" [value]="edge(side)"
+        [disabled]="!loaded || busy || disabled" (input)="setEdge(side, $event)" (keydown.enter)="$event.preventDefault()" /></label>
+    }
+  </div>
+  @if (error) { <p role="alert" class="error">{{ error }}</p> }
+  <div class="actions">
+    <button type="button" (click)="cancelled.emit()" [disabled]="disabled">Cancel</button>
+    <button type="button" (click)="apply()" [disabled]="!loaded || busy || disabled">{{ busy ? 'Preparing crop…' : 'Apply Crop' }}</button>
+  </div>
+</section>

@@ -1,3 +1,9 @@
+import { By } from '@angular/platform-browser';
+import { UploadEssayForm } from '../my-class-student-pages/detail-my-class-student-pages/upload-essay-form/upload-essay-form';
+import { ImageCrop } from '../../../components/image-crop/image-crop';
+import { CROP_SOURCE } from '../../../../testing/fixtures/crop-source';
+import { MySubmissionPage } from '../my-class-student-pages/detail-my-class-student-pages/my-submission-page/my-submission-page';
+import { GuestStudentAccess } from '../../../services/guest-student-access.service';
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
@@ -15,7 +21,7 @@ describe('guest assignment entry', () => {
   beforeEach(() => {
     auth = { ensureQrBackendSession: jasmine.createSpy().and.resolveTo({ state: 'anonymous' }) };
     router = { navigate: jasmine.createSpy().and.resolveTo(true) };
-    TestBed.configureTestingModule({ providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } }, provideHttpClient(), provideHttpClientTesting(),
+    TestBed.configureTestingModule({ providers: [GuestStudentAccess, { provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } }, provideHttpClient(), provideHttpClientTesting(),
       { provide: AuthService, useValue: auth }, { provide: Router, useValue: router },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ qrToken: 'share-code' }), fragment: null } } }
     ] });
@@ -48,10 +54,27 @@ describe('guest assignment entry', () => {
     http.expectNone(request => request.url.includes('/guest/submissions/')); expect(router.navigate).not.toHaveBeenCalled();
   });
 
+  it('rechecks auth after delayed guest availability and never renders disabled UI for a restored student', async () => {
+    auth.ensureQrBackendSession.and.returnValues(Promise.resolve({state:'anonymous'}),Promise.resolve({state:'ready',role:'student'}));
+    spyOn(TestBed.inject(GuestSubmissionFeature),'load').and.resolveTo(false);
+    await page.ngOnInit();expect(page.registered).toBeTrue();expect(page.guestUnavailable).toBeFalse();
+    http.expectNone(request=>request.url.includes('/guest/assignments/'));
+  });
+  it('session recovery failure never becomes anonymous guest-disabled', async () => {
+    auth.ensureQrBackendSession.and.rejectWith(new Error('offline'));
+    await page.ngOnInit();expect(page.guestUnavailable).toBeFalse();expect(page.error).toBeTruthy();
+    http.expectNone(request=>request.url.includes('/guest/'));
+  });
+  it('mobile resume rechecks an unavailable guest page after sign-in in another tab', async () => {
+    page.guestUnavailable=true;page.loading=false;
+    auth.ensureQrBackendSession.and.resolveTo({state:'ready',role:'student'});
+    spyOn(TestBed.inject(GuestSubmissionFeature),'load').and.resolveTo(false);
+    await page.recheckEntrySession();expect(page.registered).toBeTrue();expect(page.guestUnavailable).toBeFalse();
+  });
   it('loads only public assignment metadata for an anonymous visitor', async () => {
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0)); await Promise.resolve();
     http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({ data: { title: 'Essay', allowGuestSubmission: true } });
-    await pending; expect(page.assignment.title).toBe('Essay'); expect(page.loading).toBeFalse();
+    await pending; expect(page.assignment!.title).toBe('Essay'); expect(page.loading).toBeFalse();
   });
   it('preserves login return behavior when guest submissions are disabled', async () => {
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0)); await Promise.resolve();
@@ -68,14 +91,14 @@ describe('guest assignment entry', () => {
     const second = page.submit(); const two = http.expectOne(`${environment.apiUrl}/guest/assignments/share-code/submit`);
     expect(two.request.headers.get('Idempotency-Key')).toBe(key);
     two.flush({ data: { received: true, duplicate: true } }); await second;
-    expect(page.confirmation.received).toBeTrue();
+    expect(page.confirmation!.received).toBeTrue();
   });
   it('shows recoverable email-delivery state without losing submission success', async () => {
     page.qrToken = 'share-code'; page.name = 'Student'; page.email = 'student@example.com';
     page.files = [new File(['writing'], 'page.png')];
     const pending = page.submit();
     http.expectOne(`${environment.apiUrl}/guest/assignments/share-code/submit`).flush({ data: { received: true, emailSent: false, returnUrl: 'https://school.example/guest/results/id#token' } });
-    await pending; expect(page.confirmation.received).toBeTrue(); expect(page.confirmation.returnUrl).toContain('#');
+    await pending; expect(page.confirmation!.received).toBeTrue(); expect(page.confirmation!.returnUrl).toContain('#');
     expect(page.recoveryEmail).toBe('student@example.com');
     expect(router.navigate).not.toHaveBeenCalled();
   });
@@ -93,21 +116,32 @@ describe('guest assignment entry', () => {
     requests[0].flush({ data: { received: true } }); await pending;
     expect(page.busy).toBeFalse();
   });
+  it('submits a returning guest draft with the existing capability and no second identity screen', async () => {
+    page.revising = true;
+    page.access.submissionId = 'submission-a'; page.access.token = 'scoped-token';
+    page.files = [new File(['revision'], 'revision.png')];
+    const pending = page.submit();
+    const req = http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/revise`);
+    expect(req.request.headers.get('X-Guest-Token')).toBe('scoped-token');
+    expect(req.request.headers.get('Idempotency-Key')).toBeTruthy();
+    req.flush({ data: { received: true } }); await pending;
+    expect(page.confirmation?.received).toBeTrue();
+  });
   it('removes a return token from browser history and uses only its scoped header', async () => {
     Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'submission-a' }), fragment: 'private-token' });
     const replace = spyOn(history, 'replaceState');
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
-    const req = http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a`);
+    const req = http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/presentation`);
     expect(req.request.headers.get('X-Guest-Token')).toBe('private-token');
     expect(req.request.url).not.toContain('private-token'); expect(replace).toHaveBeenCalled();
-    req.flush({ data: { title: 'Essay', status: 'complete', feedback: { overallScore: 80 } } });
-    await pending; expect(page.result.feedback.overallScore).toBe(80);
+    req.flush({ data: { assignment: { title: 'Essay' }, submission: {} } });
+    await pending; expect(page.result!.title).toBe('Essay');
   });
   it('shows the expired return-link state without navigating into account flows', async () => {
     Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'submission-a' }), fragment: 'expired-token' });
     spyOn(history, 'replaceState');
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
-    http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a`).flush({ message: 'This link has expired. Request a new link.' }, { status: 410, statusText: 'Expired' });
+    http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/presentation`).flush({ message: 'This link has expired. Request a new link.' }, { status: 410, statusText: 'Expired' });
     await pending; expect(page.error).toContain('expired'); expect(router.navigate).not.toHaveBeenCalled();
   });
   it('parses the server URL fragment and retains the token for subsequent requests after scrubbing history', async () => {
@@ -121,28 +155,24 @@ describe('guest assignment entry', () => {
     const replace = spyOn(history, 'replaceState');
     const storage = spyOn(Storage.prototype, 'setItem');
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
-    const req = http.expectOne(`${environment.apiUrl}/guest/submissions/507f1f77bcf86cd799439011`);
+    const req = http.expectOne(`${environment.apiUrl}/guest/submissions/507f1f77bcf86cd799439011/presentation`);
     expect(req.request.headers.get('X-Guest-Token')).toBe(token);
     expect(replace.calls.mostRecent().args[2]?.toString()).not.toContain(token);
-    req.flush({ data: { title: 'Essay', status: 'processing' } }); await pending;
+    req.flush({ data: { assignment: { title: 'Essay' }, submission: {} } }); await pending;
     const refresh = page.loadResults();
     const next = http.expectOne(req.request.url);
     expect(next.request.headers.get('X-Guest-Token')).toBe(token);
-    next.flush({ data: { title: 'Essay', status: 'complete' } }); await refresh;
-    expect(page.result.status).toBe('complete'); expect(storage).not.toHaveBeenCalled();
+    next.flush({ data: { assignment: { title: 'Essay' }, submission: {} } }); await refresh;
+    expect(page.result!.title).toBe('Essay'); expect(storage).toHaveBeenCalledTimes(1);
     expect(auth.ensureQrBackendSession).not.toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
   });
   it('clears displayed feedback and practice when a refreshed link is rejected', async () => {
     page.result = { feedback: { overallScore: 80 } };
-    page.practice = { session: {} }; page.answers = { q1: 'answer' };
-    page.answerResults = { q1: 'Previously checked' }; page.draftMessage = 'Previous progress';
     const pending = page.loadResults();
-    http.expectOne(`${environment.apiUrl}/guest/submissions/`).flush({ message: 'This link has expired.' }, { status: 410, statusText: 'Expired' });
+    http.expectOne(`${environment.apiUrl}/guest/submissions//presentation`).flush({ message: 'This link has expired.' }, { status: 410, statusText: 'Expired' });
     await pending;
-    expect(page.result).toBeNull(); expect(page.practice).toBeNull();
-    expect(page.answers).toEqual({}); expect(page.answerResults).toEqual({});
-    expect(page.draftMessage).toBe(''); expect(page.error).toContain('expired');
+    expect(page.result).toBeNull(); expect(page.error).toContain('expired');
   });
 });
 
@@ -174,15 +204,37 @@ describe('guest assignment page presentation', () => {
     expect(fixture.nativeElement.querySelector('input')).toBeNull();
     expect(fixture.nativeElement.querySelector('form')).toBeNull();
   });
+  it('uses the shared crop and sends the identical crop through guest checks and final submission', async () => {
+    page.name = 'Student'; page.email = 'student@example.com'; page.continueWithIdentity(); fixture.detectChanges();
+    const upload = fixture.debugElement.query(By.directive(UploadEssayForm)).componentInstance as UploadEssayForm;
+    const original = new File([Uint8Array.from(atob(CROP_SOURCE.original), c => c.charCodeAt(0))], 'page.png', {type:'image/png'});
+    const selection = new DataTransfer();selection.items.add(original);
+    upload.onFilesSelected({target:{files:selection.files,value:''}} as unknown as Event);
+    http.expectNone(req => req.url.includes('image-preflight')); expect(page.uploadReady).toBeFalse();
+    upload.openCrop(upload.files[0]); fixture.detectChanges();
+    const editor = fixture.debugElement.query(By.directive(ImageCrop)).componentInstance as ImageCrop;
+    await editor.photo.nativeElement.decode();editor.onLoad(); editor.rect = {...CROP_SOURCE.rect};
+    await editor.apply();fixture.detectChanges();const cropped = upload.files[0].file;
+    expect(cropped).not.toBe(original); expect(page.files[0]).toBe(cropped); expect(page.uploadReady).toBeFalse();
+    const url = environment.apiUrl+'/guest/assignments/share-code/image-preflight';
+    const basic = http.expectOne(url);expect(basic.request.body.get('file')).toBe(cropped);
+    basic.flush({success:true,data:{ready:false,checks:[],basicChecksPassed:true,sourceReadRequired:true,sourceReadStatus:'CHECKING',canSubmit:false}});
+    expect(page.uploadReady).toBeFalse();
+    const source = http.expectOne(url);expect(source.request.body.get('file')).toBe(cropped);
+    source.flush({success:true,data:{ready:true,checks:[],sourceReadRequired:true,sourceReadStatus:'PASSED',canSubmit:true}});
+    fixture.detectChanges();expect(page.uploadReady).toBeTrue();
+    const pending = page.submit();const submit = http.expectOne(environment.apiUrl+'/guest/assignments/share-code/submit');
+    expect(submit.request.body.getAll('files')).toEqual([cropped]);submit.flush({data:{received:true}});await pending;
+  });
   const text = (element: HTMLElement) => element.textContent || '';
 
   it('shows safe assignment information and the dedicated submission form with linked labels', () => {
     const host: HTMLElement = fixture.nativeElement;
     expect(text(host.querySelector('h1')!)).toBe('A place that matters');
-    expect(text(host)).toContain('Guest Submission'); expect(text(host)).toContain(page.assignment.instructions);
-    expect(host.querySelector('time')?.getAttribute('datetime')).toBe(page.assignment.deadline);
+    expect(text(host)).toContain('Guest Submission'); expect(text(host)).toContain(page.assignment!.instructions);
+    expect(host.querySelector('time')?.getAttribute('datetime')).toBe(page.assignment!.deadline);
     expect(text(host)).not.toContain('PRIVATE RUBRIC'); expect(text(host)).not.toContain('private@example.com');
-    for (const id of ['guest-name', 'guest-email', 'guest-files']) {
+    for (const id of ['guest-name', 'guest-email']) {
       expect(host.querySelector(`label[for="${id}"]`)).toBeTruthy(); expect(host.querySelector(`#${id}`)).toBeTruthy();
     }
     expect(text(host)).toContain('Submit your work');
@@ -190,7 +242,7 @@ describe('guest assignment page presentation', () => {
     expect(host.querySelector('app-assignment-qr-redirect')).toBeNull();
     const login = host.querySelector('.account-option a') as HTMLAnchorElement;
     expect(login.textContent).toBe('Sign in'); expect(login.getAttribute('href')).toContain('/login?returnUrl=');
-    expect(host.querySelector('.submit-button')?.textContent).toContain('Submit Assignment');
+    expect(host.querySelector('.submit-button')?.textContent).toContain('Continue');
     expect((host.querySelector('.submit-button') as HTMLButtonElement).disabled).toBeTrue();
   });
 
@@ -208,29 +260,15 @@ describe('guest assignment page presentation', () => {
     await pending; fixture.detectChanges(); expect(text(details)).toContain('If a matching submission exists');
   });
 
-  it('routes dropped files through the existing picker logic and displays the same limits', () => {
-    const transfer = new DataTransfer(); transfer.items.add(new File(['writing'], 'my-page.png', { type: 'image/png' }));
-    const event = new DragEvent('drop', { dataTransfer: transfer, cancelable: true, bubbles: true });
-    const select = spyOn(page, 'selectFiles').and.callThrough();
-    fixture.nativeElement.querySelector('.upload-zone').dispatchEvent(event); fixture.detectChanges();
-    expect(event.defaultPrevented).toBeTrue(); expect(select).toHaveBeenCalledTimes(1);
-    expect(page.files[0].name).toBe('my-page.png'); expect(text(fixture.nativeElement)).toContain('1 file selected');
-    const input: HTMLInputElement = fixture.nativeElement.querySelector('#guest-files');
-    expect(input.accept).toBe('image/jpeg,image/png,image/webp,application/pdf'); expect(input.multiple).toBeTrue();
-    expect(text(fixture.nativeElement)).toContain('Up to 20 files');
-  });
-
-  it('preserves upload count rejection and prevents file replacement while submitting', () => {
-    const transfer = new DataTransfer();
-    for (let i = 0; i < 21; i++) transfer.items.add(new File(['writing'], `${i}.png`));
-    page.dropFiles(new DragEvent('drop', { dataTransfer: transfer, cancelable: true }));
-    expect(page.error).toBe('Choose no more than 20 files.');
-    page.busy = true; fixture.detectChanges();
-    const previous = page.files;
-    page.dropFiles(new DragEvent('drop', { dataTransfer: transfer, cancelable: true }));
-    expect(page.files).toBe(previous);
-    expect((fixture.nativeElement.querySelector('#guest-files') as HTMLInputElement).disabled).toBeTrue();
-    expect(text(fixture.nativeElement)).toContain('Checking and submitting');
+  it('requires identity before mounting the normal production uploader', () => {
+    expect(fixture.nativeElement.querySelector('app-upload-essay-form')).toBeNull();
+    page.name = 'Student'; page.email = 'student@example.com'; page.continueWithIdentity();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-upload-essay-form')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#guest-name')).toBeNull();
+    expect(page.access.name).toBe('Student');
+    expect(page.access.email).toBe('student@example.com');
+    expect(page.uploadReady).toBeFalse();
   });
 
   it('shows accessible field validation and request errors without losing the form', async () => {
@@ -241,7 +279,7 @@ describe('guest assignment page presentation', () => {
     expect(text(fixture.nativeElement.querySelector('#email-error'))).toContain('valid email');
     page.error = 'An image needs attention. Please check its orientation.'; fixture.detectChanges();
     expect(text(fixture.nativeElement.querySelector('[role="alert"]'))).toContain('orientation');
-    expect(fixture.nativeElement.querySelector('#guest-files')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#guest-email')).toBeTruthy();
   });
 
   it('renders loading, success and email-warning states with the existing return link', () => {
@@ -253,7 +291,7 @@ describe('guest assignment page presentation', () => {
     fixture.detectChanges();
     expect(text(fixture.nativeElement)).toContain('Assignment submitted');
     expect(text(fixture.nativeElement.querySelector('[role="alert"]'))).toContain('email could not be delivered');
-    expect((fixture.nativeElement.querySelector('.confirmation a') as HTMLAnchorElement).href).toBe(page.confirmation.returnUrl);
+    expect((fixture.nativeElement.querySelector('.confirmation a') as HTMLAnchorElement).href).toBe(page.confirmation!.returnUrl!);
     expect(fixture.nativeElement.querySelector('#guest-files')).toBeNull();
   });
 
@@ -266,12 +304,10 @@ describe('guest assignment page presentation', () => {
     expect(fixture.nativeElement.querySelector('#guest-files')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-assignment-qr-redirect')).toBeNull();
   });
-  it('renders an optional source-fidelity result without requiring feedback', () => {
-    page.result={title:'Essay',name:'Student',submittedAt:new Date().toISOString(),feedback:null,
-      sourceFidelity:{mode:'astra_verified',status:'OCR_UNCERTAIN',assessmentAllowed:false,transcriptExact:'sence\nSocial',pages:[]}};
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.source-text').textContent).toBe('sence\nSocial');
-    expect(text(fixture.nativeElement)).toContain('Source review required');
-    expect(fixture.nativeElement.querySelector('.score')).toBeNull();
+  it('mounts the normal result component rather than a second guest renderer', () => {
+    spyOn(MySubmissionPage.prototype, 'ngOnInit').and.resolveTo();
+    page.result = { title: 'Essay' }; fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-my-submission-page')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#feedback-title')).toBeNull();
   });
 });

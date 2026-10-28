@@ -6,9 +6,12 @@ import {
   EventEmitter,
   inject,
   Output,
+  OnDestroy,
   Input,
   ViewChild,
 } from '@angular/core';
+import { ImageCrop } from '../../../../../components/image-crop/image-crop';
+import { AppliedCrop, CropRect } from '../../../../../components/image-crop/image-crop.util';
 import { Subscription } from 'rxjs';
 import { ImagePreflightResult, ImagePreflightService } from '../../../../../services/image-preflight.service';
 import { ImageQualityChecklist } from '../../../../../components/image-quality-checklist/image-quality-checklist';
@@ -16,17 +19,18 @@ import { DeviceService } from '../../../../../services/device.service';
 
 interface UploadEntry {
   file: File; name: string; size: number; preview?: string;
-  qualityState?: 'queued' | 'checking' | 'done' | 'unavailable';
+  original?: File; crop?: CropRect;
+  qualityState?: 'selected' | 'queued' | 'checking' | 'done' | 'unavailable';
   quality?: ImagePreflightResult; qualityError?: string;
 }
 
 @Component({
   selector: 'app-upload-essay-form',
-  imports: [CommonModule, ImageQualityChecklist],
+  imports: [CommonModule, ImageQualityChecklist, ImageCrop],
   templateUrl: './upload-essay-form.html',
   styleUrl: './upload-essay-form.css',
 })
-export class UploadEssayForm {
+export class UploadEssayForm implements OnDestroy {
   @Input() disabled = false;
   @Input() assignmentId: string | null = null;
   @Output() readinessChange = new EventEmitter<boolean>();
@@ -43,6 +47,8 @@ export class UploadEssayForm {
 
   isDragging = false;
   files: UploadEntry[] = [];
+  editingEntry?: UploadEntry;
+  private cropTrigger?: HTMLElement;
   validationError: string | null = null;
 
   private readonly maxFileSizeBytes = 10 * 1024 * 1024;
@@ -161,7 +167,8 @@ export class UploadEssayForm {
       const isImage = file.type.startsWith('image/') || /\.(jpe?g|png)$/i.test(file.name);
       if (isImage) {
         entry.preview = URL.createObjectURL(file);
-        entry.qualityState = 'queued';
+        entry.original = file;
+        entry.qualityState = 'selected';
       }
       if (!isImage && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) entry.qualityState = 'queued';
     }
@@ -177,6 +184,7 @@ export class UploadEssayForm {
     event.preventDefault();
     event.stopPropagation();
     const removed = this.files[index];
+    if (this.editingEntry === removed) this.editingEntry = undefined;
     if (removed?.preview) URL.revokeObjectURL(removed.preview);
     if (this.active?.entry === removed) { this.active.request.unsubscribe(); this.active = undefined; }
     this.files = this.files.filter((_, i) => i !== index);
@@ -200,6 +208,7 @@ export class UploadEssayForm {
   }
 
   reset(): void {
+    this.editingEntry = undefined;
     this.cancelChecks();
     this.files = [];
     this.validationError = null;
@@ -221,13 +230,60 @@ export class UploadEssayForm {
   }
 
   get ready(): boolean {
-    return this.files.length > 0 && this.files.every(entry => !entry.qualityState
-      || (entry.qualityState === 'done' && entry.quality?.ready === true
+    return !this.editingEntry && this.files.length > 0 && this.files.every(entry => (entry.qualityState === 'done' && entry.quality?.ready === true
+        && entry.quality.checks.every(check => !check.required || check.status === 'pass')
         && (!entry.quality.sourceReadRequired || entry.quality.sourceReadStatus === 'PASSED' && entry.quality.canSubmit === true)));
   }
 
+  useImage(entry: UploadEntry): void {
+    if (this.disabled || this.destroyed || this.editingEntry || entry.qualityState !== 'selected' || !this.files.includes(entry)) return;
+    entry.qualityState = 'queued';
+    this.updateReadiness();
+  }
+
+  openCrop(entry: UploadEntry, event?: Event): void {
+    if (this.disabled || this.destroyed || this.editingEntry || !entry.original || !this.files.includes(entry)) return;
+    this.cropTrigger = event?.currentTarget as HTMLElement | undefined;
+    if (entry.qualityState === 'queued') entry.qualityState = 'selected';
+    this.editingEntry = entry;
+    this.readinessChange.emit(false);
+  }
+
+  cancelCrop(): void {
+    this.editingEntry = undefined;
+    this.readinessChange.emit(this.ready);
+    this.cropTrigger?.focus();
+  }
+
+  applyCrop(entry: UploadEntry, crop: AppliedCrop): void {
+    if (this.editingEntry !== entry) return;
+    this.replaceCandidate(entry, crop.file, crop.rect);
+  }
+
+  resetCrop(entry: UploadEntry): void {
+    if (entry.original) this.replaceCandidate(entry, entry.original);
+  }
+
+  private replaceCandidate(entry: UploadEntry, file: File, rect?: CropRect): void {
+    if (this.disabled || this.destroyed || !this.files.includes(entry)) return;
+    if (!this.isFileAllowed(file) || file.size === 0) {
+      this.validationError = 'Only JPG, PNG, and PDF files up to 10MB are allowed.'; return;
+    }
+    // Invalidate before notifying parents. Old task identity cannot accept a late response.
+    if (this.active?.entry === entry) { this.active.request.unsubscribe(); this.active = undefined; }
+    this.readinessChange.emit(false);
+    if (entry.preview) URL.revokeObjectURL(entry.preview);
+    entry.file = file; entry.name = file.name; entry.size = file.size;
+    entry.preview = URL.createObjectURL(file); entry.crop = rect;
+    entry.quality = undefined; entry.qualityError = undefined; entry.qualityState = 'queued';
+    this.editingEntry = undefined; this.validationError = null;
+    this.filesSelected.emit(this.files.map(item => item.file));
+    this.updateReadiness();
+    this.cropTrigger?.focus();
+  }
+
   retryQuality(entry: UploadEntry): void {
-    if (this.disabled || this.destroyed || this.active?.entry === entry || !this.files.includes(entry)) return;
+    if (this.disabled || this.destroyed || this.editingEntry === entry || this.active?.entry === entry || !this.files.includes(entry)) return;
     entry.quality = undefined;
     entry.qualityError = undefined;
     entry.qualityState = 'queued';
@@ -238,7 +294,7 @@ export class UploadEssayForm {
     if (this.destroyed) return;
     this.readinessChange.emit(this.ready);
     if (this.active) return;
-    const entry = this.files.find(file => file.qualityState === 'queued');
+    const entry = this.files.find(file => file.qualityState === 'queued' && file !== this.editingEntry);
     if (!entry) return;
     entry.qualityState = 'checking';
     const task = { entry, request: new Subscription() };

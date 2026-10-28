@@ -212,6 +212,8 @@ describe('DetailMyClassStudentPages', () => {
       const uploader = desktop ? component.uploadFormDialog! : component.uploadFormSheet!;
       const file = new File(['essay'], 'page.png', { type: 'image/png' });
       uploader.onFilesSelected({ target: { files: [file], value: '' } } as unknown as Event);
+      expect(uploader.ready).toBeFalse();expect(check).not.toHaveBeenCalled();
+      uploader.useImage(uploader.files[0]);
       pending.next({ ready: false, basicChecksPassed: true, sourceReadRequired: true, sourceReadStatus: 'CHECKING',
         checks: [{ id: 'handwritingReadability', label: 'Handwriting readability', required: true, status: 'checking' }] });
       fixture.detectChanges();
@@ -227,6 +229,7 @@ describe('DetailMyClassStudentPages', () => {
       // A second file cannot become ready while the first/next source check is pending.
       const another = new File(['next'], 'next.png', { type: 'image/png' });
       uploader.onFilesSelected({ target: { files: [another], value: '' } } as unknown as Event);
+      uploader.useImage(uploader.files[1]);
       pending.next({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true }); pending.complete();
       nextFile.next({ ready: false, checks: [], sourceReadRequired: true, sourceReadStatus: 'CHECKING' });
       fixture.detectChanges();

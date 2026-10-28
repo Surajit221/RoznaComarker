@@ -40,7 +40,8 @@ function normalizeArea(item: any, index: number): DetailedFeedbackArea | null {
   return {
     id: text(item.id) || `area_${category.toLowerCase()}_${index}`, category,
     title: text(item.title ?? item.categoryLabel) || category[0] + category.slice(1).toLowerCase(),
-    issueCount: number(item.issueCount ?? item.distinctIssueCount), score: number(item.score),
+    issueCount: item.issueCount === null ? null : number(item.issueCount ?? item.distinctIssueCount),
+    ...(item.evidenceKind === 'holistic' ? { evidenceKind: 'holistic' as const } : {}), score: number(item.score),
     maxScore: number(item.maxScore), explanation: text(item.explanation ?? item.summary),
     dominantSymbols: strings(item.dominantSymbols ?? item.symbols), examples: examples(item.examples ?? item.representativeExamples)
   };
@@ -95,12 +96,16 @@ export function buildDetailedFeedbackDisplayModel(
   if (status === 'stale') return { ...empty, status: 'failed', message: 'Detailed feedback is unavailable because the saved feedback is out of date.' };
 
   const feedback = status === 'completed' ? state?.detailedFeedback : null;
-  const areas = objects(feedback?.areasForImprovement).map(normalizeArea).filter((item): item is DetailedFeedbackArea => Boolean(item));
+  const areas = objects(feedback?.areasForImprovement).map(normalizeArea).filter((item): item is DetailedFeedbackArea => Boolean(item))
+    .map(area => state.categoryAvailability[area.category.toLowerCase() as keyof typeof state.categoryAvailability] === 'available'
+      ? area : { ...area, issueCount: null, dominantSymbols: [], examples: [] });
   const strengths = objects(feedback?.strengths).map(normalizeStrength).filter((item): item is DetailedFeedbackStrength => Boolean(item));
   const actions = objects(feedback?.actionSteps).map(normalizeAction).filter((item): item is DetailedFeedbackActionStep => Boolean(item));
   if (feedback && (areas.length || strengths.length || actions.length || [feedback.areasForImprovement, feedback.strengths, feedback.actionSteps]
     .every((items) => Array.isArray(items) && items.length === 0))) {
-    return { status: areas.length ? 'completed' : 'empty', message: areas.length ? null : 'No major improvement areas were identified.',
+    return { status: areas.length ? 'completed' : 'empty', message: !state.correctionsAvailable
+      ? 'Detailed corrections are unavailable. The feedback below is holistic rubric guidance only.'
+      : areas.length ? null : 'No major improvement areas were identified.',
       retryLabel: canonicalRetryLabel(state),
       sourceHash: state?.detailedFeedbackSourceHash || text(feedback.sourceHash) || null,
       evaluationVersion: text(feedback.evaluationVersion) || null,

@@ -1,4 +1,6 @@
 :host{display:block;color:var(--color-text);font-family:var(--font-main)}
+.guest-result{max-width:1440px;margin:auto;padding:24px;min-width:0}
+@media(max-width:600px){.guest-result{padding:16px}}
 .guest-page a.btn-primary{color:var(--color-white);text-decoration:none}
 .guest-page{min-height:100dvh;background:#f4f8f8;padding:32px 20px 48px}
 .guest-shell{max-width:800px;margin:auto;display:grid;gap:24px;min-width:0}
