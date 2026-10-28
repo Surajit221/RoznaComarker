@@ -1,7 +1,7 @@
 <ng-container>
   @if (submission?.sourceFidelity && !submission?.sourceFidelity?.assessmentAllowed) {
     <header class="source-review-shell mb-6 flex flex-wrap justify-between items-center gap-3"><h1 class="text-4xl font-bold text-gray-800">Your Submissions</h1>
-      <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button></header>
+      <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button></header>
   }
   <app-source-fidelity [source]="submission?.sourceFidelity" />
   @if (!submission?.sourceFidelity || submission?.sourceFidelity?.assessmentAllowed) {
@@ -22,7 +22,7 @@
           <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
           } @else { Download Feedback PDF }
         </button>
-        <button type="button" class="btn-danger" (click)="toBack()">Back To Student Profile</button>
+        <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button>
       </div>
     </div>
 

@@ -3,6 +3,13 @@ import { AnalysisProgress, type ProcessingProgress } from './analysis-progress';
 const state=(overrides:Partial<ProcessingProgress>={}):ProcessingProgress=>({status:'processing',stage:'corrections',percent:50,
   message:'Analyzing writing corrections',active:true,failed:false,completed:false,...overrides});
 describe('AnalysisProgress',()=>{
+  it('source preflight is indeterminate, including legacy server stage percentages',()=>{
+    const fixture=TestBed.createComponent(AnalysisProgress);fixture.componentRef.setInput('preflight',true);
+    fixture.componentRef.setInput('progress',state({stage:'source',percent:60,message:'Reading handwriting and verifying readability'}));fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('60%');
+    expect(fixture.nativeElement.querySelector('[role="progressbar"]').hasAttribute('aria-valuenow')).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Submission stays disabled');
+  });
   it('wraps safely at a narrow mobile width',()=>{
     const fixture=TestBed.createComponent(AnalysisProgress);
     fixture.nativeElement.style.display='block';fixture.nativeElement.style.width='280px';

@@ -141,14 +141,31 @@
           </button>
         </div>
       </div>
-      @if (file.qualityState && (file.preview || file.quality?.sourceReadRequired)) {
+      @if (file.original) {
+        <div class="crop-actions">
+          <button type="button" (click)="openCrop(file, $event)" [disabled]="disabled || !!editingEntry">Crop Image</button>
+          @if (file.crop) { <button type="button" (click)="resetCrop(file)" [disabled]="disabled || !!editingEntry">Reset to Original</button> }
+          @if (file.qualityState === 'selected') {
+            <button type="button" (click)="useImage(file)" [disabled]="disabled || !!editingEntry">Use Image</button>
+            <p>Crop if needed, then use the image to check it. Keep all assignment content visible.</p>
+          }
+        </div>
+      }
+      @if (file.qualityState !== 'selected' && file.qualityState && (file.preview || file.quality?.sourceReadRequired)) {
         <app-image-quality-checklist [checking]="file.qualityState === 'queued' || file.qualityState === 'checking'"
           [queued]="file.qualityState === 'queued'" [result]="file.quality" [error]="file.qualityError" />
-        @if (file.qualityState === 'unavailable' || (file.qualityState === 'done' && !file.quality?.ready)) {
+        @if (file.quality?.sourceReadStatus === 'FAILED_IMAGE') {
+          <p class="text-sm my-2">Choose a clearer or replacement image before checking again.</p>
+        } @else if (file.qualityState === 'unavailable' || (file.qualityState === 'done' && !file.quality?.ready)) {
           <button type="button" (click)="retryQuality(file)" [disabled]="disabled" class="text-sm font-semibold underline text-[#006d6e] my-2">Retry image check</button>
         }
       }
       </div>
     }
   </div>
+}
+
+@if (editingEntry; as entry) {
+  <app-image-crop [original]="entry.original!" [initial]="entry.crop" [disabled]="disabled"
+    (applied)="applyCrop(entry, $event)" (cancelled)="cancelCrop()" />
 }

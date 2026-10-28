@@ -27,11 +27,12 @@
     <section class="feedback-group" aria-labelledby="improvement-title">
       <h4 id="improvement-title"><i class="fas fa-tools" aria-hidden="true"></i>Areas for Improvement</h4>
       @if (model.areasForImprovement.length) {
+        @if (model.message) {<p role="status">{{ model.message }}</p>}
         <div class="feedback-grid">
           @for (area of model.areasForImprovement; track area.id) {
             <article class="feedback-card" [attr.data-category]="area.category">
-              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">{{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }}</span></div></header>
-              <p class="summary">{{ area.explanation || (area.issueCount + ' distinct issues affected this category.') }}</p>
+              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">@if (area.issueCount === null) {Issues unavailable} @else if (area.evidenceKind === 'holistic') {Holistic feedback} @else { {{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }} }</span></div></header>
+              <p class="summary">{{ area.explanation || (area.issueCount === null ? 'Detailed correction counts are unavailable.' : area.issueCount + ' distinct issues affected this category.') }}</p>
               @if (area.dominantSymbols.length) {<div class="symbols" aria-label="Dominant correction symbols">@for (symbol of area.dominantSymbols; track symbol) {<span>{{ symbol }}</span>}</div>}
               @for (example of area.examples; track example.correctionId) {
                 <div class="evidence-panel"><div class="evidence-symbol"><b>{{ example.symbol }}</b>@if (example.symbolLabel) {<small>{{ example.symbolLabel }}</small>}</div><blockquote>“{{ example.quotedText }}”</blockquote>

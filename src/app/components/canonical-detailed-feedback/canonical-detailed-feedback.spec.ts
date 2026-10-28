@@ -28,6 +28,13 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     fixture.componentInstance.model = model({ status: 'empty', message: 'No major improvement areas were identified.', areasForImprovement: [], actionSteps: [] });
     fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('No major improvement areas were identified.');
   });
+  it('renders unavailable counts alongside holistic guidance without claiming zero issues',()=>{
+    const area={...model().areasForImprovement[0],issueCount:null,explanation:'',examples:[],dominantSymbols:[],evidenceKind:'holistic' as const};
+    fixture.componentRef.setInput('model',model({message:'Holistic rubric guidance only.',areasForImprovement:[area]}));
+    fixture.detectChanges();const content=fixture.nativeElement.textContent;
+    expect(content).toContain('Issues unavailable');expect(content).toContain('Holistic rubric guidance only.');
+    expect(content).not.toContain('0 issues');expect(content).not.toContain('null distinct issues');
+  });
 
   it('hides all area and strength scores while keeping evidence, explanations and revision guidance', () => {
     fixture.componentRef.setInput('model', model());

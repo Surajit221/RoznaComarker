@@ -26,7 +26,7 @@ import { AnalysisProgress } from '../analysis-progress/analysis-progress';
                 check.status === 'fail' ? 'Needs attention' : check.required ? 'Could not check' : 'Check yourself' }}</span>
                 @if (check.id === 'handwritingReadability' && handwritingChecking) {
                   <span class="reading-spinner" aria-hidden="true"></span>
-                } @else {
+                } @else if (check.id !== 'handwritingReadability' || check.status === 'pass' || !result.processingProgress) {
                   <p>{{ check.message }}</p>
                 }
               </div>
@@ -43,9 +43,9 @@ import { AnalysisProgress } from '../analysis-progress/analysis-progress';
         <p class="reading-stage" role="status" aria-live="polite" aria-atomic="true">{{ stageMessage }}</p>
         <p class="reading-help">You can leave this open while we check, or cancel to choose another image.</p>
       }
-      <p class="status" role="status" aria-live="polite" aria-atomic="true">{{ checking ? (handwritingChecking ? 'Checking handwriting readability...' : queued ? 'Waiting to check this file...' : 'Checking image quality...') :
+      @if (!result?.processingProgress && result?.sourceReadStatus !== 'FAILED_SERVICE' && result?.sourceReadStatus !== 'FAILED_IMAGE') { <p class="status" role="status" aria-live="polite" aria-atomic="true">{{ checking ? (handwritingChecking ? 'Checking handwriting readability...' : queued ? 'Waiting to check this file...' : 'Checking image quality...') :
         error ? error : result?.sourceReadStatus === 'FAILED_SERVICE' ? (result?.message || 'Handwriting verification is temporarily unavailable. Please try again.') : result?.ready ? (result?.sourceReadStatus === 'PASSED' ? 'Image checks complete. Ready to submit.' : 'Basic image checks passed. Review the items marked Check yourself before uploading.') :
-        'Image needs attention. Retry the check or replace this photo.' }}</p>
+        'Image needs attention. Retry the check or replace this photo.' }}</p> }
     </section>
   `,
   styles: `

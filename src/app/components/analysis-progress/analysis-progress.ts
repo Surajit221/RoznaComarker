@@ -4,6 +4,7 @@ export interface ProcessingProgress {
   status: 'processing' | 'completed' | 'failed' | 'partial';
   stage: string;
   percent: number;
+  indeterminate?: boolean;
   message: string;
   completed: boolean;
   failed: boolean;
@@ -17,15 +18,15 @@ export interface ProcessingProgress {
       @if (!p.completed || showCompleted) {
         <section class="analysis-progress" [class.failed]="p.failed" [attr.aria-busy]="p.active">
           <p class="stage" role="status" aria-live="polite" aria-atomic="true">{{ p.message }}
-            @if (!p.failed && p.status !== 'partial') { <span>{{ p.percent }}%</span> }
+            @if (!p.failed && p.status !== 'partial' && !p.indeterminate && !(preflight && p.active)) { <span>{{ p.percent }}%</span> }
           </p>
           @if (!p.failed && p.status !== 'partial') {
             <div class="track" [class.active]="p.active" role="progressbar" aria-label="Completed processing stages"
-              aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="p.percent" [attr.aria-valuetext]="p.message">
-              <span [style.width.%]="p.percent"></span>
+              aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="p.indeterminate || (preflight && p.active) ? null : p.percent" [attr.aria-valuetext]="p.message">
+              <span [style.width.%]="p.indeterminate || (preflight && p.active) ? 100 : p.percent"></span>
             </div>
           }
-          @if (p.active) { <p class="help">{{ preflight ? 'Reading the handwritten content. This can take a little time.' : 'Your submission is saved. Progress reflects completed stages, not an estimated completion time.' }}</p> }
+          @if (p.active) { <p class="help">{{ preflight ? 'Waiting for handwriting verification. Submission stays disabled until all checks pass.' : 'Your submission is saved. Progress reflects completed stages, not an estimated completion time.' }}</p> }
         </section>
       }
     }

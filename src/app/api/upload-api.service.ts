@@ -30,6 +30,7 @@ type BackendResponse<T> = {
 
 @Injectable({ providedIn: 'root' })
 export class UploadApiService {
+  private lastUpload?: { files: File[]; assignmentId: string; key: string };
   constructor(private http: HttpClient) {}
 
   private getRootBaseUrl(): string {
@@ -44,6 +45,10 @@ export class UploadApiService {
     const apiBaseUrl = this.getApiBaseUrl();
 
     const list = Array.isArray(files) ? files.filter(Boolean) : [];
+    if (!this.lastUpload || this.lastUpload.assignmentId !== assignmentId || this.lastUpload.files.length !== list.length
+      || list.some((file, index) => file !== this.lastUpload?.files[index])) {
+      this.lastUpload = { files: [...list], assignmentId, key: crypto.randomUUID() };
+    }
     const formData = new FormData();
 
     if (list.length === 1) {
@@ -59,6 +64,7 @@ export class UploadApiService {
       formData,
       {
         observe: 'events',
+        headers: { 'Idempotency-Key': this.lastUpload.key },
         reportProgress: true
       }
     );

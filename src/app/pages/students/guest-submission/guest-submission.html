@@ -1,9 +1,19 @@
 @if (registered) { <app-assignment-qr-redirect /> }
-@else if (guestUnavailable) {
+@else if (!viewingResults && authResolution !== 'ANONYMOUS') {
+  <main class="guest-page"><section class="card guest-shell" role="status">
+    @if (authResolution === 'RECOVERY_FAILED') {
+      <h1>We could not restore your sign-in session</h1>
+      <p>Please check your connection and retry opening the assignment.</p>
+      <button type="button" (click)="ngOnInit()" [disabled]="loading">Retry opening assignment</button>
+    } @else { <h1>Opening your assignment</h1><p>Please wait while we restore your session.</p> }
+  </section></main>
+}
+@else if (showGuestUnavailable) {
   <main class="guest-page"><section class="card guest-shell" role="status">
     <h1>Guest submission is temporarily unavailable</h1><p>Please contact your teacher.</p>
   </section></main>
 }
+@else if (result) { <main class="guest-result"><app-my-submission-page /></main> }
 @else {
   <main class="guest-page" aria-labelledby="assignment-title">
     <div class="guest-shell">
@@ -11,11 +21,11 @@
 
       <header class="assignment-card card">
         <span class="guest-badge">Guest Submission</span>
-        <h1 id="assignment-title">{{ assignment?.title || result?.title || 'Assignment submission' }}</h1>
+        <h1 id="assignment-title">{{ assignment?.title || 'Assignment submission' }}</h1>
         @if (assignment?.deadline) {
-          <p class="due-date">Due <time [attr.datetime]="assignment.deadline">{{ assignment.deadline | date:'medium' }}</time></p>
+          <p class="due-date">Due <time [attr.datetime]="assignment?.deadline">{{ assignment?.deadline | date:'medium' }}</time></p>
         }
-        @if (assignment?.instructions) { <p class="instructions">{{ assignment.instructions }}</p> }
+        @if (assignment?.instructions) { <p class="instructions">{{ assignment?.instructions }}</p> }
         @else if (assignment && !confirmation) { <p class="muted">Submit your writing directly to your teacher. No account needed.</p> }
       </header>
 
@@ -33,60 +43,7 @@
         </section>
       }
 
-      @if (result) {
-        <section class="card content-card" aria-labelledby="feedback-title">
-          <div class="section-heading"><div><h2 id="feedback-title">Your feedback</h2>
-            <p class="muted">Submitted by {{ result.name }} on {{ result.submittedAt | date:'medium' }}</p></div>
-            <button type="button" class="secondary-button" (click)="loadResults()" [disabled]="loading">Refresh results</button>
-          </div>
-          @if (!result.feedback) {
-            <p class="notice" role="status">{{ result.processingMessage || (result.status === 'failed' || result.ocrStatus === 'failed' ? 'Processing could not finish. Please contact your teacher.' : 'Your work has been received. Assessment is processing; return later or refresh.') }}</p>
-          } @else {
-            @if (result.marksVisible) { <p class="score">Score: {{ result.feedback.overallScore }}</p> }
-            @for (area of feedbackSections; track area.key) {
-              <h3>{{ area.label }}</h3>
-              @for (item of result.feedback.detailedFeedback?.[area.key] || []; track $index) { <p>{{ item.explanation || item.action || item }}</p> }
-            }
-            @if (result.feedback.teacherComments) { <h3>Teacher feedback</h3><p class="instructions">{{ result.feedback.teacherComments }}</p> }
-          }
-          <app-source-fidelity [source]="result.sourceFidelity" />
-          @if (!result.sourceFidelity) { <h3>Transcription</h3><p class="instructions">{{ result.transcript }}</p> }
-          @if (result.feedback) {
-            <div class="actions">
-              <button type="button" class="secondary-button" (click)="downloadPdf()" [disabled]="busy">Download feedback PDF</button>
-              <button type="button" class="secondary-button" (click)="loadPractice()" [disabled]="busy">Open adaptive practice</button>
-              <button type="button" class="secondary-button" (click)="loadDrafts()" [disabled]="busy">View draft progress</button>
-            </div>
-          }
-          @if (draftMessage) { <p role="status" class="notice">{{ draftMessage }}</p> }
-          @if (practice) {
-            <section aria-label="Adaptive practice">
-              <h3>Adaptive practice</h3>
-              @if (!practice.session) { <p>{{ practice.state === 'no-weaknesses' ? 'No targeted practice is needed for this assessment.' : 'Practice is not ready yet.' }}</p> }
-              @for (activity of practice.session?.activities || []; track activity.activityId) {
-                <h3>{{ activity.title }}</h3><p>{{ activity.description }}</p>
-                @for (question of activity.questions || []; track question.questionId) {
-                  <form (ngSubmit)="checkAnswer(activity, question)" class="practice-question">
-                    <label>{{ question.task }}
-                      @if (question.questionType === 'mcq') {
-                        <select class="input-text" [name]="question.questionId" [(ngModel)]="answers[question.questionId]" required>
-                          <option value="">Select an answer</option>
-                          @for (option of question.options || []; track option.id) { <option [value]="option.id">{{ option.text }}</option> }
-                        </select>
-                      } @else {
-                        <textarea class="input-text" [name]="question.questionId" [(ngModel)]="answers[question.questionId]" required maxlength="5000"></textarea>
-                      }
-                    </label>
-                    <p class="muted">{{ question.tip }}</p>
-                    <button type="submit" class="secondary-button" [disabled]="busy || !answers[question.questionId]">Check answer</button>
-                    @if (answerResults[question.questionId]) { <p role="status">{{ answerResults[question.questionId] }}</p> }
-                  </form>
-                }
-              }
-            </section>
-          }
-        </section>
-      } @else if (confirmation) {
+      @if (confirmation) {
         <section class="card content-card confirmation" aria-labelledby="confirmation-title">
           <span class="state-icon" aria-hidden="true">✓</span>
           <h2 id="confirmation-title">Assignment submitted</h2>
@@ -105,7 +62,8 @@
         <section class="card content-card" aria-labelledby="submit-title">
           <h2 id="submit-title">Submit your work</h2>
           <p class="muted intro">Add your details and upload your writing.</p>
-          <form (ngSubmit)="submit()" #form="ngForm" [attr.aria-busy]="busy">
+          <form (ngSubmit)="identityEstablished ? submit() : continueWithIdentity()" #form="ngForm" [attr.aria-busy]="busy">
+            @if (!identityEstablished) {
             <div class="identity-fields">
               <div class="field">
                 <label for="guest-name">Student name <span aria-hidden="true">*</span></label>
@@ -120,28 +78,14 @@
                 <p id="email-error" class="field-error">@if (studentEmail.invalid && studentEmail.touched) { Enter a valid email address. }</p>
               </div>
             </div>
-            <div class="field upload-field">
-              <label for="guest-files">Your writing <span aria-hidden="true">*</span></label>
-              <div class="upload-zone" [class.dragging]="dragging" [class.upload-disabled]="busy"
-                (dragover)="$event.preventDefault(); dragging = !busy" (dragleave)="dragging = false" (drop)="dropFiles($event)">
-                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg>
-                <p><strong>Drag and drop your files here</strong></p>
-                <p class="muted">or <span class="browse-text">choose files</span> from your device</p>
-                <p id="upload-formats" class="upload-formats">JPG, PNG, WEBP or PDF · Up to 20 files</p>
-                <input id="guest-files" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple
-                  (change)="selectFiles($event)" [disabled]="busy" aria-describedby="upload-formats upload-help" />
-              </div>
-              @if (files.length) {
-                <div class="selected-files" aria-live="polite"><strong>{{ files.length }} {{ files.length === 1 ? 'file selected' : 'files selected' }}</strong>
-                  <ul>@for (file of files; track $index) { <li><span>{{ file.name }}</span><small>{{ file.size / 1024 / 1024 | number:'1.0-1' }} MB</small></li> }</ul>
-                </div>
-              }
-              <p id="upload-help" class="muted upload-help">Use clear, upright images with the entire page visible. Files are checked before submission. Failed image checks do not use assessment credits.</p>
-            </div>
+            } @else {
+              <app-upload-essay-form [disabled]="busy" (filesSelected)="onUploadFiles($event)"
+                (readinessChange)="uploadReady = $event" />
+            }
             <p class="privacy-note">Your name and email will be shared with your teacher. A private return link will be emailed to you after submission.</p>
-            <button class="btn-primary submission-action-button submit-button" type="submit" [disabled]="busy || !form.valid || !files.length">
+            <button class="btn-primary submission-action-button submit-button" type="submit" [disabled]="busy || (!identityEstablished && (!name.trim() || !email.trim() || !form.valid)) || (identityEstablished && !uploadReady)">
               @if (busy) { <span class="spinner" aria-hidden="true"></span>Checking and submitting… }
-              @else { Submit Assignment }
+              @else { {{ identityEstablished ? 'Submit Assignment' : 'Continue' }} }
             </button>
             @if (busy) { <p class="muted busy-message" role="status">Checking your files and sending your work. Please keep this page open.</p> }
           </form>
@@ -149,7 +93,7 @@
         <p class="account-option">Already have an account? <a routerLink="/login" [queryParams]="{ returnUrl: currentPath }">Sign in</a></p>
       }
 
-      @if (qrToken && !result && !loading) {
+      @if ((qrToken || viewingResults) && !result && !loading) {
         <details class="recovery card">
           <summary>Lost your feedback link? <span>Recover it</span></summary>
           <form (ngSubmit)="recover()" class="recovery-form">

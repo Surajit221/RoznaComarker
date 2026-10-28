@@ -7,6 +7,7 @@
     "start": "ng serve",
     "build": "ng build",
     "build:prod": "ng build --configuration production",
+    "postbuild:prod": "node scripts/stamp-release.cjs",
     "preview": "npx serve -s dist -l 4200",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop ecosystem.config.js",

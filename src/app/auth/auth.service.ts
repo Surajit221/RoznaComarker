@@ -73,6 +73,8 @@ export type BackendUser = {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  qrAuthState: 'RESOLVING' | 'AUTHENTICATED' | 'ANONYMOUS' | 'RECOVERY_FAILED' = 'RESOLVING';
+  hasFirebaseIdentity(): boolean { return !!this.auth.currentUser; }
   private readonly backendJwtKey = 'backend_jwt';
   private readonly injector = inject(EnvironmentInjector);
   private qrSession: Promise<QrSession> | null = null;
@@ -82,7 +84,17 @@ export class AuthService {
 
   ensureQrBackendSession(forceRefresh = false): Promise<QrSession> {
     if (this.qrSession) return this.qrSession;
-    this.qrSession = this.restoreQrSession(forceRefresh).finally(() => { this.qrSession = null; });
+    this.qrAuthState = 'RESOLVING';
+    const started = Date.now();
+    this.qrSession = this.restoreQrSession(forceRefresh).then(session => {
+      this.qrAuthState = session.state === 'anonymous' ? 'ANONYMOUS' : 'AUTHENTICATED';
+      qrDiagnostic('qr_auth_resolved', { state: this.qrAuthState, durationMs: Date.now() - started });
+      return session;
+    }).catch((error: unknown) => {
+      this.qrAuthState = 'RECOVERY_FAILED';
+      qrDiagnostic('qr_auth_recovery_failed', { durationMs: Date.now() - started });
+      throw error;
+    }).finally(() => { this.qrSession = null; });
     return this.qrSession;
   }
 
