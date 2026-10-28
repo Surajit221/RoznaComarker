@@ -154,7 +154,9 @@
       @if (file.qualityState !== 'selected' && file.qualityState && (file.preview || file.quality?.sourceReadRequired)) {
         <app-image-quality-checklist [checking]="file.qualityState === 'queued' || file.qualityState === 'checking'"
           [queued]="file.qualityState === 'queued'" [result]="file.quality" [error]="file.qualityError" />
-        @if (file.qualityState === 'unavailable' || (file.qualityState === 'done' && !file.quality?.ready)) {
+        @if (file.quality?.sourceReadStatus === 'FAILED_IMAGE') {
+          <p class="text-sm my-2">Choose a clearer or replacement image before checking again.</p>
+        } @else if (file.qualityState === 'unavailable' || (file.qualityState === 'done' && !file.quality?.ready)) {
           <button type="button" (click)="retryQuality(file)" [disabled]="disabled" class="text-sm font-semibold underline text-[#006d6e] my-2">Retry image check</button>
         }
       }

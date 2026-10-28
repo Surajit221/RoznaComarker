@@ -11,12 +11,14 @@ describe('ImageQualityChecklist progress',()=>{
     expect(fixture.nativeElement.textContent).toContain('Preparing image');expect(fixture.nativeElement.textContent).not.toContain('%');
     fixture.componentRef.setInput('queued',true);fixture.detectChanges();expect(fixture.nativeElement.textContent).toContain('Waiting for the previous file');
   });
-  it('uses the server percentage without elapsed-time stage guesses or duplicate checklist',fakeAsync(()=>{
+  it('keeps active preflight indeterminate without elapsed-time stage guesses or duplicate checklist',fakeAsync(()=>{
     const fixture=TestBed.createComponent(ImageQualityChecklist);
     fixture.componentRef.setInput('checking',true);fixture.componentRef.setInput('result',pending);fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBe('60');
+    expect(fixture.nativeElement.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="progressbar"]').getAttribute('aria-valuetext')).toBe(pending.processingProgress!.message);
     expect(fixture.nativeElement.querySelectorAll('ul')).toHaveSize(1);
-    tick(120000);fixture.detectChanges();expect(fixture.nativeElement.textContent).toContain('60%');
+    tick(120000);fixture.detectChanges();expect(fixture.nativeElement.textContent).not.toContain('%');
+    expect(fixture.nativeElement.textContent).toContain('Submission stays disabled until all checks pass.');
     expect(fixture.nativeElement.textContent).not.toContain('crossed-out');fixture.destroy();
   }));
   for(const status of ['PASSED','FAILED_IMAGE','FAILED_SERVICE'] as const)it('preserves check result and stops activity for '+status,()=>{

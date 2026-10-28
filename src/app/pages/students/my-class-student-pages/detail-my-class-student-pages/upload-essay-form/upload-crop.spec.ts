@@ -41,15 +41,18 @@ describe('Shared upload crop source lifecycle', () => {
     expect(entry.file).toBe(original); expect(entry.crop).toBeUndefined(); expect(entry.quality).toBeUndefined();
     expect(form.ready).toBeFalse(); expect(check.calls.mostRecent().args[0]).toBe(original);
   });
-  it('keeps cropped bytes on image/service failure and retries those same bytes without recropping', () => {
+  it('keeps rejected crop for replacement and retries a service failure with the same replacement bytes', () => {
     select(file('original')); const entry = form.files[0], crop = file('crop');
     check.and.returnValue(of({...passed,ready:false,canSubmit:false,sourceReadStatus:'FAILED_IMAGE'}));
     form.openCrop(entry); form.applyCrop(entry,{file:crop,rect}); expect(form.ready).toBeFalse();
+    const calls=check.calls.count();form.retryQuality(entry);
+    expect(check.calls.count()).toBe(calls);expect(entry.file).toBe(crop);expect(form.ready).toBeFalse();
+    const replacement=file('replacement-crop');
     check.and.returnValue(of({...passed,ready:false,canSubmit:false,sourceReadStatus:'FAILED_SERVICE'}));
-    form.retryQuality(entry); expect(form.ready).toBeFalse(); const preview = entry.preview;
+    form.openCrop(entry);form.applyCrop(entry,{file:replacement,rect});expect(form.ready).toBeFalse(); const preview = entry.preview;
     check.and.returnValue(of(passed)); form.retryQuality(entry);
-    expect(entry.preview).toBe(preview); expect(entry.crop).toEqual(rect); expect(entry.file).toBe(crop);
-    expect(check.calls.mostRecent().args[0]).toBe(crop); expect(form.ready).toBeTrue();
+    expect(entry.preview).toBe(preview); expect(entry.crop).toEqual(rect); expect(entry.file).toBe(replacement);
+    expect(check.calls.mostRecent().args[0]).toBe(replacement); expect(form.ready).toBeTrue();
   });
   it('isolates Page 2 crop, cancels its old check, ignores stale responses, and preserves order and other passes', () => {
     select(file('one'),file('two'),file('three')); form.files.forEach(entry => form.useImage(entry));

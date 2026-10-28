@@ -207,6 +207,18 @@ describe('UploadEssayForm', () => {
     component.retryQuality(component.files[0]);fixture.detectChanges();
     expect(component.files.length).toBe(1);expect(check.calls.mostRecent().args[0]).toBe(file);expect(component.ready).toBeTrue();
   });
+  it('requires a clearer image for terminal uncertainty and does not retry identical rejected evidence', () => {
+    check.and.returnValue(of({ready:false,sourceReadRequired:true,sourceReadStatus:'FAILED_IMAGE',canSubmit:false,
+      sourceReadErrorCode:'OCR_GPT_SOURCE_UNCERTAIN',message:'Some handwriting could not be read confidently. Please upload a clearer image.',checks:[]}));
+    const file=select('uncertain.png');fixture.detectChanges();
+    expect(component.ready).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Choose a clearer or replacement image');
+    expect(fixture.nativeElement.textContent).not.toMatch(/Retry image check/i);
+    component.retryQuality(component.files[0]);fixture.detectChanges();
+    expect(check).toHaveBeenCalledTimes(1);expect(component.files[0].file).toBe(file);expect(component.ready).toBeFalse();
+    check.and.returnValue(of({ready:true,checks:[],sourceReadRequired:true,sourceReadStatus:'PASSED',canSubmit:true}));
+    component.reset();select('replacement.png');fixture.detectChanges();expect(component.ready).toBeTrue();
+  });
   it('requires explicit accepted exact source status even if an inconsistent response says ready', () => {
     check.and.returnValue(of({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'FAILED_SERVICE', canSubmit: false }));select('blocked.png');expect(component.ready).toBeFalse();
     component.reset();check.and.returnValue(of({ ready: true, checks: [], sourceReadRequired: true, sourceReadStatus: 'PASSED', canSubmit: true }));select('accepted.png');expect(component.ready).toBeTrue();

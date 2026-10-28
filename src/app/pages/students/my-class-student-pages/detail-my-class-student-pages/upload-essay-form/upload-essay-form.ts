@@ -283,7 +283,8 @@ export class UploadEssayForm implements OnDestroy {
   }
 
   retryQuality(entry: UploadEntry): void {
-    if (this.disabled || this.destroyed || this.editingEntry === entry || this.active?.entry === entry || !this.files.includes(entry)) return;
+    if (this.disabled || this.destroyed || this.editingEntry === entry || this.active?.entry === entry || !this.files.includes(entry)
+      || entry.quality?.sourceReadStatus === 'FAILED_IMAGE') return;
     entry.quality = undefined;
     entry.qualityError = undefined;
     entry.qualityState = 'queued';
