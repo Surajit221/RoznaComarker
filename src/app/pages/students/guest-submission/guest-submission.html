@@ -79,8 +79,13 @@
               </div>
             </div>
             } @else {
-              <app-upload-essay-form [disabled]="busy" (filesSelected)="onUploadFiles($event)"
+              <app-upload-essay-form #guestUpload [disabled]="busy" (filesSelected)="onUploadFiles($event)"
                 (readinessChange)="uploadReady = $event" />
+              <button type="button" class="btn-info-sm w-full min-h-11 mt-6 guest-upload-button"
+                (click)="guestUpload.openFilePicker($event)"
+                [disabled]="busy || guestUpload.files.length >= guestUpload.maxFiles">
+                <i class="bx bx-image-add" aria-hidden="true"></i> Upload Image
+              </button>
             }
             <p class="privacy-note">Your name and email will be shared with your teacher. A private return link will be emailed to you after submission.</p>
             <button class="btn-primary submission-action-button submit-button" type="submit" [disabled]="busy || (!identityEstablished && (!name.trim() || !email.trim() || !form.valid)) || (identityEstablished && !uploadReady)">
