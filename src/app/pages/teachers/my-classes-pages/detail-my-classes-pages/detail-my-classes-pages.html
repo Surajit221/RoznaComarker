@@ -1,3 +1,23 @@
+<ng-template #assignmentStats let-item>
+  <dl class="assignment-stats" aria-label="Assignment submission statistics">
+    <div class="assignment-stat">
+      <i class="bx bx-calendar" aria-hidden="true"></i>
+      <div><dt>Due Date</dt><dd>{{ item.dueDate || 'Not set' }}</dd></div>
+    </div>
+    <div class="assignment-stat assignment-stat--class">
+      <i class="bx bx-group" aria-hidden="true"></i>
+      <div><dt>Class Submissions</dt><dd>{{ item.submitted }} of {{ item.total }}
+        @if (item.total > 0) { <span class="assignment-stat__percentage">{{ ((item.submitted / item.total) * 100) | number : '1.0-0' }}%</span> }
+      </dd></div>
+    </div>
+    @if (item.guestSubmitted !== undefined) {
+      <div class="assignment-stat">
+        <i class="bx bx-file" aria-hidden="true"></i>
+        <div><dt>Guest Submissions</dt><dd>{{ item.guestSubmitted }} received</dd></div>
+      </div>
+    }
+  </dl>
+</ng-template>
 <ng-container>
   @if(device.isDesktop()){
 
@@ -120,34 +140,7 @@
                       <p class="text-sm text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
                     </div>
                   }
-                  <div class="teacher-assignment-card__meta">
-                    <p class="text-gray-500 text-sm">Due: {{ item.dueDate }}</p>
-                    <div class="flex flex-row items-center gap-1">
-                      <i
-                        class="bx bx-history font-bold"
-                        [ngClass]="{
-                          'text-red-500': item.status === 'pending',
-                          'text-yellow-500': item.status === 'in-progress',
-                          'text-green-500': item.status === 'completed'
-                        }"
-                      ></i>
-                      <p
-                        [ngClass]="{
-                          'text-red-500': item.status === 'pending',
-                          'text-yellow-500': item.status === 'in-progress',
-                          'text-green-500': item.status === 'completed'
-                        }"
-                        class="text-sm font-semibold"
-                      >
-                        {{ item.submitted }}/{{ item.total }} Submitted
-                      </p>
-                    </div>
-                    @if (item.total > 0) {
-                      <span class="text-xs text-gray-500">
-                        ({{ ((item.submitted / item.total) * 100) | number : '1.0-0' }}%)
-                      </span>
-                    }
-                  </div>
+                  <ng-container *ngTemplateOutlet="assignmentStats; context: { $implicit: item }" />
                 </div>
                 <div class="teacher-assignment-actions" (click)="$event.stopPropagation()">
                     <button type="button" class="teacher-assignment-primary" (click)="onOpenSubmission(item.id)">
@@ -486,34 +479,7 @@
         <div 
           class="teacher-assignment-card teacher-assignment-card--mobile"
           (click)="onOpenSheetSubmission(item.id)">
-          <div class="flex flex-row justify-between items-center gap-4 w-full">
-            <p class="text-gray-500 text-xs">Due: {{ item.dueDate }}</p>
-            <div class="flex flex-row items-center gap-1">
-              <i
-                class="bx bx-history font-bold"
-                [ngClass]="{
-                  'text-red-500': item.status === 'pending',
-                  'text-yellow-500': item.status === 'in-progress',
-                  'text-green-500': item.status === 'completed'
-                }"
-              ></i>
-              <p
-                [ngClass]="{
-                  'text-red-500': item.status === 'pending',
-                  'text-yellow-500': item.status === 'in-progress',
-                  'text-green-500': item.status === 'completed'
-                }"
-                class="text-xs font-semibold"
-              >
-                {{ item.submitted }}/{{ item.total }} Submitted
-              </p>
-              @if (item.total > 0) {
-                <span class="text-xs text-gray-500">
-                  ({{ ((item.submitted / item.total) * 100) | number : '1.0-0' }}%)
-                </span>
-              }
-            </div>
-          </div>
+          <ng-container *ngTemplateOutlet="assignmentStats; context: { $implicit: item }" />
           <div class="w-full grid grid-cols-1 items-center mt-2">
             <div class="flex items-center gap-2 mb-1">
               <p class="text-base font-bold mb-0 leading-5">

@@ -190,6 +190,7 @@ export class DetailMyClassesPages {
     dueDate: string;
     submitted: number;
     total: number;
+    guestSubmitted?: number;
     status: 'pending' | 'in-progress' | 'completed';
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
     resourceId?: string;
@@ -502,6 +503,11 @@ export class DetailMyClassesPages {
             }
 
             const submissions = await this.getAssignmentSubmissionRecords(item.id, assignment);
+            // The fraction remains current-roster progress; guests are separate
+            // submission records, matching the teacher's submission list.
+            item.guestSubmitted = new Set((submissions || [])
+              .filter(sub => sub.submissionMode === 'guest' && sub._id)
+              .map(sub => String(sub._id))).size;
             for (const sub of submissions || []) {
               const studentId = this.getStudentIdFromAnySubmission(sub);
               if (!studentId || !activeStudentIds.has(studentId)) continue;

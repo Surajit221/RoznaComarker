@@ -92,6 +92,37 @@ describe('DetailMyClassesPages', () => {
     expect(component.selectedAssignmentForDuplicate).toBe(source);
   });
 
+  for (const desktop of [true, false]) {
+    it(`renders separate class and guest statistics with unchanged actions (desktop=${desktop})`, () => {
+      spyOn(component.device, 'isDesktop').and.returnValue(desktop);
+      component.assignments = [{ id: 'stats-1', title: 'A long assignment title '.repeat(8),
+        instructions: 'Description '.repeat(60), dueDate: 'Oct 31, 2026',
+        submitted: 1, total: 3, guestSubmitted: 11, status: 'pending', resourceType: 'essay' }];
+      const open = spyOn(component, desktop ? 'onOpenSubmission' : 'onOpenSheetSubmission');
+      fixture.detectChanges();
+      const host: HTMLElement = fixture.nativeElement;
+      const stats = host.querySelector('.assignment-stats')!;
+      expect(stats.querySelectorAll('dt').length).toBe(3);
+      expect(stats.textContent).toContain('Due Date'); expect(stats.textContent).toContain('Oct 31, 2026');
+      expect(stats.textContent).toContain('1 of 3'); expect(stats.textContent).toContain('33%');
+      expect(stats.textContent).toContain('11 received'); expect(stats.textContent).not.toContain('400%');
+      expect(stats.querySelector('.text-red-500')).toBeNull();
+      expect(host.textContent).toContain(component.assignments[0].title);
+      (host.querySelector('.teacher-assignment-primary') as HTMLButtonElement).click();
+      expect(open).toHaveBeenCalledOnceWith('stats-1');
+      expect(host.querySelectorAll('.teacher-assignment-actions .assignment-utility').length).toBeGreaterThan(3);
+      component.assignments[0] = { ...component.assignments[0], submitted: 0, total: 0, guestSubmitted: 0, dueDate: '' };
+      fixture.detectChanges();
+      expect(stats.textContent).toContain('0 of 0'); expect(stats.textContent).toContain('0 received');
+      expect(stats.textContent).toContain('Not set'); expect(stats.querySelector('.assignment-stat__percentage')).toBeNull();
+      component.assignments[0] = { ...component.assignments[0], submitted: 12345, total: 20000, guestSubmitted: 98765 };
+      fixture.detectChanges(); expect(stats.textContent).toContain('12345 of 20000'); expect(stats.textContent).toContain('62%');
+      expect(stats.textContent).toContain('98765 received');
+      component.assignments[0] = { ...component.assignments[0], guestSubmitted: undefined };
+      fixture.detectChanges(); expect(stats.textContent).not.toContain('Guest Submissions');
+    });
+  }
+
   it('adds a same-class duplicate reactively and navigates for a cross-class duplicate', async () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
@@ -177,6 +208,10 @@ describe('DetailMyClassesPages', () => {
     }]);
     spyOn(submissionApi, 'getSubmissionsByAssignment').and.resolveTo([
       { _id: 'current', student: { _id: 'active-student' }, submittedAt: '2026-01-02' },
+      { _id: 'guest-1', submissionMode: 'guest', student: null },
+      { _id: 'guest-1', submissionMode: 'guest', student: null },
+      { _id: 'guest-2', submissionMode: 'guest', student: null },
+      { submissionMode: 'guest', student: null },
       { _id: 'historical', student: { _id: 'removed-student' }, submittedAt: '2026-01-01' }
     ]);
 
@@ -184,6 +219,7 @@ describe('DetailMyClassesPages', () => {
 
     expect(component.assignments[0].submitted).toBe(1);
     expect(component.assignments[0].total).toBe(1);
+    expect(component.assignments[0].guestSubmitted).toBe(2);
     expect(component.students[0].submitted).toBe(1);
   });
 });
