@@ -271,6 +271,33 @@ describe('guest assignment page presentation', () => {
     expect(page.uploadReady).toBeFalse();
   });
 
+  it('opens the existing image/PDF picker once from the navy upload button without submitting', async () => {
+    page.name = 'Student'; page.email = 'student@example.com'; page.continueWithIdentity(); fixture.detectChanges();
+    const upload = fixture.debugElement.query(By.directive(UploadEssayForm)).componentInstance as UploadEssayForm;
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.guest-upload-button');
+    const picker = spyOn(upload.fileInput.nativeElement, 'click');
+    const handler = spyOn(upload, 'openFilePicker').and.callThrough();
+    const submit = spyOn(page, 'submit');
+    expect(button.textContent).toContain('Upload Image');
+    expect(button.type).toBe('button');
+    expect(button.classList.contains('btn-info-sm')).toBeTrue();
+    expect(button.classList.contains('w-full')).toBeTrue();
+    expect(button.querySelector('.bx-image-add')).toBeTruthy();
+    expect(button.previousElementSibling?.tagName.toLowerCase()).toBe('app-upload-essay-form');
+    expect(upload.fileInput.nativeElement.accept).toContain('application/pdf');
+    expect(upload.fileInput.nativeElement.multiple).toBeTrue();
+    // A native button synthesizes one click after touch; no separate touch handler.
+    button.dispatchEvent(new Event('touchend', { bubbles: true })); button.click();
+    await fixture.whenStable();
+    expect(handler).toHaveBeenCalledTimes(1); expect(picker).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelectorAll('input[type=file]').length).toBe(2);
+    page.busy = true; fixture.detectChanges(); expect(button.disabled).toBeTrue();
+    page.busy = false; upload.files = Array(upload.maxFiles).fill({}); fixture.detectChanges();
+    expect(button.disabled).toBeTrue();
+    upload.files = [];
+  });
+
   it('shows accessible field validation and request errors without losing the form', async () => {
     const email: HTMLInputElement = fixture.nativeElement.querySelector('#guest-email');
     email.value = 'invalid'; email.dispatchEvent(new Event('input')); email.dispatchEvent(new Event('blur'));
