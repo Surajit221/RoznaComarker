@@ -26,6 +26,8 @@
       <span><strong>Allow submission without login</strong><small>Students with the assignment link or QR code can submit using their name and email without creating an account.</small></span>
       <input type="checkbox" formControlName="allowGuestSubmission" />
     </label>
+    } @else if (!isResourceAssignment && guestFeature.state() === 'unavailable') {
+    <p class="text-sm text-gray-500" role="status">Couldn't load the 'submission without login' setting. It will be left as it is.</p>
     }
     @if (capabilities.showMarksToStudent) {
     <label class="assignment-setting">

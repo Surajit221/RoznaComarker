@@ -1,4 +1,4 @@
-import { GuestSubmissionFeature } from '../../../../../services/guest-submission-feature.service';
+import { GuestSubmissionFeature, type GuestFeatureState } from '../../../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, inject, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
 import {
@@ -161,6 +161,8 @@ export class AssignmentForm {
 
     try {
       this.isSubmitting = true;
+      // Never build the request from a pending or failed availability check.
+      const guestState = this.isResourceAssignment ? null : await this.guestFeature.settled();
 
       const title = this.classForm.value.className;
       const instructions = this.classForm.value.message;
@@ -193,9 +195,17 @@ export class AssignmentForm {
       if (this.capabilities.allowResubmission) payload.allowResubmission = this.classForm.value.allowResubmission === true;
       if (this.capabilities.requireAdaptiveBeforeResubmission) payload.requireAdaptiveBeforeResubmission =
         this.classForm.value.allowResubmission === true && this.classForm.value.requireAdaptiveBeforeResubmission === true;
-      if (!this.isResourceAssignment) {
+      let guestWarning = false;
+      if (guestState) {
         payload.writingType = writingType;
-        if (this.guestFeature.enabled()) payload.allowGuestSubmission = this.classForm.value.allowGuestSubmission === true;
+        const guest = this.guestDecision(guestState);
+        if (guest.block) {
+          this.alert.showError('Guest setting not saved',
+            "Couldn't confirm whether submission without login is available. Check your connection and try again.");
+          return;
+        }
+        if (guest.send !== undefined) payload.allowGuestSubmission = guest.send;
+        guestWarning = guest.warn === true;
       }
       
       // Existing assignments retain their rubric edit support. Creation never
@@ -218,7 +228,8 @@ export class AssignmentForm {
 
       if (this.assignment?._id) {
         const updated = await this.assignmentApi.updateAssignment(this.assignment._id, payload);
-        this.alert.showToast('Assignment updated successfully', 'success');
+        // SweetAlert shows one popup at a time; the warning replaces the success toast.
+        if (guestWarning) this.showGuestOffWarning(); else this.alert.showToast('Assignment updated successfully', 'success');
         this.updated.emit(updated);
         this.closeDialog();
         return;
@@ -233,7 +244,7 @@ export class AssignmentForm {
       payload.classId = classId;
       const created = await this.assignmentApi.createAssignment(payload);
 
-      this.alert.showToast('Assignment created successfully', 'success');
+      if (guestWarning) this.showGuestOffWarning(); else this.alert.showToast('Assignment created successfully', 'success');
       this.created.emit(created);
       this.closeDialog();
     } catch (err: any) {
@@ -242,6 +253,24 @@ export class AssignmentForm {
     } finally {
       this.isSubmitting = false;
     }
+  }
+
+  /**
+   * Decides the allowGuestSubmission field from the confirmed availability. Omitting it keeps the stored
+   * value on edit and means false on create, so a change the teacher made is never dropped silently.
+   */
+  private guestDecision(state: GuestFeatureState): { send?: boolean; block?: boolean; warn?: boolean } {
+    const wanted = this.classForm.value.allowGuestSubmission === true;
+    const stored = this.assignment?.allowGuestSubmission === true;
+    if (state === 'enabled') return { send: wanted };
+    if (wanted === stored) return {};
+    if (!wanted) return { send: false }; // the backend always accepts switching guest access off
+    return state === 'disabled' ? { warn: true } : { block: true };
+  }
+
+  private showGuestOffWarning(): void {
+    this.alert.showWarning('Assignment saved without guest access',
+      "Saved without 'submission without login': it's currently turned off.");
   }
 
   onReset(): void {

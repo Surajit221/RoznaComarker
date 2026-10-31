@@ -14,7 +14,7 @@ describe('DetailMyClassesPages', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DetailMyClassesPages], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => false, load: () => Promise.resolve(false) } }, ...routedComponentProviders(), ...httpTestingProviders,
+      imports: [DetailMyClassesPages], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => false, state: () => 'disabled', load: () => Promise.resolve(false), settled: () => Promise.resolve('disabled') } }, ...routedComponentProviders(), ...httpTestingProviders,
         ...authenticatedUserProviders('teacher')]
     })
     .compileComponents();
