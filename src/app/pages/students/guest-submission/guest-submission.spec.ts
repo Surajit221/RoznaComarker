@@ -6,7 +6,8 @@ import { MySubmissionPage } from '../my-class-student-pages/detail-my-class-stud
 import { GuestStudentAccess } from '../../../services/guest-student-access.service';
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { JwtInterceptor } from '../../../auth/jwt.interceptor';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap, DefaultUrlSerializer, provideRouter, Router } from '@angular/router';
 import { GuestSubmissionPage } from './guest-submission';
@@ -211,7 +212,8 @@ describe('guest assignment page presentation', () => {
     const selection = new DataTransfer();selection.items.add(original);
     upload.onFilesSelected({target:{files:selection.files,value:''}} as unknown as Event);
     http.expectNone(req => req.url.includes('image-preflight')); expect(page.uploadReady).toBeFalse();
-    upload.openCrop(upload.files[0]); fixture.detectChanges();
+    // The editor opens by itself for the picked image; no separate "Crop Image" step.
+    fixture.detectChanges(); expect(upload.editingEntry).toBe(upload.files[0]);
     const editor = fixture.debugElement.query(By.directive(ImageCrop)).componentInstance as ImageCrop;
     await editor.photo.nativeElement.decode();editor.onLoad(); editor.rect = {...CROP_SOURCE.rect};
     await editor.apply();fixture.detectChanges();const cropped = upload.files[0].file;
@@ -225,6 +227,25 @@ describe('guest assignment page presentation', () => {
     fixture.detectChanges();expect(page.uploadReady).toBeTrue();
     const pending = page.submit();const submit = http.expectOne(environment.apiUrl+'/guest/assignments/share-code/submit');
     expect(submit.request.body.getAll('files')).toEqual([cropped]);submit.flush({data:{received:true}});await pending;
+  });
+  it('opens the crop editor automatically for a guest, and "Use full image" starts the guest image check with the original', async () => {
+    page.name = 'Student'; page.email = 'student@example.com'; page.continueWithIdentity(); fixture.detectChanges();
+    const upload = fixture.debugElement.query(By.directive(UploadEssayForm)).componentInstance as UploadEssayForm;
+    const original = new File([Uint8Array.from(atob(CROP_SOURCE.original), c => c.charCodeAt(0))], 'page.png', {type:'image/png'});
+    const selection = new DataTransfer(); selection.items.add(original);
+    upload.onFilesSelected({target:{files:selection.files,value:''}} as unknown as Event); fixture.detectChanges();
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector('app-image-crop')).toBeTruthy();
+    expect(host.textContent).toContain('Crop & Continue'); expect(host.textContent).toContain('Use full image');
+    expect(host.textContent).not.toContain('Use Image');
+    http.expectNone(req => req.url.includes('image-preflight')); expect(page.uploadReady).toBeFalse();
+    upload.useFullImage(upload.files[0]);
+    const url = environment.apiUrl+'/guest/assignments/share-code/image-preflight';
+    const basic = http.expectOne(url); expect(basic.request.body.get('file')).toBe(original);
+    basic.flush({success:true,data:{ready:false,checks:[],basicChecksPassed:true,sourceReadRequired:true,sourceReadStatus:'CHECKING',canSubmit:false}});
+    expect(page.uploadReady).toBeFalse();
+    http.expectOne(url).flush({success:true,data:{ready:true,checks:[],sourceReadRequired:true,sourceReadStatus:'PASSED',canSubmit:true}});
+    fixture.detectChanges(); expect(page.uploadReady).toBeTrue(); expect(page.files).toEqual([original]);
   });
   const text = (element: HTMLElement) => element.textContent || '';
 
@@ -336,5 +357,46 @@ describe('guest assignment page presentation', () => {
     page.result = { title: 'Essay' }; fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-my-submission-page')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('#feedback-title')).toBeNull();
+  });
+});
+
+describe('registered student opening an assignment QR link', () => {
+  const jwtPart = (value: object) => btoa(JSON.stringify(value)).replace(/=+$/, '');
+  const jwt = `${jwtPart({ alg: 'HS256' })}.${jwtPart({ id: 'student-1', role: 'student', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+  let previousJwt: string | null;
+
+  beforeEach(async () => {
+    previousJwt = localStorage.getItem('backend_jwt');
+    localStorage.setItem('backend_jwt', jwt);
+    await TestBed.configureTestingModule({ imports: [GuestSubmissionPage], providers: [
+      { provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } },
+      provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting(), provideRouter([]),
+      { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
+      { provide: AuthService, useValue: { ensureQrBackendSession: jasmine.createSpy().and.resolveTo({ state: 'ready', role: 'student' }) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ qrToken: 'share-code' }), fragment: null } } },
+    ] }).compileComponents();
+  });
+  afterEach(() => {
+    if (previousJwt === null) localStorage.removeItem('backend_jwt'); else localStorage.setItem('backend_jwt', previousJwt);
+  });
+
+  it('calls the authenticated QR endpoint with the bearer token instead of the guest stub', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(GuestSubmissionPage);
+    await fixture.componentInstance.ngOnInit();
+    expect(fixture.componentInstance.registered).toBeTrue();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-assignment-qr-redirect')).toBeTruthy();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    const req = http.expectOne(`${environment.apiUrl}/assignments/qr/share-code`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.headers.get('Authorization')).toBe(`Bearer ${jwt}`);
+    req.flush({ success: true, data: { _id: 'assignment-1', class: { _id: 'class-1' }, resourceType: 'essay' } });
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(navigate).toHaveBeenCalledWith(['/student/my-classes/detail', 'class-1'], { queryParams: { assignmentId: 'assignment-1' } });
+    http.verify(); fixture.destroy();
   });
 });

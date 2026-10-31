@@ -277,6 +277,17 @@ describe('AdaptiveWritingStudio', () => {
       expect(fixture.nativeElement.textContent).toContain(scenario.expected);
       expect(fixture.nativeElement.textContent).not.toContain(scenario.unexpected);
       expect(fixture.nativeElement.textContent).toContain('Lowest writing-skill diagnostic');
+      const host: HTMLElement = fixture.nativeElement;
+      const actions = host.querySelector('.studio__actions') as HTMLElement;
+      const message = host.querySelector('.eligibility-message') as HTMLElement;
+      const button = host.querySelector('.generate-button') as HTMLElement;
+      const intro = host.querySelector('.studio__intro') as HTMLElement;
+      for (const width of [1200, 768, 375, 320]) {
+        host.style.width = `${width}px`;
+        expect(actions.scrollWidth).withContext(`${width}px actions`).toBeLessThanOrEqual(actions.clientWidth + 1);
+        expect(message.getBoundingClientRect().top).toBeGreaterThanOrEqual(button.getBoundingClientRect().bottom);
+        expect(intro.getBoundingClientRect().width).toBeGreaterThan(100);
+      }
     });
   }
 

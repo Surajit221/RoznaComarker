@@ -1,8 +1,12 @@
 import { GuestSubmissionFeature } from '../../../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { HttpTestingController } from '@angular/common/http/testing';
 
 import { AssignmentForm } from './assignment-form';
 import { httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
+import { environment } from '../../../../../../environments/environment';
+import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
+import { AlertService } from '../../../../../services/alert.service';
 
 describe('AssignmentForm', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -11,7 +15,8 @@ describe('AssignmentForm', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AssignmentForm], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } }, ...routedComponentProviders(), ...httpTestingProviders]
+      imports: [AssignmentForm], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, state: () => 'enabled',
+        load: () => Promise.resolve(true), settled: () => Promise.resolve('enabled') } }, ...routedComponentProviders(), ...httpTestingProviders]
     })
     .compileComponents();
 
@@ -69,6 +74,8 @@ describe('AssignmentForm', () => {
 
   it('hides the guest option and omits its payload while preserving historical opt-in', async () => {
     spyOn(component.guestFeature, 'enabled').and.returnValue(false);
+    spyOn(component.guestFeature, 'state').and.returnValue('disabled');
+    spyOn(component.guestFeature, 'settled').and.resolveTo('disabled');
     component.assignment = { _id: 'assignment-1', title: 'Existing essay', writingType: 'Narrative',
       deadline: '2099-08-11', instructions: 'Write clearly.', allowGuestSubmission: true } as any;
     (component as any).applyAssignmentToForm(); fixture.detectChanges();
@@ -327,5 +334,122 @@ describe('AssignmentForm', () => {
     expect(payload.rubricData.criteria[0].levels[0].description).toBe('Modified editor text');
     expect(selected.rubricData.criteria[0].name).toBe('Selected A');
     expect(selected.rubricData.criteria[0].levels[0].description).toBe('Original selected text');
+  });
+});
+
+describe('AssignmentForm guest flag with the real availability service', () => {
+  const status = `${environment.apiUrl}/guest/status`;
+  let fixture: ComponentFixture<AssignmentForm>, form: AssignmentForm, http: HttpTestingController;
+  let create: jasmine.Spy, update: jasmine.Spy, alerts: { toast: jasmine.Spy; error: jasmine.Spy; warning: jasmine.Spy };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [AssignmentForm], providers: [...routedComponentProviders(), ...httpTestingProviders] }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(AssignmentForm); form = fixture.componentInstance;
+    const api = TestBed.inject(AssignmentApiService), alert = TestBed.inject(AlertService);
+    create = spyOn(api, 'createAssignment').and.resolveTo({ _id: 'created', title: 'Essay' } as BackendAssignment);
+    update = spyOn(api, 'updateAssignment').and.callFake(async (id: string) => ({ _id: id, title: 'Essay' } as BackendAssignment));
+    alerts = { toast: spyOn(alert, 'showToast'), error: spyOn(alert, 'showError'), warning: spyOn(alert, 'showWarning') };
+    // Closing resets the form and refreshes availability; stub it so only status requests made by the save are counted.
+    spyOn(form, 'closeDialog');
+  });
+  afterEach(() => { http.verify(); fixture.destroy(); });
+
+  /** Answers the status check made when the form opens. */
+  const submit = () => (form as unknown as { handleSubmit(): Promise<void> }).handleSubmit();
+  async function open(answer: { data: { enabled: boolean } } | 'fail', assignment: BackendAssignment | null = null) {
+    form.classId = 'class-1'; form.assignment = assignment; fixture.detectChanges();
+    const request = http.expectOne(status);
+    if (answer === 'fail') request.flush({}, { status: 503, statusText: 'Unavailable' }); else request.flush(answer);
+    await fixture.whenStable(); fixture.detectChanges();
+    form.classForm.patchValue({ className: 'Guest essay', writingType: 'Narrative', startDate: '2099-08-11', message: 'Write clearly.' });
+  }
+  /** Saves, answering any status retry made at save time; returns how many retries there were. */
+  async function save(retry?: { data: { enabled: boolean } } | 'fail') {
+    const saving = submit();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    const retries = http.match(status);
+    retries.forEach(request => retry === 'fail' || !retry ? request.flush({}, { status: 503, statusText: 'Unavailable' }) : request.flush(retry));
+    await saving;
+    return retries.length;
+  }
+  const sent = (spy: jasmine.Spy) => spy.calls.mostRecent().args.at(-1) as Record<string, unknown>;
+  const existing = (allowGuestSubmission: boolean) => ({ _id: 'assignment-1', title: 'Guest essay', writingType: 'Narrative',
+    deadline: '2099-08-11', instructions: 'Write clearly.', allowGuestSubmission } as BackendAssignment);
+
+  it('keeps the ticked option when another form instance refresh fails, retrying at save (the reported bug)', async () => {
+    await open({ data: { enabled: true } });
+    form.classForm.patchValue({ allowGuestSubmission: true });
+    const refresh = TestBed.inject(GuestSubmissionFeature).load(); // the other assignment form on the page resets
+    http.expectOne(status).flush({}, { status: 503, statusText: 'Unavailable' }); await refresh;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[formControlName="allowGuestSubmission"]')).toBeTruthy(); // still shown
+    expect(await save({ data: { enabled: true } })).toBe(1);
+    expect(create).toHaveBeenCalledOnceWith(jasmine.objectContaining({ allowGuestSubmission: true }));
+    expect(alerts.error).not.toHaveBeenCalled();
+  });
+
+  it('blocks the save instead of silently saving false when enabling cannot be confirmed', async () => {
+    await open({ data: { enabled: true } });
+    form.classForm.patchValue({ allowGuestSubmission: true });
+    const refresh = TestBed.inject(GuestSubmissionFeature).load();
+    http.expectOne(status).flush({}, { status: 503, statusText: 'Unavailable' }); await refresh;
+    expect(await save('fail')).toBe(1);
+    expect(create).not.toHaveBeenCalled();
+    expect(alerts.error).toHaveBeenCalledOnceWith('Guest setting not saved',
+      "Couldn't confirm whether submission without login is available. Check your connection and try again.");
+    expect(form.isSubmitting).toBeFalse(); expect(alerts.toast).not.toHaveBeenCalled();
+  });
+
+  it('always sends a teacher switching guest access off, even while availability is unavailable', async () => {
+    await open('fail', existing(true));
+    form.classForm.patchValue({ allowGuestSubmission: false });
+    await save('fail');
+    expect(update).toHaveBeenCalledTimes(1); expect(sent(update)['allowGuestSubmission']).toBe(false);
+  });
+
+  it('saves unrelated edits while unavailable and leaves the stored guest setting untouched', async () => {
+    await open('fail', existing(true));
+    form.classForm.patchValue({ className: 'Renamed essay' });
+    await save('fail');
+    expect(update).toHaveBeenCalledTimes(1); expect(sent(update)['allowGuestSubmission']).toBeUndefined();
+    expect(alerts.error).not.toHaveBeenCalled();
+  });
+
+  it('shows the one-line hint instead of the checkbox when the setting could not be loaded', async () => {
+    await open('fail', existing(true));
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector('[formControlName="allowGuestSubmission"]')).toBeNull();
+    expect(host.textContent).toContain("Couldn't load the 'submission without login' setting. It will be left as it is.");
+  });
+
+  it('saves without the flag and warns when the option was ticked but is now explicitly turned off', async () => {
+    await open({ data: { enabled: true } });
+    form.classForm.patchValue({ allowGuestSubmission: true });
+    const refresh = TestBed.inject(GuestSubmissionFeature).load();
+    http.expectOne(status).flush({ data: { enabled: false } }); await refresh;
+    expect(await save()).toBe(0); // explicit answer is known: no retry
+    expect(create).toHaveBeenCalledTimes(1); expect(sent(create)['allowGuestSubmission']).toBeUndefined();
+    expect(alerts.warning).toHaveBeenCalledOnceWith('Assignment saved without guest access',
+      "Saved without 'submission without login': it's currently turned off.");
+    expect(alerts.toast).not.toHaveBeenCalled();
+  });
+
+  it('waits for a still-pending opening check before building the request', async () => {
+    form.classId = 'class-1'; fixture.detectChanges();
+    form.classForm.patchValue({ className: 'Guest essay', writingType: 'Narrative', startDate: '2099-08-11',
+      message: 'Write clearly.', allowGuestSubmission: true });
+    const saving = submit();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(create).not.toHaveBeenCalled(); // nothing is sent while availability is unknown
+    http.expectOne(status).flush({ data: { enabled: true } }); await saving;
+    expect(create).toHaveBeenCalledOnceWith(jasmine.objectContaining({ allowGuestSubmission: true }));
+  });
+
+  it('makes no extra status request on a normal save', async () => {
+    await open({ data: { enabled: true } });
+    form.classForm.patchValue({ allowGuestSubmission: false });
+    expect(await save()).toBe(0);
+    expect(sent(create)['allowGuestSubmission']).toBe(false); expect(alerts.toast).toHaveBeenCalledOnceWith('Assignment created successfully', 'success');
   });
 });

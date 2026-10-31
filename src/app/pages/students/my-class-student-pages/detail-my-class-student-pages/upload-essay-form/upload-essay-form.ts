@@ -11,7 +11,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { ImageCrop } from '../../../../../components/image-crop/image-crop';
-import { AppliedCrop, CropRect } from '../../../../../components/image-crop/image-crop.util';
+import { AppliedCrop, compressOversizedOriginal, CropRect, UPLOAD_MAX_BYTES } from '../../../../../components/image-crop/image-crop.util';
 import { Subscription } from 'rxjs';
 import { ImagePreflightResult, ImagePreflightService } from '../../../../../services/image-preflight.service';
 import { ImageQualityChecklist } from '../../../../../components/image-quality-checklist/image-quality-checklist';
@@ -20,7 +20,8 @@ import { DeviceService } from '../../../../../services/device.service';
 interface UploadEntry {
   file: File; name: string; size: number; preview?: string;
   original?: File; crop?: CropRect;
-  qualityState?: 'selected' | 'queued' | 'checking' | 'done' | 'unavailable';
+  // 'preparing' = an image over the upload limit is being compressed. An entry with no state is waiting for its crop step.
+  qualityState?: 'preparing' | 'queued' | 'checking' | 'done' | 'unavailable';
   quality?: ImagePreflightResult; qualityError?: string;
 }
 
@@ -48,10 +49,19 @@ export class UploadEssayForm implements OnDestroy {
   isDragging = false;
   files: UploadEntry[] = [];
   editingEntry?: UploadEntry;
+  // True while the editor shows the automatic first-time crop step, false when re-cropping a finished item.
+  reviewing = false;
+  // Images still waiting for their crop step, in selection order ("Image 1 of 3").
+  private reviewQueue: UploadEntry[] = [];
+  private reviewTotal = 0;
+  private reviewDone = 0;
   private cropTrigger?: HTMLElement;
   validationError: string | null = null;
 
-  private readonly maxFileSizeBytes = 10 * 1024 * 1024;
+  private readonly maxFileSizeBytes = UPLOAD_MAX_BYTES;
+  // Photos over the upload limit are compressed; refuse anything absurd before decoding it.
+  private readonly maxCompressibleBytes = 50 * 1024 * 1024;
+  private readonly unsupportedMessage = 'Only JPG, PNG, and PDF files are allowed. PDFs must be 10MB or smaller; large photos are compressed automatically.';
   readonly maxFiles = 20;
   private readonly allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'application/pdf']);
   private readonly allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
@@ -141,14 +151,20 @@ export class UploadEssayForm implements OnDestroy {
     this.validationError = null;
     const incoming = Array.from(fileList);
     const toAdd: UploadEntry[] = [];
+    const oversized: UploadEntry[] = [];
 
     for (const file of incoming) {
       if (this.files.length + toAdd.length >= this.maxFiles) {
         this.validationError = 'You can select up to 20 files.';
         break;
       }
-      if (!this.isFileAllowed(file)) {
-        this.validationError = 'Only JPG, PNG, and PDF files up to 10MB are allowed.';
+      const kind = this.fileKind(file);
+      if (!kind || (kind === 'pdf' && file.size > this.maxFileSizeBytes)) {
+        this.validationError = this.unsupportedMessage;
+        continue;
+      }
+      if (kind === 'image' && file.size > this.maxCompressibleBytes) {
+        this.validationError = 'This image is too large to process. Choose a smaller photo.';
         continue;
       }
 
@@ -164,17 +180,40 @@ export class UploadEssayForm implements OnDestroy {
       };
       toAdd.push(entry);
 
-      const isImage = file.type.startsWith('image/') || /\.(jpe?g|png)$/i.test(file.name);
-      if (isImage) {
+      if (kind === 'image') {
         entry.preview = URL.createObjectURL(file);
         entry.original = file;
-        entry.qualityState = 'selected';
-      }
-      if (!isImage && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) entry.qualityState = 'queued';
+        // Every image goes through the crop step automatically, one at a time.
+        this.reviewQueue.push(entry); this.reviewTotal++;
+        if (file.size > this.maxFileSizeBytes) { entry.qualityState = 'preparing'; oversized.push(entry); }
+      } else entry.qualityState = 'queued';
     }
 
     this.files = [...this.files, ...toAdd];
     this.filesSelected.emit(this.files.map((f) => f.file));
+    oversized.forEach(entry => void this.compressEntry(entry));
+    this.advanceReview();
+    this.updateReadiness();
+    this.cdr.detectChanges();
+  }
+
+  /** An uncropped photo over the limit is compressed, not rejected. */
+  private async compressEntry(entry: UploadEntry): Promise<void> {
+    try {
+      const compressed = await compressOversizedOriginal(entry.file);
+      if (this.destroyed || !this.files.includes(entry)) return;
+      if (entry.preview) URL.revokeObjectURL(entry.preview);
+      entry.file = compressed; entry.original = compressed; entry.name = compressed.name; entry.size = compressed.size;
+      entry.preview = URL.createObjectURL(compressed); entry.qualityState = undefined;
+      this.filesSelected.emit(this.files.map((f) => f.file));
+    } catch (error) {
+      if (this.destroyed || !this.files.includes(entry)) return;
+      this.dropEntry(entry);
+      this.validationError = error instanceof Error ? error.message : 'This image could not be prepared. Choose another photo.';
+      this.cdr.detectChanges();
+      return;
+    }
+    this.advanceReview();
     this.updateReadiness();
     this.cdr.detectChanges();
   }
@@ -184,13 +223,41 @@ export class UploadEssayForm implements OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     const removed = this.files[index];
-    if (this.editingEntry === removed) this.editingEntry = undefined;
-    if (removed?.preview) URL.revokeObjectURL(removed.preview);
+    if (removed) this.dropEntry(removed);
+  }
+
+  private dropEntry(removed: UploadEntry): void {
+    if (this.editingEntry === removed) {
+      this.editingEntry = undefined;
+      if (this.reviewing) { this.reviewing = false; this.reviewTotal--; }
+    }
+    const queued = this.reviewQueue.indexOf(removed);
+    if (queued >= 0) { this.reviewQueue.splice(queued, 1); this.reviewTotal--; }
+    if (removed.preview) URL.revokeObjectURL(removed.preview);
     if (this.active?.entry === removed) { this.active.request.unsubscribe(); this.active = undefined; }
-    this.files = this.files.filter((_, i) => i !== index);
+    this.files = this.files.filter((entry) => entry !== removed);
     this.filesSelected.emit(this.files.map((f) => f.file));
+    this.advanceReview();
     this.updateReadiness();
     this.cdr.detectChanges();
+  }
+
+  /** Opens the crop editor for the next image waiting for its crop step, if no editor is open. */
+  private advanceReview(): void {
+    if (this.destroyed || this.editingEntry) return;
+    const next = this.reviewQueue[0];
+    if (next?.qualityState === 'preparing') return; // wait for its compression to finish
+    if (!next) { this.reviewTotal = 0; this.reviewDone = 0; return; }
+    this.reviewQueue.shift();
+    this.editingEntry = next; this.reviewing = true;
+    this.readinessChange.emit(false);
+  }
+
+  isAwaitingReview(entry: UploadEntry): boolean { return this.reviewQueue.includes(entry); }
+
+  get editorHeading(): string {
+    if (!this.reviewing) return 'Crop Image';
+    return this.reviewTotal > 1 ? `Image ${this.reviewDone + 1} of ${this.reviewTotal}` : 'Crop your image';
   }
 
   moveFile(event: Event, index: number, direction: -1 | 1): void {
@@ -209,6 +276,7 @@ export class UploadEssayForm implements OnDestroy {
 
   reset(): void {
     this.editingEntry = undefined;
+    this.reviewing = false; this.reviewQueue = []; this.reviewTotal = 0; this.reviewDone = 0;
     this.cancelChecks();
     this.files = [];
     this.validationError = null;
@@ -235,39 +303,49 @@ export class UploadEssayForm implements OnDestroy {
         && (!entry.quality.sourceReadRequired || entry.quality.sourceReadStatus === 'PASSED' && entry.quality.canSubmit === true)));
   }
 
-  useImage(entry: UploadEntry): void {
-    if (this.disabled || this.destroyed || this.editingEntry || entry.qualityState !== 'selected' || !this.files.includes(entry)) return;
+  /** "Use full image": keep the picture as selected and start its check; ends the crop step for this image. */
+  useFullImage(entry: UploadEntry): void {
+    if (this.disabled || this.destroyed || this.editingEntry !== entry || !this.files.includes(entry)) return;
+    const wasReview = this.reviewing;
     entry.qualityState = 'queued';
+    this.editingEntry = undefined; this.reviewing = false;
+    if (wasReview) this.reviewDone++;
+    this.advanceReview();
     this.updateReadiness();
+    this.cropTrigger?.focus();
   }
 
   openCrop(entry: UploadEntry, event?: Event): void {
     if (this.disabled || this.destroyed || this.editingEntry || !entry.original || !this.files.includes(entry)) return;
     this.cropTrigger = event?.currentTarget as HTMLElement | undefined;
-    if (entry.qualityState === 'queued') entry.qualityState = 'selected';
+    this.reviewing = false;
     this.editingEntry = entry;
     this.readinessChange.emit(false);
   }
 
+  /** Cancelling the first-time crop step keeps the original image and still runs its check. */
   cancelCrop(): void {
+    if (this.reviewing && this.editingEntry) { this.useFullImage(this.editingEntry); return; }
     this.editingEntry = undefined;
-    this.readinessChange.emit(this.ready);
+    this.updateReadiness();
     this.cropTrigger?.focus();
   }
 
   applyCrop(entry: UploadEntry, crop: AppliedCrop): void {
     if (this.editingEntry !== entry) return;
-    this.replaceCandidate(entry, crop.file, crop.rect);
+    const wasReview = this.reviewing;
+    if (!this.replaceCandidate(entry, crop.file, crop.rect)) return;
+    if (wasReview) { this.reviewing = false; this.reviewDone++; this.advanceReview(); }
   }
 
   resetCrop(entry: UploadEntry): void {
-    if (entry.original) this.replaceCandidate(entry, entry.original);
+    if (entry.original && !this.editingEntry) this.replaceCandidate(entry, entry.original);
   }
 
-  private replaceCandidate(entry: UploadEntry, file: File, rect?: CropRect): void {
-    if (this.disabled || this.destroyed || !this.files.includes(entry)) return;
+  private replaceCandidate(entry: UploadEntry, file: File, rect?: CropRect): boolean {
+    if (this.disabled || this.destroyed || !this.files.includes(entry)) return false;
     if (!this.isFileAllowed(file) || file.size === 0) {
-      this.validationError = 'Only JPG, PNG, and PDF files up to 10MB are allowed.'; return;
+      this.validationError = 'The cropped image could not be prepared. Please try again.'; return false;
     }
     // Invalidate before notifying parents. Old task identity cannot accept a late response.
     if (this.active?.entry === entry) { this.active.request.unsubscribe(); this.active = undefined; }
@@ -280,6 +358,7 @@ export class UploadEssayForm implements OnDestroy {
     this.filesSelected.emit(this.files.map(item => item.file));
     this.updateReadiness();
     this.cropTrigger?.focus();
+    return true;
   }
 
   retryQuality(entry: UploadEntry): void {
@@ -336,12 +415,15 @@ export class UploadEssayForm implements OnDestroy {
   }
 
   private isFileAllowed(file: File): boolean {
-    if (!file || file.size > this.maxFileSizeBytes) return false;
-    const typeOk = this.allowedMimeTypes.has(file.type);
+    return !!file && file.size <= this.maxFileSizeBytes && this.fileKind(file) !== null;
+  }
+
+  private fileKind(file: File): 'image' | 'pdf' | null {
+    if (!file) return null;
     const ext = file.name.includes('.')
       ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
       : '';
-    const extOk = this.allowedExtensions.has(ext);
-    return typeOk || extOk;
+    if (!this.allowedMimeTypes.has(file.type) && !this.allowedExtensions.has(ext)) return null;
+    return file.type.startsWith('image/') || /\.(jpe?g|png)$/i.test(file.name) ? 'image' : 'pdf';
   }
 }

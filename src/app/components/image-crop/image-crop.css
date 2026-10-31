@@ -15,5 +15,13 @@ label { font-size: .8rem; text-transform: capitalize; }
 input { display: block; width: 100%; border: 1px solid #777; border-radius: .25rem; padding: .5rem; }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
 .actions button { padding: .65rem 1rem; border: 1px solid #008081; border-radius: .5rem; color: #006d6e; font-weight: 600; }
+.actions .primary { background: #008081; color: #fff; }
 button:disabled { opacity: .5; } button:focus-visible, input:focus-visible { outline: 3px solid #155eef; outline-offset: 2px; }
 .error { color: #b42318; }
+/* Phones: full-width image, larger touch handles, stacked full-width buttons (primary action first). */
+@media (max-width: 480px), (pointer: coarse) { .handle { width: 44px; height: 44px; } }
+@media (max-width: 480px) {
+  .surface { max-width: none; margin: 1.5rem 1rem; }
+  .actions { flex-direction: column-reverse; }
+  .actions button { width: 100%; min-height: 44px; }
+}
