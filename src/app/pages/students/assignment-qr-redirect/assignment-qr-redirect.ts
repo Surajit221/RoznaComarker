@@ -1,9 +1,13 @@
 import { Component, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AssignmentApiService, type BackendAssignment } from '../../../api/assignment-api.service';
 
 @Component({
   selector: 'app-assignment-qr-redirect',
+  // GuestSubmissionPage embeds this component and overrides AssignmentApiService
+  // with a guest-only stub. Registered QR access always needs the real API service.
+  providers: [AssignmentApiService],
   template: `
     <div class="min-h-[50vh] flex items-center justify-center px-4">
       <div class="bg-white rounded-2xl p-6 text-center max-w-md w-full">
@@ -34,9 +38,19 @@ export class AssignmentQrRedirect {
     try {
       const assignment = await this.assignmentApi.getAssignmentByQrToken(qrToken);
       await this.openAssignment(assignment);
-    } catch (err: any) {
-      this.errorMessage = err?.error?.message || 'You do not have access to this assignment.';
+    } catch (err: unknown) {
+      console.error('Assignment QR access failed', err);
+      this.errorMessage = this.describeError(err);
     }
+  }
+
+  private describeError(err: unknown): string {
+    if (!(err instanceof HttpErrorResponse) || err.status === 0) {
+      return "Couldn't reach the server. Please check your connection and retry.";
+    }
+    if (err.status === 403) return "You're not a member of this class. Join with your class code.";
+    if (err.status === 404) return 'This assignment is no longer available.';
+    return err.error?.message || 'Unable to open this assignment. Please try again.';
   }
 
   private async openAssignment(assignment: BackendAssignment): Promise<void> {

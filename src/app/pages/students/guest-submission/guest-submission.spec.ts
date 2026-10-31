@@ -6,7 +6,8 @@ import { MySubmissionPage } from '../my-class-student-pages/detail-my-class-stud
 import { GuestStudentAccess } from '../../../services/guest-student-access.service';
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { JwtInterceptor } from '../../../auth/jwt.interceptor';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap, DefaultUrlSerializer, provideRouter, Router } from '@angular/router';
 import { GuestSubmissionPage } from './guest-submission';
@@ -336,5 +337,46 @@ describe('guest assignment page presentation', () => {
     page.result = { title: 'Essay' }; fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-my-submission-page')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('#feedback-title')).toBeNull();
+  });
+});
+
+describe('registered student opening an assignment QR link', () => {
+  const jwtPart = (value: object) => btoa(JSON.stringify(value)).replace(/=+$/, '');
+  const jwt = `${jwtPart({ alg: 'HS256' })}.${jwtPart({ id: 'student-1', role: 'student', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+  let previousJwt: string | null;
+
+  beforeEach(async () => {
+    previousJwt = localStorage.getItem('backend_jwt');
+    localStorage.setItem('backend_jwt', jwt);
+    await TestBed.configureTestingModule({ imports: [GuestSubmissionPage], providers: [
+      { provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(true) } },
+      provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting(), provideRouter([]),
+      { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
+      { provide: AuthService, useValue: { ensureQrBackendSession: jasmine.createSpy().and.resolveTo({ state: 'ready', role: 'student' }) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ qrToken: 'share-code' }), fragment: null } } },
+    ] }).compileComponents();
+  });
+  afterEach(() => {
+    if (previousJwt === null) localStorage.removeItem('backend_jwt'); else localStorage.setItem('backend_jwt', previousJwt);
+  });
+
+  it('calls the authenticated QR endpoint with the bearer token instead of the guest stub', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(GuestSubmissionPage);
+    await fixture.componentInstance.ngOnInit();
+    expect(fixture.componentInstance.registered).toBeTrue();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-assignment-qr-redirect')).toBeTruthy();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    const req = http.expectOne(`${environment.apiUrl}/assignments/qr/share-code`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.headers.get('Authorization')).toBe(`Bearer ${jwt}`);
+    req.flush({ success: true, data: { _id: 'assignment-1', class: { _id: 'class-1' }, resourceType: 'essay' } });
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(navigate).toHaveBeenCalledWith(['/student/my-classes/detail', 'class-1'], { queryParams: { assignmentId: 'assignment-1' } });
+    http.verify(); fixture.destroy();
   });
 });
