@@ -67,7 +67,7 @@
     </div>
   }
   @if (files.length === 0) {
-    <p class="essay-dropzone__formats">JPG, PNG, PDF · Up to 10 MB per file</p>
+    <p class="essay-dropzone__formats">JPG, PNG, PDF · PDFs up to 10 MB; large photos are resized automatically</p>
   }
 </div>
 
@@ -141,17 +141,17 @@
           </button>
         </div>
       </div>
-      @if (file.original) {
+      @if (file.qualityState === 'preparing') {
+        <p class="text-xs text-gray-500 my-1" role="status">Preparing large image…</p>
+      } @else if (isAwaitingReview(file)) {
+        <p class="text-xs text-gray-500 my-1">Waiting for the crop step…</p>
+      } @else if (file.original && editingEntry !== file) {
         <div class="crop-actions">
-          <button type="button" (click)="openCrop(file, $event)" [disabled]="disabled || !!editingEntry">Crop Image</button>
+          <button type="button" (click)="openCrop(file, $event)" [disabled]="disabled || !!editingEntry">Crop</button>
           @if (file.crop) { <button type="button" (click)="resetCrop(file)" [disabled]="disabled || !!editingEntry">Reset to Original</button> }
-          @if (file.qualityState === 'selected') {
-            <button type="button" (click)="useImage(file)" [disabled]="disabled || !!editingEntry">Use Image</button>
-            <p>Crop if needed, then use the image to check it. Keep all assignment content visible.</p>
-          }
         </div>
       }
-      @if (file.qualityState !== 'selected' && file.qualityState && (file.preview || file.quality?.sourceReadRequired)) {
+      @if (file.qualityState && file.qualityState !== 'preparing' && (file.preview || file.quality?.sourceReadRequired)) {
         <app-image-quality-checklist [checking]="file.qualityState === 'queued' || file.qualityState === 'checking'"
           [queued]="file.qualityState === 'queued'" [result]="file.quality" [error]="file.qualityError" />
         @if (file.quality?.sourceReadStatus === 'FAILED_IMAGE') {
@@ -167,5 +167,7 @@
 
 @if (editingEntry; as entry) {
   <app-image-crop [original]="entry.original!" [initial]="entry.crop" [disabled]="disabled"
-    (applied)="applyCrop(entry, $event)" (cancelled)="cancelCrop()" />
+    [headingText]="editorHeading" [applyLabel]="reviewing ? 'Crop & Continue' : 'Apply Crop'"
+    [skipLabel]="reviewing ? 'Use full image' : ''" [showCancel]="!reviewing"
+    (applied)="applyCrop(entry, $event)" (skipped)="useFullImage(entry)" (cancelled)="cancelCrop()" />
 }

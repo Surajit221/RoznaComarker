@@ -1,5 +1,5 @@
 <section class="editor" aria-label="Crop image" [attr.aria-busy]="busy">
-  <h3 #heading tabindex="-1">Crop Image</h3>
+  <h3 #heading tabindex="-1">{{ headingText }}</h3>
   <p>Keep all assignment content. Drag the crop or its corners, or adjust the edges below.</p>
   <div class="surface">
     <img #photo [src]="url || null" alt="Original essay image for cropping" (load)="onLoad()"
@@ -26,7 +26,8 @@
   </div>
   @if (error) { <p role="alert" class="error">{{ error }}</p> }
   <div class="actions">
-    <button type="button" (click)="cancelled.emit()" [disabled]="disabled">Cancel</button>
-    <button type="button" (click)="apply()" [disabled]="!loaded || busy || disabled">{{ busy ? 'Preparing crop…' : 'Apply Crop' }}</button>
+    @if (showCancel) { <button type="button" (click)="cancelled.emit()" [disabled]="disabled">Cancel</button> }
+    @if (skipLabel) { <button type="button" (click)="skipped.emit()" [disabled]="busy || disabled">{{ skipLabel }}</button> }
+    <button type="button" class="primary" (click)="apply()" [disabled]="!loaded || busy || disabled">{{ busy ? 'Preparing crop…' : applyLabel }}</button>
   </div>
 </section>

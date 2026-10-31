@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { AppliedCrop, cropImage, CropRect } from './image-crop.util';
 
 @Component({
@@ -6,11 +6,17 @@ import { AppliedCrop, cropImage, CropRect } from './image-crop.util';
   templateUrl: './image-crop.html',
   styleUrl: './image-crop.css',
 })
-export class ImageCrop implements AfterViewInit, OnDestroy {
+export class ImageCrop implements AfterViewInit, OnChanges, OnDestroy {
   @Input({ required: true }) original!: File;
   @Input() initial?: CropRect;
   @Input() disabled = false;
+  @Input() headingText = 'Crop Image';
+  @Input() applyLabel = 'Apply Crop';
+  // When set, a second button keeps the whole image instead of cropping it.
+  @Input() skipLabel = '';
+  @Input() showCancel = true;
   @Output() applied = new EventEmitter<AppliedCrop>();
+  @Output() skipped = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
   @ViewChild('photo') photo!: ElementRef<HTMLImageElement>;
   @ViewChild('heading') heading!: ElementRef<HTMLElement>;
@@ -30,6 +36,16 @@ export class ImageCrop implements AfterViewInit, OnDestroy {
     this.rect = this.initial ? { ...this.initial } : this.rect;
     this.heading.nativeElement.focus();
     this.cdr.detectChanges();
+  }
+  // The upload form steps through several images with one editor; start fresh for each new image.
+  ngOnChanges(changes: SimpleChanges): void {
+    const change = changes['original'];
+    if (!change || change.firstChange || change.currentValue === change.previousValue) return;
+    if (this.url) URL.revokeObjectURL(this.url);
+    this.url = URL.createObjectURL(this.original);
+    this.rect = this.initial ? { ...this.initial } : { x: 0, y: 0, width: 1, height: 1 };
+    this.loaded = false; this.error = ''; this.busy = false; this.drag = undefined;
+    queueMicrotask(() => { if (!this.destroyed) this.heading?.nativeElement.focus(); });
   }
   onLoad(): void {
     const image = this.photo.nativeElement;
@@ -77,6 +93,9 @@ export class ImageCrop implements AfterViewInit, OnDestroy {
     this.rect = { x: left, y: top, width: right - left, height: bottom - top };
   }
   end(): void { this.drag = undefined; }
+  // Key presses inside the editor bubble to the host, so Escape works from any control.
+  @HostListener('keydown.escape')
+  onEscape(): void { if (!this.busy && !this.disabled) this.cancelled.emit(); }
   async apply(): Promise<void> {
     if (!this.loaded || this.busy || this.disabled) return;
     this.busy = true; this.error = '';

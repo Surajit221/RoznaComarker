@@ -212,7 +212,8 @@ describe('guest assignment page presentation', () => {
     const selection = new DataTransfer();selection.items.add(original);
     upload.onFilesSelected({target:{files:selection.files,value:''}} as unknown as Event);
     http.expectNone(req => req.url.includes('image-preflight')); expect(page.uploadReady).toBeFalse();
-    upload.openCrop(upload.files[0]); fixture.detectChanges();
+    // The editor opens by itself for the picked image; no separate "Crop Image" step.
+    fixture.detectChanges(); expect(upload.editingEntry).toBe(upload.files[0]);
     const editor = fixture.debugElement.query(By.directive(ImageCrop)).componentInstance as ImageCrop;
     await editor.photo.nativeElement.decode();editor.onLoad(); editor.rect = {...CROP_SOURCE.rect};
     await editor.apply();fixture.detectChanges();const cropped = upload.files[0].file;
@@ -226,6 +227,25 @@ describe('guest assignment page presentation', () => {
     fixture.detectChanges();expect(page.uploadReady).toBeTrue();
     const pending = page.submit();const submit = http.expectOne(environment.apiUrl+'/guest/assignments/share-code/submit');
     expect(submit.request.body.getAll('files')).toEqual([cropped]);submit.flush({data:{received:true}});await pending;
+  });
+  it('opens the crop editor automatically for a guest, and "Use full image" starts the guest image check with the original', async () => {
+    page.name = 'Student'; page.email = 'student@example.com'; page.continueWithIdentity(); fixture.detectChanges();
+    const upload = fixture.debugElement.query(By.directive(UploadEssayForm)).componentInstance as UploadEssayForm;
+    const original = new File([Uint8Array.from(atob(CROP_SOURCE.original), c => c.charCodeAt(0))], 'page.png', {type:'image/png'});
+    const selection = new DataTransfer(); selection.items.add(original);
+    upload.onFilesSelected({target:{files:selection.files,value:''}} as unknown as Event); fixture.detectChanges();
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector('app-image-crop')).toBeTruthy();
+    expect(host.textContent).toContain('Crop & Continue'); expect(host.textContent).toContain('Use full image');
+    expect(host.textContent).not.toContain('Use Image');
+    http.expectNone(req => req.url.includes('image-preflight')); expect(page.uploadReady).toBeFalse();
+    upload.useFullImage(upload.files[0]);
+    const url = environment.apiUrl+'/guest/assignments/share-code/image-preflight';
+    const basic = http.expectOne(url); expect(basic.request.body.get('file')).toBe(original);
+    basic.flush({success:true,data:{ready:false,checks:[],basicChecksPassed:true,sourceReadRequired:true,sourceReadStatus:'CHECKING',canSubmit:false}});
+    expect(page.uploadReady).toBeFalse();
+    http.expectOne(url).flush({success:true,data:{ready:true,checks:[],sourceReadRequired:true,sourceReadStatus:'PASSED',canSubmit:true}});
+    fixture.detectChanges(); expect(page.uploadReady).toBeTrue(); expect(page.files).toEqual([original]);
   });
   const text = (element: HTMLElement) => element.textContent || '';
 

@@ -75,7 +75,7 @@ describe('UploadEssayForm', () => {
     expect(component.validationError).toContain('JPG and PNG');
   });
 
-  it('keeps multiple images selected and rejects unsupported or oversized files', () => {
+  it('keeps multiple images selected and rejects unsupported files and oversized PDFs', () => {
     const first = new File(['first'], 'first.jpg', { type: 'image/jpeg' });
     const second = new File(['second'], 'second.png', { type: 'image/png' });
     const images = new DataTransfer();
@@ -90,7 +90,7 @@ describe('UploadEssayForm', () => {
 
     const invalid = new DataTransfer();
     invalid.items.add(new File(['text'], 'notes.txt', { type: 'text/plain' }));
-    const oversized = new File(['x'], 'large.jpg', { type: 'image/jpeg' });
+    const oversized = new File(['x'], 'large.pdf', { type: 'application/pdf' });
     Object.defineProperty(oversized, 'size', { value: 10 * 1024 * 1024 + 1 });
     invalid.items.add(oversized);
     component.onFilesSelected({ target: { files: invalid.files, value: '' } } as unknown as Event);
@@ -115,7 +115,8 @@ describe('UploadEssayForm', () => {
     const selection = new DataTransfer(); selection.items.add(file);
     component.onFilesSelected({ target: { files: selection.files, value: '' } } as unknown as Event);
     const entry = component.files.find(item => item.file === file);
-    if (entry) component.useImage(entry);
+    // The crop editor opens automatically; keeping the whole image ends the crop step and starts the check.
+    if (entry) component.useFullImage(entry);
     return file;
   }
 
