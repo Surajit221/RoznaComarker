@@ -6,3 +6,18 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(self "https://js.stripe.com" "https://www.paypal.com" "https://www.sandbox.paypal.com")
+
+# Cache policy (stale-version prevention). The HTML entry and version files are always revalidated; content-hashed bundles never change.
+# On the PM2 "serve" host the same policy comes from serve.json; on Nginx see DEPLOYMENT.md.
+/index.html
+  Cache-Control: no-cache
+/version.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/release.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+/media/*
+  Cache-Control: public, max-age=31536000, immutable
