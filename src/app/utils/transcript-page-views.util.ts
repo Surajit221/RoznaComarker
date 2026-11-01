@@ -51,7 +51,7 @@ function annotation(correction: any, submissionId: string, wordIds: Set<string>)
     symbol: String(correction?.symbol || ''), color: String(correction?.color || '#FF0000'), message: String(correction?.message || ''),
     suggestedText: String(correction?.suggestedText || ''), startChar: Number.isFinite(correction?.startChar) ? correction.startChar : undefined,
     endChar: Number.isFinite(correction?.endChar) ? correction.endChar : undefined,
-    source: correction?.source === 'LANGUAGETOOL' ? 'LANGUAGETOOL' : 'AI', editable: Boolean(correction?.editable) };
+    source: correction?.source === 'Teacher' ? 'Teacher' : correction?.source === 'LANGUAGETOOL' ? 'LANGUAGETOOL' : 'AI', editable: Boolean(correction?.editable) };
 }
 
 export function buildTranscriptPageViews(options: { submissionId: string; fileIds: string[]; ocrPages: any[]; corrections: any[];

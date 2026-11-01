@@ -1,0 +1,56 @@
+<section class="moderation" aria-label="Teacher annotation controls">
+  <h2>Teacher Annotation Controls</h2>
+  <button type="button" (click)="load()" [disabled]="busy || !!form || retryPending">{{ open ? 'Reload saved annotations' : 'Review annotations' }}</button>
+  @if (error) { <p role="alert">{{ error }}</p> }
+  @if (retryPending) { <button type="button" (click)="retry()" [disabled]="busy">Retry unconfirmed save</button> }
+  @if (data && open) {
+    <p>{{ data.scorePolicy }}</p>
+    @if (data.scoringReviewRequired) { <p role="status"><strong>Grade review required:</strong> annotation evidence has changed; the authoritative grade is unchanged.</p> }
+    <div class="actions">
+      <button type="button" (click)="begin()" [disabled]="busy || !!form || retryPending">Add Manual Correction</button>
+      <button type="button" (click)="preview = !preview" [disabled]="busy || !!form">Preview Student View</button>
+      <button type="button" (click)="audit()" [disabled]="busy || !!form">View Audit History</button>
+    </div>
+    @if (preview) {
+      <section aria-label="Saved student annotation preview"><h3>Saved effective annotations</h3>
+        <p>This preview shows saved annotation content using the student transcript renderer. It does not publish grades or change student access. Unsaved edits are excluded.</p>
+        @if (isPdf && pdfPages.length) { <app-submission-page-review [pages]="pdfPages" /> }
+        @if (!isPdf && imageUrl && activePage; as page) {
+          <p>Image highlights for the currently selected submission image. Select another image in the submission viewer to preview it.</p>
+          <app-correction-overlay [imageUrl]="imageUrl" [fileId]="page.fileId" [submissionId]="submissionId" [sourceGeometry]="page.sourceGeometry || null" [annotations]="page.annotations" [ocrWords]="page.words" alt="Saved student annotation preview" />
+        }
+        @for (page of previewPages; track page.key) {
+          <h4>Page {{ page.displayNumber }}</h4><app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" />
+        }
+      </section>
+    } @else {
+      @for (c of data.corrections; track c.id) {
+        <article><h3>{{ c.symbol }} · {{ c.moderationStatus }} · {{ c.source }}</h3>
+          <blockquote>{{ c.quotedText }}</blockquote><p>{{ c.message }}</p><p>Suggestion: {{ c.suggestedText }}</p>
+          <div class="actions">
+            <button type="button" (click)="begin(c)" [disabled]="busy || !!form || retryPending">Edit</button>
+            @if (c.moderationStatus === 'visible') {
+              <button type="button" (click)="mutate('hide', c.id)" [disabled]="busy || !!form || retryPending">Hide</button>
+              <button type="button" (click)="mutate('reject', c.id)" [disabled]="busy || !!form || retryPending">Reject / Remove</button>
+            } @else { <button type="button" (click)="mutate('restore', c.id)" [disabled]="busy || !!form || retryPending">Restore</button> }
+          </div>
+        </article>
+      }
+    }
+    @if (form) {
+      <fieldset [disabled]="busy || retryPending"><legend>{{ editing ? 'Edit correction' : 'Add manual correction' }}</legend>
+        <label>Source page<select [(ngModel)]="pageIndex">@for (page of data.pages; track page.fileId + ':' + page.pageNumber) { <option [ngValue]="$index">Page {{ $index + 1 }}</option> }</select></label>
+        <label>Select exact source text<textarea #source rows="7" readonly [value]="data.pages[pageIndex].text"></textarea></label>
+        <button type="button" (click)="select(source)">Use selected span</button><blockquote>{{ form.quotedText || 'Select a source span above.' }}</blockquote>
+        <label>Correction symbol<select [(ngModel)]="form.symbol" (ngModelChange)="category()">@for (group of data.legend.groups; track group.key) { <optgroup [label]="group.label">@for (symbol of group.symbols; track symbol.symbol) { <option [value]="symbol.symbol">{{ symbol.symbol }} — {{ symbol.label }}</option> }</optgroup> }</select></label>
+        <label>Explanation<textarea [(ngModel)]="form.message" maxlength="2000" rows="3"></textarea></label>
+        <label>Suggestion<textarea [(ngModel)]="form.suggestedText" maxlength="2000" rows="2"></textarea></label>
+        <div class="actions"><button type="button" (click)="mutate(editing ? 'edit' : 'add', editing || undefined)" [disabled]="!form.quotedText || !form.message.trim() || !form.suggestedText.trim()">Save</button><button type="button" (click)="cancel()">Cancel</button></div>
+      </fieldset>
+    }
+    @for (entry of history; track entry.newRevision) {
+      <details><summary>{{ entry.action }} · revision {{ entry.previousRevision }} → {{ entry.newRevision }} · {{ entry.timestamp | date:'medium' }}</summary><p>Teacher: {{ entry.actor }}</p><pre>{{ entry.before | json }}</pre><pre>{{ entry.after | json }}</pre></details>
+    }
+    @if (history.length && nextOffset !== null) { <button type="button" (click)="audit(nextOffset)" [disabled]="busy">Older history</button> }
+  }
+</section>
