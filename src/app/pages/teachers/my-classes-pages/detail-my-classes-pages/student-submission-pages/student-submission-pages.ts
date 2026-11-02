@@ -1,6 +1,7 @@
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
 import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
+import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, EventEmitter, inject, Output } from '@angular/core';
@@ -164,7 +165,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,
+  imports: [SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,StudentPreview,
 
 
 
@@ -5425,8 +5426,13 @@ export class StudentSubmissionPages {
    * A teacher correction changed: refresh the counts, highlights and detailed feedback shown on this page. Unlike the analysis refresh,
    * this leaves the feedback form alone, so an unsent teacher comment is not overwritten. Scores do not change.
    */
+  get previewSubmission(): Record<string, unknown> { return this.currentSubmission as unknown as Record<string, unknown>; }
+  /** Goes up after each saved correction change, so an open student preview reloads. */
+  annotationSaves = 0;
+
   async onAnnotationsSaved(submissionId: string): Promise<void> {
     if (this.currentSubmission?._id !== submissionId) return;
+    this.annotationSaves++;
     await this.refreshAssessmentResult(submissionId).catch(() => undefined);
     const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId).catch(() => null);
     if (!feedback || this.currentSubmission?._id !== submissionId) return;

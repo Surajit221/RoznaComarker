@@ -1,7 +1,10 @@
 <section class="editor" aria-labelledby="annotation-editor-title">
   <div class="editor__head">
     <h2 id="annotation-editor-title">Review corrections</h2>
-    <button type="button" class="btn-primary" [attr.aria-expanded]="open()" aria-controls="annotation-editor-body" (click)="toggle()">{{ open() ? 'Close' : 'Open' }}</button>
+    <div class="editor__head-actions">
+      <ng-content />
+      <button type="button" class="btn-primary" [attr.aria-expanded]="open()" aria-controls="annotation-editor-body" (click)="toggle()">{{ open() ? 'Close' : 'Open' }}</button>
+    </div>
   </div>
   <p class="sr-only" role="status" aria-live="polite">{{ notice() }}</p>
   @if (notice() && notice() !== 'Saving…') { <p class="editor__notice" aria-hidden="true">✓ {{ notice() }}</p> }

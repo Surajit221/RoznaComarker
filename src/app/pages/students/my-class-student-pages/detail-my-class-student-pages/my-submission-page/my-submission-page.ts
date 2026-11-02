@@ -1,5 +1,6 @@
 import { SourceFidelityComponent } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestStudentAccess } from '../../../../../services/guest-student-access.service';
+import { STUDENT_RESULT_PREVIEW } from '../../../../../services/student-result-preview';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -61,6 +62,8 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 })
 export class MySubmissionPage {
   private readonly guestAccess = inject(GuestStudentAccess, { optional: true });
+  /** Set when a teacher previews this page: same rendering, on the supplied student payload. */
+  readonly preview = inject(STUDENT_RESULT_PREVIEW, { optional: true });
   get backNavigationLabel(): string { return this.guestAccess ? 'Back To Assignment' : 'Back To Student Profile'; }
   canonicalResultState: CanonicalResultViewState | null = null;
   get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
@@ -1302,6 +1305,7 @@ export class MySubmissionPage {
   }
 
   private getOcrPayload(submissionId: string, reason: 'initial' | 'tab' | 'route' | 'completion' | 'manual'): Promise<any> {
+    if (this.preview) return this.preview.ocrResponse();
     const sourceHash = String((this.submission as any)?.correctionSourceHash || 'unversioned');
     const key = `${submissionId}:${sourceHash}`;
     const cached = this.ocrPayloadCache.get(key);

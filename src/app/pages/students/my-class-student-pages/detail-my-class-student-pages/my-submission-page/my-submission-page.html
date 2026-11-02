@@ -1,7 +1,7 @@
 <ng-container>
   @if (submission?.sourceFidelity && !submission?.sourceFidelity?.assessmentAllowed) {
     <header class="source-review-shell mb-6 flex flex-wrap justify-between items-center gap-3"><h1 class="text-4xl font-bold text-gray-800">Your Submissions</h1>
-      <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button></header>
+      @if (!preview) { <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button> }</header>
   }
   <app-source-fidelity [source]="submission?.sourceFidelity" />
   @if (!submission?.sourceFidelity || submission?.sourceFidelity?.assessmentAllowed) {
@@ -17,12 +17,14 @@
       <h1 class="text-4xl text-center font-bold text-gray-800">Your Submissions</h1>
       <div class="flex flex-row gap-2">
         <button type="button" class="btn-info" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
+        @if (!preview) {
         <button type="button" class="btn-primary" [disabled]="isPdfDownloading || !feedbackPdfReady" (click)="downloadPdf()">
           @if (isPdfDownloading) {
           <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
           } @else { Download Feedback PDF }
         </button>
         <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button>
+        }
       </div>
     </div>
 
@@ -429,11 +431,12 @@
   <ng-template #feedbackSkeleton><div class="section-skeleton" aria-hidden="true"><span class="skeleton skeleton--title skeleton--feedback-heading"></span><div class="skeleton-feedback-grid">@for (row of feedbackSkeletonRows; track row) {<div><span class="skeleton skeleton--text skeleton--subheading"></span><span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--short"></span></div>}</div><div class="skeleton-action"><span class="skeleton skeleton--text skeleton--subheading"></span><span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--wide"></span></div></div><span class="sr-only">Loading detailed feedback</span></ng-template>
   <ng-template #aiFeedbackSkeleton><div class="section-skeleton skeleton-rubric" aria-hidden="true">@for (row of skeletonRows; track row) {<div class="skeleton-rubric-row"><span class="skeleton skeleton--title"></span><span class="skeleton skeleton--text skeleton--wide"></span></div>}</div><span class="sr-only">Loading AI feedback</span></ng-template>
 
-  @if ((submission?.draftNumber || 1) > 1) {
+  @if (!preview && (submission?.draftNumber || 1) > 1) {
     <app-draft-comparison [submissionId]="submission?._id || null"
       [refreshKey]="submission?.draftNumber + ':' + (submission?.assessmentCompletedAt || submission?.evaluationSourceHash || submission?.evaluationStatus || '')"></app-draft-comparison>
   }
 
+  @if (!preview) {
   <div class="w-full mt-6">
     <app-adaptive-writing-studio
       [submissionId]="submission?._id || ''"
@@ -443,6 +446,7 @@
       (submitNewDraft)="submitNewDraft()">
     </app-adaptive-writing-studio>
   </div>
+  }
 
   <!-- Shared Modal Dialog (outside desktop/mobile conditionals) -->
   <app-modal-dialog [open]="showRubricDialog && hasAssignmentRubric" [maxWidthClass]="'max-w-none'" [panelClass]="'lg:w-[90vw]'"

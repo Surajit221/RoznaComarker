@@ -342,7 +342,9 @@
     }
 
     @if (currentSubmission?._id) {
-    <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)" />
+    <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)">
+      <app-student-preview [submission]="previewSubmission" [refreshKey]="annotationSaves" />
+    </app-annotation-controls>
     }
 
     <div class="flex flex-col gap-4">

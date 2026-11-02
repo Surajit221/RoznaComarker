@@ -1,6 +1,7 @@
 :host { display: block; min-width: 0; }
 .editor { padding: 20px; margin: 0 0 16px; border-radius: 24px; background: #fff; color: #203864; overflow-wrap: anywhere; }
 .editor__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.editor__head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 h2 { font-size: 1.5rem; font-weight: 700; }
 h3 { font-size: 1.05rem; font-weight: 700; margin: 16px 0 8px; }
 p { margin: 6px 0; font-size: .9rem; line-height: 1.5; }
