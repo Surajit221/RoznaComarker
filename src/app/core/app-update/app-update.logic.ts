@@ -91,9 +91,11 @@ export function sameOriginUrl(target: string, origin: string): string | null {
 export interface BusySignals {
   inFlightRequests: number;
   editableFocused: boolean;
+  /** A form registered in UnsavedWorkRegistry (dirty or unconfirmed), focused or not. */
+  unsavedWork?: boolean;
 }
 
-/** The app is busy when a request is running (upload, submit, save) or the user is typing in a field. Never auto-reload then. */
+/** The app is busy when a request is running (upload, submit, save), the user is typing in a field, or a form holds unsaved input. Never auto-reload then. */
 export function isBusy(signals: BusySignals): boolean {
-  return signals.inFlightRequests > 0 || signals.editableFocused;
+  return signals.inFlightRequests > 0 || signals.editableFocused || signals.unsavedWork === true;
 }

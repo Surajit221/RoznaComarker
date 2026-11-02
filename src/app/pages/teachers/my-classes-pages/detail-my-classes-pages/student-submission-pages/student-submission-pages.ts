@@ -1,5 +1,7 @@
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
+import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
+import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, EventEmitter, inject, Output } from '@angular/core';
 
@@ -162,7 +164,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,
+  imports: [SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,
 
 
 
@@ -303,6 +305,7 @@ export class StudentSubmissionPages {
 
 
   private teacherDashboardState = inject(TeacherDashboardStateService);
+  private unsavedWork = inject(UnsavedWorkRegistry);
   private teacherActivityState = inject(TeacherActivityStateService);
 
 
@@ -5418,6 +5421,19 @@ export class StudentSubmissionPages {
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
   }
 
+  /**
+   * A teacher correction changed: refresh the counts, highlights and detailed feedback shown on this page. Unlike the analysis refresh,
+   * this leaves the feedback form alone, so an unsent teacher comment is not overwritten. Scores do not change.
+   */
+  async onAnnotationsSaved(submissionId: string): Promise<void> {
+    if (this.currentSubmission?._id !== submissionId) return;
+    await this.refreshAssessmentResult(submissionId).catch(() => undefined);
+    const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId).catch(() => null);
+    if (!feedback || this.currentSubmission?._id !== submissionId) return;
+    this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
+    if (this.canonicalResultState.evaluationStatus === 'completed') this.currentFeedback = this.validateAndNormalizeFeedback(feedback);
+  }
+
   private refreshCompletedEvaluationState(submissionId: string): void {
     const assignmentId = this.assignmentId;
     if (!assignmentId || this.currentSubmission?._id !== submissionId) return;
@@ -6407,6 +6423,7 @@ export class StudentSubmissionPages {
 
 
     if (!this.canGoPrev) return;
+    if (!this.unsavedWork.confirmLeave()) return;
 
 
 
@@ -6455,6 +6472,7 @@ export class StudentSubmissionPages {
 
 
     if (!this.canGoNext) return;
+    if (!this.unsavedWork.confirmLeave()) return;
 
 
 
@@ -6495,6 +6513,7 @@ export class StudentSubmissionPages {
 
 
   async onSubmissionSelected(submissionId: string) {
+    if (!this.unsavedWork.confirmLeave()) return;
 
 
 

@@ -1,91 +1,346 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, Output, inject, type OnChanges, type SimpleChanges } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
-import { environment } from '../../../../environments/environment';
-import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
-import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
-import type { OcrWord } from '../../../models/ocr-token.model';
-import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
-import { SubmissionPageReview } from '../../submission-page-review/submission-page-review';
-import { buildTranscriptPageViews, type TranscriptPageView } from '../../../utils/transcript-page-views.util';
+import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
+import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
+import {
+  AnnotationAction, AnnotationBody, AnnotationSnapshot, CorrectionRow, CorrectionValue, FormErrors, HistoryItem, MESSAGE_MAX, QUOTE_MAX, RowFilter, SUGGESTION_MAX,
+  allowedActions, buildRows, describeFailure, filterCounts, historyActionLabel, historyQuote, historySummary, matchesFilter, needsReview, newRequestId, orphanReasonText, rowBadges,
+  snapToWords, validateForm, wordSpans,
+} from './annotation-editor.logic';
 
-interface Correction extends FeedbackAnnotation { id: string; moderationStatus: string; }
-interface Page { fileId:string; pageNumber:number; startChar:number; text:string; words:OcrWord[]; }
-interface Snapshot { revision:number; sourceHash:string; pages:Page[]; corrections:Correction[]; effective:Correction[];
-  scoringReviewRequired:boolean; scorePolicy:string; legend:{groups:{key:string;label:string;symbols:{symbol:string;label:string}[]}[]}; }
-interface Value { fileId:string; page:number; startChar:number; endChar:number; quotedText:string; category:string; symbol:string; message:string; suggestedText:string; }
-interface Audit { action:string; actor:string; timestamp:string; previousRevision:number; newRevision:number; before:unknown; after:unknown; }
-@Component({selector:'app-annotation-controls',imports:[CommonModule,FormsModule,TokenizedTranscript,CorrectionOverlay,SubmissionPageReview],
-  templateUrl:'./annotation-controls.html',styleUrl:'./annotation-controls.css'})
-export class AnnotationControls implements OnChanges {
-  @Input({required:true}) submissionId='';
-  @Input() imageUrl:string|null=null;
-  @Input() activeFileId:string|null=null;
-  @Input() isPdf=false;
-  @Output() saved=new EventEmitter<void>();
-  private http=inject(HttpClient);
-  data:Snapshot|null=null; busy=false; error=''; open=false; preview=false;
-  editing:string|null=null; form:Value|null=null; pageIndex=0; history:Audit[]=[]; nextOffset:number|null=null;
-  private pending:{action:string;id?:string;revision:number;sourceHash:string;requestId:string;value?:Value}|null=null;
-  private version=0;
-  previewPages:TranscriptPageView[]=[];
-  get pdfPages():TranscriptPageView[]{return this.previewPages.filter(p=>!!p.imageUrl);}
-  get activePage():TranscriptPageView|undefined{return this.previewPages.find(p=>p.fileId===this.activeFileId && p.pageNumber===1);}
-  ngOnChanges(changes:SimpleChanges):void {if(!changes['submissionId'])return;this.version++;this.data=null;this.form=null;this.pending=null;this.error='';this.open=false;this.busy=false;this.history=[];this.previewPages=[];}
-  canLeave():boolean {return !this.busy && (!this.pending && (!this.form || window.confirm('Discard unsaved annotation edits?')));}
-  @HostListener('window:beforeunload',['$event']) beforeUnload(event:BeforeUnloadEvent):void {
-    if(this.form||this.pending||this.busy){event.preventDefault();event.returnValue='';}
+const UNSAVED_KEY = 'teacher-annotation-editor';
+const PAGE_SIZE = 50;
+const FILTERS: { key: RowFilter; label: string }[] = [
+  { key: 'all', label: 'All' }, { key: 'visible', label: 'Visible to student' }, { key: 'hidden', label: 'Hidden' }, { key: 'archived', label: 'Removed' },
+  { key: 'review', label: 'Needs review' }, { key: 'teacher', label: 'Yours' },
+];
+const DONE: Record<AnnotationAction, string> = { hide: 'Hidden from the student.', restore: 'Restored. The student can see it again.', archive: 'Removed. You can restore it from this list.', edit: 'Your edit is saved.', add: 'Your correction is added.' };
+
+interface FormState { mode: 'add' | 'edit'; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
+interface PendingAction { body: AnnotationBody; rowKey: string | null; fromForm: boolean; }
+interface EditorDraft { submissionId: string; open: boolean; filter: RowFilter; limit: number; form: FormState | null; pending: PendingAction | null; conflict: boolean; showFormErrors: boolean; error: string; }
+
+/**
+ * Keeps the editor's state when the page is re-created without the user leaving: the dashboard layout has separate desktop and compact
+ * trees, so crossing its width breakpoint (rotating a tablet, zooming) destroys and rebuilds the page. Memory only, never browser storage.
+ */
+@Injectable({ providedIn: 'root' })
+export class AnnotationDraftStore { draft: EditorDraft | null = null; }
+
+/**
+ * The teacher's correction list and editor (6A API). Teacher and student text is shown by interpolation only. Every save carries the
+ * snapshot's revision and a request id; an unconfirmed save keeps its exact body, so Retry can never apply twice (the server replays it).
+ */
+@Component({
+  selector: 'app-annotation-controls',
+  imports: [DatePipe, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './annotation-controls.html',
+  styleUrl: './annotation-controls.css',
+})
+export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
+  readonly submissionId = input.required<string>();
+  /** The class is archived: known from the page, and confirmed by the server on any write. */
+  readonly classClosed = input(false);
+  readonly saved = output<void>();
+
+  private readonly api = inject(TeacherAnnotationApiService);
+  private readonly unsaved = inject(UnsavedWorkRegistry);
+  private readonly drafts = inject(AnnotationDraftStore);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly removeDialog = viewChild<ElementRef<HTMLDialogElement>>('removeDialog');
+  private version = 0;
+  private trigger: HTMLElement | null = null;
+  private readonly spansByPage = new Map<string, { start: number; end: number }[]>();
+
+  readonly MESSAGE_MAX = MESSAGE_MAX; readonly SUGGESTION_MAX = SUGGESTION_MAX; readonly QUOTE_MAX = QUOTE_MAX; readonly FILTERS = FILTERS;
+  readonly orphanReasonText = orphanReasonText; readonly rowBadges = rowBadges; readonly needsReview = needsReview; readonly historyActionLabel = historyActionLabel;
+  readonly historySummary = historySummary; readonly historyQuote = historyQuote;
+
+  readonly open = signal(false);
+  readonly loading = signal(false);
+  readonly snapshot = signal<AnnotationSnapshot | null>(null);
+  readonly saving = signal(false);
+  readonly notice = signal('');
+  readonly error = signal('');
+  readonly closedByServer = signal(false);
+  readonly noAccess = signal(false);
+  readonly filter = signal<RowFilter>('all');
+  readonly limit = signal(PAGE_SIZE);
+  readonly form = signal<FormState | null>(null);
+  readonly showFormErrors = signal(false);
+  readonly conflict = signal(false);
+  readonly pending = signal<PendingAction | null>(null);
+  readonly confirmRow = signal<CorrectionRow | null>(null);
+  readonly historyOpen = signal(false);
+  readonly historyLoading = signal(false);
+  readonly historyItems = signal<HistoryItem[]>([]);
+  readonly historyNext = signal<number | null>(null);
+
+  /** The snapshot's indicator is the authority; the page's class status covers the time before it loads, and a 409 is the backstop. */
+  readonly closed = computed(() => Boolean(this.snapshot()?.readOnly) || this.classClosed() || this.closedByServer());
+  readonly readOnly = computed(() => this.closed() || this.noAccess());
+  readonly rows = computed(() => { const s = this.snapshot(); return s ? buildRows(s) : []; });
+  readonly counts = computed(() => filterCounts(this.rows()));
+  /** The server's own student view, not a recount. */
+  readonly studentVisible = computed(() => this.snapshot()?.effective?.length ?? 0);
+  private readonly filtered = computed(() => { const f = this.filter(); return this.rows().filter(r => matchesFilter(r, f)); });
+  readonly filteredCount = computed(() => this.filtered().length);
+  /** Rendering is capped: a 300-correction essay draws PAGE_SIZE rows until the teacher asks for more. */
+  readonly shownRows = computed(() => this.filtered().slice(0, this.limit()));
+  readonly groups = computed(() => this.snapshot()?.legend?.groups ?? []);
+  private readonly symbols = computed(() => new Map(this.groups().flatMap(g => g.symbols.map(s => [s.symbol, g.key] as [string, string]))));
+  readonly formPage = computed(() => { const f = this.form(); return f ? this.snapshot()?.pages?.[f.pageIndex] : undefined; });
+  readonly formErrors = computed<FormErrors>(() => { const f = this.form(); return f ? validateForm(f.value, this.formPage(), this.symbols()) : {}; });
+  readonly formDirty = computed(() => { const f = this.form(); return Boolean(f && JSON.stringify(f.value) !== f.initial); });
+  readonly hasUnsaved = computed(() => this.formDirty() || this.pending() !== null);
+  /** What is saved now for the row being edited, shown after a conflict so the teacher can compare before saving again. */
+  readonly savedVersion = computed(() => { const f = this.form(); return f?.targetId && this.conflict() ? this.rows().find(r => r.targetId === f.targetId || r.key === f.rowKey) ?? null : null; });
+  /** Blocks new actions while one is running or unconfirmed. Buttons stay focusable (aria-disabled) so keyboard focus is never lost. */
+  readonly locked = computed(() => this.saving() || this.pending() !== null || this.readOnly());
+
+  constructor() {
+    // untracked: the registry's own state must not re-run this, or agreeing to discard would register the work again.
+    effect(() => { const unsaved = this.hasUnsaved(); untracked(() => { if (unsaved) this.unsaved.register(UNSAVED_KEY); else this.unsaved.clear(UNSAVED_KEY); }); });
   }
-  private get url():string {return `${environment.apiUrl}/submissions/${encodeURIComponent(this.submissionId)}/teacher-annotations`;}
-  async load():Promise<void> {
-    if(this.busy||this.form||this.pending)return; const version=this.version;this.busy=true;this.error='';
-    try {const result=await firstValueFrom(this.http.get<{data:Snapshot}>(this.url));if(version===this.version){this.data=result.data;this.open=true;
-      this.previewPages=buildTranscriptPageViews({submissionId:this.submissionId,fileIds:[...new Set(result.data.pages.map(p=>p.fileId))],ocrPages:result.data.pages,corrections:result.data.effective});}}
-    catch(error){if(version===this.version)this.failure(error);}finally{if(version===this.version)this.busy=false;}
+
+  ngOnInit(): void {
+    const draft = this.drafts.draft;
+    this.drafts.draft = null;
+    if (!draft || draft.submissionId !== this.submissionId()) return;
+    this.open.set(draft.open); this.filter.set(draft.filter); this.limit.set(draft.limit); this.form.set(draft.form); this.pending.set(draft.pending);
+    this.conflict.set(draft.conflict); this.showFormErrors.set(draft.showFormErrors); this.error.set(draft.error);
+    // A save that was running when the page was rebuilt is unconfirmed: Retry is offered, and is safe because the server replays it.
+    if (draft.pending && !draft.error) this.error.set(describeFailure(0, undefined).message);
+    if (draft.open) void this.reload();
   }
-  begin(c?:Correction):void {
-    if(this.busy||this.form||!this.data)return;
-    this.editing=c?.id||null;this.preview=false;this.error='';
-    this.pageIndex=c?Math.max(0,this.data.pages.findIndex(p=>p.fileId===c.fileId&&p.pageNumber===c.page)):0;
-    this.form={fileId:c?.fileId||'',page:c?.page||1,startChar:c?.startChar||0,endChar:c?.endChar||0,
-      quotedText:c?.quotedText||'',symbol:c?.symbol||'AGR',category:c?.category||'GRAMMAR',message:c?.message||'',suggestedText:c?.suggestedText||''};
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['submissionId'] || changes['submissionId'].firstChange) return;
+    this.version++;
+    this.spansByPage.clear();
+    this.open.set(false); this.loading.set(false); this.snapshot.set(null); this.saving.set(false); this.notice.set(''); this.error.set(''); this.closedByServer.set(false);
+    this.noAccess.set(false); this.filter.set('all'); this.limit.set(PAGE_SIZE); this.form.set(null); this.conflict.set(false); this.pending.set(null); this.confirmRow.set(null);
+    this.historyOpen.set(false); this.historyItems.set([]); this.historyNext.set(null);
   }
-  select(textarea:HTMLTextAreaElement):void {
-    const page=this.data?.pages[this.pageIndex];if(!this.form||!page||this.busy||this.pending)return;
-    this.form={...this.form,fileId:page.fileId,page:page.pageNumber,startChar:page.startChar+textarea.selectionStart,
-      endChar:page.startChar+textarea.selectionEnd,quotedText:page.text.slice(textarea.selectionStart,textarea.selectionEnd)};
+
+  ngOnDestroy(): void {
+    this.version++;   // anything still running belongs to this instance and must not touch it any more
+    // Registered and unsaved means the user did not agree to leave (the guard clears it when they do): the page is being rebuilt.
+    const keep = this.hasUnsaved() && this.unsaved.has(UNSAVED_KEY);
+    if (keep || this.open()) {
+      this.drafts.draft = { submissionId: this.submissionId(), open: this.open(), filter: this.filter(), limit: this.limit(), form: keep ? this.form() : null, pending: keep ? this.pending() : null,
+        conflict: keep && this.conflict(), showFormErrors: keep && this.showFormErrors(), error: keep ? this.error() : '' };
+    }
+    if (!keep) this.unsaved.clear(UNSAVED_KEY);
   }
-  category():void {if(this.form)this.form.category=this.data?.legend.groups.find(g=>g.symbols.some(s=>s.symbol===this.form?.symbol))?.key||'';}
-  cancel():void {if(!this.busy&&!this.pending){this.form=null;this.editing=null;this.error='';}}
-  async mutate(action:string,id?:string):Promise<void> {
-    if(this.busy||!this.data)return;
-    if(!this.pending)this.pending={action,id,revision:this.data.revision,sourceHash:this.data.sourceHash,requestId:crypto.randomUUID(),
-      ...(['add','edit'].includes(action)&&this.form?{value:{...this.form}}:{})};
-    const version=this.version;this.busy=true;this.error='';
+
+  async toggle(): Promise<void> {
+    this.open.update(open => !open);
+    if (this.open() && !this.snapshot()) await this.reload();
+  }
+
+  /** Loads the latest snapshot. The old list stays on screen until the new one arrives, so nothing jumps. */
+  async reload(): Promise<void> {
+    const version = this.version;
+    this.loading.set(true);
     try {
-      await firstValueFrom(this.http.post(this.url,this.pending));
-      if(version!==this.version)return;
-      this.pending=null;this.form=null;this.editing=null;this.saved.emit();this.history=[];this.busy=false;await this.load();
-    } catch(error){if(version===this.version){this.failure(error);if(error instanceof HttpErrorResponse&&error.status>=400&&error.status<500)this.pending=null;}}
-    finally{if(version===this.version)this.busy=false;}
+      const snapshot = await this.api.snapshot(this.submissionId());
+      if (version !== this.version) return;
+      this.spansByPage.clear();
+      this.snapshot.set(snapshot);
+    } catch (failure) {
+      if (version === this.version) this.showLoadFailure(failure);
+    } finally {
+      if (version === this.version) this.loading.set(false);
+    }
   }
-  get retryPending():boolean{return Boolean(this.pending);}
-  retry():void {if(this.pending)void this.mutate(this.pending.action,this.pending.id);}
-  async audit(offset=0):Promise<void> {
-    if(this.busy||this.form)return;this.busy=true;const version=this.version;
-    try {const result=await firstValueFrom(this.http.get<{data:{items:Audit[];nextOffset:number|null}}>(`${this.url}/history`,{params:{offset}}));
-      if(version===this.version){this.history=result.data.items;this.nextOffset=result.data.nextOffset;}}
-    catch(error){if(version===this.version)this.failure(error);}finally{if(version===this.version)this.busy=false;}
+
+  private showLoadFailure(failure: unknown): void {
+    const { status, code } = this.parseError(failure);
+    const described = describeFailure(status, code);
+    if (described.kind === 'notFound') this.noAccess.set(true);
+    this.error.set(described.kind === 'unconfirmed' ? 'The corrections could not be loaded. Check your connection and try again.' : described.message);
   }
-  private failure(error:unknown):void {
-    const code=error instanceof HttpErrorResponse?error.error?.code:'';
-    this.error=code==='ANNOTATION_REVISION_CONFLICT'?'Feedback changed. Keep a copy of your edits, then cancel and reload before saving.':
-      code==='ANNOTATION_INVALID_SPAN'?'Select an exact span on one current transcript page.':
-      code==='ANNOTATION_HISTORY_LIMIT'?'Annotation history limit reached. Contact support; existing history is preserved.':
-      code==='ANNOTATION_ASSESSMENT_BUSY'?'Assessment is still running. Try again after it completes.':
-      code==='ANNOTATION_INVALID_CATEGORY'?'Choose a symbol from the correction legend.':
-      'The change could not be confirmed. Check your fields or retry the same request.';
+
+  private parseError(failure: unknown): { status: number; code: string | undefined } {
+    return failure instanceof HttpErrorResponse ? { status: failure.status, code: failure.error?.code } : { status: 0, code: undefined };
   }
+
+  actionsFor(row: CorrectionRow): AnnotationAction[] {
+    const snapshot = this.snapshot();
+    return snapshot ? allowedActions(row, snapshot.transitions) : [];
+  }
+
+  run(action: AnnotationAction, row: CorrectionRow): void {
+    const snapshot = this.snapshot();
+    if (this.locked() || !snapshot || this.form()) return;
+    if (!allowedActions(row, snapshot.transitions).includes(action)) return;
+    void this.send({ action, id: row.targetId, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId() }, row.key, false);
+  }
+
+  askRemove(row: CorrectionRow, event: Event): void {
+    if (this.locked() || this.form()) return;
+    this.trigger = event.currentTarget as HTMLElement;
+    this.confirmRow.set(row);
+    this.removeDialog()?.nativeElement.showModal();
+  }
+  confirmRemove(): void {
+    const row = this.confirmRow();
+    this.closeRemove();
+    if (row) this.run('archive', row);
+  }
+  closeRemove(): void {
+    const dialog = this.removeDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+    this.confirmRow.set(null);
+  }
+
+  private async send(body: AnnotationBody, rowKey: string | null, fromForm: boolean): Promise<void> {
+    const version = this.version;
+    this.pending.set({ body, rowKey, fromForm });
+    this.saving.set(true); this.error.set(''); this.notice.set('Saving…');
+    try {
+      await this.api.mutate(this.submissionId(), body);
+      if (version !== this.version) return;
+      this.pending.set(null);
+      if (fromForm) { this.form.set(null); this.conflict.set(false); this.showFormErrors.set(false); }
+      await this.reload();
+      if (version !== this.version) return;
+      const backInReview = body.action === 'restore' && this.rows().some(r => (r.targetId === body.id || r.key === rowKey) && r.orphanReason);
+      this.notice.set(backInReview ? 'Back in Needs review. It is still not shown to the student.' : DONE[body.action]);
+      this.saved.emit();
+      if (this.historyOpen()) await this.loadHistory(true);
+      this.focusAfterSave(rowKey, body);
+    } catch (failure) {
+      if (version === this.version) await this.handleSaveFailure(failure);
+    } finally {
+      if (version === this.version) this.saving.set(false);
+    }
+  }
+
+  private async handleSaveFailure(failure: unknown): Promise<void> {
+    const { status, code } = this.parseError(failure);
+    const described = describeFailure(status, code);
+    this.notice.set('');
+    this.error.set(described.message);
+    // Unconfirmed (offline, 5xx) and rate-limited: the exact request is kept for Retry, with its request id. The form stays.
+    if (described.kind === 'unconfirmed' || described.kind === 'rate') return;
+    this.pending.set(null);
+    if (described.kind === 'closed') this.closedByServer.set(true);
+    if (described.kind === 'notFound') this.noAccess.set(true);
+    if (described.kind === 'stale' && this.form()) this.conflict.set(true);
+    if (described.kind === 'stale' || described.kind === 'state' || described.kind === 'closed') await this.reload();
+  }
+
+  /** Same request, same id: if the first attempt did reach the server, it answers with the first result instead of applying again. */
+  retry(): void {
+    const pending = this.pending();
+    if (pending && !this.saving()) void this.send(pending.body, pending.rowKey, pending.fromForm);
+  }
+  /** Gives up on an unconfirmed save. It may have reached the server, so the list is reloaded to show the truth. */
+  discardPending(): void {
+    if (this.saving()) return;
+    this.pending.set(null); this.error.set('');
+    void this.reload();
+  }
+
+  private focusAfterSave(rowKey: string | null, body: AnnotationBody): void {
+    afterNextRender(() => {
+      const target = (rowKey && this.host.nativeElement.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(rowKey)}"]`))
+        || (body.id && this.host.nativeElement.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(body.id)}"]`))
+        || this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]');
+      target?.focus({ preventScroll: true });
+    }, { injector: this.injector });
+  }
+
+  setFilter(filter: RowFilter): void { this.filter.set(filter); this.limit.set(PAGE_SIZE); }
+  showMore(): void { this.limit.update(limit => limit + PAGE_SIZE); }
+
+  openForm(row: CorrectionRow | null, event: Event): void {
+    const snapshot = this.snapshot();
+    if (this.locked() || this.form() || !snapshot?.pages?.length) return;
+    this.trigger = event.currentTarget as HTMLElement;
+    const foundPage = row ? snapshot.pages.findIndex(p => p.fileId === row.fileId && p.pageNumber === row.page) : 0;
+    const pageIndex = Math.max(0, foundPage), page = snapshot.pages[pageIndex];
+    // A span is reused only when it still matches the transcript (an orphan's old span does not); otherwise the teacher selects again.
+    const spanValid = row && foundPage >= 0 && row.startChar !== null && row.endChar !== null
+      && page.text.slice(row.startChar - page.startChar, row.endChar - page.startChar) === row.quotedText && row.quotedText.length > 0;
+    const value: CorrectionValue = { fileId: page.fileId, page: page.pageNumber, startChar: spanValid ? row!.startChar! : 0, endChar: spanValid ? row!.endChar! : 0,
+      quotedText: spanValid ? row!.quotedText : '', symbol: row && this.symbols().get(row.symbol) ? row.symbol : '', category: row && this.symbols().get(row.symbol) ? this.symbols().get(row.symbol)! : '',
+      message: row?.message ?? '', suggestedText: row?.suggestedText ?? '' };
+    this.showFormErrors.set(false); this.conflict.set(false); this.error.set('');
+    this.form.set({ mode: row ? 'edit' : 'add', rowKey: row?.key ?? null, targetId: row?.targetId ?? null, orphan: Boolean(row?.orphanReason), pageIndex, value, initial: JSON.stringify(value), spanNote: '' });
+    afterNextRender(() => {
+      this.host.nativeElement.querySelector<HTMLElement>('[data-form-heading]')?.focus();
+      if (spanValid) this.host.nativeElement.querySelector<HTMLTextAreaElement>('[data-source-text]')?.setSelectionRange(row!.startChar! - page.startChar, row!.endChar! - page.startChar);
+    }, { injector: this.injector });
+  }
+
+  patch(patch: Partial<CorrectionValue>): void { this.form.update(f => f ? { ...f, value: { ...f.value, ...patch } } : f); }
+  chooseSymbol(symbol: string): void { this.patch({ symbol, category: this.symbols().get(symbol) ?? '' }); }
+  choosePage(pageIndex: number): void {
+    const page = this.snapshot()?.pages?.[pageIndex];
+    if (!page) return;
+    this.form.update(f => f ? { ...f, pageIndex, spanNote: '', value: { ...f.value, fileId: page.fileId, page: page.pageNumber, startChar: 0, endChar: 0, quotedText: '' } } : f);
+  }
+
+  /** Takes the transcript selection, grown to whole words. */
+  useSelection(textarea: HTMLTextAreaElement): void {
+    const f = this.form(), page = this.formPage();
+    if (!f || !page) return;
+    const key = `${page.fileId}:${page.pageNumber}`;
+    if (!this.spansByPage.has(key)) this.spansByPage.set(key, wordSpans(page.text, page.words));
+    const snapped = snapToWords(this.spansByPage.get(key)!, textarea.selectionStart, textarea.selectionEnd);
+    if (!snapped) return;
+    const grown = snapped.start !== textarea.selectionStart || snapped.end !== textarea.selectionEnd;
+    this.form.set({ ...f, spanNote: grown ? 'Selection extended to whole words.' : '', value: { ...f.value, fileId: page.fileId, page: page.pageNumber,
+      startChar: page.startChar + snapped.start, endChar: page.startChar + snapped.end, quotedText: page.text.slice(snapped.start, snapped.end) } });
+  }
+
+  saveForm(): void {
+    const f = this.form(), snapshot = this.snapshot();
+    if (!f || !snapshot || this.locked()) return;
+    this.showFormErrors.set(true);
+    if (Object.keys(this.formErrors()).length) {
+      this.error.set('Please fix the highlighted fields.');
+      afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-form-error]')?.focus(), { injector: this.injector });
+      return;
+    }
+    const body: AnnotationBody = { action: f.mode, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId(), value: { ...f.value },
+      ...(f.mode === 'edit' && f.targetId ? { id: f.targetId } : {}) };
+    void this.send(body, f.rowKey, true);
+  }
+
+  cancelForm(): void {
+    if (this.saving()) return;
+    this.form.set(null); this.pending.set(null); this.conflict.set(false); this.showFormErrors.set(false); this.error.set(''); this.notice.set('');
+    const trigger = this.trigger;
+    afterNextRender(() => { (trigger?.isConnected ? trigger : this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]'))?.focus(); }, { injector: this.injector });
+  }
+
+  async toggleHistory(): Promise<void> {
+    this.historyOpen.update(open => !open);
+    if (this.historyOpen() && !this.historyItems().length) await this.loadHistory(true);
+  }
+  async loadHistory(fromStart: boolean): Promise<void> {
+    const version = this.version, offset = fromStart ? 0 : this.historyNext() ?? 0;
+    this.historyLoading.set(true);
+    try {
+      const page = await this.api.history(this.submissionId(), offset);
+      if (version !== this.version) return;
+      this.historyItems.update(items => fromStart ? page.items : [...items, ...page.items]);
+      this.historyNext.set(page.nextOffset);
+    } catch (failure) {
+      if (version === this.version) this.showLoadFailure(failure);
+    } finally {
+      if (version === this.version) this.historyLoading.set(false);
+    }
+  }
+  shortId(id: string | null | undefined): string { return id ? String(id).slice(-8) : ''; }
 }

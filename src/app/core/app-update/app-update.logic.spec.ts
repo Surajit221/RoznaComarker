@@ -86,5 +86,6 @@ describe('busy state', () => {
     expect(isBusy({ inFlightRequests: 0, editableFocused: false })).toBeFalse();
     expect(isBusy({ inFlightRequests: 1, editableFocused: false })).toBeTrue();
     expect(isBusy({ inFlightRequests: 0, editableFocused: true })).toBeTrue();
+    expect(isBusy({ inFlightRequests: 0, editableFocused: false, unsavedWork: true })).toBeTrue();
   });
 });

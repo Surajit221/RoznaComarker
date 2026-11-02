@@ -341,6 +341,10 @@
     </div>
     }
 
+    @if (currentSubmission?._id) {
+    <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)" />
+    }
+
     <div class="flex flex-col gap-4">
       <div class="w-full bg-white p-4 rounded-3xl flex flex-col gap-6">
 

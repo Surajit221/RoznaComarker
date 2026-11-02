@@ -1,6 +1,7 @@
 import { DestroyRef, Injectable, NgZone, inject, signal } from '@angular/core';
 import { GuardsCheckEnd, NavigationError, Router } from '@angular/router';
 import { ActivityTracker } from './activity-tracker';
+import { UnsavedWorkRegistry } from './unsaved-work';
 import { UPDATE_ENVIRONMENT } from './update-environment';
 import {
   MIN_CHECK_GAP_MS, acquireChunkReload, isBusy, isChunkLoadError, isNewRelease, isReleaseId, nextPollDelay, parseVersionPayload, sameOriginUrl,
@@ -26,6 +27,7 @@ export class AppUpdateService {
   private readonly router = inject(Router);
   private readonly zone = inject(NgZone);
   private readonly activity = inject(ActivityTracker);
+  readonly unsavedWork = inject(UnsavedWorkRegistry);
   private running: string | null = null;
   private failures = 0;
   private lastCheck = 0;
@@ -88,12 +90,14 @@ export class AppUpdateService {
   }
 
   busy(): boolean {
-    return isBusy({ inFlightRequests: this.activity.inFlight(), editableFocused: this.env.editableFocused() });
+    return isBusy({ inFlightRequests: this.activity.inFlight(), editableFocused: this.env.editableFocused(), unsavedWork: this.unsavedWork.hasWork() });
   }
 
-  /** Banner "Refresh": reload now, or as soon as running requests (an upload, a submission) have finished. */
+  private canReloadNow(): boolean { return this.activity.inFlight() === 0 && !this.unsavedWork.hasWork(); }
+
+  /** Banner "Refresh": reload now, or as soon as running requests have finished and no form holds unsaved input. */
   applyNow(): void {
-    if (this.activity.inFlight() === 0) { this.env.reload(); return; }
+    if (this.canReloadNow()) { this.env.reload(); return; }
     this.waitingToApply.set(true);
     this.zone.runOutsideAngular(() => this.waitThenReload());
   }
@@ -103,7 +107,7 @@ export class AppUpdateService {
   private waitThenReload(): void {
     this.applyTimer = this.env.setTimer(() => {
       this.applyTimer = null;
-      if (this.activity.inFlight() === 0) this.env.reload(); else this.waitThenReload();
+      if (this.canReloadNow()) this.env.reload(); else this.waitThenReload();
     }, APPLY_WAIT_MS);
   }
 
