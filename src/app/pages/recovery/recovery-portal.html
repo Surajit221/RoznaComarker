@@ -21,7 +21,7 @@
                   <span class="portal-title">{{ item.assignmentTitle }}</span>
                   <span class="portal-meta">
                     @if (item.className) { <span>{{ item.className }}</span> }
-                    @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'mediumDate' }}</span> }
+                    @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'medium' }}</span> }
                   </span>
                   <span class="portal-status" [class.ready]="item.status === 'ready'">{{ statusLabel(item.status) }}</span>
                 </button>

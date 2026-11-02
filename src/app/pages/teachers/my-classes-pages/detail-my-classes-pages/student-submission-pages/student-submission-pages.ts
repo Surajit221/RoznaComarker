@@ -138,7 +138,7 @@ import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
 import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normalizeCanonicalResult,
-  type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+  type CanonicalResultViewState, evaluationHeading } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
 import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
@@ -2188,13 +2188,7 @@ export class StudentSubmissionPages {
   }
   get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
     ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
-  get evaluationFeedbackHeading(): string {
-    const state = this.canonicalResultState;
-    if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
-    if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
-    if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
-    return 'Provisional Automated Evaluation';
-  }
+  get evaluationFeedbackHeading(): string { return evaluationHeading(this.canonicalResultState); }
 
   get contentIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'content'); }
   get grammarIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'grammar'); }

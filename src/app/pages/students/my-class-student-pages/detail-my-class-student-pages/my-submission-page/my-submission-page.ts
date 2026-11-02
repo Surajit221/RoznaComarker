@@ -42,7 +42,7 @@ import { AdaptiveWritingStudio } from '../../../../../components/student/adaptiv
 import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
-  normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+  normalizeCanonicalResult, type CanonicalResultViewState, evaluationHeading } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
 import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
@@ -832,13 +832,7 @@ export class MySubmissionPage {
   }
   get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
     ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
-  get evaluationFeedbackHeading(): string {
-    const state = this.canonicalResultState;
-    if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
-    if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
-    if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
-    return 'Provisional Automated Evaluation';
-  }
+  get evaluationFeedbackHeading(): string { return evaluationHeading(this.canonicalResultState); }
   get evaluationFeedbackButtonLabel(): string {
     return this.canonicalResultState?.evaluationSource === 'ai' ? 'View AI-assisted Evaluation' : 'View Evaluation';
   }

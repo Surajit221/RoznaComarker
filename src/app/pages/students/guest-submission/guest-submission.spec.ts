@@ -143,7 +143,8 @@ describe('guest assignment entry', () => {
     spyOn(history, 'replaceState');
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
     http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/presentation`).flush({ message: 'This link has expired. Request a new link.' }, { status: 410, statusText: 'Expired' });
-    await pending; expect(page.error).toContain('expired'); expect(router.navigate).not.toHaveBeenCalled();
+    await pending; expect(page.linkProblem).toBe('expired'); expect(page.linkHeading).toContain('expired');
+    expect(page.linkHeading).not.toContain('unavailable'); expect(router.navigate).not.toHaveBeenCalled();
   });
   it('parses the server URL fragment and retains the token for subsequent requests after scrubbing history', async () => {
     // Same 32-byte base64url alphabet/length as issueToken(), including both URL-safe punctuation characters.
@@ -170,10 +171,44 @@ describe('guest assignment entry', () => {
   });
   it('clears displayed feedback and practice when a refreshed link is rejected', async () => {
     page.result = { feedback: { overallScore: 80 } };
+    (page as unknown as { token: string }).token = 'refreshed-token';
     const pending = page.loadResults();
     http.expectOne(`${environment.apiUrl}/guest/submissions//presentation`).flush({ message: 'This link has expired.' }, { status: 410, statusText: 'Expired' });
     await pending;
-    expect(page.result).toBeNull(); expect(page.error).toContain('expired');
+    expect(page.result).toBeNull(); expect(page.linkProblem).toBe('expired');
+  });
+
+  // Task 4: the screen the client reported ("This feedback link is unavailable") for a page opened without its token.
+  it('without a token or portal session: no request, no error flash, the recovery form open with a clear explanation', async () => {
+    sessionStorage.removeItem('comarker:recovery-session');
+    Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'submission-a' }), fragment: null });
+    spyOn(history, 'replaceState');
+    await page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
+    http.expectNone(`${environment.apiUrl}/guest/submissions/submission-a/presentation`);
+    expect(page.linkProblem).toBe('missing'); expect(page.error).toBe('');
+    expect(page.linkHeading).toBe('Open the private link from your email');
+    expect(page.linkText).not.toContain('from your assignment page');
+  });
+  it('a closed assignment or class (404) says so and hides the recovery form, which could not help', async () => {
+    Object.assign(TestBed.inject(ActivatedRoute).snapshot, { paramMap: convertToParamMap({ submissionId: 'submission-a' }), fragment: 'a-valid-token' });
+    spyOn(history, 'replaceState');
+    const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
+    http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/presentation`).flush({ message: 'Results unavailable.' }, { status: 404, statusText: 'Not Found' });
+    await pending;
+    expect(page.linkProblem).toBe('closed');
+    expect(page.linkHeading).toBe('This assignment is no longer available');
+  });
+  it('the tab keeps its link for 24 hours (a reopened tab still works), and a new emailed link always wins over a stored one', () => {
+    const access = TestBed.inject(GuestStudentAccess);
+    const now = Date.now();
+    expect(access.restoreReturnToken('sub-x', 'T'.repeat(43))).toBe('T'.repeat(43));
+    const saved = JSON.parse(sessionStorage.getItem('comarker:guest-return:sub-x')!);
+    expect(saved.until - now).toBeGreaterThan(23.9 * 3600000);
+    expect(saved.until - now).toBeLessThanOrEqual(24 * 3600000 + 1000);
+    expect(access.restoreReturnToken('sub-x', null)).toBe('T'.repeat(43));
+    expect(access.restoreReturnToken('sub-x', 'N'.repeat(43))).toBe('N'.repeat(43));
+    expect(access.restoreReturnToken('sub-x', null)).toBe('N'.repeat(43));
+    sessionStorage.removeItem('comarker:guest-return:sub-x');
   });
 });
 
@@ -280,6 +315,20 @@ describe('guest assignment page presentation', () => {
     req.flush({ data: { message: 'If a matching submission exists, a new link will be emailed.' } });
     await pending; fixture.detectChanges(); expect(text(details)).toContain('If a matching submission exists');
   });
+
+  it('renders each link problem with its own heading; the form opens for missing/expired links and is hidden for a closed assignment', () => {
+    const shown = (problem: 'missing' | 'expired' | 'closed') => {
+      page.linkProblem = problem; page.error = ''; fixture.detectChanges();
+      const details: HTMLDetailsElement | null = fixture.nativeElement.querySelector('details.recovery');
+      return { heading: text(fixture.nativeElement.querySelector('.notice h2')), open: details ? details.open : null };
+    };
+    expect(shown('missing')).toEqual({ heading: 'Open the private link from your email', open: true });
+    expect(shown('expired')).toEqual({ heading: 'This link has expired or is no longer valid', open: true });
+    expect(shown('closed')).toEqual({ heading: 'This assignment is no longer available', open: null });
+    expect(fixture.nativeElement.textContent).not.toContain('This feedback link is unavailable');
+    page.linkProblem = null; fixture.detectChanges();
+  });
+
   it('after any answer the button shows the same countdown, for known and unknown addresses alike, and blocks repeats', async () => {
     const answer = { message: 'If we found submissions for this email address, we have sent a link. You can ask again in 2 minutes.', retryAfterSeconds: 120 };
     const run = async (email: string) => {

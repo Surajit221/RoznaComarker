@@ -229,6 +229,17 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
   return state.statistics[category] ?? 'Unavailable';
 }
 
+/** The evaluation heading that matches the real state. A teacher-reviewed result is never called "provisional". */
+export function evaluationHeading(state: CanonicalResultViewState | null | undefined): string {
+  if (state?.evaluationFreshness === 'overridden') return 'Teacher-reviewed Evaluation';
+  if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
+  if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
+  if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
+  if (state?.evaluationSource === 'provisional' || state?.evaluationStatus === 'partial') return 'Provisional Automated Evaluation';
+  if (state?.evaluationStatus === 'completed') return 'Automated Evaluation';
+  return 'Evaluation';
+}
+
 export function shouldRetryEvaluationOnly(state: CanonicalResultViewState | null | undefined): boolean {
   return Boolean(state
     && state.correctionStatus === 'completed'

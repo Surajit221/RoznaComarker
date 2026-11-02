@@ -97,6 +97,8 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
   recoveryMessage = '';
   recovering = false;
   recoveryError = false;
+  /** Why a result link cannot be shown: no link at all, an expired/revoked link, or a closed assignment/class. */
+  linkProblem: 'missing' | 'expired' | 'closed' | null = null;
   readonly recoveryCooldown = new RecoveryCooldown();
   files: File[] = [];
   assignment: GuestAssignment | null = null;
@@ -120,8 +122,8 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
     this.submissionId = this.route.snapshot.paramMap.get('submissionId') || '';
     if (this.submissionId) {
       this.token = this.access.restoreReturnToken(this.submissionId, this.route.snapshot.fragment);
-      // Remove bearer material before API requests or rendering links. The optional
-      // one-hour tab session supports refresh; the emailed link remains authoritative.
+      // Remove bearer material before API requests or rendering links. The tab keeps the link
+      // (sessionStorage, this tab only) so a refresh or a reopened tab still works; the emailed link remains authoritative.
       history.replaceState(history.state, '', location.pathname + location.search);
       if (!(await this.guestAvailable())) return;
       await this.loadResults();
@@ -188,19 +190,34 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
     } finally { this.busy = false; }
   }
   async loadResults(): Promise<void> {
-    this.loading = true; this.error = '';
+    this.loading = true; this.error = ''; this.linkProblem = null;
+    Object.assign(this.access, { submissionId: this.submissionId, token: this.token });
+    // No link token and no recovery-portal session: nothing can open this page, so ask for the link instead of
+    // sending a request that can only fail (the server would answer 410 exactly as before).
+    if (!this.access.hasAccess()) { this.result = null; this.linkProblem = 'missing'; this.loading = false; return; }
     try {
-      Object.assign(this.access, { submissionId: this.submissionId, token: this.token });
       const presentation = await this.access.presentation(true);
       this.result = { title: presentation.assignment.title };
     } catch (error: unknown) {
-      if ((error as HttpErrorResponse)?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
-      if ([401, 403, 404, 410].includes((error as HttpErrorResponse)?.status)) {
+      const response = error as HttpErrorResponse;
+      if (response?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
+      else if ([401, 403, 404, 410].includes(response?.status)) {
         this.result = null;
         this.access.forgetReturnToken();
+        // 404: the assignment or class is no longer open; the link itself may be fine. Otherwise the link is expired or revoked.
+        this.linkProblem = response.status === 404 ? 'closed' : 'expired';
       }
-      this.error = (error as HttpErrorResponse)?.error?.message || 'Unable to load results. Reopen your emailed link and try again.';
+      if (!this.linkProblem) this.error = response?.error?.message || 'Unable to load results. Reopen your emailed link and try again.';
     } finally { this.loading = false; }
+  }
+  get linkHeading(): string {
+    return this.linkProblem === 'missing' ? 'Open the private link from your email'
+      : this.linkProblem === 'closed' ? 'This assignment is no longer available' : 'This link has expired or is no longer valid';
+  }
+  get linkText(): string {
+    return this.linkProblem === 'missing' ? 'This page opens with the private link we emailed you. If you no longer have that email, enter your submission email below and we will send a new link.'
+      : this.linkProblem === 'closed' ? 'Your teacher has closed this assignment or class, so its results can no longer be opened here. Please contact your teacher.'
+        : 'Enter the email address you used when submitting, and we will send you a new link.';
   }
   async recover(): Promise<void> {
     if (this.recovering || this.recoveryCooldown.active) return;
