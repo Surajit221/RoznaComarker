@@ -26,6 +26,7 @@
         <p class="font-bold text-2xl">{{ studentName }}</p>
         @if (currentSubmission?.submissionMode === 'guest') {
           <p class="text-sm text-gray-500">{{ currentSubmission?.guest?.normalizedEmail }}</p>
+          @if (currentSubmission?._id) { <app-guest-recovery-link-action [submissionId]="currentSubmission!._id" /> }
         }
         <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
       </div>

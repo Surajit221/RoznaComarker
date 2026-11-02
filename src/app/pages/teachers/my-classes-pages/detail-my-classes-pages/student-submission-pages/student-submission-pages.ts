@@ -1,4 +1,5 @@
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
+import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, EventEmitter, inject, Output } from '@angular/core';
 
@@ -161,7 +162,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [SourceFidelityComponent,SubmissionPageReview,
+  imports: [SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,
 
 
 
