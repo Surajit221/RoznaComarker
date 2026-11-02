@@ -11,6 +11,7 @@ import { AdaptivePracticeApiService } from '../api/adaptive-practice-api.service
 import { WritingCorrectionsApiService } from '../api/writing-corrections-api.service';
 import { DEFAULT_CORRECTION_LEGEND } from '../constants/correction-legend.default';
 import type { ImagePreflightResult } from './image-preflight.service';
+import { RecoveryPortalService } from './recovery-portal.service';
 
 interface GuestPresentation {
   submission: BackendSubmission;
@@ -22,6 +23,7 @@ interface GuestPresentation {
 @Injectable()
 export class GuestStudentAccess {
   private readonly http = inject(HttpClient);
+  private readonly portal = inject(RecoveryPortalService);
   submissionId = '';
   token = '';
   qrToken = '';
@@ -47,7 +49,8 @@ export class GuestStudentAccess {
     try { sessionStorage.removeItem(`comarker:guest-return:${this.submissionId}`); } catch { /* optional session */ }
     this.token = ''; this.metadata = null;
   }
-  get headers(): HttpHeaders { return new HttpHeaders({ 'X-Guest-Token': this.token }); }
+  // The submission's own link wins. Without it, a recovery-portal session (read-only, checked by the server against the email) is used.
+  get headers(): HttpHeaders { return this.token ? new HttpHeaders({ 'X-Guest-Token': this.token }) : this.portal.headers(); }
   mediaHeaders(url: string): HttpHeaders {
     const expected = new URL(this.url('media/'), location.origin);
     const actual = new URL(url, location.origin);

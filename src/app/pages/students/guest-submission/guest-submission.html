@@ -108,6 +108,7 @@
             <button type="submit" class="secondary-button" [disabled]="recovering">{{ recovering ? 'Requesting your link…' : 'Email me a new link' }}</button>
             <p role="status">{{ recoveryMessage }}</p>
           </form>
+          <p class="muted">Submitted more than one assignment? <a routerLink="/recover">Get one link to all your submissions</a>.</p>
         </details>
       }
       <p class="page-footer">Writing feedback, made simple.</p>

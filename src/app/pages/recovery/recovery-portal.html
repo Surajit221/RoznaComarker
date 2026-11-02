@@ -1,0 +1,69 @@
+<main class="guest-page" aria-labelledby="portal-title">
+  <div class="guest-shell">
+    <div class="brand"><img src="img/logo.png" alt="" width="36" height="36" /><span>Rozna Co-Marker</span></div>
+
+    @switch (state) {
+      @case ('loading') {
+        <section class="card state-card" role="status" aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <h1 id="portal-title">Opening your submissions</h1>
+          <p class="muted">Please wait a moment.</p>
+        </section>
+      }
+      @case ('list') {
+        <section class="card content-card">
+          <h1 id="portal-title">Your submissions</h1>
+          <p class="muted intro">Choose an assignment to see your work and feedback.</p>
+          <ul class="portal-list" aria-label="Your submitted assignments">
+            @for (item of assignments; track item.id) {
+              <li>
+                <button type="button" class="portal-item" (click)="open(item)">
+                  <span class="portal-title">{{ item.assignmentTitle }}</span>
+                  <span class="portal-meta">
+                    @if (item.className) { <span>{{ item.className }}</span> }
+                    @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'mediumDate' }}</span> }
+                  </span>
+                  <span class="portal-status" [class.ready]="item.status === 'ready'">{{ statusLabel(item.status) }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+      @case ('empty') {
+        <section class="card state-card" role="status">
+          <h1 id="portal-title">No submissions to show</h1>
+          <p class="muted">We could not find open assignments for this email address. If you think this is wrong, ask your teacher.</p>
+        </section>
+      }
+      @case ('invalid') {
+        <section class="card state-card" role="alert">
+          <h1 id="portal-title">This link has expired or is not valid</h1>
+          <p class="muted">Links work for a limited time. Ask for a new one below.</p>
+          <button type="button" class="secondary-button" (click)="askForNewLink()">Get a new link</button>
+        </section>
+      }
+      @case ('error') {
+        <section class="card state-card" role="alert">
+          <h1 id="portal-title">We could not load your submissions</h1>
+          <p class="muted">Please check your connection and try again.</p>
+          <button type="button" class="secondary-button" (click)="load()">Try again</button>
+        </section>
+      }
+      @case ('request') {
+        <section class="card content-card">
+          <h1 id="portal-title">See all your submissions</h1>
+          <p class="muted intro">Enter the email address you used when submitting. We will email you one private link to all of your assignments.</p>
+          <form (ngSubmit)="requestLink()" class="recovery-form" novalidate>
+            <label for="portal-email">Submission email</label>
+            <input class="input-text" id="portal-email" name="email" type="email" [(ngModel)]="email" required maxlength="254" autocomplete="email"
+              [attr.aria-invalid]="requestError ? true : null" aria-describedby="portal-email-status" />
+            <button type="submit" class="secondary-button" [disabled]="requesting">{{ requesting ? 'Sending…' : 'Email me a link' }}</button>
+            <p id="portal-email-status" role="status" [class.field-error]="requestError">{{ requestError || requestMessage }}</p>
+          </form>
+        </section>
+      }
+    }
+    <p class="page-footer">Writing feedback, made simple.</p>
+  </div>
+</main>
