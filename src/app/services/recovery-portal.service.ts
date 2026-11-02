@@ -29,8 +29,9 @@ export class RecoveryPortalService {
     return typeof value === 'string' && TOKEN_SHAPE.test(value);
   }
 
-  requestLink(email: string): Promise<string> {
-    return firstValueFrom(this.http.post<{ data: { message: string } }>(`${this.base}/request`, { email }).pipe(map(r => r.data.message)));
+  /** The server's generic answer and its fixed cool-down (the same for every address). */
+  requestLink(email: string): Promise<{ message: string; retryAfterSeconds?: number }> {
+    return firstValueFrom(this.http.post<{ data: { message: string; retryAfterSeconds?: number } }>(`${this.base}/request`, { email }).pipe(map(r => r.data)));
   }
 
   async exchange(token: string): Promise<void> {

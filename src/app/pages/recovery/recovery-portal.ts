@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { RecoveryCooldown, recoveryRequestError } from '../../services/recovery-cooldown';
 import { RecoveredAssignment, RecoveryPortalService } from '../../services/recovery-portal.service';
 
 export type PortalState = 'request' | 'loading' | 'invalid' | 'empty' | 'list' | 'error';
@@ -32,6 +33,7 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
   requesting = false;
   requestMessage = '';
   requestError = '';
+  readonly cooldown = new RecoveryCooldown();
 
   async ngOnInit(): Promise<void> {
     this.setNoReferrer();
@@ -52,6 +54,7 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.referrerMeta?.remove();
+    this.cooldown.stop();
   }
 
   async load(): Promise<void> {
@@ -73,14 +76,15 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
     const email = this.email.trim();
     this.requestError = ''; this.requestMessage = '';
     if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.requestError = 'Enter the email address you used when submitting.'; return; }
-    if (this.requesting) return;
+    if (this.requesting || this.cooldown.active) return;
     this.requesting = true;
-    try { this.requestMessage = await this.portal.requestLink(email); }
-    catch (error) {
-      const status = (error as HttpErrorResponse)?.status;
-      this.requestError = status === 429 ? 'Too many requests. Please wait a few minutes and try again.'
-        : status === 400 ? 'Enter the email address you used when submitting.' : 'We could not send the request. Please try again.';
-    } finally { this.requesting = false; }
+    try {
+      // The same answer and countdown for every address: nothing here says whether an email exists or was sent.
+      const answer = await this.portal.requestLink(email);
+      this.requestMessage = answer.message;
+      this.cooldown.start(answer.retryAfterSeconds);
+    } catch (error) { this.requestError = recoveryRequestError(error, this.cooldown); }
+    finally { this.requesting = false; }
   }
 
   askForNewLink(): void {

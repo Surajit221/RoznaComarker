@@ -280,6 +280,43 @@ describe('guest assignment page presentation', () => {
     req.flush({ data: { message: 'If a matching submission exists, a new link will be emailed.' } });
     await pending; fixture.detectChanges(); expect(text(details)).toContain('If a matching submission exists');
   });
+  it('after any answer the button shows the same countdown, for known and unknown addresses alike, and blocks repeats', async () => {
+    const answer = { message: 'If we found submissions for this email address, we have sent a link. You can ask again in 2 minutes.', retryAfterSeconds: 120 };
+    const run = async (email: string) => {
+      page.recoveryCooldown.stop(); page.recoveryEmail = email;
+      const pending = page.recover();
+      http.expectOne(`${environment.apiUrl}/guest/assignments/share-code/recover`).flush({ data: answer });
+      await pending; fixture.detectChanges();
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('details.recovery button[type=submit]');
+      return { disabled: button.disabled, label: text(button), status: text(fixture.nativeElement.querySelector('details.recovery p[role=status]')) };
+    };
+    const known = await run('student@example.com'), unknown = await run('nobody@example.com');
+    expect(known).toEqual(unknown);
+    expect(known.disabled).toBeTrue();
+    expect(known.label).toMatch(/You can ask again in [12]:\d\d/);
+    expect(known.status).toContain('You can ask again in 2 minutes');
+    await page.recover();                                  // inside the countdown: no request at all
+    http.expectNone(`${environment.apiUrl}/guest/assignments/share-code/recover`);
+    page.recoveryCooldown.stop();
+  });
+
+  it('a rate limit says to wait and counts down; a network failure says so honestly and keeps the button usable', async () => {
+    page.recoveryEmail = 'student@example.com';
+    let pending = page.recover();
+    http.expectOne(`${environment.apiUrl}/guest/assignments/share-code/recover`)
+      .flush({}, { status: 429, statusText: 'Too Many Requests', headers: { 'Retry-After': '90' } });
+    await pending; fixture.detectChanges();
+    expect(page.recoveryMessage).toContain('Too many requests');
+    expect(page.recoveryCooldown.remaining()).toBeGreaterThan(80);
+    page.recoveryCooldown.stop();
+    pending = page.recover();
+    http.expectOne(`${environment.apiUrl}/guest/assignments/share-code/recover`).error(new ProgressEvent('error'));
+    await pending; fixture.detectChanges();
+    expect(page.recoveryMessage).toContain('could not send your request');
+    expect(page.recoveryMessage).not.toContain('sent a link');
+    expect(page.recoveryCooldown.active).toBeFalse();
+    expect((fixture.nativeElement.querySelector('details.recovery button[type=submit]') as HTMLButtonElement).disabled).toBeFalse();
+  });
 
   it('requires identity before mounting the normal production uploader', () => {
     expect(fixture.nativeElement.querySelector('app-upload-essay-form')).toBeNull();

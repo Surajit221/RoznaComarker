@@ -1,6 +1,6 @@
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,6 +13,7 @@ import { MySubmissionPage } from '../my-class-student-pages/detail-my-class-stud
 import { GUEST_STUDENT_PROVIDERS, GuestStudentAccess } from '../../../services/guest-student-access.service';
 import { ImagePreflightService } from '../../../services/image-preflight.service';
 import { CanonicalSubmissionResultCoordinator } from '../../../services/canonical-submission-result-coordinator.service';
+import { RecoveryCooldown, recoveryRequestError } from '../../../services/recovery-cooldown';
 
 interface GuestAssignment { title: string; instructions?: string; deadline?: string; [key: string]: unknown; }
 interface GuestConfirmation { received: boolean; duplicate?: boolean; message?: string; returnUrl?: string; emailSent?: boolean; }
@@ -25,7 +26,7 @@ interface Response<T> { data: T; }
   templateUrl: './guest-submission.html',
   styleUrl: './guest-submission.css',
 })
-export class GuestSubmissionPage implements OnInit {
+export class GuestSubmissionPage implements OnInit, OnDestroy {
   readonly access = inject(GuestStudentAccess);
   identityEstablished = false;
   uploadReady = false;
@@ -95,6 +96,8 @@ export class GuestSubmissionPage implements OnInit {
   recoveryEmail = '';
   recoveryMessage = '';
   recovering = false;
+  recoveryError = false;
+  readonly recoveryCooldown = new RecoveryCooldown();
   files: File[] = [];
   assignment: GuestAssignment | null = null;
   result: { title?: string; [key: string]: unknown } | null = null;
@@ -200,14 +203,17 @@ export class GuestSubmissionPage implements OnInit {
     } finally { this.loading = false; }
   }
   async recover(): Promise<void> {
-    if (this.recovering) return;
-    this.recovering = true;
+    if (this.recovering || this.recoveryCooldown.active) return;
+    this.recovering = true; this.recoveryError = false;
     try {
       const recoveryUrl = this.submissionId ? `${this.base}/submissions/${encodeURIComponent(this.submissionId)}/recover`
         : `${this.base}/assignments/${encodeURIComponent(this.qrToken)}/recover`;
-      const response = await firstValueFrom(this.http.post<Response<{ message: string }>>(recoveryUrl, { email: this.recoveryEmail }));
+      const response = await firstValueFrom(this.http.post<Response<{ message: string; retryAfterSeconds?: number }>>(recoveryUrl, { email: this.recoveryEmail }));
+      // The same answer and countdown for every address: nothing here says whether an email exists or was sent.
       this.recoveryMessage = response.data.message;
-    } catch { this.recoveryMessage = 'Please wait a few minutes before trying again.'; }
+      this.recoveryCooldown.start(response.data.retryAfterSeconds);
+    } catch (error) { this.recoveryMessage = recoveryRequestError(error, this.recoveryCooldown); this.recoveryError = true; }
     finally { this.recovering = false; }
   }
+  ngOnDestroy(): void { this.recoveryCooldown.stop(); }
 }

@@ -105,8 +105,9 @@
             <p class="muted">Use the email address you entered when submitting your work.</p>
             <label for="recovery-email">Submission email</label>
             <input class="input-text" id="recovery-email" name="recoveryEmail" type="email" [(ngModel)]="recoveryEmail" required email maxlength="254" autocomplete="email" />
-            <button type="submit" class="secondary-button" [disabled]="recovering">{{ recovering ? 'Requesting your link…' : 'Email me a new link' }}</button>
-            <p role="status">{{ recoveryMessage }}</p>
+            <button type="submit" class="secondary-button" [disabled]="recovering || recoveryCooldown.active">{{ recovering ? 'Requesting your link…'
+              : recoveryCooldown.active ? 'You can ask again in ' + recoveryCooldown.label : 'Email me a new link' }}</button>
+            <p role="status" [class.field-error]="recoveryError">{{ recoveryMessage }}</p>
           </form>
           <p class="muted">Submitted more than one assignment? <a routerLink="/recover">Get one link to all your submissions</a>.</p>
         </details>
