@@ -193,8 +193,8 @@ function check(name, ok, detail) { report.steps.push({ name, ok: Boolean(ok), ..
     await clickIn(t.page, key, 'Remove');
     await t.page.waitForSelector(`${editor} dialog[open]`);
     await shot(t.page, '03-remove-confirm');
-    check('remove asks first and says it is restorable and recorded', await t.page.$eval(`${editor} dialog`, d => d.innerText.includes('restore it at any time') && d.innerText.includes('recorded')));
-    await t.page.evaluate(sel => [...document.querySelector(`${sel} dialog`).querySelectorAll('button')].find(b => b.textContent.trim() === 'Remove').click(), editor);
+    check('remove asks first and says it is restorable and recorded', await t.page.$eval(`${editor} dialog:not([aria-labelledby="student-preview-title"])`, d => d.innerText.includes('restore it at any time') && d.innerText.includes('recorded')));
+    await t.page.evaluate(sel => [...document.querySelector(`${sel} dialog:not([aria-labelledby="student-preview-title"])`).querySelectorAll('button')].find(b => b.textContent.trim() === 'Remove').click(), editor);
     await waitNotice(t.page, 'Removed. You can restore'); await sleep(200);
     check('remove: the row stays marked Removed', (await t.page.$eval(`${editor} [data-row-key="${key}"]`, r => r.innerText)).includes('Removed'));
 
@@ -243,7 +243,7 @@ function check(name, ok, detail) { report.steps.push({ name, ok: Boolean(ok), ..
     const orphanKeys = await t.page.$$eval(`${editor} [data-row-key]`, rows => rows.map(r => ({ key: r.getAttribute('data-row-key'), quote: r.querySelector('blockquote')?.textContent })));
     const realyOrphan = orphanKeys.find(o => o.quote === 'realy'), homeOrphan = orphanKeys.find(o => o.quote === 'home');
     await clickIn(t.page, homeOrphan.key, 'Remove'); await t.page.waitForSelector(`${editor} dialog[open]`);
-    await t.page.evaluate(sel => [...document.querySelector(`${sel} dialog`).querySelectorAll('button')].find(b => b.textContent.trim() === 'Remove').click(), editor);
+    await t.page.evaluate(sel => [...document.querySelector(`${sel} dialog:not([aria-labelledby="student-preview-title"])`).querySelectorAll('button')].find(b => b.textContent.trim() === 'Remove').click(), editor);
     await waitNotice(t.page, 'Removed. You can restore'); await sleep(300);
     const filterTo = async label => { await t.page.evaluate((sel, l) => [...document.querySelector(sel).querySelectorAll('.filter')].find(b => b.textContent.startsWith(l)).click(), editor, label); await sleep(200); };
     await filterTo('Removed');
