@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, Input, type OnChanges, type OnDestroy, type SimpleChanges, ViewChild } from '@angular/core';
+import { type AfterViewChecked, type AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, type SimpleChanges, ViewChild } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
@@ -15,9 +15,15 @@ type TranscriptToken =
   templateUrl: './tokenized-transcript.html',
   styleUrl: './tokenized-transcript.css'
 })
-export class TokenizedTranscript implements OnChanges, OnDestroy {
+export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit, AfterViewChecked {
   @Input() ocrWords: OcrWord[] | null = null;
   @Input() annotations: FeedbackAnnotation[] | null = null;
+  /** The teacher's review workspace (Task 6C). Off everywhere else: the same template, listeners and tooltip as before. */
+  @Input() syncMode = false;
+  @Input() syncActiveId: string | null = null;
+  /** Corrections that are not visible to the student, by id. */
+  @Input() syncStates: ReadonlyMap<string, 'hidden' | 'archived'> | null = null;
+  @Output() syncPointer = new EventEmitter<{ ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate' }>();
 
   @ViewChild('containerEl', { static: false }) containerEl?: ElementRef<HTMLElement>;
   @ViewChild('tooltipEl', { static: false }) tooltipEl?: ElementRef<HTMLElement>;
@@ -31,11 +37,19 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
   private positionVersion = 0;
   private readonly viewportScrollHandler = () => this.scheduleActiveReposition();
 
+  private syncUnlisten: (() => void) | null = null;
+  private syncDirty = false;
+  private syncElements: Map<string, HTMLElement> | null = null;
+  private syncMarked: HTMLElement[] = [];
+  private readonly syncStyles = new Map<string, Record<string, string> | null>();
+  private readonly syncWordStates = new Map<string, 'hidden' | 'archived' | null>();
+
   activeWordId: string | null = null;
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
 
   ngOnDestroy(): void {
+    this.syncUnlisten?.();
     this.closeTooltip();
     this.tooltipEl?.nativeElement.remove();
   }
@@ -52,6 +66,67 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     if (changes['ocrWords'] || changes['annotations']) {
       this.closeTooltip();
     }
+
+    if (this.syncMode) {
+      if (changes['ocrWords']) this.syncElements = null;
+      if (changes['annotations'] || changes['syncStates']) { this.syncStyles.clear(); this.syncWordStates.clear(); }
+      this.syncDirty = true;
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (this.syncMode) this.listenForSync();
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.syncDirty) { this.syncDirty = false; this.markActiveWords(); }
+  }
+
+  /** The same object for the same word, so a selection change does not make Angular restyle every word. */
+  syncStyle(wordId: string): Record<string, string> | null {
+    if (!this.syncStyles.has(wordId)) this.syncStyles.set(wordId, this.getHighlightStyle(wordId));
+    return this.syncStyles.get(wordId) ?? null;
+  }
+
+  syncWordState(wordId: string): 'hidden' | 'archived' | null {
+    if (!this.syncStates) return null;
+    if (!this.syncWordStates.has(wordId)) {
+      // Shared with something the student does see: it must not read as hidden.
+      const states = this.getWordAnnotations(wordId).map(a => this.syncStates!.get(a._id));
+      this.syncWordStates.set(wordId, states.length && states.every(Boolean) ? states[0]! : null);
+    }
+    return this.syncWordStates.get(wordId) ?? null;
+  }
+
+  /** Marks the active correction's words directly: a selection touches those few nodes, not every word of a long essay. */
+  private markActiveWords(): void {
+    const container = this.containerEl?.nativeElement;
+    if (!container) return;
+    for (const element of this.syncMarked) element.classList.remove('is-sync-active');
+    this.syncMarked = [];
+    const wordIds = this.syncActiveId ? (this.annotations ?? []).find(a => a?._id === this.syncActiveId)?.wordIds ?? [] : [];
+    if (!wordIds.length) return;
+    if (!this.syncElements) this.syncElements = new Map(Array.from(container.querySelectorAll<HTMLElement>('[data-word-id]')).map(el => [el.getAttribute('data-word-id')!, el]));
+    for (const id of wordIds) { const element = this.syncElements.get(id); if (element) { element.classList.add('is-sync-active'); this.syncMarked.push(element); } }
+  }
+
+  /** One set of listeners on the transcript, however many words it has. */
+  private listenForSync(): void {
+    const root = this.containerEl?.nativeElement;
+    if (!root) return;
+    const emit = (event: Event, kind: 'hover' | 'leave' | 'focus' | 'activate'): void => {
+      const id = (event.target as Element | null)?.closest?.('[data-word-id]')?.getAttribute('data-word-id');
+      const ids = id ? this.getWordAnnotations(id).map(a => a._id) : [];
+      if (ids.length) this.syncPointer.emit({ ids, kind });
+    };
+    const over = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'hover'); };
+    const out = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'leave'); };
+    // A pointer press is the click that follows, not a keyboard focus (it would count twice).
+    const focus = (event: Event): void => { if ((event.target as Element).matches?.(':focus-visible')) emit(event, 'focus'); };
+    const click = (event: Event): void => emit(event, 'activate');
+    const key = (event: KeyboardEvent): void => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); emit(event, 'activate'); } };
+    root.addEventListener('pointerover', over); root.addEventListener('pointerout', out); root.addEventListener('focusin', focus); root.addEventListener('click', click); root.addEventListener('keydown', key);
+    this.syncUnlisten = () => { root.removeEventListener('pointerover', over); root.removeEventListener('pointerout', out); root.removeEventListener('focusin', focus); root.removeEventListener('click', click); root.removeEventListener('keydown', key); };
   }
 
   onWordPointerEnter(wordId: string, event: PointerEvent): void {

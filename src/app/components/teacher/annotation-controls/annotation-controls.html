@@ -41,8 +41,15 @@
             @if (!readOnly()) { <button type="button" class="btn-primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }
             <button type="button" class="btn-info" [attr.aria-disabled]="loading()" (click)="reload()">Reload latest</button>
             <button type="button" class="btn-info" [attr.aria-expanded]="historyOpen()" (click)="toggleHistory()">Change history</button>
+            <button type="button" class="btn-info" data-sync-toggle [attr.aria-expanded]="workspaceOpen()" (click)="toggleWorkspace()">{{ workspaceOpen() ? 'Hide image and transcript' : 'Show image and transcript' }}</button>
           </div>
         </div>
+
+        @if (workspaceOpen()) {
+          <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
+            [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [isPdf]="isPdf()" [imageStore]="imageStore()"
+            (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" />
+        }
 
         @if (form(); as f) {
           <form class="form" (ngSubmit)="saveForm()" novalidate>
@@ -97,12 +104,14 @@
 
         <h3 class="editor__list-title" data-list-heading tabindex="-1">Corrections</h3>
         @if (!filteredCount()) { <p>No corrections in this view.</p> }
-        <ul class="rows">
+        <ul #listPanel class="rows" [class.rows--panel]="workspaceOpen()">
           @for (row of shownRows(); track row.key) {
             <li>
-              <article class="row" [class.row--dimmed]="row.status !== 'visible'" [attr.data-row-key]="row.key" tabindex="-1" [attr.aria-label]="(row.symbol || 'Correction') + ', ' + rowBadges(row)[0].label">
+              <article class="row" [class.row--dimmed]="row.status !== 'visible'" [class.row--active]="selection.activeId() === row.key" [attr.aria-current]="selection.activeId() === row.key ? 'true' : null" [attr.data-row-key]="row.key" [attr.tabindex]="workspaceOpen() ? 0 : -1" [attr.aria-label]="(row.symbol || 'Correction') + ', ' + rowBadges(row)[0].label">
                 <div class="row__badges">
                   @for (badge of rowBadges(row); track badge.label) { <span class="badge" [class]="'badge badge--' + badge.tone">{{ badge.label }}</span> }
+                  @if (selection.activeId() === row.key) { <span class="badge badge--selected" data-row-selected>Selected</span> }
+                  @for (label of positionWords(row); track label) { <span class="badge badge--position" data-row-position>{{ label }}</span> }
                 </div>
                 <p class="row__title"><strong>{{ row.symbol }}</strong>@if (row.symbolLabel && row.symbolLabel !== row.symbol) { <span>: {{ row.symbolLabel }}</span> }@if (row.category) { <span class="row__category"> · {{ row.category }}</span> }</p>
                 @if (row.quotedText) { <blockquote>{{ row.quotedText }}</blockquote> }

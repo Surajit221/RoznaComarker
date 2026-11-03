@@ -56,6 +56,176 @@ describe('AnnotationControls', () => {
 
   afterEach(() => { registry?.clear('teacher-annotation-editor'); TestBed.inject(AnnotationDraftStore).draft = null; TestBed.resetTestingModule(); });
 
+  describe('review workspace', () => {
+    const toggle = () => dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!;
+    const workspace = () => dom().querySelector('app-review-workspace');
+    const words = (bbox = true) => TEXT.split(' ').map((word, i) => ({ id: `w${i}`, text: word, bbox: bbox ? { x: 2 + i * 8, y: 5, w: 7, h: 3 } : null }));
+    const two = () => snapshot({
+      pages: [{ fileId: 'f1', pageNumber: 1, startChar: 0, endChar: TEXT.length, text: TEXT, words: words() }],
+      corrections: [correction({ wordIds: ['w1'], quotedText: 'goes' }),
+        correction({ id: 'ai_2', moderationStatus: 'hidden', wordIds: ['w3'], quotedText: 'the' }),
+        correction({ id: 'ai_3', moderationStatus: 'hidden', wordIds: ['w3'], quotedText: 'not these words' })],
+      effective: [{ id: 'ai_1', wordIds: ['w1'], renderTarget: { version: 1, source: 'wordIds', wordIds: ['w1'], boxes: [{ x: 10, y: 5, w: 7, h: 3 }] } }] });
+    const open = async () => { api.current = two(); await openEditor(); };
+    const mouse = (type: string, target: Element) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'mouse' }));
+
+    it('is closed until the teacher asks: nothing of it exists, and the list has no position labels', async () => {
+      await create(); await open();
+      expect(workspace()).toBeNull();
+      expect(dom().querySelector('[data-row-position]')).toBeNull();
+      expect(row().getAttribute('tabindex')).toBe('-1');
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    });
+    it('opening shows it; closing destroys it, clears the selection and restores the list', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      expect(workspace()).not.toBeNull();
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(row().getAttribute('tabindex')).toBe('0');
+      component.selection.pin('ai_1', 'list'); await settle();
+      toggle().click(); await settle();
+      expect(workspace()).toBeNull();
+      expect(component.selection.activeId()).toBeNull();
+      expect(row().getAttribute('tabindex')).toBe('-1');
+    });
+    it('uses the image the page already has and never asks for it', async () => {
+      await create();
+      fixture.componentRef.setInput('imageUrl', 'blob:already-loaded');
+      await open();
+      toggle().click(); await settle();
+      expect(dom().querySelector('app-review-workspace img')?.getAttribute('src')).toBe('blob:already-loaded');
+    });
+    it('labels each row: exact says nothing, passed says approximate in words, failed says no position', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      const labels = (key: string) => [...row(key).querySelectorAll('[data-row-position]')].map(el => el.textContent?.trim());
+      expect(labels('ai_1')).toEqual([]);
+      expect(labels('ai_2')).toEqual(['Approximate position']);
+      expect(labels('ai_3')).toEqual(['No position on the image', 'Not in the transcript']);
+    });
+    it('list: one click selects, says so in words, and announces it', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      row('ai_2').querySelector('blockquote')!.dispatchEvent(new MouseEvent('click', { bubbles: true })); await settle();
+      expect(component.selection.pinnedId()).toBe('ai_2');
+      expect(row('ai_2').querySelector('[data-row-selected]')?.textContent).toBe('Selected');
+      expect(row('ai_2').getAttribute('aria-current')).toBe('true');
+      expect(dom().querySelector('[data-sync-live]')?.textContent).toContain('hidden from the student. Approximate position.');
+      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('Approximate position');
+    });
+    it('list: a click on a row button does not select; the list has the listeners, not the rows', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      const list = dom().querySelector('ul.rows') as HTMLElement;
+      expect(list.classList.contains('rows--panel')).toBeTrue();
+      button('Change history')!.click(); await settle();
+      row('ai_1').querySelector<HTMLButtonElement>('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await settle();
+      expect(component.selection.pinnedId()).toBeNull();
+    });
+    it('list: hover shows it after the delay and is not announced', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      mouse('pointerover', row('ai_1'));
+      await new Promise(r => setTimeout(r, 170)); await settle();
+      expect(component.selection.activeId()).toBe('ai_1');
+      expect(component.selection.pinnedId()).toBeNull();
+      expect(dom().querySelector('[data-sync-live]')?.textContent).toBe('');
+      mouse('pointerout', row('ai_1'));
+      await new Promise(r => setTimeout(r, 170)); await settle();
+      expect(component.selection.activeId()).toBeNull();
+    });
+    it('closing removes the list listeners', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      const list = dom().querySelector('ul.rows') as HTMLElement, removes = spyOn(list, 'removeEventListener').and.callThrough();
+      toggle().click(); await settle();
+      expect(removes.calls.allArgs().map(args => args[0])).toEqual(jasmine.arrayWithExactContents(['pointerover', 'pointerout', 'focusin', 'click']));
+    });
+    it('list: closed, it does nothing at all', async () => {
+      await create(); await open();
+      row().querySelector('blockquote')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      mouse('pointerover', row());
+      await new Promise(r => setTimeout(r, 170));
+      expect(component.selection.activeId()).toBeNull();
+    });
+    it('Escape and the button clear it', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.selection.pin('ai_1', 'list'); await settle();
+      dom().querySelector('#annotation-editor-body')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle();
+      expect(component.selection.activeId()).toBeNull();
+      component.selection.pin('ai_1', 'list'); await settle();
+      dom().querySelector<HTMLButtonElement>('[data-sync-clear]')!.click(); await settle();
+      expect(component.selection.activeId()).toBeNull();
+    });
+    it('selected from elsewhere while filtered out: the list switches to All and says so', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.setFilter('visible'); await settle();
+      expect(row('ai_2')).toBeNull();
+      component.selection.pin('ai_2', 'transcript'); await settle();
+      expect(component.filter()).toBe('all');
+      expect(row('ai_2')).not.toBeNull();
+      expect(component.notice()).toContain('Showing all corrections');
+    });
+    it('hovered from elsewhere while filtered out: the list does not change under the teacher', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.setFilter('visible'); await settle();
+      component.selection.hover('ai_2', 'transcript');
+      await new Promise(r => setTimeout(r, 170)); await settle();
+      expect(component.filter()).toBe('visible');
+    });
+    it('the selected correction disappears after a reload: cleared, with a notice', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.selection.pin('ai_2', 'list'); await settle();
+      api.current = snapshot({ pages: two().pages, corrections: [two().corrections[0]], effective: two().effective });
+      await component.reload(); await settle();
+      expect(component.selection.activeId()).toBeNull();
+      expect(component.notice()).toContain('no longer in the list');
+    });
+    it('survives the 1024px page rebuild: open, with the same selection', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.selection.pin('ai_2', 'list'); await settle();
+      fixture.destroy();
+      const store = TestBed.inject(AnnotationDraftStore);
+      expect(store.draft?.workspaceOpen).toBeTrue();
+      expect(store.draft?.pinnedKey).toBe('ai_2');
+      fixture = TestBed.createComponent(AnnotationControls);
+      fixture.componentRef.setInput('submissionId', 's1');
+      component = fixture.componentInstance; fixture.detectChanges(); await settle();
+      expect(workspace()).not.toBeNull();
+      expect(component.selection.pinnedId()).toBe('ai_2');
+    });
+    it('another submission starts closed and empty', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.selection.pin('ai_1', 'list'); await settle();
+      fixture.componentRef.setInput('submissionId', 's2'); await settle();
+      expect(component.workspaceOpen()).toBeFalse();
+      expect(component.selection.activeId()).toBeNull();
+    });
+    it('selecting does not touch an open form or the unsaved guard', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      button('Edit')!.click(); await settle();
+      fill('annotation-message', 'Half typed');  await settle();
+      expect(component.hasUnsaved()).toBeTrue();
+      component.selection.pin('ai_2', 'transcript'); await settle();
+      expect(component.form()?.value.message).toBe('Half typed');
+      expect(registry.has('teacher-annotation-editor')).toBeTrue();
+    });
+    it('a row without an image position still selects, and the status says why', async () => {
+      await create(); await open();
+      toggle().click(); await settle();
+      component.selection.pin('ai_3', 'list'); await settle();
+      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('No position on the image');
+    });
+  });
+
   describe('grade check panel', () => {
     const panel = () => dom().querySelector('[data-grade-check]');
     const keepButton = () => dom().querySelector<HTMLButtonElement>('[data-grade-keep]')!;

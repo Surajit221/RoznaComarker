@@ -45,7 +45,7 @@
           </div>
           <div class="w-full rounded-2xl overflow-visible">
             @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
-            @if (pdfReviewPages.length) { <app-submission-page-review [pages]="pdfReviewPages" /> }
+            @if (pdfReviewPages.length) { <app-submission-page-review [pages]="pdfReviewPages" [imageStore]="pageImages" /> }
             <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
               @if (pdfMediaState === 'fetching') { <div class="media-pdf-skeleton" aria-hidden="true"><div class="media-pdf-skeleton__page"><span class="media-pdf-line title"></span><span class="media-pdf-line meta"></span><span class="media-pdf-separator"></span><span class="media-pdf-line w95"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span><span class="media-pdf-line w95 group"></span><span class="media-pdf-line w88"></span><span class="media-pdf-line w70"></span></div></div><span class="sr-only" role="status">Loading submitted file</span> }
               @else if (pdfMediaState === 'error') { <div class="section-load-error" role="alert">Unable to load this submitted PDF. <button type="button" (click)="retryUploadedPdf()">Retry</button></div> }
@@ -342,7 +342,9 @@
     }
 
     @if (currentSubmission?._id) {
-    <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)">
+    <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)"
+      [imageUrl]="essayImageUrl" [imageLoading]="imageMediaState === 'fetching'" [imageFailed]="imageMediaState === 'error'" [activeFileId]="activeFileId"
+      [isPdf]="isProbablyPdfUrl(currentSubmission?.fileUrl)" [imageStore]="pageImages" (fileRequested)="onWorkspaceFileRequested($event)">
       <app-student-preview [submission]="previewSubmission" [refreshKey]="annotationSaves" />
     </app-annotation-controls>
     }

@@ -401,3 +401,10 @@
   border: 1px solid #cbd5e1; border-radius: 7px; color: #172033; background: #fff; cursor: pointer; }
 .correction-overlay__entries button[aria-pressed='true'] { border-color: #006b6c; background: #e7f5f5; }
 .correction-overlay__entries button:focus-visible { outline: 2px solid #006b6c; outline-offset: 2px; }
+
+/* The teacher's review workspace (Task 6C). Never set on a student page. */
+.is-sync .correction-overlay__marker.is-sync-active { outline: 3px solid #172033; outline-offset: 2px; transform: translate(-50%, -50%) scale(1.2); z-index: 8; }
+.correction-overlay__marker[data-sync-state] { border-style: dashed; border-color: #172033; background: #fff; color: #172033 !important; }
+.correction-overlay__marker[data-sync-state='archived'] { text-decoration: line-through; }
+.correction-overlay__underline[data-sync-state] { background: repeating-linear-gradient(90deg, var(--underline-color, #d64545) 0 4px, transparent 4px 7px); }
+@media (prefers-reduced-motion: reduce) { .is-sync .correction-overlay__marker { transition: none; } }

@@ -67,6 +67,14 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Input() submissionId: string | null = null;
   @Input() sourceGeometry: AnnotationImageGeometry | null = null;
   @Input() alt = 'Uploaded submission';
+  /** The teacher's review workspace (Task 6C). Off everywhere else: no listeners, no attributes, no behaviour change. */
+  @Input() syncMode = false;
+  @Input() syncActiveId: string | null = null;
+  /** Corrections that are not visible to the student, by id. */
+  @Input() syncStates: ReadonlyMap<string, 'hidden' | 'archived'> | null = null;
+  @Output() syncPointer = new EventEmitter<{ ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate' }>();
+  /** Which corrections are really drawn, so a target the image's geometry refuses is reported as having no position. */
+  @Output() syncDrawn = new EventEmitter<Set<string>>();
   @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
   @Output() retryRequested = new EventEmitter<void>();
 
@@ -115,6 +123,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private renderedHeight = 0;
   private bodyLocked = false;
   private blurFrame: number | null = null;
+  private syncUnlisten: (() => void) | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['page'] && !changes['page'].firstChange) this.closeTooltip();
@@ -142,6 +151,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.updateResponsiveMode();
+    if (this.syncMode) this.listenForSync();
     if (this.displayImageUrl) this.checkCachedImage(this.displayImageUrl);
     document.addEventListener('scroll', this.documentScrollHandler, true);
     document.fonts?.addEventListener('loadingdone', this.fontLoadHandler);
@@ -156,6 +166,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.syncUnlisten?.();
     document.fonts?.removeEventListener('loadingdone', this.fontLoadHandler);
     document.removeEventListener('scroll', this.documentScrollHandler, true);
     this.resizeObserver?.disconnect();
@@ -239,7 +250,49 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   isSelected(segment: AnnotationSegment): boolean {
+    if (this.syncActiveId !== null) return segment.correctionIds.includes(this.syncActiveId);
     return this.selectedId !== null && segment.correctionIds.includes(this.selectedId);
+  }
+
+  isSyncActive(marker: CorrectionMarker): boolean {
+    return this.syncActiveId !== null && marker.annotations.some(a => a._id === this.syncActiveId);
+  }
+
+  /** The state of a drawn item when it is not visible to the student; null for everything on a student's page. */
+  syncState(ids: string[]): 'hidden' | 'archived' | null {
+    if (!this.syncStates || !ids.length) return null;
+    // Shared with something the student does see: it must not read as hidden.
+    const states = ids.map(id => this.syncStates!.get(id));
+    return states.every(Boolean) ? states[0]! : null;
+  }
+  markerIds(marker: CorrectionMarker): string[] { return marker.annotations.map(a => a._id); }
+  syncMarkerLabel(marker: CorrectionMarker): string {
+    const state = this.syncState(this.markerIds(marker));
+    return state ? `${marker.label}, ${state === 'hidden' ? 'hidden from the student' : 'removed'}, approximate position` : marker.label;
+  }
+
+  /** One set of listeners on the overlay, however many markers it draws. Capture phase: a marker's own click handler stops propagation. */
+  private listenForSync(): void {
+    const root = this.overlayEl?.nativeElement;
+    if (!root) return;
+    const idsAt = (event: Event): string[] | null => {
+      const id = (event.target as Element | null)?.closest?.('[data-marker-id]')?.getAttribute('data-marker-id');
+      const marker = id ? this.markers.find(m => m.id === id) : undefined;
+      return marker ? this.markerIds(marker) : null;
+    };
+    const emit = (event: Event, kind: 'hover' | 'leave' | 'focus' | 'activate'): void => { const ids = idsAt(event); if (ids) this.syncPointer.emit({ ids, kind }); };
+    const over = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'hover'); };
+    const out = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'leave'); };
+    // A pointer press is the click that follows, not a keyboard focus (it would count twice).
+    const focus = (event: Event): void => { if ((event.target as Element).matches?.(':focus-visible')) emit(event, 'focus'); };
+    const click = (event: Event): void => emit(event, 'activate');
+    const key = (event: KeyboardEvent): void => { if (event.key === 'Enter' || event.key === ' ') emit(event, 'activate'); };
+    root.addEventListener('pointerover', over, true); root.addEventListener('pointerout', out, true);
+    root.addEventListener('focusin', focus, true); root.addEventListener('click', click, true); root.addEventListener('keydown', key, true);
+    this.syncUnlisten = () => {
+      root.removeEventListener('pointerover', over, true); root.removeEventListener('pointerout', out, true);
+      root.removeEventListener('focusin', focus, true); root.removeEventListener('click', click, true); root.removeEventListener('keydown', key, true);
+    };
   }
 
   onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
@@ -383,6 +436,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
         this.geometryWarningShown = true;
       }
       this.markers = []; this.underlineSegments = []; this.semanticRails = []; this.visuals = []; this.debugWords = [];
+      if (this.syncMode) this.syncDrawn.emit(new Set());
       this.cdr.markForCheck(); return;
     }
     const presentation = imagePresentationGeometry(annotations, Array.isArray(this.ocrWords) ? this.ocrWords : [],
@@ -392,6 +446,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.underlineSegments = sharedSegments(this.visuals, false);
     this.semanticRails = sharedSegments(this.visuals, true);
     this.layoutMarkers();
+    if (this.syncMode) this.syncDrawn.emit(new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id)));
   }
 
   private layoutMarkers(): void {
@@ -433,6 +488,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private openTooltip(marker: CorrectionMarker, target: HTMLElement, pinned: boolean): void {
+    if (this.syncMode) return;   // the workspace's list shows the details
     this.cancelHoverClose();
     this.updateResponsiveMode();
     const wasMobileOpen = this.isMobile && this.activeMarker !== null;

@@ -1,5 +1,7 @@
 // Pure rules of the teacher annotation editor (Task 6B): the 6A snapshot as list rows, what each state allows, form validation matching
 // the server, and error wording. No Angular or DOM here, so every rule is unit-testable.
+import type { OcrBBox } from '../../../models/ocr-token.model';
+import type { AnnotationImageGeometry } from '../../correction-overlay/annotation-image-geometry';
 import type { ScoreReview } from './grade-check.logic';
 
 export type ModerationStatus = 'visible' | 'hidden' | 'archived';
@@ -8,15 +10,15 @@ export type AnnotationAction = 'hide' | 'restore' | 'archive' | 'edit' | 'add';
 export interface SnapshotCorrection {
   id: string; entryId?: string; source?: string; moderationStatus: ModerationStatus; teacherEdited?: boolean;
   fileId?: string; page?: number; startChar?: number; endChar?: number; quotedText?: string;
-  symbol?: string; symbolLabel?: string; category?: string; message?: string; suggestedText?: string;
+  symbol?: string; symbolLabel?: string; category?: string; message?: string; suggestedText?: string; wordIds?: string[]; color?: string;
 }
 export interface SnapshotOrphan {
   entryId: string; kind: 'ai' | 'manual'; status: ModerationStatus; edited?: boolean; reason: string; suppressing?: boolean;
   anchor?: { fileId?: string; page?: number; quotedText?: string } | null;
   value?: { fileId?: string; page?: number; quotedText?: string; symbol?: string; category?: string; message?: string; suggestedText?: string } | null;
 }
-export interface SnapshotWord { id: string; text: string; separatorBefore?: string; }
-export interface SnapshotPage { fileId: string; pageNumber: number; startChar: number; endChar: number; text: string; words: SnapshotWord[]; }
+export interface SnapshotWord { id: string; text: string; separatorBefore?: string; bbox?: OcrBBox | null; }
+export interface SnapshotPage { fileId: string; pageNumber: number; startChar: number; endChar: number; text: string; words: SnapshotWord[]; sourceGeometry?: AnnotationImageGeometry; pageImageUrl?: string; }
 export interface LegendGroup { key: string; label: string; symbols: { symbol: string; label: string }[]; }
 type TransitionTable = Partial<Record<AnnotationAction, { from: string[]; to: string | null }>>;
 /** The server's lifecycle: the main table, plus the rules for orphaned entries. */
@@ -24,7 +26,7 @@ export type Transitions = TransitionTable & { orphan?: TransitionTable };
 export interface AnnotationSnapshot {
   revision: number; sourceHash: string; scoringReviewRequired: boolean; pages: SnapshotPage[]; corrections: SnapshotCorrection[];
   orphans: SnapshotOrphan[]; archivedOrphans?: SnapshotOrphan[]; readOnly?: boolean; readOnlyReason?: string | null;
-  effective: { id: string }[]; transitions: Transitions; legend: { groups: LegendGroup[] };
+  effective: ({ id: string } & Record<string, unknown>)[]; transitions: Transitions; legend: { groups: LegendGroup[] };
   /** Sent by a backend older than Task 7C; the Grade check panel replaced it and nothing shows it. */
   scorePolicy?: string;
   /** The grade check. Absent from a server older than Task 7BE: the panel is then not shown. */
@@ -52,6 +54,8 @@ export interface CorrectionRow {
   orphanReason: string | null; suppressing: boolean;
   fileId: string; page: number; startChar: number | null; endChar: number | null;
   quotedText: string; symbol: string; symbolLabel: string; category: string; message: string; suggestedText: string;
+  /** Server word ids and colour, used to place the row in the review workspace. Absent on an orphan. */
+  wordIds?: string[]; color?: string;
 }
 export type RowFilter = 'all' | 'visible' | 'hidden' | 'archived' | 'review' | 'teacher';
 
@@ -87,7 +91,7 @@ export function buildRows(snapshot: AnnotationSnapshot): CorrectionRow[] {
       orphanReason: orphan ? orphan.reason : null, suppressing: Boolean(orphan?.suppressing),
       fileId: String(c.fileId ?? ''), page: Number(c.page ?? 1), startChar: c.startChar ?? null, endChar: c.endChar ?? null,
       quotedText: c.quotedText ?? '', symbol: c.symbol ?? '', symbolLabel: c.symbolLabel ?? '', category: c.category ?? '',
-      message: c.message ?? '', suggestedText: c.suggestedText ?? '' };
+      message: c.message ?? '', suggestedText: c.suggestedText ?? '', wordIds: c.wordIds, color: c.color };
   });
   for (const o of allOrphans) {
     if (covered.has(o.entryId)) continue;

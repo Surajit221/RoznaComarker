@@ -1,6 +1,18 @@
 <div class="tokenized-transcript" #containerEl>
   @for (t of tokens; track t.trackId) {
-    @if (t.kind === 'word') {
+    @if (t.kind === 'word' && syncMode) {
+      <span
+        [attr.data-word-id]="t.word.id"
+        [attr.data-sync-state]="syncWordState(t.word.id)"
+        [ngClass]="getWordAnnotations(t.word.id).length ? 'correction-highlight' : null"
+        [ngStyle]="syncStyle(t.word.id)"
+        [attr.tabindex]="getWordAnnotations(t.word.id).length ? 0 : null"
+        [attr.role]="getWordAnnotations(t.word.id).length ? 'button' : null"
+        [attr.aria-label]="getWordAnnotations(t.word.id).length ? 'Show correction for ' + t.word.text : null"
+      >
+        {{ t.word.text }}
+      </span>
+    } @else if (t.kind === 'word') {
       <span
         [ngClass]="getWordAnnotations(t.word.id).length ? 'correction-highlight' : null"
         [ngStyle]="getHighlightStyle(t.word.id) || null"

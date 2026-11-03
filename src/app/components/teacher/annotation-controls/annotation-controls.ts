@@ -12,6 +12,10 @@ import {
   snapToWords, validateForm, wordSpans,
 } from './annotation-editor.logic';
 import { GradeCheck } from './grade-check';
+import { RowPosition, buildPositions, positionLabels, revealRow, withDrawn } from './annotation-sync.logic';
+import { CorrectionSelection, SelectionSource } from './correction-selection';
+import { ReviewWorkspace, SyncPointer, applySyncPointer, scrollPanelTo } from './review-workspace';
+import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
 
 const UNSAVED_KEY = 'teacher-annotation-editor';
 const PAGE_SIZE = 50;
@@ -23,7 +27,7 @@ const DONE: Record<AnnotationAction, string> = { hide: 'Hidden from the student.
 
 interface FormState { mode: 'add' | 'edit'; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
 interface PendingAction { body: AnnotationBody; rowKey: string | null; fromForm: boolean; }
-interface EditorDraft { submissionId: string; open: boolean; filter: RowFilter; limit: number; form: FormState | null; pending: PendingAction | null; conflict: boolean; showFormErrors: boolean; error: string; }
+interface EditorDraft { submissionId: string; open: boolean; filter: RowFilter; limit: number; form: FormState | null; pending: PendingAction | null; conflict: boolean; showFormErrors: boolean; error: string; workspaceOpen: boolean; pinnedKey: string | null; }
 
 /**
  * Keeps the editor's state when the page is re-created without the user leaving: the dashboard layout has separate desktop and compact
@@ -38,7 +42,8 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [DatePipe, FormsModule, GradeCheck],
+  imports: [DatePipe, FormsModule, GradeCheck, ReviewWorkspace],
+  providers: [CorrectionSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
   styleUrl: './annotation-controls.css',
@@ -48,13 +53,23 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** The class is archived: known from the page, and confirmed by the server on any write. */
   readonly classClosed = input(false);
   readonly saved = output<void>();
+  /** The image the page already downloaded, for the review workspace. The workspace never fetches it again. */
+  readonly imageUrl = input<string | null>(null);
+  readonly imageLoading = input(false);
+  readonly imageFailed = input(false);
+  readonly activeFileId = input<string | null>(null);
+  readonly isPdf = input(false);
+  readonly imageStore = input<SharedPageImages | null>(null);
+  readonly fileRequested = output<string>();
 
   private readonly api = inject(TeacherAnnotationApiService);
   private readonly unsaved = inject(UnsavedWorkRegistry);
   private readonly drafts = inject(AnnotationDraftStore);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly selection = inject(CorrectionSelection);
   private readonly removeDialog = viewChild<ElementRef<HTMLDialogElement>>('removeDialog');
+  private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private version = 0;
   private trigger: HTMLElement | null = null;
   private readonly spansByPage = new Map<string, { start: number; end: number }[]>();
@@ -82,12 +97,17 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly historyLoading = signal(false);
   readonly historyItems = signal<HistoryItem[]>([]);
   readonly historyNext = signal<number | null>(null);
+  /** Opens only when the teacher asks; closed, none of the workspace exists. */
+  readonly workspaceOpen = signal(false);
+  private readonly drawn = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
 
   /** The snapshot's indicator is the authority; the page's class status covers the time before it loads, and a 409 is the backstop. */
   readonly closed = computed(() => Boolean(this.snapshot()?.readOnly) || this.classClosed() || this.closedByServer());
   readonly readOnly = computed(() => this.closed() || this.noAccess());
   readonly rows = computed(() => { const s = this.snapshot(); return s ? buildRows(s) : []; });
   readonly counts = computed(() => filterCounts(this.rows()));
+  /** Where each row is. Not worked out at all until the workspace is open. */
+  readonly positions = computed<Map<string, RowPosition>>(() => { const s = this.snapshot(); return s && this.workspaceOpen() ? buildPositions(this.rows(), s) : new Map(); });
   /** The server's own student view, not a recount. */
   readonly studentVisible = computed(() => this.snapshot()?.effective?.length ?? 0);
   private readonly filtered = computed(() => { const f = this.filter(); return this.rows().filter(r => matchesFilter(r, f)); });
@@ -111,6 +131,37 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   constructor() {
     // untracked: the registry's own state must not re-run this, or agreeing to discard would register the work again.
     effect(() => { const unsaved = this.hasUnsaved(); untracked(() => { if (unsaved) this.unsaved.register(UNSAVED_KEY); else this.unsaved.clear(UNSAVED_KEY); }); });
+    // One set of listeners on the list, however many rows it shows, and only while the workspace is open.
+    effect(onCleanup => {
+      const list = this.listPanel()?.nativeElement;
+      if (!list || !this.workspaceOpen()) return;
+      const host = this.host.nativeElement;
+      const over = (event: PointerEvent): void => this.onListPointerOver(event), out = (event: PointerEvent): void => this.onListPointerOut(event);
+      const focus = (event: FocusEvent): void => this.onListFocus(event), click = (event: MouseEvent): void => this.onListClick(event);
+      const key = (event: KeyboardEvent): void => { if (event.key === 'Escape') this.selection.clear(); };
+      list.addEventListener('pointerover', over); list.addEventListener('pointerout', out); list.addEventListener('focusin', focus); list.addEventListener('click', click);
+      host.addEventListener('keydown', key);
+      onCleanup(() => {
+        list.removeEventListener('pointerover', over); list.removeEventListener('pointerout', out); list.removeEventListener('focusin', focus); list.removeEventListener('click', click);
+        host.removeEventListener('keydown', key);
+      });
+    });
+    // A selection made in the transcript or on the image: the list shows that row. Only a pinned one may change the filter or the shown limit.
+    effect(() => {
+      const id = this.selection.activeId(), pinned = this.selection.pinnedId(), source = this.selection.source();
+      if (!id || !this.workspaceOpen()) return;
+      untracked(() => {
+        if (source === 'list') return;
+        if (id === pinned) {
+          const reveal = revealRow(this.rows(), id, this.filter(), this.limit(), PAGE_SIZE);
+          if (reveal) {
+            if (reveal.filter !== this.filter()) this.notice.set('Showing all corrections, so the selected one is in the list.');
+            this.filter.set(reveal.filter); this.limit.set(reveal.limit);
+          }
+        }
+        afterNextRender(() => scrollPanelTo(this.listPanel()?.nativeElement, this.listPanel()?.nativeElement.querySelector(`[data-row-key="${CSS.escape(id)}"]`)), { injector: this.injector });
+      });
+    });
   }
 
   ngOnInit(): void {
@@ -121,6 +172,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.conflict.set(draft.conflict); this.showFormErrors.set(draft.showFormErrors); this.error.set(draft.error);
     // A save that was running when the page was rebuilt is unconfirmed: Retry is offered, and is safe because the server replays it.
     if (draft.pending && !draft.error) this.error.set(describeFailure(0, undefined).message);
+    this.workspaceOpen.set(draft.workspaceOpen);
+    if (draft.pinnedKey) this.selection.pin(draft.pinnedKey, 'list');
     if (draft.open) void this.reload();
   }
 
@@ -131,6 +184,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.open.set(false); this.loading.set(false); this.snapshot.set(null); this.saving.set(false); this.notice.set(''); this.error.set(''); this.closedByServer.set(false);
     this.noAccess.set(false); this.filter.set('all'); this.limit.set(PAGE_SIZE); this.form.set(null); this.conflict.set(false); this.pending.set(null); this.confirmRow.set(null);
     this.historyOpen.set(false); this.historyItems.set([]); this.historyNext.set(null);
+    this.workspaceOpen.set(false); this.drawn.set(new Map()); this.selection.clear();
   }
 
   ngOnDestroy(): void {
@@ -139,7 +193,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     const keep = this.hasUnsaved() && this.unsaved.has(UNSAVED_KEY);
     if (keep || this.open()) {
       this.drafts.draft = { submissionId: this.submissionId(), open: this.open(), filter: this.filter(), limit: this.limit(), form: keep ? this.form() : null, pending: keep ? this.pending() : null,
-        conflict: keep && this.conflict(), showFormErrors: keep && this.showFormErrors(), error: keep ? this.error() : '' };
+        conflict: keep && this.conflict(), showFormErrors: keep && this.showFormErrors(), error: keep ? this.error() : '', workspaceOpen: this.workspaceOpen(), pinnedKey: this.selection.pinnedId() };
     }
     if (!keep) this.unsaved.clear(UNSAVED_KEY);
   }
@@ -158,6 +212,10 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
       if (version !== this.version) return;
       this.spansByPage.clear();
       this.snapshot.set(snapshot);
+      this.drawn.set(new Map());
+      // A saved change or an OCR re-run can take the selected correction away.
+      const pinned = this.selection.pinnedId();
+      if (pinned && !this.rows().some(row => row.key === pinned)) { this.selection.clear(); this.notice.set('The selected correction is no longer in the list.'); }
     } catch (failure) {
       if (version === this.version) this.showLoadFailure(failure);
     } finally {
@@ -261,6 +319,39 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
         || this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]');
       target?.focus({ preventScroll: true });
     }, { injector: this.injector });
+  }
+
+  toggleWorkspace(): void {
+    const opening = !this.workspaceOpen();
+    if (!opening) { this.selection.clear(); this.drawn.set(new Map()); }
+    this.workspaceOpen.set(opening);
+  }
+  /** The row's position words, using what the overlay really drew. */
+  positionWords(row: CorrectionRow): string[] {
+    return this.workspaceOpen() ? positionLabels(withDrawn(this.positions().get(row.key), this.drawn(), row.key)) : [];
+  }
+  onDrawn(event: { key: string; ids: Set<string> }): void { this.drawn.update(map => new Map(map).set(event.key, event.ids)); }
+
+  private rowKeyAt(event: Event): string | null {
+    return (event.target as Element | null)?.closest?.('[data-row-key]')?.getAttribute('data-row-key') ?? null;
+  }
+  private fromList(event: SyncPointer): void { applySyncPointer(this.selection, event, 'list' satisfies SelectionSource); }
+  private onListPointerOver(event: PointerEvent): void {
+    const key = event.pointerType === 'mouse' ? this.rowKeyAt(event) : null;
+    if (key) this.fromList({ ids: [key], kind: 'hover' });
+  }
+  private onListPointerOut(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && this.rowKeyAt(event)) this.fromList({ ids: [], kind: 'leave' });
+  }
+  private onListFocus(event: FocusEvent): void {
+    if (!(event.target as Element).matches?.(':focus-visible')) return;
+    const key = this.rowKeyAt(event);
+    if (key) this.fromList({ ids: [key], kind: 'focus' });
+  }
+  private onListClick(event: MouseEvent): void {
+    if ((event.target as Element).closest?.('button, a, input, select, textarea')) return;
+    const key = this.rowKeyAt(event);
+    if (key) this.fromList({ ids: [key], kind: 'activate' });
   }
 
   setFilter(filter: RowFilter): void { this.filter.set(filter); this.limit.set(PAGE_SIZE); }

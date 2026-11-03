@@ -1,4 +1,4 @@
-<div class="correction-overlay" #overlayEl [class.is-loaded]="mediaState === 'loaded'" [class.has-selection]="!!selectedId"
+<div class="correction-overlay" #overlayEl [class.is-loaded]="mediaState === 'loaded'" [class.has-selection]="!!selectedId || !!syncActiveId" [class.is-sync]="syncMode"
   [style.--badge-height.px]="badgeMetrics.height" [style.--badge-font-size.px]="badgeMetrics.fontSize"
   [style.--badge-padding-x.px]="badgeMetrics.paddingX" [style.--badge-border.px]="badgeMetrics.border"
   [style.--badge-hit-size.px]="badgeMetrics.hitSize" [style.--badge-hit-padding.px]="badgeMetrics.hitPadding"
@@ -36,13 +36,13 @@
     }
 
   @for (line of mediaState === 'loaded' ? underlineSegments : []; track line.id) {
-    <span class="correction-overlay__underline" [class.correction-overlay__boundary]="line.boundary" [class.is-selected]="isSelected(line)" [style.left.%]="line.left" [style.top.%]="line.top"
+    <span class="correction-overlay__underline" [class.correction-overlay__boundary]="line.boundary" [class.is-selected]="isSelected(line)" [attr.data-sync-state]="syncState(line.correctionIds)" [style.left.%]="line.left" [style.top.%]="line.top"
       [style.--underline-clearance]="line.underlineBottom === undefined ? null : (line.underlineBottom - line.top) + '%'"
       [style.width.%]="line.width" [style.--underline-color]="line.color" aria-hidden="true"></span>
   }
 
   @for (rail of mediaState === 'loaded' ? semanticRails : []; track rail.id) {
-    <span class="correction-overlay__semantic-rail" [class.is-selected]="isSelected(rail)" [style.left.%]="rail.left" [style.top.%]="rail.top"
+    <span class="correction-overlay__semantic-rail" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
       [style.height.%]="rail.height" [style.--underline-color]="rail.color" aria-hidden="true"></span>
   }
 
@@ -61,7 +61,10 @@
       type="button"
       class="correction-overlay__marker"
       [attr.data-marker-id]="marker.id"
-      [class.is-selected]="activeMarker === marker"
+      [class.is-selected]="activeMarker === marker || isSyncActive(marker)"
+      [class.is-sync-active]="isSyncActive(marker)"
+      [attr.data-sync-state]="syncState(markerIds(marker))"
+      [attr.aria-pressed]="syncMode ? isSyncActive(marker) : null"
       [style.--badge-width.px]="marker.width"
       [class.correction-overlay__marker--semantic]="marker.semantic"
       [style.--marker-left]="marker.left + '%'"
@@ -70,8 +73,8 @@
       [style.--marker-offset-y.px]="marker.offsetY"
       [style.--marker-color]="marker.annotation.color || '#d64545'"
       [style.color]="marker.textColor"
-      [attr.aria-label]="marker.label"
-      [attr.aria-expanded]="activeMarker?.annotation?._id === marker.annotation._id"
+      [attr.aria-label]="syncMode ? syncMarkerLabel(marker) : marker.label"
+      [attr.aria-expanded]="syncMode ? null : activeMarker?.annotation?._id === marker.annotation._id"
       [attr.aria-controls]="activeMarker === marker ? detailId : null"
       (pointerenter)="onMarkerEnter(marker, $event)"
       (pointerleave)="onMarkerLeave(marker, $event)"

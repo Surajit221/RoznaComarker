@@ -62,3 +62,8 @@
     pointer-events: auto;
   }
 }
+
+/* The teacher's review workspace (Task 6C). Never set on a student page. */
+.correction-highlight[data-sync-state] { background: #f1f5f9 !important; border-bottom-style: dotted; border-bottom-color: #475569 !important; }
+.correction-highlight[data-sync-state='archived'] { text-decoration: line-through; }
+.correction-highlight.is-sync-active { outline: 3px solid #172033; outline-offset: 1px; background: #fde68a !important; font-weight: 600; }

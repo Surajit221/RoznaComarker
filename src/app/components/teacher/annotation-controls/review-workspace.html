@@ -1,0 +1,45 @@
+<section class="workspace" aria-label="Image and transcript">
+  <p class="sr-only" role="status" aria-live="polite" data-sync-live>{{ announcement() }}</p>
+  <div class="workspace__status" data-sync-status>
+    @if (activeRow(); as row) {
+      <p><strong>Selected:</strong>&ngsp;{{ row.symbol }}@if (row.quotedText) { <span>&ngsp;“{{ row.quotedText }}”</span> }@if (activeNote()) { <span class="workspace__note" data-sync-note>&ngsp;· {{ activeNote() }}</span> }</p>
+      <button type="button" class="btn-info" data-sync-clear (click)="selection.clear()">Clear selection</button>
+    } @else {
+      <p>Select a correction in the list, the transcript or on the image to see it in all three.</p>
+    }
+  </div>
+  <div class="workspace__panels">
+    <div class="workspace__column">
+      <h3>Image</h3>
+      @if (views().length > 1) {
+        <nav class="workspace__pages" aria-label="Pages in the workspace">
+          <button type="button" class="btn-info" [disabled]="viewIndex() === 0" (click)="goTo(viewIndex() - 1)">Previous page</button>
+          <span data-sync-page>Page {{ viewIndex() + 1 }} of {{ views().length }}</span>
+          <button type="button" class="btn-info" [disabled]="viewIndex() >= views().length - 1" (click)="goTo(viewIndex() + 1)">Next page</button>
+        </nav>
+      }
+      <div #imagePanel class="workspace__panel" tabindex="0" role="group" aria-label="Submitted image, scrollable" data-sync-image>
+        @if (noImage()) {
+          <p>This page's image is not available here. The transcript and the list still work.</p>
+        } @else {
+          <app-correction-overlay [imageUrl]="displayUrl()" [sourceLoading]="displayLoading()" [sourceLoadError]="displayFailed()"
+            [fileId]="view()?.fileId ?? null" [submissionId]="submissionId()" [page]="view()?.pageNumber ?? 1" [sourceGeometry]="view()?.sourceGeometry ?? null"
+            [annotations]="overlayAnnotations()" [ocrWords]="view()?.words ?? []" alt="Student submission, in the review workspace"
+            [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'image')" (syncDrawn)="onDrawn($event)" />
+        }
+      </div>
+      @if (approximateShown()) { <p class="workspace__legend" data-sync-legend>Dashed marks are hidden or removed corrections, shown at an approximate position. Students do not see them.</p> }
+    </div>
+    <div class="workspace__column">
+      <h3>Transcript</h3>
+      <div #transcriptPanel class="workspace__panel workspace__panel--text" tabindex="0" role="group" aria-label="Transcript, scrollable" data-sync-transcript>
+        @for (page of views(); track page.key) {
+          <section>
+            @if (views().length > 1) { <h4>Page {{ page.displayNumber }}</h4> }
+            <app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'transcript')" />
+          </section>
+        }
+      </div>
+    </div>
+  </div>
+</section>

@@ -4,6 +4,7 @@ import { AnnotationControls } from '../../../../../components/teacher/annotation
 import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
+import { SharedPageImages } from '../../../../../components/submission-page-review/shared-page-images';
 import { Component, EventEmitter, inject, Output } from '@angular/core';
 
 
@@ -295,6 +296,8 @@ export class StudentSubmissionPages {
 
 
   private http = inject(HttpClient);
+  /** PDF page images, shared by this page and the review workspace so each is downloaded once. */
+  readonly pageImages = new SharedPageImages(this.http);
 
 
 
@@ -2685,6 +2688,12 @@ export class StudentSubmissionPages {
     });
 
     return filtered.length ? filtered : pages;
+  }
+
+  /** The review workspace moved to another uploaded file: the page loads it, once, and both views use it. */
+  onWorkspaceFileRequested(fileId: string): void {
+    const index = this.submissionFileIds.indexOf(fileId);
+    if (index >= 0) this.onSelectSubmissionImage(index);
   }
 
   onSelectSubmissionImage(index: number) {
@@ -5743,6 +5752,7 @@ export class StudentSubmissionPages {
 
 
   ngOnDestroy() {
+    this.pageImages.destroy();
     this.teacherCommentDraftDestroyed = true;
 
 
