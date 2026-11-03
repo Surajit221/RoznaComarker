@@ -61,6 +61,8 @@ export type StudentProgress = {
 };
 
 export type BackendClassSummary = {
+  /** Student responses: a name only, in place of `teacher`. */
+  teacherDisplayName?: string;
   id: string;
   name: string;
   description: string;

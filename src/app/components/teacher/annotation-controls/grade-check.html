@@ -1,0 +1,54 @@
+<section class="grade" aria-labelledby="grade-check-title" data-grade-check>
+  <h3 id="grade-check-title">Grade check</h3>
+  <p class="grade__status" [class.grade__status--needed]="needed()" data-grade-status tabindex="-1"><strong data-grade-label>{{ copy().label }}.</strong>&ngsp;<span data-grade-explanation>{{ copy().explanation }}</span></p>
+  @if (review().decision; as decision) {
+    <p class="grade__decision" data-grade-decision>{{ review().status === 'checked' ? 'Checked' : 'Last checked' }} on {{ decision.at | date:'medium' }} by {{ decidedBy() }}.@if (decision.reason) {&ngsp;Reason: <span data-grade-decision-reason>{{ decision.reason }}</span>}</p>
+  }
+
+  <p class="grade__overall" data-grade-overall>
+    Overall: <strong>{{ review().scores.overallScore ?? 'not available' }}</strong>
+    @if (review().scores.grade) {&ngsp;· Grade: <strong>{{ review().scores.grade }}</strong> }
+    @if (isCustomRubric()) {&ngsp;· Scored with the assignment's own rubric }
+  </p>
+  @if (scoreLines().length) {
+    <ul class="grade__scores" aria-label="Scores by category" data-grade-scores>
+      @for (line of scoreLines(); track line) { <li>{{ line }}</li> }
+    </ul>
+  }
+  @if (countLines().length) {
+    <ul class="grade__counts" aria-label="Issue counts by category" data-grade-counts>
+      @for (line of countLines(); track line) { <li>{{ line }}</li> }
+    </ul>
+  }
+
+  <p class="sr-only" role="status" aria-live="polite">{{ notice() }}</p>
+  @if (notice() && notice() !== 'Saving…') { <p class="grade__notice" aria-hidden="true" data-grade-notice>✓ {{ notice() }}</p> }
+  @if (error()) { <p class="grade__error" role="alert" data-grade-error tabindex="-1">{{ error() }}</p> }
+
+  @if (readOnly()) {
+    @if (closedNote()) { <p class="grade__help" data-grade-readonly>{{ closedNote() }}</p> }
+  } @else {
+    @if (showReason()) {
+      <label for="grade-check-reason">Reason (optional)</label>
+      <input id="grade-check-reason" type="text" data-grade-reason [maxlength]="REASON_MAX" [readonly]="pending() !== null" [ngModel]="reason()" (ngModelChange)="setReason($event)"
+        [attr.aria-invalid]="!!fieldError()" [attr.aria-describedby]="fieldError() ? 'grade-check-reason-error' : 'grade-check-reason-count'" />
+      <p id="grade-check-reason-count" class="grade__help">{{ reason().length }} / {{ REASON_MAX }}</p>
+      @if (fieldError()) { <p id="grade-check-reason-error" class="grade__error" data-grade-reason-error>{{ fieldError() }}</p> }
+    }
+    @if (needed()) {
+      <div class="grade__actions">
+        <button type="button" class="btn-primary" data-grade-keep [attr.aria-disabled]="!!blocked()" [attr.aria-describedby]="blocked() ? 'grade-check-blocked' : 'grade-check-note'" (click)="keep()">Keep these scores</button>
+      </div>
+      @if (blocked()) { <p id="grade-check-blocked" class="grade__help grade__help--strong" data-grade-blocked>{{ blocked() }}</p> }
+      <p id="grade-check-note" class="grade__help" data-grade-note>Scores are not changed here. This records that you checked them. Scores can't be edited in this screen yet.</p>
+    } @else if (reason().length && !pending()) {
+      <div class="grade__actions"><button type="button" class="btn-info" data-grade-clear (click)="clearReason()">Clear reason</button></div>
+    }
+    @if (pending() && !saving() && error()) {
+      <div class="grade__actions">
+        <button type="button" class="btn-warning" data-grade-retry (click)="retry()">Retry</button>
+        <button type="button" class="btn-info" data-grade-discard (click)="discard()">Discard</button>
+      </div>
+    }
+  }
+</section>

@@ -4,6 +4,8 @@ import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { AnnotationControls, AnnotationDraftStore } from './annotation-controls';
 import type { AnnotationBody, AnnotationSnapshot, SnapshotCorrection } from './annotation-editor.logic';
+import type { ScoreReview } from './grade-check.logic';
+import { AuthService } from '../../../auth/auth.service';
 
 const TEXT = 'I goes to the park and <img src=x onerror=alert(1)> it';
 const correction = (patch: Partial<SnapshotCorrection>): SnapshotCorrection => ({ id: 'ai_1', moderationStatus: 'visible', source: 'AI', fileId: 'f1', page: 1, startChar: 2, endChar: 6, quotedText: 'goes', symbol: 'AGR', symbolLabel: 'Agreement', category: 'GRAMMAR', message: 'Use go.', suggestedText: 'go', ...patch });
@@ -28,13 +30,16 @@ class FakeApi {
   mutate(_id: string, body: AnnotationBody) { this.calls.push(JSON.parse(JSON.stringify(body))); return this.respond(body); }
 }
 
+const SCORE_REVIEW: ScoreReview = { status: 'needed', fingerprint: 'a'.repeat(64), decision: null, countsScored: { grammar: 3 }, countsVisible: { grammar: 2 },
+  scores: { overallScore: 82, grade: 'B', categories: { GRAMMAR: { score: 18, maxScore: 25 } }, customRubricOverallScore: null } };
+
 describe('AnnotationControls', () => {
   let fixture: ComponentFixture<AnnotationControls>, component: AnnotationControls, api: FakeApi, registry: UnsavedWorkRegistry;
 
   async function settle() { for (let i = 0; i < 4; i++) { await fixture.whenStable(); fixture.detectChanges(); await Promise.resolve(); } }
   async function create(inputs: { classClosed?: boolean } = {}) {
     api = new FakeApi();
-    await TestBed.configureTestingModule({ imports: [AnnotationControls], providers: [{ provide: TeacherAnnotationApiService, useValue: api }] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [AnnotationControls], providers: [{ provide: AuthService, useValue: { getMeProfile: async () => ({ id: 'me' }) } }, { provide: TeacherAnnotationApiService, useValue: api }] }).compileComponents();
     fixture = TestBed.createComponent(AnnotationControls);
     fixture.componentRef.setInput('submissionId', 's1');
     if (inputs.classClosed) fixture.componentRef.setInput('classClosed', true);
@@ -50,6 +55,73 @@ describe('AnnotationControls', () => {
   function fill(id: string, value: string) { const el = dom().querySelector(`#${id}`) as HTMLTextAreaElement; el.value = value; el.dispatchEvent(new Event('input')); }
 
   afterEach(() => { registry?.clear('teacher-annotation-editor'); TestBed.inject(AnnotationDraftStore).draft = null; TestBed.resetTestingModule(); });
+
+  describe('grade check panel', () => {
+    const panel = () => dom().querySelector('[data-grade-check]');
+    const keepButton = () => dom().querySelector<HTMLButtonElement>('[data-grade-keep]')!;
+    let scoreReview: jasmine.Spy;
+    beforeEach(async () => {
+      await create();
+      scoreReview = jasmine.createSpy('scoreReview').and.resolveTo({ revision: 4 });
+      (api as unknown as { scoreReview: jasmine.Spy }).scoreReview = scoreReview;
+    });
+    it('replaces the policy sentence', async () => {
+      api.current = snapshot({ scoreReview: SCORE_REVIEW });
+      await openEditor();
+      expect(panel()).not.toBeNull();
+      expect(text()).not.toContain('Annotation changes do not change grades.');
+      expect(text()).toContain('Grammar: 3 when scored, 2 shown to the student');
+    });
+    it('a server without the review: no panel, nothing breaks', async () => {
+      await openEditor();
+      expect(panel()).toBeNull();
+      expect(text()).toContain('Review corrections');
+    });
+    it('blocked while the correction form has unsaved input; free again when it is cancelled', async () => {
+      api.current = snapshot({ scoreReview: SCORE_REVIEW });
+      await openEditor();
+      expect(keepButton().getAttribute('aria-disabled')).toBe('false');
+      button('Add correction')!.click(); await settle();
+      fill('annotation-message', 'Unsaved text'); await settle();
+      expect(keepButton().getAttribute('aria-disabled')).toBe('true');
+      expect(dom().querySelector('[data-grade-blocked]')!.textContent).toContain('Save or cancel your correction first');
+      keepButton().click(); await settle();
+      expect(scoreReview).not.toHaveBeenCalled();
+      component.cancelForm(); await settle();
+      expect(keepButton().getAttribute('aria-disabled')).toBe('false');
+    });
+    it('closed class: read-only', async () => {
+      api.current = snapshot({ scoreReview: SCORE_REVIEW, readOnly: true, readOnlyReason: 'CLASS_CLOSED' });
+      await openEditor();
+      expect(dom().querySelector('[data-grade-keep]')).toBeNull();
+      expect(dom().querySelector('[data-grade-readonly]')!.textContent).toContain('read-only');
+    });
+    it('after a decision: the snapshot and an open history reload; the page is not told scores changed', async () => {
+      api.current = snapshot({ scoreReview: SCORE_REVIEW });
+      await openEditor();
+      await component.toggleHistory(); await settle();
+      const saved: void[] = []; component.saved.subscribe(() => saved.push());
+      const before = api.snapshotCalls, historyBefore = api.history.calls.count();
+      keepButton().click(); await settle();
+      expect(scoreReview).toHaveBeenCalledTimes(1);
+      expect(api.snapshotCalls).toBe(before + 1);
+      expect(api.history.calls.count()).toBe(historyBefore + 1);
+      expect(saved).toEqual([]);
+    });
+    it('history: a readable grade-check row with its reason, as text', async () => {
+      api.history.and.resolveTo({ nextOffset: null, items: [{ action: 'score_review', previousRevision: 3, newRevision: 4, createdAt: '2026-11-01T10:00:00.000Z', entryId: null, reason: '<img src=x> kept',
+        before: { status: 'needed' }, after: { status: 'checked' } }] });
+      await openEditor();
+      await component.toggleHistory(); await settle();
+      const history = dom().querySelector('.history')!;
+      expect(history.textContent).toContain('Grade checked');
+      expect(history.textContent).toContain('Scores kept. No score was changed.');
+      expect(history.textContent).not.toContain('needed');
+      expect(history.textContent).not.toContain(' item ');
+      expect(history.querySelector('[data-history-reason]')!.textContent).toContain('<img src=x> kept');
+      expect(history.querySelector('img')).toBeNull();
+    });
+  });
 
   describe('state badges and gating', () => {
     beforeEach(async () => {

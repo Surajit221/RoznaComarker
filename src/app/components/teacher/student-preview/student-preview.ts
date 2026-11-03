@@ -13,6 +13,7 @@ import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { MySubmissionPage } from '../../../pages/students/my-class-student-pages/detail-my-class-student-pages/my-submission-page/my-submission-page';
 import { CanonicalSubmissionResultCoordinator } from '../../../services/canonical-submission-result-coordinator.service';
 import { STUDENT_RESULT_PREVIEW } from '../../../services/student-result-preview';
+import { teacherDisplayName } from '../../../utils/teacher-display-name.util';
 
 /** The fields a guest's own presentation response has: a guest preview gets exactly these, so nothing teacher-side reaches the page. */
 const GUEST_SUBMISSION_FIELDS = ['_id', 'submittedAt', 'status', 'isLate', 'draftNumber', 'ocrJobId', 'transcriptText', 'combinedOcrText', 'ocrText', 'ocrStatus', 'correctionStatus', 'semanticStatus',
@@ -25,7 +26,14 @@ const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON
 export function studentSubmissionCopy(submission: Record<string, unknown>, audience: 'student' | 'guest'): Record<string, unknown> {
   const copy: Record<string, unknown> = clone(submission);
   delete copy['writingCorrections']; delete copy['teacherAnnotations']; delete copy['guest'];
-  if (audience === 'student') return copy;
+  if (audience === 'student') {
+    // A student's response has the teacher's name only, not this teacher-side object.
+    for (const key of ['assignment', 'class']) {
+      const owner = copy[key] as Record<string, unknown> | null;
+      if (owner && typeof owner === 'object') { owner['teacherDisplayName'] = teacherDisplayName(owner); delete owner['teacher']; }
+    }
+    return copy;
+  }
   const picked = Object.fromEntries(GUEST_SUBMISSION_FIELDS.filter(key => copy[key] !== undefined).map(key => [key, copy[key]]));
   return { ...picked, assignment: idOf(submission['assignment']), class: idOf(submission['class']) };
 }

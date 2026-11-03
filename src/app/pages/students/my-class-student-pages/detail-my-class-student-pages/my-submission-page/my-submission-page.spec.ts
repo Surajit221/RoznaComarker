@@ -43,6 +43,13 @@ describe('MySubmissionPage', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+  it('the By line shows the teacher\'s name, never an email', () => {
+    const author = (assignment: unknown) => { (component as unknown as { submission: unknown }).submission = { assignment, student: { displayName: 'Student', email: 's@example.com' } }; return component.submissionAuthor; };
+    expect(author({ teacherDisplayName: 'Ms Rahman' })).toBe('Ms Rahman');
+    expect(author({ teacher: { email: 't@example.com' } })).toBe('Your teacher');
+    expect(author({ teacherDisplayName: 't@example.com' })).toBe('Your teacher');
+    expect(author('assignment-id')).toBe('Your teacher');   // a guest's presentation has the id only
+  });
   it('does not start polling for a fresh persisted result',()=>{
     const start=spyOn(TestBed.inject(CanonicalSubmissionResultCoordinator),'start');
     component.submission={_id:'submission-1',ocrStatus:'completed'} as NonNullable<typeof component.submission>;

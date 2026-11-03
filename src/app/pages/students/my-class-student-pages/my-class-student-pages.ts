@@ -12,6 +12,7 @@ import { AlertService } from '../../../services/alert.service';
 import { DebounceService } from '../../../services/debounce.service';
 import { Subject, takeUntil } from 'rxjs';
 import { safeHttpErrorMessage } from '../../../utils/safe-http-error-message.util';
+import { teacherDisplayName } from '../../../utils/teacher-display-name.util';
 
 @Component({
   selector: 'app-my-class-student-pages',
@@ -120,8 +121,7 @@ export class MyClassStudentPages {
 
   private async mapMembershipToCardItem(m: BackendMembership) {
     const c: any = m && (m as any).class;
-    const teacher = c && c.teacher;
-    const teacherName = (teacher && (teacher.displayName || teacher.email)) || '';
+    const teacherName = teacherDisplayName(c);
     
     try {
       // Get class summary to get dynamic counts and last edited time

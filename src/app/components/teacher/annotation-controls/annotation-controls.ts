@@ -11,6 +11,7 @@ import {
   allowedActions, buildRows, describeFailure, filterCounts, historyActionLabel, historyQuote, historySummary, matchesFilter, needsReview, newRequestId, orphanReasonText, rowBadges,
   snapToWords, validateForm, wordSpans,
 } from './annotation-editor.logic';
+import { GradeCheck } from './grade-check';
 
 const UNSAVED_KEY = 'teacher-annotation-editor';
 const PAGE_SIZE = 50;
@@ -37,7 +38,7 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, GradeCheck],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
   styleUrl: './annotation-controls.css',
@@ -103,6 +104,9 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly savedVersion = computed(() => { const f = this.form(); return f?.targetId && this.conflict() ? this.rows().find(r => r.targetId === f.targetId || r.key === f.rowKey) ?? null : null; });
   /** Blocks new actions while one is running or unconfirmed. Buttons stay focusable (aria-disabled) so keyboard focus is never lost. */
   readonly locked = computed(() => this.saving() || this.pending() !== null || this.readOnly());
+  /** A grade check is about what is saved: it waits for anything the editor has not saved yet. */
+  readonly gradeCheckBlock = computed(() => this.saving() ? 'A correction is being saved. Wait for it to finish.'
+    : this.hasUnsaved() ? 'Save or cancel your correction first: the scores should be checked against what the student will see.' : '');
 
   constructor() {
     // untracked: the registry's own state must not re-run this, or agreeing to discard would register the work again.
@@ -343,4 +347,10 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     }
   }
   shortId(id: string | null | undefined): string { return id ? String(id).slice(-8) : ''; }
+
+  /** The grade check recorded a decision. No score changed, so the page's results are not refreshed and the preview is not reloaded. */
+  async onGradeChecked(): Promise<void> {
+    await this.reload();
+    if (this.historyOpen()) await this.loadHistory(true);
+  }
 }

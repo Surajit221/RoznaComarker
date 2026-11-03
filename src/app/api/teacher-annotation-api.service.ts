@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { AnnotationBody, AnnotationSnapshot, HistoryItem } from '../components/teacher/annotation-controls/annotation-editor.logic';
+import type { ScoreReview, ScoreReviewBody } from '../components/teacher/annotation-controls/grade-check.logic';
 
 /** The student handlers' own output, run for the submission's owner by the server. */
 export interface StudentPreviewPayload { audience: 'student' | 'guest'; ocrCorrections: unknown; ocrCorrectionsStatus: number; feedback: unknown; feedbackStatus: number; }
@@ -18,6 +19,9 @@ export class TeacherAnnotationApiService {
   }
   async mutate(submissionId: string, body: AnnotationBody): Promise<{ revision: number; replay?: boolean }> {
     return (await firstValueFrom(this.http.post<{ data: { revision: number; replay?: boolean } }>(this.url(submissionId), body))).data;
+  }
+  async scoreReview(submissionId: string, body: ScoreReviewBody): Promise<{ revision: number; replay?: boolean; scoreReview: ScoreReview }> {
+    return (await firstValueFrom(this.http.post<{ data: { revision: number; replay?: boolean; scoreReview: ScoreReview } }>(`${this.url(submissionId)}/score-review`, body))).data;
   }
   async preview(submissionId: string): Promise<StudentPreviewPayload> {
     return (await firstValueFrom(this.http.get<{ data: StudentPreviewPayload }>(`${this.url(submissionId)}/preview`))).data;

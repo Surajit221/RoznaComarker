@@ -25,7 +25,11 @@
           <strong>{{ studentVisible() }}</strong> of {{ rows().length }} corrections are visible to the student.
           Hidden: {{ counts().hidden }}. Removed: {{ counts().archived }}. Needs review: {{ counts().review }}.
         </p>
-        <p class="editor__policy">{{ data.scorePolicy }}</p>
+        @if (data.scoreReview; as review) {
+          <app-grade-check [submissionId]="submissionId()" [review]="review" [revision]="data.revision" [sourceHash]="data.sourceHash" [readOnly]="readOnly()"
+            [closedNote]="closed() ? 'This class is closed, so the grade check is read-only.' : ''" [editorBlock]="gradeCheckBlock()"
+            (decided)="onGradeChecked()" (reloadNeeded)="reload()" (closedByServer)="closedByServer.set(true)" (noAccess)="noAccess.set(true)" />
+        }
 
         <div class="editor__toolbar">
           <div class="editor__filters" role="group" aria-label="Filter corrections">
@@ -133,9 +137,10 @@
             <ol>
               @for (item of historyItems(); track item.newRevision + ':' + item.createdAt) {
                 <li>
-                  <p><strong>{{ historyActionLabel(item.action) }}</strong> · <time>{{ item.createdAt | date:'medium' }}</time> · item {{ shortId(item.entryId) }}</p>
+                  <p><strong>{{ historyActionLabel(item.action) }}</strong> · <time>{{ item.createdAt | date:'medium' }}</time>@if (item.entryId) {&ngsp;· item {{ shortId(item.entryId) }}}</p>
                   @if (historySummary(item)) { <p>{{ historySummary(item) }}</p> }
                   @if (historyQuote(item)) { <blockquote>{{ historyQuote(item) }}</blockquote> }
+                  @if (item.reason) { <p data-history-reason>Reason: {{ item.reason }}</p> }
                 </li>
               }
             </ol>

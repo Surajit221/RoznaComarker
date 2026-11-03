@@ -185,6 +185,12 @@ describe('StudentPreview', () => {
       (copy['ocrPages'] as unknown[]).push({});
       expect(SUBMISSION.ocrPages.length).toBe(0);
     });
+    it('registered: the teacher object becomes the name a student gets; no email', () => {
+      const copy = studentSubmissionCopy({ ...SUBMISSION, assignment: { _id: 'a1', teacher: { _id: 't1', email: 't@example.com', displayName: 'Ms Rahman' } }, class: { _id: 'c1', teacher: { _id: 't1', email: 't@example.com', displayName: 'Ms Rahman' } } }, 'student');
+      expect(copy['assignment']).toEqual({ _id: 'a1', teacherDisplayName: 'Ms Rahman' });
+      expect(copy['class']).toEqual({ _id: 'c1', teacherDisplayName: 'Ms Rahman' });
+      expect(JSON.stringify(copy)).not.toContain('t@example.com');
+    });
     it('guest: only the fields the guest presentation has; references are plain ids', () => {
       const copy = studentSubmissionCopy(SUBMISSION, 'guest');
       expect(copy['assignment']).toBe('a1');

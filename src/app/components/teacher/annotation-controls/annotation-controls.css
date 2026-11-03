@@ -10,7 +10,7 @@ p { margin: 6px 0; font-size: .9rem; line-height: 1.5; }
 .editor__error, .form__field-error { color: #9f261c; font-weight: 600; }
 .editor__readonly { padding: 10px 12px; border: 1px solid #94a3b8; border-radius: 10px; background: #f1f5f9; }
 .editor__counts { font-size: 1rem; }
-.editor__policy { color: #475569; font-size: .8rem; }
+
 .editor__toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
 .editor__filters, .editor__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .editor__actions { margin-top: 8px; }

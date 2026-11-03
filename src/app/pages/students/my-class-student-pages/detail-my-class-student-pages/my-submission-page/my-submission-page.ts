@@ -44,6 +44,7 @@ import { DraftComparisonComponent } from '../../../../../components/draft-compar
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
   normalizeCanonicalResult, type CanonicalResultViewState, evaluationHeading } from '../../../../../utils/canonical-result-state.util';
+import { teacherDisplayName } from '../../../../../utils/teacher-display-name.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
 import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
@@ -388,15 +389,7 @@ export class MySubmissionPage {
   }
 
   get submissionAuthor(): string {
-    const a: any = this.submission && (this.submission as any).assignment;
-    const teacher: any = a && typeof a === 'object' ? (a.teacher || a.createdBy) : null;
-    const teacherEmail = teacher && typeof teacher === 'object' ? (teacher.email || teacher.userEmail) : '';
-    if (typeof teacherEmail === 'string' && teacherEmail.trim().length) return teacherEmail.trim();
-
-    const s: any = this.submission && (this.submission as any).student;
-    if (!s) return '';
-    if (typeof s === 'string') return '';
-    return s.displayName || s.email || '';
+    return teacherDisplayName(this.submission && (this.submission as any).assignment);
   }
 
   get submissionDateText(): string {

@@ -24,6 +24,15 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     expect(fixture.nativeElement.querySelector('[innerHTML]')).toBeNull();
   });
 
+  it('a card with no score (a teacher-added category) has no score badge, and no "0/0"; its issue count stays', () => {
+    const area = { ...model().areasForImprovement[0], id: 'v', category: 'VOCABULARY', title: 'Vocabulary', issueCount: 1, score: 0, maxScore: 0 };
+    fixture.componentRef.setInput('model', model({ areasForImprovement: [area], strengths: [] })); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.score-badge')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('0/0');
+    expect(fixture.nativeElement.textContent).toContain('1 issue');
+    expect(fixture.nativeElement.textContent).toContain('Vocabulary');
+  });
+
   it('never renders a heading-only blank completed section', () => {
     fixture.componentInstance.model = model({ status: 'empty', message: 'No major improvement areas were identified.', areasForImprovement: [], actionSteps: [] });
     fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('No major improvement areas were identified.');

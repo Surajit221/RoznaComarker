@@ -1,5 +1,6 @@
 // Pure rules of the teacher annotation editor (Task 6B): the 6A snapshot as list rows, what each state allows, form validation matching
 // the server, and error wording. No Angular or DOM here, so every rule is unit-testable.
+import type { ScoreReview } from './grade-check.logic';
 
 export type ModerationStatus = 'visible' | 'hidden' | 'archived';
 export type AnnotationAction = 'hide' | 'restore' | 'archive' | 'edit' | 'add';
@@ -24,11 +25,15 @@ export interface AnnotationSnapshot {
   revision: number; sourceHash: string; scoringReviewRequired: boolean; pages: SnapshotPage[]; corrections: SnapshotCorrection[];
   orphans: SnapshotOrphan[]; archivedOrphans?: SnapshotOrphan[]; readOnly?: boolean; readOnlyReason?: string | null;
   effective: { id: string }[]; transitions: Transitions; legend: { groups: LegendGroup[] }; scorePolicy: string;
+  /** The grade check. Absent from a server older than Task 7BE: the panel is then not shown. */
+  scoreReview?: ScoreReview;
 }
 export interface HistoryItem {
   action: string; actor?: string; entryId?: string | null; correctionId?: string | null; previousRevision: number; newRevision: number;
   createdAt: string; changedFields?: string[]; visibilityChanged?: boolean; legacy?: boolean;
   before?: HistorySide | null; after?: HistorySide | null;
+  /** score_review rows: the teacher's own text, shown by interpolation only. */
+  reason?: string;
 }
 export interface HistorySide { status?: string; kind?: string; value?: { quotedText?: string; message?: string } | null; anchor?: { quotedText?: string } | null; }
 
@@ -205,11 +210,12 @@ export function describeFailure(status: number, code: string | undefined): Failu
   return { kind: 'unconfirmed', message: 'We could not confirm this save (connection problem). Nothing you typed was lost. Press Retry; it is safe and cannot save twice.' };
 }
 
-const ACTION_LABELS: Record<string, string> = { add: 'Added', edit: 'Edited', hide: 'Hidden', restore: 'Restored', archive: 'Removed', reject: 'Removed' };
+const ACTION_LABELS: Record<string, string> = { add: 'Added', edit: 'Edited', hide: 'Hidden', restore: 'Restored', archive: 'Removed', reject: 'Removed', score_review: 'Grade checked' };
 const STATUS_LABELS: Record<string, string> = { visible: 'visible', hidden: 'hidden', archived: 'removed', rejected: 'removed' };
 export function historyActionLabel(action: string): string { return ACTION_LABELS[action] ?? action; }
 /** "hidden -> visible; changed explanation", from a history row's before/after. Quoted text comes back separately for interpolation. */
 export function historySummary(item: HistoryItem): string {
+  if (item.action === 'score_review') return 'Scores kept. No score was changed.';
   const parts: string[] = [];
   const before = item.before?.status, after = item.after?.status;
   if (before && after && before !== after) parts.push(`${STATUS_LABELS[before] ?? before} → ${STATUS_LABELS[after] ?? after}`);
