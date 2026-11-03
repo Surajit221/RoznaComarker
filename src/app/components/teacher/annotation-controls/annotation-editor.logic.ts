@@ -24,7 +24,9 @@ export type Transitions = TransitionTable & { orphan?: TransitionTable };
 export interface AnnotationSnapshot {
   revision: number; sourceHash: string; scoringReviewRequired: boolean; pages: SnapshotPage[]; corrections: SnapshotCorrection[];
   orphans: SnapshotOrphan[]; archivedOrphans?: SnapshotOrphan[]; readOnly?: boolean; readOnlyReason?: string | null;
-  effective: { id: string }[]; transitions: Transitions; legend: { groups: LegendGroup[] }; scorePolicy: string;
+  effective: { id: string }[]; transitions: Transitions; legend: { groups: LegendGroup[] };
+  /** Sent by a backend older than Task 7C; the Grade check panel replaced it and nothing shows it. */
+  scorePolicy?: string;
   /** The grade check. Absent from a server older than Task 7BE: the panel is then not shown. */
   scoreReview?: ScoreReview;
 }
