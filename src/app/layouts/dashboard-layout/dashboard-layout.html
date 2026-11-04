@@ -1,7 +1,7 @@
+<!-- One layout element and one router outlet for both views. Crossing 1024px changes classes and the chrome around the page, and never destroys the routed page or what is typed in it. -->
 <ng-container>
-  @if(device.isDesktop()){
-  <div class="flex h-screen">
-    @if(!isFullScreen()) {
+  <div [ngClass]="device.isDesktop() ? 'flex h-screen' : 'min-h-screen bg-[#F3F3F3] flex flex-col'">
+    @if(device.isDesktop() && !isFullScreen()) {
     <aside class="hidden md:flex w-60 flex-col">
       <div class="flex items-center justify-center h-16 px-4 mt-10">
         <div class="flex items-center gap-2">
@@ -20,8 +20,8 @@
     </aside>
     }
 
-    <div class="flex flex-col flex-1 overflow-hidden">
-      @if(!isFullScreen()) {
+    <div [ngClass]="device.isDesktop() ? 'flex flex-col flex-1 overflow-hidden' : 'contents'">
+      @if(device.isDesktop() && !isFullScreen()) {
       <header class="desktop-dashboard-header flex items-center justify-end px-6 py-3">
         <div class="desktop-header-content">
           @if (role === 'teacher') {
@@ -132,18 +132,7 @@
       </header>
       }
 
-      <main class="flex-1 overflow-y-auto" [class.p-6]="!isFullScreen()">
-        <router-outlet></router-outlet>
-      </main>
-    </div>
-  </div>
-  }
-</ng-container>
-
-<ng-container>
-  @if(device.isTablet() || device.isMobile()){
-  <div class="min-h-screen bg-[#F3F3F3] flex flex-col">
-    @if (showBottomNav() && !isFullScreen()) {
+    @if (!device.isDesktop() && showBottomNav() && !isFullScreen()) {
     <header class="mobile-dashboard-header fixed bg-[#F3F3F3] top-0 left-0 right-0 z-40">
       <div class="w-full py-4 flex flex-row justify-between items-center px-4">
         <div class="flex items-center gap-2">
@@ -204,13 +193,13 @@
     </header>
     }
 
-    <main class="flex-1 overflow-auto">
-      <div [ngClass]="{ 'mt-20 px-4': !isFullScreen(), 'mobile-teacher-content': !isFullScreen() && showBottomNav() && role === 'teacher', 'pb-20': showBottomNav() && !isFullScreen() }">
-        <router-outlet></router-outlet>
-      </div>
-    </main>
+      <main [ngClass]="device.isDesktop() ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-auto'" [class.p-6]="device.isDesktop() && !isFullScreen()">
+        <div [ngClass]="device.isDesktop() ? 'contents' : { 'mt-20 px-4': !isFullScreen(), 'mobile-teacher-content': !isFullScreen() && showBottomNav() && role === 'teacher', 'pb-20': showBottomNav() && !isFullScreen() }">
+          <router-outlet></router-outlet>
+        </div>
+      </main>
 
-    @if (showBottomNav() && !isFullScreen()) {
+    @if (!device.isDesktop() && showBottomNav() && !isFullScreen()) {
     <nav class="fixed bottom-0 left-0 right-0 bg-[#F3F3F3] z-40">
       <div class="grid grid-cols-4 justify-center items-center py-3">
         @for (menu of mainMenuMobile; track menu.path) {
@@ -223,8 +212,8 @@
       </div>
     </nav>
     }
+    </div>
   </div>
-  }
 </ng-container>
 
 <app-credit-topup />
