@@ -6,7 +6,12 @@
 
   @if (model.status === 'loading' || model.status === 'processing' || model.status === 'updating') {
     <div class="feedback-state processing-state" role="status" aria-live="polite">
-      <span class="compact-spinner" aria-hidden="true"></span><p>{{ model.message }}</p>
+      @if (polling()?.timedOut) {
+        <div><p>This is taking longer than usual. The result may already be ready.</p>
+          <button type="button" data-feedback-reload (click)="checkAgain()">Reload</button></div>
+      } @else {
+        <span class="compact-spinner" aria-hidden="true"></span><p>{{ model.message }}</p>
+      }
     </div>
   } @else if (model.status === 'blocked' || model.status === 'failed') {
     <div class="feedback-state unavailable-state" role="status">

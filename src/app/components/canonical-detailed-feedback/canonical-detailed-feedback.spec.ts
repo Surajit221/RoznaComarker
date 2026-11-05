@@ -93,3 +93,26 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     expect(content).not.toContain('unavailable');
   });
 });
+
+describe('CanonicalDetailedFeedbackComponent while the result is still being prepared', () => {
+  it('waits with a neutral message, and after the maximum wait offers Reload, which asks again', async () => {
+    const { BehaviorSubject } = await import('rxjs');
+    const { CanonicalSubmissionResultCoordinator } = await import('../../services/canonical-submission-result-coordinator.service');
+    const pollingState$ = new BehaviorSubject({ submissionId: 's', attempt: 3, running: true, timedOut: false, lastHttpStatus: 200 });
+    const coordinator = { pollingState$, retry: jasmine.createSpy('retry') };
+    await TestBed.configureTestingModule({ imports: [CanonicalDetailedFeedbackComponent], providers: [{ provide: CanonicalSubmissionResultCoordinator, useValue: coordinator }] }).compileComponents();
+    const fixture = TestBed.createComponent(CanonicalDetailedFeedbackComponent);
+    fixture.componentInstance.model = model({ status: 'processing', message: 'Preparing detailed feedback…', areasForImprovement: [], strengths: [], actionSteps: [] });
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Preparing detailed feedback…');
+    expect(element.textContent).not.toContain('out of date');
+    expect(element.querySelector('[data-feedback-reload]')).toBeNull();
+    pollingState$.next({ submissionId: 's', attempt: 40, running: false, timedOut: true, lastHttpStatus: 200 });
+    fixture.detectChanges();
+    const reload = element.querySelector<HTMLButtonElement>('[data-feedback-reload]')!;
+    expect(reload.textContent).toContain('Reload');
+    reload.click();
+    expect(coordinator.retry).toHaveBeenCalledTimes(1);
+  });
+});
