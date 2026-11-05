@@ -60,16 +60,16 @@ describe('target-relative image underline clearance', () => {
     expect(s.correctionIds).toEqual(['c']);
   });
 
-  it('retains the small existing horizontal padding for a single mapped word', () => {
+  it('underlines exactly the box of a single mapped word', () => {
     const [s] = strokes([word('marrige', 42, 20)], [issue('c', ['marrige'])]);
-    expect(s.left).toBeCloseTo(41.85, 8);
-    expect(s.width).toBeCloseTo(8.3, 8);
+    expect(s.left).toBe(42);
+    expect(s.width).toBeCloseTo(8, 8);
   });
 
   it('spans only the mapped same-line phrase union', () => {
     const words = [word('a', 10, 20), word('b', 19, 20), word('unrelated', 28, 20)];
     const [s] = strokes(words, [issue('c', ['a', 'b'])]);
-    expect(s.left).toBeCloseTo(9.85, 8); expect(s.width).toBeCloseTo(17.3, 8);
+    expect(s.left).toBe(10); expect(s.width).toBeCloseTo(17, 8);
   });
 
   it('keeps multiline targets as separate strokes with one unchanged correction', () => {

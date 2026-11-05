@@ -1,22 +1,21 @@
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { AnnotationSegment, AnnotationVisual } from './annotation-geometry';
 import { DESKTOP_BADGE_METRICS, type AnnotationBadgeMetrics } from './annotation-badge-metrics';
-import { clarifyAnnotationPlacement, type AnnotationLeader } from './annotation-placement';
-import type { OcrWord } from '../../models/ocr-token.model';
 
 export interface AnnotationGroup {
   id: string;
   annotations: FeedbackAnnotation[];
   semantic: boolean;
   lineKeys: Set<string>;
+  /** The word box the chip belongs to, the same box as the underline: its start, its end and its top edge. */
   anchorLeft: number;
+  anchorRight: number;
   anchorTop: number;
   left: number;
   top: number;
   width: number;
   code: string;
   label: string;
-  leaders?: AnnotationLeader[];
 }
 const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
 const signature = (s: AnnotationSegment): string => [s.left, s.top, s.width, s.height || 0, Number(!!s.boundary), Number(!!s.lineLevel)]
@@ -86,8 +85,7 @@ function label(group: AnnotationGroup, metrics: Readonly<AnnotationBadgeMetrics>
 
 /** Deterministic grouping; spatial bins avoid scanning all previously placed badges. */
 export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: number, height: number,
-  _densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS,
-  words: OcrWord[] = []): AnnotationGroup[] {
+  _densityCellWidth = 110, metrics: Readonly<AnnotationBadgeMetrics> = DESKTOP_BADGE_METRICS): AnnotationGroup[] {
   // Keep the existing call signature; density no longer merges distinct targets.
   void _densityCellWidth;
   if (width <= 0 || height <= 0) return [];
@@ -96,7 +94,7 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
   for (const visual of [...visuals].sort((a, b) => a.segments[0].top - b.segments[0].top
     || a.segments[0].left - b.segments[0].left || a.annotation._id.localeCompare(b.annotation._id))) {
     const anchor = visual.segments[0];
-    const left = anchor.left + (visual.semantic ? anchor.width : anchor.width / 2);
+    const left = anchor.left;
     const top = anchor.anchorTop;
     const source = visual.annotation.renderTarget || visual.annotation.visualTarget;
     const ids = source?.wordIds || visual.annotation.wordIds || [];
@@ -110,28 +108,38 @@ export function layoutAnnotationGroups(visuals: AnnotationVisual[], width: numbe
       for (const key of visual.lineKeys) group.lineKeys.add(key);
     } else {
       group = { id: visual.annotation._id, annotations: [visual.annotation], semantic: visual.semantic,
-        lineKeys: new Set(visual.lineKeys), anchorLeft: left, anchorTop: top,
+        lineKeys: new Set(visual.lineKeys), anchorLeft: left, anchorRight: left + anchor.width, anchorTop: top,
         left, top, width: 30, code: '', label: '' };
       groups.push(group);
     }
     targets.set(target, group);
   }
   placeGroups(groups, width, height, metrics);
-  return clarifyAnnotationPlacement(groupCollidingBadges(groups, width, height, metrics), visuals,
-    width, height, metrics, badgeLocalityRadius(metrics), words);
+  return groupCollidingBadges(groups, width, height, metrics);
 }
 
 interface BadgeAnchor { left: number; top: number; }
+/** How far the chip reaches into the word's top edge, so that the two touch. Pixels. */
+const CHIP_TOUCH = 2, CHIP_GAP = 2, CHIP_ROWS = 3;
 
 function localCandidates(group: AnnotationGroup, width: number, height: number,
   metrics: Readonly<AnnotationBadgeMetrics>, anchors: BadgeAnchor[]): { x: number; y: number }[] {
-  const shift = metrics.height;
-  return [[0, -metrics.offsetY], [-shift / 2, -metrics.offsetY], [shift / 2, -metrics.offsetY],
-    [0, -shift * 1.5], [-shift, -shift * 1.5], [shift, -shift * 1.5]].map(([dx, dy]) => ({
-      x: clamp(group.anchorLeft * width / 100 + dx, group.width / 2 + 2, width - group.width / 2 - 2),
-      y: clamp(group.anchorTop * height / 100 + dy, metrics.edgeY, height - metrics.edgeY)
-    })).filter(({ x, y }) => anchors.every(a => Math.hypot(x - a.left * width / 100,
-      y - a.top * height / 100) <= badgeLocalityRadius(metrics)));
+  // First: on the word's top edge, at the word's start. Taken: further along the same word, then stacked above it. Never beside another word.
+  const start = group.anchorLeft * width / 100 + group.width / 2;
+  const end = group.anchorRight * width / 100;
+  const edge = group.anchorTop * height / 100 - metrics.height / 2 + CHIP_TOUCH;
+  const spots: { x: number; y: number }[] = [];
+  for (let row = 0; row < CHIP_ROWS; row++) {
+    for (let step = 0; !step || start + step * (group.width + CHIP_GAP) - group.width / 2 < end; step++) {
+      spots.push({ x: start + step * (group.width + CHIP_GAP), y: edge - row * (metrics.height + CHIP_GAP) });
+    }
+  }
+  return spots.map(({ x, y }) => ({
+    x: clamp(x, group.width / 2 + 2, width - group.width / 2 - 2),
+    y: clamp(y, metrics.edgeY, height - metrics.edgeY)
+  })).filter(({ x, y }) => anchors.every(a => Math.hypot(x - a.left * width / 100,
+    y - a.top * height / 100) <= badgeLocalityRadius(metrics)
+    || Math.abs(y - a.top * height / 100) <= metrics.height * CHIP_ROWS && x >= a.left * width / 100));
 }
 
 function placeGroups(groups: AnnotationGroup[], width: number, height: number,
@@ -162,8 +170,8 @@ function placeGroups(groups: AnnotationGroup[], width: number, height: number,
     }
     // On an extremely small hidden/thumbnail stage visibility may be impossible;
     // keep the nearest edge position rather than searching unrelated page space.
-    best ||= { x: clamp(anchorX, group.width / 2 + 2, width - group.width / 2 - 2),
-      y: clamp(anchorY, metrics.edgeY, height - metrics.edgeY), collisions: 0 };
+    best ||= { x: clamp(anchorX + group.width / 2, group.width / 2 + 2, width - group.width / 2 - 2),
+      y: clamp(anchorY - metrics.height / 2 + CHIP_TOUCH, metrics.edgeY, height - metrics.edgeY), collisions: 0 };
     group.left = best.x / width * 100;
     group.top = best!.y / height * 100;
     for (const key of keys(best!.x, best!.y, group.width)) {

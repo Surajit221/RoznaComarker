@@ -50,7 +50,8 @@ function connected(a: LocatedBox, b: LocatedBox, imageWidth: number, imageHeight
   hasWordOrder: boolean): boolean {
   if (a.line !== b.line) return false;
   if (b.newLine || !sameLine(a.box, b.box, imageHeight)) return false;
-  if (hasWordOrder && b.order !== a.order + 1) return false;
+  // Words of one correction that follow each other on a line are one contiguous segment, whatever the gap the student left.
+  if (hasWordOrder) return b.order === a.order + 1;
   const gapPx = Math.max(0, b.box.x - a.box.x - a.box.w) * imageWidth / 100;
   const heightPx = Math.min(a.box.h, b.box.h) * imageHeight / 100;
   return gapPx <= Math.max(imageWidth * 0.003, heightPx * 0.85);
@@ -73,10 +74,9 @@ function segment(id: string, boxes: LocatedBox[], color: string, imageWidth: num
   const left = Math.min(...boxes.map((item) => item.box.x));
   const right = Math.max(...boxes.map((item) => item.box.x + item.box.w));
   const bottom = Math.max(...boxes.map((item) => item.box.y + item.box.h));
-  const height = Math.max(...boxes.map((item) => item.box.h));
-  const padX = Math.min(1.5 / imageWidth * 100, height * imageHeight / imageWidth * 0.08);
-  const x1 = clamp(left - padX, 0, 100);
-  const x2 = clamp(Math.max(right + padX, x1 + 2 / imageWidth * 100), 0, 100);
+  // Exactly the word's box. A line never runs past it.
+  const x1 = clamp(left, 0, 100);
+  const x2 = clamp(Math.max(right, x1 + 2 / imageWidth * 100), 0, 100);
   const heights = boxes.map(item => item.box.h).sort((a, b) => a - b);
   const middle = Math.floor(heights.length / 2);
   const medianHeight = heights.length % 2 ? heights[middle] : (heights[middle - 1] + heights[middle]) / 2;

@@ -37,25 +37,14 @@
 
   @for (line of mediaState === 'loaded' ? underlineSegments : []; track line.id) {
     <span class="correction-overlay__underline" [class.correction-overlay__boundary]="line.boundary" [class.is-selected]="isSelected(line)" [attr.data-sync-state]="syncState(line.correctionIds)" [style.left.%]="line.left" [style.top.%]="line.top"
-      [style.--underline-clearance]="line.underlineBottom === undefined ? null : (line.underlineBottom - line.top) + '%'"
-      [style.width.%]="line.width" [style.--underline-color]="line.color" aria-hidden="true"></span>
+      [style.width.%]="line.width" [style.--underline-color]="line.color" [style.--stroke-color]="strokeColor(line.color)" aria-hidden="true"></span>
   }
 
   @for (rail of mediaState === 'loaded' ? semanticRails : []; track rail.id) {
     <span class="correction-overlay__semantic-rail" [class.correction-overlay__line-rail]="rail.lineLevel" [attr.data-line-rail]="rail.lineLevel ? true : null" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
-      [style.height.%]="rail.height" [style.--underline-color]="rail.color" aria-hidden="true"></span>
+      [style.height.%]="rail.height" [style.--underline-color]="rail.color" [style.--stroke-color]="strokeColor(rail.color)" aria-hidden="true"></span>
   }
 
-  @if (mediaState === 'loaded') {
-    <svg class="correction-overlay__leaders" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      @for (marker of markers; track marker.id) {
-        @for (leader of marker.leaders || []; track leader.id) {
-          <polyline class="correction-overlay__leader" [class.is-selected]="activeMarker === marker"
-            [attr.points]="leader.points" [attr.stroke]="leader.color" />
-        }
-      }
-    </svg>
-  }
   @for (marker of mediaState === 'loaded' ? markers : []; track marker.id) {
     <button
       type="button"

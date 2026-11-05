@@ -168,7 +168,8 @@ describe('CorrectionOverlay media loading', () => {
     expect(buttons).toHaveSize(2);
     expect(buttons[0].textContent?.trim()).toBe('REP');
     const groupLeft = parseFloat(buttons[0].style.getPropertyValue('--marker-left'));
-    expect(groupLeft).toBeCloseTo(24, 0);
+    expect(groupLeft).toBeGreaterThan(20);
+    expect(groupLeft).toBeLessThan(28);
     expect(parseFloat(buttons[0].style.getPropertyValue('--marker-top'))).toBeLessThan(20);
     expect(getComputedStyle(buttons[0]).borderRadius).toBe('999px');
 

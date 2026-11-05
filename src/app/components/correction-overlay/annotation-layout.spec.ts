@@ -83,13 +83,47 @@ describe('annotation presentation groups', () => {
     expect(built.segments).toHaveSize(2);
     expect(built.segments.every((s) => s.height! < 4)).toBeTrue();
   });
-  it('sorts reversed canonical IDs and splits large gaps and unrelated intervening words', () => {
+  it('sorts reversed canonical IDs, joins words that follow each other and splits unrelated intervening words', () => {
     const [a] = visuals([correction('c', 'AGR', ['w2', 'w1'])]);
     expect(a.segments).toHaveSize(1);
     const [b] = visuals([correction('c', 'AGR', ['w0', 'w3'])]);
     expect(b.segments).toHaveSize(2);
     const separated = words.map((w) => w.id === 'w1' ? { ...w, bbox: { ...w.bbox!, x: 60 } } : w);
-    expect(buildAnnotationVisuals([correction('c', 'AGR', ['w0', 'w1'])], separated, 1, 1000, 1200)[0].segments).toHaveSize(2);
+    expect(buildAnnotationVisuals([correction('c', 'AGR', ['w0', 'w1'])], separated, 1, 1000, 1200)[0].segments).toHaveSize(1);
+  });
+  it('attaches a chip to the top edge of its word, at the word start, wherever it is on the page', () => {
+    const page: OcrWord[] = [{ id: 'a', text: 'word', bbox: { x: 30, y: 40, w: 20, h: 5 } }, { id: 'b', text: 'word', bbox: { x: 60, y: 40, w: 20, h: 5 } }];
+    const built = buildAnnotationVisuals([correction('one', 'SP', ['a']), correction('two', 'WC', ['b'])], page, 1, 1000, 1000);
+    const groups = layoutAnnotationGroups(built, 1000, 1000);
+    expect(groups).toHaveSize(2);
+    groups.forEach((group, i) => {
+      const box = page[i].bbox!;
+      expect(group.left * 10 - group.width / 2).toBeCloseTo(box.x * 10, 6);
+      // 28px chip: its bottom reaches 2px into the word's top edge.
+      expect(group.top * 10 + 14).toBeCloseTo(box.y * 10 + 2, 6);
+    });
+    const lines = sharedSegments(built, false);
+    lines.forEach((line, i) => { expect(line.left).toBe(page[i].bbox!.x); expect(line.width).toBe(page[i].bbox!.w); });
+  });
+  it('moves a chip along its word, then stacks it, and never onto another word', () => {
+    const page: OcrWord[] = [{ id: 'a', text: 'longerword', bbox: { x: 30, y: 40, w: 8, h: 5 } }, { id: 'b', text: 'word', bbox: { x: 31, y: 40.5, w: 7, h: 5 } }, { id: 'c', text: 'word', bbox: { x: 32, y: 41, w: 6, h: 5 } }];
+    const built = buildAnnotationVisuals([correction('one', 'SP', ['a']), correction('two', 'WC', ['b']), correction('three', 'AGR', ['c'])], page, 1, 1000, 1000);
+    const groups = layoutAnnotationGroups(built, 1000, 1000);
+    expect(groups).toHaveSize(3);
+    for (const group of groups) {
+      const others = groups.filter(other => other !== group);
+      expect(others.some(other => Math.abs(other.left - group.left) * 10 < (other.width + group.width) / 2
+        && Math.abs(other.top - group.top) * 10 < 28)).toBeFalse();
+      expect(group.left * 10 - group.width / 2).toBeGreaterThanOrEqual(group.anchorLeft * 10 - 0.01);
+      expect(group.left * 10 - group.width / 2).toBeLessThan(group.anchorRight * 10);
+    }
+  });
+  it('keeps a chip inside the image at its edges', () => {
+    const page: OcrWord[] = [{ id: 'a', text: 'word', bbox: { x: 96, y: 0.5, w: 4, h: 3 } }];
+    const built = buildAnnotationVisuals([correction('one', 'SP', ['a'])], page, 1, 1000, 1000);
+    const [group] = layoutAnnotationGroups(built, 1000, 1000);
+    expect(group.left * 10 + group.width / 2).toBeLessThanOrEqual(1000);
+    expect(group.top * 10).toBeGreaterThanOrEqual(14);
   });
   it('uses valid word IDs instead of conflicting fallback boxes', () => {
     const [built] = visuals([{ ...correction('c', 'SP', ['w1']), bboxList: [{ x: 80, y: 80, w: 8, h: 2 }] }]);
@@ -106,7 +140,8 @@ describe('annotation presentation groups', () => {
         box = { x: 100 - box.y - box.h, y: box.x, w: box.h, h: box.w };
       }
       const [v] = buildAnnotationVisuals([correction('r', 'SP', ['r'])], [{ id: 'r', text: 'word', bbox: box }], 1, 1000, 1200);
-      expect(v.segments[0].left).toBeCloseTo(box.x - 0.15, 1);
+      expect(v.segments[0].left).toBe(box.x);
+      expect(v.segments[0].width).toBe(box.w);
       expect(v.segments[0].top).toBeGreaterThan(box.y + box.h);
       expect(v.segments[0].left + v.segments[0].width).toBeLessThanOrEqual(100);
     });

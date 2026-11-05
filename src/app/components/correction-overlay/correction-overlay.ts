@@ -22,9 +22,8 @@ import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
 import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
-import type { AnnotationLeader } from './annotation-placement';
 import { annotationBadgeMetrics } from './annotation-badge-metrics';
-import { refineBadgeStrokeClearance } from './annotation-badge-clearance';
+import { annotationStrokeColor } from './annotation-stroke';
 import { annotationMatchesImage } from '../../utils/correction-bbox.util';
 import { imagePresentationGeometry, sourceGeometryMatchesImage, type AnnotationImageGeometry } from './annotation-image-geometry';
 
@@ -43,7 +42,6 @@ interface CorrectionMarker {
   label: string;
   textColor: string;
   semantic: boolean;
-  leaders?: AnnotationLeader[];
 }
 const LINE_LEVEL_NOTE = 'Marked by line: the exact words could not be located on the image.';
 
@@ -463,6 +461,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (this.syncMode) this.syncDrawn.emit(new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id)));
   }
 
+  strokeColor(color: string): string {
+    return annotationStrokeColor(color);
+  }
+
   private layoutMarkers(): void {
     const rect = this.imageEl?.nativeElement.getBoundingClientRect();
     const width = rect?.width || 0;
@@ -470,8 +472,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.renderedWidth = width;
     this.renderedHeight = height;
     this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
-    const groups = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics, this.debugWords);
-    this.markers = refineBadgeStrokeClearance(groups, this.visuals, width, height, this.badgeMetrics, this.debugWords).map((group) => ({
+    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
       label: group.annotations.some(a => this.lineLevelIds.has(a._id)) ? `${group.label}. ${LINE_LEVEL_NOTE}` : group.label,
       textColor: this.contrastColor(group.annotations[0].color || '#d64545')
