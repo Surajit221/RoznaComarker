@@ -408,3 +408,9 @@
 .correction-overlay__marker[data-sync-state='archived'] { text-decoration: line-through; }
 .correction-overlay__underline[data-sync-state] { background: repeating-linear-gradient(90deg, var(--underline-color, #d64545) 0 4px, transparent 4px 7px); }
 @media (prefers-reduced-motion: reduce) { .is-sync .correction-overlay__marker { transition: none; } }
+
+/* Marks a line, not a word: dashed, so it never reads as a word-level marker. */
+.correction-overlay__line-rail { width: 0; border-radius: 0; border-left: 3px dashed var(--underline-color, #d64545); background: none; opacity: 1; }
+.correction-overlay__line-note { margin: 0 14px 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
+.correction-overlay__placement { margin-top: 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
+.correction-overlay__placement p { margin: 2px 0; }

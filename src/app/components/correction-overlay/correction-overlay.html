@@ -42,7 +42,7 @@
   }
 
   @for (rail of mediaState === 'loaded' ? semanticRails : []; track rail.id) {
-    <span class="correction-overlay__semantic-rail" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
+    <span class="correction-overlay__semantic-rail" [class.correction-overlay__line-rail]="rail.lineLevel" [attr.data-line-rail]="rail.lineLevel ? true : null" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
       [style.height.%]="rail.height" [style.--underline-color]="rail.color" aria-hidden="true"></span>
   }
 
@@ -123,6 +123,7 @@
         <button type="button" class="correction-overlay__close" aria-label="Close correction details"
           (pointerdown)="preventControlPointerDown($event)" (click)="closeFromControl($event)">&times;</button>
       </header>
+      @if (isLineLevel(selectedAnnotation)) { <p class="correction-overlay__line-note" data-line-note>{{ lineLevelNote }}</p> }
 
       @if (activeMarker.annotations && activeMarker.annotations.length > 1) {
         <nav class="correction-overlay__entries" aria-label="Corrections in this group">
@@ -162,3 +163,10 @@
     }
   </section>
 </div>
+
+@if (mediaState === 'loaded' && (unlocatedCount || lineLevelCount)) {
+  <div class="correction-overlay__placement" data-overlay-placement>
+    @if (lineLevelCount) { <p data-overlay-line-count>A dashed line in the margin marks the line of {{ lineLevelCount }} {{ lineLevelCount === 1 ? 'correction' : 'corrections' }}, not the exact word.</p> }
+    @if (unlocatedCount) { <p data-overlay-unlocated>{{ unlocatedCount }} {{ unlocatedCount === 1 ? 'correction is' : 'corrections are' }} not located on this image. See the transcript.</p> }
+  </div>
+}

@@ -19,7 +19,7 @@ export interface AnnotationGroup {
   leaders?: AnnotationLeader[];
 }
 const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
-const signature = (s: AnnotationSegment): string => [s.left, s.top, s.width, s.height || 0, Number(!!s.boundary)]
+const signature = (s: AnnotationSegment): string => [s.left, s.top, s.width, s.height || 0, Number(!!s.boundary), Number(!!s.lineLevel)]
   .map((n) => n.toFixed(3)).join(':');
 
 /** Maximum badge-center displacement from its local source anchor, in rendered pixels. */

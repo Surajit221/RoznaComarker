@@ -1,14 +1,14 @@
 import type { FeedbackAnnotation } from '../models/feedback-annotation.model';
 import type { OcrBBox } from '../models/ocr-token.model';
 
-type CorrectionTargets = Pick<FeedbackAnnotation, 'visualTarget' | 'renderTarget' | 'evidenceWordIds'>;
+type CorrectionTargets = Pick<FeedbackAnnotation, 'visualTarget' | 'renderTarget' | 'evidenceWordIds' | 'quotedText'>;
 
 /** Response targets already use canonical normalized image-content coordinates.
  * Forward them intact; rebuilding targets from evidence/legacy boxes loses the contract.
  */
 export function correctionGeometryTargets(correction: CorrectionTargets | null | undefined): CorrectionTargets {
   return { visualTarget: correction?.visualTarget, renderTarget: correction?.renderTarget,
-    evidenceWordIds: correction?.evidenceWordIds };
+    evidenceWordIds: correction?.evidenceWordIds, quotedText: correction?.quotedText };
 }
 
 /** Rendering-only identity check. Missing legacy metadata never invents a transform. */

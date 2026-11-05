@@ -69,10 +69,10 @@ describe('AnnotationControls', () => {
     const open = async () => { api.current = two(); await openEditor(); };
     const mouse = (type: string, target: Element) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'mouse' }));
 
-    it('is closed until the teacher asks: nothing of it exists, and the list has no position labels', async () => {
+    it('is closed until the teacher asks: nothing of it exists; a correction placed on its word has no position label', async () => {
       await create(); await open();
       expect(workspace()).toBeNull();
-      expect(dom().querySelector('[data-row-position]')).toBeNull();
+      expect(row().querySelector('[data-row-position]')).toBeNull();
       expect(row().getAttribute('tabindex')).toBe('-1');
       expect(toggle().getAttribute('aria-expanded')).toBe('false');
     });
@@ -101,7 +101,7 @@ describe('AnnotationControls', () => {
       const labels = (key: string) => [...row(key).querySelectorAll('[data-row-position]')].map(el => el.textContent?.trim());
       expect(labels('ai_1')).toEqual([]);
       expect(labels('ai_2')).toEqual(['Approximate position']);
-      expect(labels('ai_3')).toEqual(['No position on the image', 'Not in the transcript']);
+      expect(labels('ai_3')).toEqual(['Not located on image', 'Not in the transcript']);
     });
     it('list: one click selects, says so in words, and announces it', async () => {
       await create(); await open();
@@ -222,7 +222,7 @@ describe('AnnotationControls', () => {
       await create(); await open();
       toggle().click(); await settle();
       component.selection.pin('ai_3', 'list'); await settle();
-      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('No position on the image');
+      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('Not located on image');
     });
   });
 
@@ -707,6 +707,17 @@ describe('AnnotationControls', () => {
       dom().querySelector<HTMLElement>('[data-history-retry]')!.click(); await settle();
       expect(api.history.calls.allArgs()).toEqual([['s1', 20]]);
       expect(dom().querySelectorAll('[data-history-entry]').length).toBe(2);
+    });
+  });
+
+  describe('why a correction has no marker', () => {
+    it('the list says so with the workspace closed too', async () => {
+      await create();
+      api.current = snapshot({ corrections: [correction({ id: 'ai_1', wordIds: ['w1'] })], effective: [{ id: 'ai_1', wordIds: ['w1'], renderTarget: { source: 'none', wordIds: [], boxes: [] } }] });
+      await openEditor();
+      expect(component.workspaceOpen()).toBeFalse();
+      const labels = [...dom().querySelectorAll('[data-row-key="ai_1"] [data-row-position]')].map(el => el.textContent?.trim());
+      expect(labels).toEqual(['Not located on image']);
     });
   });
 

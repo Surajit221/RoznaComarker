@@ -1,11 +1,14 @@
 // Pure rules of the review workspace's highlight sync (Task 6C): where each list row sits on the image and in the transcript, what the shared
 // selection does, which row the list must reveal. No Angular or DOM here. Geometry is only ever read from the server's snapshot, and
 // correction-overlay/annotation-image-geometry.ts stays the one place that maps boxes through an image's rotation.
-import type { OcrBBox } from '../../../models/ocr-token.model';
+import type { OcrBBox, OcrWord } from '../../../models/ocr-token.model';
+import type { AnnotationImageGeometry } from '../../correction-overlay/annotation-image-geometry';
 import type { AnnotationSnapshot, CorrectionRow, RowFilter, SnapshotPage } from './annotation-editor.logic';
 import { matchesFilter } from './annotation-editor.logic';
+import { imagePresentationGeometry } from '../../correction-overlay/annotation-image-geometry';
+import { lineFallbackBands, reliableTranscriptLines } from '../../correction-overlay/annotation-line-fallback';
 
-export type ImagePosition = 'exact' | 'approximate' | 'none';
+export type ImagePosition = 'exact' | 'approximate' | 'line' | 'none';
 export type SyncState = 'hidden' | 'archived';
 export interface RowPosition {
   /** Words to mark in the transcript; empty when the row has no safe place there. */
@@ -13,12 +16,13 @@ export interface RowPosition {
   image: ImagePosition;
   fileId: string; page: number;
 }
-export const NO_IMAGE_POSITION = 'No position on the image';
+export const NO_IMAGE_POSITION = 'Not located on image';
+export const LINE_IMAGE_POSITION = 'Marked by line on image';
 export const APPROXIMATE_POSITION = 'Approximate position';
 export const NO_TRANSCRIPT_POSITION = 'Not in the transcript';
 
 /** The server's checked target for a correction the student can see. */
-interface EffectiveTarget { id: string; wordIds?: string[]; renderTarget?: { source?: string; wordIds?: string[]; boxes?: unknown[] } | null; }
+interface EffectiveTarget { id: string; wordIds?: string[]; quotedText?: string; renderTarget?: { source?: string; wordIds?: string[]; boxes?: unknown[]; textRanges?: unknown[] } | null; }
 type PlacedSnapshot = Pick<AnnotationSnapshot, 'pages' | 'effective'>;
 
 /** Case and whitespace do not count; everything else (punctuation, spelling, order) must match. */
@@ -52,13 +56,25 @@ export function buildPositions(rows: CorrectionRow[], snapshot: PlacedSnapshot):
   const pages = snapshot.pages ?? [];
   const effective = new Map(((snapshot.effective ?? []) as EffectiveTarget[]).map(item => [item.id, item]));
   const ambiguous = (row: CorrectionRow): boolean => Boolean(pages.find(p => String(p.fileId) === row.fileId && Number(p.pageNumber) === row.page)?.sourceGeometry?.ambiguous);
+  // The same decision as the overlay's: on the words as the image shows them, one page at a time.
+  const placedWords = new Map<string, { words: OcrWord[]; lines: ReturnType<typeof reliableTranscriptLines> }>();
+  const lineLevel = (row: CorrectionRow, target: EffectiveTarget): boolean => {
+    const key = `${row.fileId}:${row.page}`;
+    if (!placedWords.has(key)) {
+      const page = pages.find(p => String(p.fileId) === row.fileId && Number(p.pageNumber) === row.page);
+      const shown = page ? imagePresentationGeometry([], page.words as OcrWord[], (page.sourceGeometry ?? null) as AnnotationImageGeometry | null, row.fileId, row.page).words : [];
+      placedWords.set(key, { words: shown, lines: reliableTranscriptLines(shown) });
+    }
+    const placed = placedWords.get(key)!;
+    return lineFallbackBands({ wordIds: target.wordIds ?? [], quotedText: target.quotedText ?? row.quotedText, renderTarget: target.renderTarget }, placed.words, placed.lines).length > 0;
+  };
   const positions = new Map<string, RowPosition>();
   for (const row of rows) {
     const place = { fileId: row.fileId, page: row.page };
     const target = effective.get(row.targetId);
     if (target) {
       const boxes = target.renderTarget?.source !== 'none' && (target.renderTarget?.boxes?.length ?? 0) > 0;
-      positions.set(row.key, { ...place, transcriptWordIds: target.wordIds ?? [], image: boxes && !ambiguous(row) ? 'exact' : 'none' });
+      positions.set(row.key, { ...place, transcriptWordIds: target.wordIds ?? [], image: ambiguous(row) ? 'none' : boxes ? 'exact' : lineLevel(row, target) ? 'line' : 'none' });
     } else if (row.orphanReason) {
       positions.set(row.key, { ...place, transcriptWordIds: [], image: 'none' });
     } else {
@@ -107,6 +123,7 @@ export function positionLabels(position: RowPosition | undefined): string[] {
   const labels: string[] = [];
   if (position.image === 'none') labels.push(NO_IMAGE_POSITION);
   if (position.image === 'approximate') labels.push(APPROXIMATE_POSITION);
+  if (position.image === 'line') labels.push(LINE_IMAGE_POSITION);
   if (!position.transcriptWordIds.length) labels.push(NO_TRANSCRIPT_POSITION);
   return labels;
 }

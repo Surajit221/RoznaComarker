@@ -2,7 +2,7 @@ import { imagePresentationGeometry, type AnnotationImageGeometry } from '../../c
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { AnnotationSnapshot, CorrectionRow, SnapshotPage } from './annotation-editor.logic';
 import {
-  APPROXIMATE_POSITION, NO_IMAGE_POSITION, NO_SELECTION, NO_TRANSCRIPT_POSITION, activeOf, buildPositions, nextInCycle, nextSelection, normalizeQuote, panelScrollTop, positionLabels, preferCurrent, revealRow,
+  APPROXIMATE_POSITION, LINE_IMAGE_POSITION, NO_IMAGE_POSITION, NO_SELECTION, NO_TRANSCRIPT_POSITION, activeOf, buildPositions, nextInCycle, nextSelection, normalizeQuote, panelScrollTop, positionLabels, preferCurrent, revealRow,
   syncStates, unverifiedRowPosition, validBox, withDrawn, workspaceCorrections,
 } from './annotation-sync.logic';
 
@@ -13,6 +13,42 @@ const row = (patch: Partial<CorrectionRow>): CorrectionRow => ({ key: 'c1', targ
   quotedText: 'goes', symbol: 'AGR', symbolLabel: 'AGR', category: 'GRAMMAR', message: '', suggestedText: '', wordIds: ['f1_1_1'], ...patch });
 const snap = (pages: SnapshotPage[], effective: unknown[] = []) => ({ pages, effective } as unknown as Pick<AnnotationSnapshot, 'pages' | 'effective'>);
 const P1 = page('f1', 1, 'I goes to the park'), P2 = page('f1', 2, 'She goes home');
+
+describe('a correction the server could not place on a word', () => {
+  // Five transcript lines: lines 0, 1, 2 and 4 have a boxed word; line 3 has none.
+  const lineBox = (y: number) => ({ x: 20, y, w: 8, h: 4 });
+  const words = [0, 1, 2, 3, 4].flatMap(line => [
+    { id: `boxed${line}`, text: `boxed${line}`, bbox: line === 3 ? null : lineBox(10 + line * 5), separatorBefore: line ? '\n' : '' },
+    { id: `plain${line}`, text: `plain${line}`, bbox: null, separatorBefore: ' ' }]);
+  const linesPage = page('f1', 1, 'unused', { words } as Partial<SnapshotPage>);
+  const target = (id: string, patch: Record<string, unknown> = {}) => ({ id: 'c1', wordIds: [id], quotedText: id, renderTarget: { source: 'none', wordIds: [], boxes: [], textRanges: [{ start: 0, end: 4 }] }, ...patch });
+  const position = (effective: unknown, patch: Partial<SnapshotPage> = {}, rowPatch: Partial<CorrectionRow> = {}) =>
+    buildPositions([row({ status: 'visible', quotedText: 'x', ...rowPatch })], snap([{ ...linesPage, ...patch }], [effective])).get('c1')!;
+
+  it('its line is proven by other words: marked by line, and the list says so', () => {
+    const found = position(target('plain1'));
+    expect(found.image).toBe('line');
+    expect(positionLabels(found)).toEqual([LINE_IMAGE_POSITION]);
+    expect(LINE_IMAGE_POSITION).toBe('Marked by line on image');
+  });
+  it('its line has no box: not located, in those words', () => {
+    const found = position(target('plain3'));
+    expect(found.image).toBe('none');
+    expect(positionLabels(found)).toEqual([NO_IMAGE_POSITION]);
+    expect(NO_IMAGE_POSITION).toBe('Not located on image');
+  });
+  it('an ambiguous image: not located, whatever the words say', () => {
+    expect(position(target('plain1'), { sourceGeometry: { version: 1, fileId: 'f1', pageNumber: 1, width: 10, height: 10, orientation: 1, coordinateSpace: 'display-image', ambiguous: true } } as Partial<SnapshotPage>).image).toBe('none');
+  });
+  it('a target with boxes stays exact and says nothing', () => {
+    const found = position({ id: 'c1', wordIds: ['boxed1'], renderTarget: { source: 'wordIds', wordIds: ['boxed1'], boxes: [lineBox(15)] } });
+    expect(found.image).toBe('exact');
+    expect(positionLabels(found)).toEqual([]);
+  });
+  it('the server did not check its text: not located', () => {
+    expect(position(target('plain1', { renderTarget: { source: 'none', boxes: [], wordIds: [] } })).image).toBe('none');
+  });
+});
 
 describe('hidden and removed items: the approximate position safety check', () => {
   it('draws only when every word is on one page and they read as the quote', () => {

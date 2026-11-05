@@ -50,7 +50,7 @@ module.exports = async function run({ out, seedAll, harness, teacherUrl, sleep, 
     const imagesBefore = a.seen.imageRequests.length;
     check('the page itself downloaded the image (so the next check counts something real)', imagesBefore >= 1, a.seen.imageRequests);
     report.timings.pageImageDownloadsBeforeOpening = imagesBefore;
-    check('closed: the workspace does not exist', !(await a.page.$('app-review-workspace')) && !(await a.page.$('[data-row-position]')));
+    check('closed: the workspace does not exist', !(await a.page.$('app-review-workspace')));
     await showWorkspace(a.page);
     check('opening downloads no image again', a.seen.imageRequests.length === imagesBefore, a.seen.imageRequests.slice(imagesBefore));
     const sameUrl = await a.page.evaluate(() => { const imgs = [...document.querySelectorAll('img')].filter(i => i.src.startsWith('blob:')).map(i => i.src); return { count: imgs.length, unique: new Set(imgs).size }; });
@@ -124,7 +124,7 @@ module.exports = async function run({ out, seedAll, harness, teacherUrl, sleep, 
     const labels = key => a.page.$eval(rowSel(key), el => [...el.querySelectorAll('[data-row-position]')].map(b => b.textContent.trim()));
     check('hidden, words match: labelled in text', (await labels(hidden.id)).join() === 'Approximate position', await labels(hidden.id));
     check('removed, words match: labelled in text', (await labels(removed.id)).join() === 'Approximate position', await labels(removed.id));
-    check('hidden, stored words read differently: no position, nothing drawn', (await labels(mismatch.id)).includes('No position on the image'), await labels(mismatch.id));
+    check('hidden, stored words read differently: no position, nothing drawn', (await labels(mismatch.id)).includes('Not located on image'), await labels(mismatch.id));
     check('visible: no label', (await labels(visible.id)).length === 0, await labels(visible.id));
     check('teacher correction has its server position', (await labels(manual.id)).length === 0, await labels(manual.id));
     await clickRow(a.page, hidden.id); await sleep(400);
@@ -140,7 +140,7 @@ module.exports = async function run({ out, seedAll, harness, teacherUrl, sleep, 
     check('a badge only of a removed item: its state is a style and a word', await a.page.evaluate(() => { const m = document.querySelector('app-review-workspace .correction-overlay__marker.is-sync-active'); return m.getAttribute('data-sync-state') === 'archived' && /removed, approximate position/.test(m.getAttribute('aria-label')); }));
     await clickRow(a.page, mismatch.id); await sleep(400);
     v = await views(a.page);
-    check('failed check: selected in the list, nothing drawn or marked, says why', v.row === mismatch.id && !v.marker && !v.transcript && /No position on the image/.test(v.status), v);
+    check('failed check: selected in the list, nothing drawn or marked, says why', v.row === mismatch.id && !v.marker && !v.transcript && /Not located on image/.test(v.status), v);
     await shot(a.page, '04-no-position');
     await clear(a.page);
     // Saving still works with the workspace open; the moved row keeps its place.
@@ -151,7 +151,7 @@ module.exports = async function run({ out, seedAll, harness, teacherUrl, sleep, 
     // Closing frees it.
     await a.page.click('[data-sync-toggle]'); await sleep(300);
     const closed = await a.page.evaluate(() => ({ workspace: !!document.querySelector('app-review-workspace'), labels: document.querySelectorAll('[data-row-position]').length, tab: document.querySelector('[data-row-key]').getAttribute('tabindex'), blob: [...document.querySelectorAll('img')].filter(i => i.src.startsWith('blob:')).length }));
-    check('closing removes the workspace; the page image stays', !closed.workspace && closed.labels === 0 && closed.tab === '-1' && closed.blob === 1, closed);
+    check('closing removes the workspace; the page image stays', !closed.workspace && closed.tab === '-1' && closed.blob === 1, closed);
     // Opening and closing repeatedly leaves no listeners or nodes behind.
     const client = await a.page.createCDPSession();
     // Garbage collection runs when it likes, so a leak is what keeps growing: compare after more and more cycles, not with the very start.
@@ -225,18 +225,18 @@ module.exports = async function run({ out, seedAll, harness, teacherUrl, sleep, 
     const o = await openWorkspace('teacher-orphan', orphan.studentId, orphan.id);
     await showWorkspace(o.page);
     const orphanRow = await o.page.$eval('[data-row-key^="orphan:"]', el => ({ key: el.getAttribute('data-row-key'), labels: [...el.querySelectorAll('[data-row-position]')].map(b => b.textContent.trim()), text: el.textContent })).catch(() => null);
-    check('orphan: listed with its state, no position on the image or in the transcript', orphanRow && orphanRow.labels.join() === 'No position on the image,Not in the transcript' && /Needs review/.test(orphanRow.text), orphanRow);
+    check('orphan: listed with its state, no position on the image or in the transcript', orphanRow && orphanRow.labels.join() === 'Not located on image,Not in the transcript' && /Needs review/.test(orphanRow.text), orphanRow);
     if (orphanRow) {
       await clickRow(o.page, orphanRow.key); await sleep(400);
       v = await views(o.page);
-      check('orphan: selecting it marks nothing elsewhere and says why', v.row === orphanRow.key && !v.marker && !v.transcript && /No position on the image/.test(v.status), v);
+      check('orphan: selecting it marks nothing elsewhere and says why', v.row === orphanRow.key && !v.marker && !v.transcript && /Not located on image/.test(v.status), v);
       await shot(o.page, '05c-orphan');
     }
     await o.context.close();
     const n = await openWorkspace('teacher-no-box', noBox.studentId, noBox.id);
     await showWorkspace(n.page);
     const noBoxRows = await n.page.$$eval('[data-row-key]', rows => rows.map(el => ({ quote: el.querySelector('blockquote')?.textContent, labels: [...el.querySelectorAll('[data-row-position]')].map(b => b.textContent.trim()) })));
-    const homeless = noBoxRows.find(r => r.labels.includes('No position on the image'));
+    const homeless = noBoxRows.find(r => r.labels.includes('Not located on image'));
     report.timings.noBoxRows = noBoxRows;
     check('a correction whose word has no box says so; the others do not', Boolean(homeless) && noBoxRows.filter(r => !r.labels.length).length > 0, noBoxRows);
     await n.context.close();

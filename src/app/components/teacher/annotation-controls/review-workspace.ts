@@ -5,7 +5,7 @@ import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
 import type { AnnotationSnapshot, CorrectionRow } from './annotation-editor.logic';
-import { APPROXIMATE_POSITION, NO_IMAGE_POSITION, RowPosition, nextInCycle, panelScrollTop, preferCurrent, syncStates, workspaceCorrections } from './annotation-sync.logic';
+import { APPROXIMATE_POSITION, LINE_IMAGE_POSITION, NO_IMAGE_POSITION, RowPosition, nextInCycle, panelScrollTop, preferCurrent, syncStates, workspaceCorrections } from './annotation-sync.logic';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
 
 export interface SyncPointer { ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate'; }
@@ -90,7 +90,7 @@ export class ReviewWorkspace implements OnDestroy {
   readonly activeRow = computed(() => { const id = this.selection.activeId(); return id ? this.rows().find(row => row.key === id) ?? null : null; });
   readonly activeNote = computed(() => {
     const row = this.activeRow(), image = row ? this.positions().get(row.key)?.image : undefined;
-    return image === 'none' ? NO_IMAGE_POSITION : image === 'approximate' ? APPROXIMATE_POSITION : '';
+    return image === 'none' ? NO_IMAGE_POSITION : image === 'approximate' ? APPROXIMATE_POSITION : image === 'line' ? LINE_IMAGE_POSITION : '';
   });
   /** Announced for what the teacher chose; hovering would flood a screen reader. */
   readonly announcement = computed(() => {
@@ -98,7 +98,7 @@ export class ReviewWorkspace implements OnDestroy {
     if (!row) return '';
     const status = row.status === 'hidden' ? 'hidden from the student' : row.status === 'archived' ? 'removed' : 'visible to the student';
     const image = this.positions().get(row.key)?.image;
-    return `Selected ${row.symbol || 'correction'}${row.quotedText ? `, ${row.quotedText}` : ''}, page ${row.page}, ${status}${image === 'none' ? `. ${NO_IMAGE_POSITION}` : image === 'approximate' ? `. ${APPROXIMATE_POSITION}` : ''}.`;
+    return `Selected ${row.symbol || 'correction'}${row.quotedText ? `, ${row.quotedText}` : ''}, page ${row.page}, ${status}${image === 'none' ? `. ${NO_IMAGE_POSITION}` : image === 'line' ? `. ${LINE_IMAGE_POSITION}` : image === 'approximate' ? `. ${APPROXIMATE_POSITION}` : ''}.`;
   });
 
   constructor() {

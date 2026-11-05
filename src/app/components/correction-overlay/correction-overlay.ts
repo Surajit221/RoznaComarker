@@ -45,6 +45,7 @@ interface CorrectionMarker {
   semantic: boolean;
   leaders?: AnnotationLeader[];
 }
+const LINE_LEVEL_NOTE = 'Marked by line: the exact word could not be located on the image.';
 
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
 
@@ -93,6 +94,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   tooltipStyle: Record<string, string> = { visibility: 'hidden' };
   mediaState: MediaLoadState = 'idle';
   displayImageUrl: string | null = null;
+  readonly lineLevelNote = LINE_LEVEL_NOTE;
+  /** Shown under the image, so a missing marker is explained on every page. */
+  unlocatedCount = 0;
+  lineLevelCount = 0;
+  private lineLevelIds = new Set<string>();
   selectedAnnotation: FeedbackAnnotation | null = null;
   selectedId: string | null = null;
   debugWords: OcrWord[] = [];
@@ -248,6 +254,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.isPinned = true;
     this.schedulePosition();
   }
+
+  isLineLevel(annotation: FeedbackAnnotation | null): boolean { return !!annotation && this.lineLevelIds.has(annotation._id); }
 
   isSelected(segment: AnnotationSegment): boolean {
     if (this.syncActiveId !== null) return segment.correctionIds.includes(this.syncActiveId);
@@ -425,6 +433,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.markers = [];
       this.underlineSegments = [];
       this.semanticRails = [];
+      this.unlocatedCount = 0; this.lineLevelCount = 0; this.lineLevelIds = new Set();
       this.cdr.markForCheck();
       return;
     }
@@ -436,6 +445,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
         this.geometryWarningShown = true;
       }
       this.markers = []; this.underlineSegments = []; this.semanticRails = []; this.visuals = []; this.debugWords = [];
+      this.unlocatedCount = annotations.length; this.lineLevelCount = 0; this.lineLevelIds = new Set();
       if (this.syncMode) this.syncDrawn.emit(new Set());
       this.cdr.markForCheck(); return;
     }
@@ -445,6 +455,10 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.visuals = buildAnnotationVisuals(presentation.annotations, presentation.words, this.page, this.imageWidth, this.imageHeight);
     this.underlineSegments = sharedSegments(this.visuals, false);
     this.semanticRails = sharedSegments(this.visuals, true);
+    this.lineLevelIds = new Set(this.visuals.filter(v => v.lineLevel).map(v => v.annotation._id));
+    this.lineLevelCount = this.lineLevelIds.size;
+    const placed = new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id));
+    this.unlocatedCount = annotations.filter(a => !placed.has(a._id)).length;
     this.layoutMarkers();
     if (this.syncMode) this.syncDrawn.emit(new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id)));
   }
@@ -459,6 +473,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const groups = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics, this.debugWords);
     this.markers = refineBadgeStrokeClearance(groups, this.visuals, width, height, this.badgeMetrics, this.debugWords).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
+      label: group.annotations.some(a => this.lineLevelIds.has(a._id)) ? `${group.label}. ${LINE_LEVEL_NOTE}` : group.label,
       textColor: this.contrastColor(group.annotations[0].color || '#d64545')
     }));
     if (this.selectedId) {

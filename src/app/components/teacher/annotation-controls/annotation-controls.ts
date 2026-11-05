@@ -108,8 +108,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly readOnly = computed(() => this.closed() || this.noAccess());
   readonly rows = computed(() => { const s = this.snapshot(); return s ? buildRows(s) : []; });
   readonly counts = computed(() => filterCounts(this.rows()));
-  /** Where each row is. Not worked out at all until the workspace is open. */
-  readonly positions = computed<Map<string, RowPosition>>(() => { const s = this.snapshot(); return s && this.workspaceOpen() ? buildPositions(this.rows(), s) : new Map(); });
+  /** Where each row is. The list says so even with the workspace closed, so a missing marker on the page's image is explained. */
+  readonly positions = computed<Map<string, RowPosition>>(() => { const s = this.snapshot(); return s ? buildPositions(this.rows(), s) : new Map(); });
   /** The server's own student view, not a recount. */
   readonly studentVisible = computed(() => this.snapshot()?.effective?.length ?? 0);
   private readonly filtered = computed(() => { const f = this.filter(); return this.rows().filter(r => matchesFilter(r, f)); });
@@ -330,7 +330,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   }
   /** The row's position words, using what the overlay really drew. */
   positionWords(row: CorrectionRow): string[] {
-    return this.workspaceOpen() ? positionLabels(withDrawn(this.positions().get(row.key), this.drawn(), row.key)) : [];
+    return positionLabels(withDrawn(this.positions().get(row.key), this.drawn(), row.key));
   }
   onDrawn(event: { key: string; ids: Set<string> }): void { this.drawn.update(map => new Map(map).set(event.key, event.ids)); }
 

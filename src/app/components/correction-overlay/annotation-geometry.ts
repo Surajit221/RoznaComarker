@@ -1,6 +1,7 @@
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrBBox, OcrWord } from '../../models/ocr-token.model';
 import { classifyCorrectionVisualType } from './annotation-classification';
+import { lineFallbackBands, reliableTranscriptLines } from './annotation-line-fallback';
 
 export interface AnnotationSegment {
   id: string;
@@ -15,6 +16,8 @@ export interface AnnotationSegment {
   boundary?: boolean;
   /** Lowest permitted stroke edge in image-percent coordinates. */
   underlineBottom?: number;
+  /** Marks a whole line of the page, not a word: the word has no box. */
+  lineLevel?: boolean;
 }
 
 export interface AnnotationVisual {
@@ -22,6 +25,8 @@ export interface AnnotationVisual {
   segments: AnnotationSegment[];
   semantic: boolean;
   lineKeys: string[];
+  /** Placed by its line only (annotation-line-fallback.ts). Laid out like a margin rail, drawn differently. */
+  lineLevel?: boolean;
 }
 
 interface LocatedBox { box: OcrBBox; order: number; newLine: boolean; line: number; }
@@ -116,6 +121,12 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
   }
   const textLeft = pageBoxes.length ? Math.min(...pageBoxes.map((box) => box.x)) : 0;
   const textRight = pageBoxes.length ? Math.max(...pageBoxes.map((box) => box.x + box.w)) : 100;
+  const leftFree = textLeft;
+  const rightFree = 100 - textRight;
+  const railX = leftFree >= 6 ? clamp(textLeft - 1.5, 1, 99)
+    : rightFree >= 6 ? clamp(textRight + 1.5, 1, 99)
+      : leftFree >= rightFree ? 1 : 99;
+  const reliableLines = reliableTranscriptLines(words);
   const visuals: AnnotationVisual[] = [];
   for (const annotation of annotations) {
     if (!annotation || (annotation.page && Number(annotation.page) !== Number(page))) continue;
@@ -143,16 +154,17 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
         top: clamp(box.y + box.h, 0, 99), width: 4 / imageWidth * 100, boundary: true,
         color: annotation.color || '#d64545', anchorTop: box.y, lineKey: `word:${item.line}`, correctionIds: [annotation._id] }];
     });
-    if (!located.length && !boundaries.length) continue;
+    if (!located.length && !boundaries.length) {
+      const bands = lineFallbackBands(annotation, words, reliableLines);
+      if (bands.length) visuals.push({ annotation, semantic: true, lineLevel: true, lineKeys: bands.map(band => `transcript:${band.line}`),
+        segments: bands.map((band, index) => ({ id: `${annotation._id}_line_${index}`, left: railX, top: band.top, width: 0, height: band.bottom - band.top,
+          color: annotation.color || '#d64545', anchorTop: band.top, correctionIds: [annotation._id], lineLevel: true })) });
+      continue;
+    }
     const semantic = classifyCorrectionVisualType(annotation) === 'semantic';
     const lineKey = (item: LocatedBox): string => hasWordOrder ? `word:${item.line}` : `box:${Math.round(item.box.y)}`;
     const lineKeys = [...new Set([...located.map(lineKey), ...boundaries.map((b) => b.lineKey!)])];
     if (semantic) {
-      const leftFree = textLeft;
-      const rightFree = 100 - textRight;
-      const railX = leftFree >= 6 ? clamp(textLeft - 1.5, 1, 99)
-        : rightFree >= 6 ? clamp(textRight + 1.5, 1, 99)
-          : leftFree >= rightFree ? 1 : 99;
       // One rail per affected visual line; never bridge an unrelated intervening line.
       const lines = new Map<number, LocatedBox[]>();
       for (const item of located) {

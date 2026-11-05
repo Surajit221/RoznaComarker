@@ -17,7 +17,9 @@ export interface FeedbackAnnotation {
     }[] };
     renderTarget?: { version: 1; source: 'visualTarget' | 'wordIds' | 'bboxList' | 'none';
         coordinateSpace?: 'encoded-image' | 'display-image';
-        wordIds: string[]; anchors: NonNullable<FeedbackAnnotation['visualTarget']>['anchors']; boxes: OcrBBox[] };
+        wordIds: string[]; anchors: NonNullable<FeedbackAnnotation['visualTarget']>['anchors']; boxes: OcrBBox[];
+        /** The word ranges the server checked against the text. Present even when there is no box to draw. */
+        textRanges?: { start: number; end: number }[] };
     ocrConfidence?: number | null;
     ocrSuspect?: boolean;
     bboxList?: OcrBBox[];
