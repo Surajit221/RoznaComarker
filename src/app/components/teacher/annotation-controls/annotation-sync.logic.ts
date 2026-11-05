@@ -66,7 +66,7 @@ export function buildPositions(rows: CorrectionRow[], snapshot: PlacedSnapshot):
       placedWords.set(key, { words: shown, lines: reliableTranscriptLines(shown) });
     }
     const placed = placedWords.get(key)!;
-    return lineFallbackBands({ wordIds: target.wordIds ?? [], quotedText: target.quotedText ?? row.quotedText, renderTarget: target.renderTarget }, placed.words, placed.lines).length > 0;
+    return lineFallbackBands({ wordIds: target.wordIds ?? [], quotedText: target.quotedText ?? row.quotedText, symbol: row.symbol, category: row.category, renderTarget: target.renderTarget }, placed.words, placed.lines).length > 0;
   };
   const positions = new Map<string, RowPosition>();
   for (const row of rows) {

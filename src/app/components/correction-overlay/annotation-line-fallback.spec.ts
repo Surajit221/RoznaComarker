@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrBBox, OcrWord } from '../../models/ocr-token.model';
 import { buildAnnotationVisuals } from './annotation-geometry';
-import { lineFallbackBands, reliableTranscriptLines, transcriptLineOfWords } from './annotation-line-fallback';
+import { isSentenceLevel, lineFallbackBands, reliableTranscriptLines, transcriptLineOfWords } from './annotation-line-fallback';
 import { CorrectionOverlay } from './correction-overlay';
 import { correctionGeometryTargets } from '../../utils/correction-bbox.util';
 
@@ -14,7 +14,7 @@ function page(rows: (number | null)[][]): OcrWord[] {
     separatorBefore: line && !index ? '\n' : index ? ' ' : '' } as OcrWord)));
 }
 const REGULAR = page([[10, null], [15, null], [20, null], [null, null], [30, null]]);
-const target = (ids: string[], quotedText = ids.map(id => `word${id.slice(1).replace('_', 'x')}`).join(' '), renderTarget: Record<string, unknown> | null = { source: 'none', textRanges: [{ start: 0, end: 4 }] }) => ({ wordIds: ids, quotedText, renderTarget });
+const target = (ids: string[], quotedText = ids.map(id => `word${id.slice(1).replace('_', 'x')}`).join(' '), renderTarget: Record<string, unknown> | null = { source: 'none', textRanges: [{ start: 0, end: 4 }] }, symbol = 'FRAG') => ({ wordIds: ids, quotedText, renderTarget, symbol });
 
 describe('reliableTranscriptLines', () => {
   it('only the transcript\'s own line breaks make a line', () => {
@@ -43,8 +43,25 @@ describe('reliableTranscriptLines', () => {
   });
 });
 
+describe('isSentenceLevel', () => {
+  it('sentence codes, Content and Organization codes, and quotes of more than four words', () => {
+    expect(isSentenceLevel({ symbol: 'FRAG', quotedText: 'a' })).toBeTrue();
+    expect(isSentenceLevel({ symbol: 'RO', quotedText: 'a b' })).toBeTrue();
+    expect(isSentenceLevel({ symbol: 'COH', quotedText: 'a' })).toBeTrue();
+    expect(isSentenceLevel({ symbol: 'TA', quotedText: 'a' })).toBeTrue();
+    expect(isSentenceLevel({ symbol: 'WC', quotedText: 'one two three four five' })).toBeTrue();
+  });
+  it('word errors are not, up to four words', () => {
+    for (const symbol of ['SP', 'AGR', 'WF', 'PREP', 'P']) expect(isSentenceLevel({ symbol, quotedText: 'chany' })).toBeFalse();
+    expect(isSentenceLevel({ symbol: 'WC', quotedText: 'one two three four' })).toBeFalse();
+  });
+});
+
 describe('lineFallbackBands', () => {
-  it('a checked correction whose word has no box gets its line', () => {
+  it('a one-word error never gets a line, even on a proven line', () => {
+    expect(lineFallbackBands(target(['w1_1'], undefined, undefined, 'SP'), REGULAR)).toEqual([]);
+  });
+  it('a checked sentence correction whose words have no box gets its line', () => {
     expect(lineFallbackBands(target(['w1_1']), REGULAR).map(band => band.line)).toEqual([1]);
   });
   it('nothing when its line has no box', () => {
@@ -63,13 +80,14 @@ describe('lineFallbackBands', () => {
     expect(lineFallbackBands(target(['gone']), REGULAR)).toEqual([]);
     expect(lineFallbackBands(target(['w1_0']), REGULAR)).toEqual([]);
   });
-  it('across two lines: both must be reliable', () => {
+  it('across two lines: both must be reliable, and they must follow each other', () => {
     expect(lineFallbackBands(target(['w1_1', 'w2_1']), REGULAR).map(band => band.line)).toEqual([1, 2]);
     expect(lineFallbackBands(target(['w2_1', 'w3_0']), REGULAR)).toEqual([]);
+    expect(lineFallbackBands(target(['w0_1', 'w2_1']), REGULAR)).toEqual([]);
   });
 });
 
-const annotation = (id: string, wordIds: string[], patch: Partial<FeedbackAnnotation> = {}): FeedbackAnnotation => ({ _id: id, submissionId: 's', fileId: 'f', page: 1, wordIds, symbol: 'SP', group: 'MECHANICS', color: '#c00',
+const annotation = (id: string, wordIds: string[], patch: Partial<FeedbackAnnotation> = {}): FeedbackAnnotation => ({ _id: id, submissionId: 's', fileId: 'f', page: 1, wordIds, symbol: 'FRAG', group: 'GRAMMAR', color: '#c00',
   message: 'm', suggestedText: 's', source: 'AI', editable: false, bboxList: [], quotedText: wordIds.map(w => `word${w.slice(1).replace('_', 'x')}`).join(' '),
   renderTarget: { version: 1, source: 'none', wordIds: [], anchors: [], boxes: [], textRanges: [{ start: 0, end: 4 }] }, ...patch } as FeedbackAnnotation);
 
@@ -84,7 +102,16 @@ describe('the pages\' correction mapping', () => {
 });
 
 describe('buildAnnotationVisuals: line level', () => {
-  it('a margin rail over the line band, never a box on a word', () => {
+  it('a word error without a box draws nothing', () => {
+    expect(buildAnnotationVisuals([annotation('a', ['w1_1'], { symbol: 'SP', group: 'MECHANICS' })], REGULAR, 1, 1000, 1000)).toEqual([]);
+  });
+  it('a sentence over two lines is one bracket from the first line to the last', () => {
+    const visual = buildAnnotationVisuals([annotation('a', ['w1_1', 'w2_1'])], REGULAR, 1, 1000, 1000)[0];
+    expect(visual.segments.length).toBe(1);
+    expect(visual.segments[0].top).toBe(13);
+    expect(visual.segments[0].height).toBe(9);
+  });
+  it('a margin bracket over the line band, never a box on a word', () => {
     const visual = buildAnnotationVisuals([annotation('a', ['w1_1'])], REGULAR, 1, 1000, 1000)[0];
     expect(visual.lineLevel).toBeTrue();
     expect(visual.segments.length).toBe(1);
@@ -120,17 +147,32 @@ describe('CorrectionOverlay: what the page shows', () => {
     fixture.detectChanges();
     return { fixture, component, dom: fixture.nativeElement as HTMLElement };
   }
-  it('a line marker is dashed, has a badge and says in words that it marks the line', () => {
+  it('a word error without a box: nothing on the image, and it is counted in the note', () => {
+    const { dom } = render([annotation('a', ['w1_1'], { symbol: 'SP', group: 'MECHANICS' })]);
+    expect(dom.querySelector('[data-line-rail]')).toBeNull();
+    expect(dom.querySelector('.correction-overlay__marker')).toBeNull();
+    expect(dom.querySelector('[data-overlay-unlocated]')!.textContent).toContain('1 correction is not located');
+  });
+  it('a word underline is three pixels, in a much darker shade of its colour', () => {
+    const boxed = annotation('b', ['w1_0'], { symbol: 'SP', group: 'MECHANICS', color: '#FFF3BF', renderTarget: { version: 1, source: 'wordIds', wordIds: ['w1_0'], anchors: [], boxes: [box(15)] } });
+    const { dom } = render([boxed]);
+    const line = dom.querySelector<HTMLElement>('.correction-overlay__underline')!;
+    expect(line.getBoundingClientRect().height).toBe(3);
+    expect(getComputedStyle(line).backgroundColor).not.toBe('rgb(255, 243, 191)');
+  });
+  it('a sentence marker is a bracket, has a badge and says in words that it marks the lines', () => {
     const { dom, fixture } = render([annotation('a', ['w1_1'])]);
     const rail = dom.querySelector<HTMLElement>('[data-line-rail]')!;
     expect(rail.classList.contains('correction-overlay__line-rail')).toBeTrue();
-    expect(getComputedStyle(rail).borderLeftStyle).toBe('dashed');
+    expect(getComputedStyle(rail).borderLeftStyle).toBe('solid');
+    expect(getComputedStyle(rail).borderTopStyle).toBe('solid');
+    expect(getComputedStyle(rail).borderRightStyle).toBe('none');
     const marker = dom.querySelector<HTMLElement>('.correction-overlay__marker')!;
-    expect(marker.textContent).toContain('SP');
-    expect(marker.getAttribute('aria-label')).toContain('exact word could not be located');
-    expect(dom.querySelector('[data-overlay-line-count]')!.textContent).toContain('1 correction, not the exact word');
+    expect(marker.textContent).toContain('FRAG');
+    expect(marker.getAttribute('aria-label')).toContain('exact words could not be located');
+    expect(dom.querySelector('[data-overlay-line-count]')!.textContent).toContain('1 sentence correction, not the exact words');
     marker.click(); fixture.detectChanges();
-    expect(dom.querySelector('[data-line-note]')?.textContent).toContain('exact word could not be located');
+    expect(dom.querySelector('[data-line-note]')?.textContent).toContain('exact words could not be located');
   });
   it('corrections without a place: nothing drawn for them, and the page says how many', () => {
     const { dom } = render([annotation('a', ['w3_0']), annotation('b', ['w3_1'])]);

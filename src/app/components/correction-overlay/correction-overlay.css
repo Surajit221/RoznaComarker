@@ -39,11 +39,14 @@
 
 .correction-overlay__image.is-loaded { opacity: 1; }
 
+/* The legend's colours are made for highlights and hardly show on grey paper. A stroke keeps the colour's hue, much darker (at least 3:1 on the paper). */
+.correction-overlay__underline, .correction-overlay__semantic-rail { --stroke-color: color-mix(in srgb, var(--underline-color, #d64545) 30%, #000); }
+
 .correction-overlay__underline {
   position: absolute;
   z-index: 2;
-  height: min(2px, var(--underline-clearance, 2px));
-  background: var(--underline-color, #d64545);
+  height: min(3px, var(--underline-clearance, 3px));
+  background: var(--stroke-color);
   pointer-events: none;
   border-radius: 2px;
 }
@@ -54,8 +57,8 @@
   width: 3px;
   min-height: 8px;
   border-radius: 999px;
-  background: var(--underline-color, #d64545);
-  opacity: .72;
+  background: var(--stroke-color);
+  opacity: .85;
   pointer-events: none;
 }
 
@@ -392,7 +395,7 @@
 .has-selection .correction-overlay__semantic-rail,
 .has-selection .correction-overlay__marker { opacity: .38; }
 .has-selection .is-selected { opacity: 1; }
-.correction-overlay__underline.is-selected { height: min(3px, var(--underline-clearance, 3px)); filter: brightness(.72); }
+.correction-overlay__underline.is-selected { height: min(4px, var(--underline-clearance, 4px)); filter: brightness(.72); }
 .correction-overlay__boundary.is-selected { height: 5px; }
 .correction-overlay__semantic-rail.is-selected { width: 4px; filter: brightness(.72); }
 .correction-overlay__marker:focus-visible { outline: 2px solid #172033; outline-offset: 2px; }
@@ -409,8 +412,8 @@
 .correction-overlay__underline[data-sync-state] { background: repeating-linear-gradient(90deg, var(--underline-color, #d64545) 0 4px, transparent 4px 7px); }
 @media (prefers-reduced-motion: reduce) { .is-sync .correction-overlay__marker { transition: none; } }
 
-/* Marks a line, not a word: dashed, so it never reads as a word-level marker. */
-.correction-overlay__line-rail { width: 0; border-radius: 0; border-left: 3px dashed var(--underline-color, #d64545); background: none; opacity: 1; }
+/* A bracket over whole lines, so it never reads as a word-level marker. */
+.correction-overlay__line-rail { width: 6px; border-radius: 0; border: 3px solid var(--stroke-color); border-right: 0; background: none; opacity: 1; box-sizing: border-box; }
 .correction-overlay__line-note { margin: 0 14px 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
 .correction-overlay__placement { margin-top: 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
 .correction-overlay__placement p { margin: 2px 0; }

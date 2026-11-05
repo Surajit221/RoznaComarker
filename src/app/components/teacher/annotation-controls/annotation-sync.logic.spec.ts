@@ -23,9 +23,14 @@ describe('a correction the server could not place on a word', () => {
   const linesPage = page('f1', 1, 'unused', { words } as Partial<SnapshotPage>);
   const target = (id: string, patch: Record<string, unknown> = {}) => ({ id: 'c1', wordIds: [id], quotedText: id, renderTarget: { source: 'none', wordIds: [], boxes: [], textRanges: [{ start: 0, end: 4 }] }, ...patch });
   const position = (effective: unknown, patch: Partial<SnapshotPage> = {}, rowPatch: Partial<CorrectionRow> = {}) =>
-    buildPositions([row({ status: 'visible', quotedText: 'x', ...rowPatch })], snap([{ ...linesPage, ...patch }], [effective])).get('c1')!;
+    buildPositions([row({ status: 'visible', quotedText: 'x', symbol: 'FRAG', ...rowPatch })], snap([{ ...linesPage, ...patch }], [effective])).get('c1')!;
 
-  it('its line is proven by other words: marked by line, and the list says so', () => {
+  it('a one-word error is never marked by line, even on a proven line', () => {
+    const found = position(target('plain1'), {}, { symbol: 'SP' });
+    expect(found.image).toBe('none');
+    expect(positionLabels(found)).toEqual([NO_IMAGE_POSITION]);
+  });
+  it('a sentence on a line proven by other words: marked by line, and the list says so', () => {
     const found = position(target('plain1'));
     expect(found.image).toBe('line');
     expect(positionLabels(found)).toEqual([LINE_IMAGE_POSITION]);

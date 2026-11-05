@@ -16,7 +16,7 @@ export interface AnnotationSegment {
   boundary?: boolean;
   /** Lowest permitted stroke edge in image-percent coordinates. */
   underlineBottom?: number;
-  /** Marks a whole line of the page, not a word: the word has no box. */
+  /** A bracket over whole lines of the page, not words: a sentence-level correction whose words have no box. */
   lineLevel?: boolean;
 }
 
@@ -157,8 +157,9 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
     if (!located.length && !boundaries.length) {
       const bands = lineFallbackBands(annotation, words, reliableLines);
       if (bands.length) visuals.push({ annotation, semantic: true, lineLevel: true, lineKeys: bands.map(band => `transcript:${band.line}`),
-        segments: bands.map((band, index) => ({ id: `${annotation._id}_line_${index}`, left: railX, top: band.top, width: 0, height: band.bottom - band.top,
-          color: annotation.color || '#d64545', anchorTop: band.top, correctionIds: [annotation._id], lineLevel: true })) });
+        // One bracket from the first line's top to the last line's bottom.
+        segments: [{ id: `${annotation._id}_line`, left: railX, top: bands[0].top, width: 0, height: bands.at(-1)!.bottom - bands[0].top,
+          color: annotation.color || '#d64545', anchorTop: bands[0].top, correctionIds: [annotation._id], lineLevel: true }] });
       continue;
     }
     const semantic = classifyCorrectionVisualType(annotation) === 'semantic';

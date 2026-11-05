@@ -166,7 +166,7 @@
 
 @if (mediaState === 'loaded' && (unlocatedCount || lineLevelCount)) {
   <div class="correction-overlay__placement" data-overlay-placement>
-    @if (lineLevelCount) { <p data-overlay-line-count>A dashed line in the margin marks the line of {{ lineLevelCount }} {{ lineLevelCount === 1 ? 'correction' : 'corrections' }}, not the exact word.</p> }
+    @if (lineLevelCount) { <p data-overlay-line-count>A bracket in the margin marks the lines of {{ lineLevelCount }} sentence {{ lineLevelCount === 1 ? 'correction' : 'corrections' }}, not the exact words.</p> }
     @if (unlocatedCount) { <p data-overlay-unlocated>{{ unlocatedCount }} {{ unlocatedCount === 1 ? 'correction is' : 'corrections are' }} not located on this image. See the transcript.</p> }
   </div>
 }

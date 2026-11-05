@@ -1,13 +1,19 @@
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrBBox, OcrWord } from '../../models/ocr-token.model';
+import { classifyCorrectionVisualType } from './annotation-classification';
 
-// A word the geometry provider did not read has no box, so its correction cannot be marked on the word. The fallback marks the LINE, and only when
-// the line's place on the image is proven by other words of that same transcript line. Lines without a boxed word, or whose place is in doubt, get
-// nothing: a position is never interpolated or guessed. The words and targets are what the server already sends; nothing here is stored or sent.
+// A correction about a sentence or a long phrase, whose words have no box, is marked by its LINES, and only when each line's place on the image is proven by
+// other words of that same transcript line. A correction about one word is never marked this way: a mark in the margin does not show which word is meant, so it
+// gets nothing on the image and the list says "Not located on image". Lines without a boxed word, or whose place is in doubt, get nothing: a position is never
+// interpolated or guessed. The words and targets are what the server already sends; nothing here is stored or sent.
 
 export interface TranscriptLineBand { line: number; top: number; bottom: number; }
-type LineTarget = Pick<FeedbackAnnotation, 'wordIds' | 'quotedText'> & { renderTarget?: { source?: string; textRanges?: unknown[] } | null };
+type LineTarget = Pick<FeedbackAnnotation, 'wordIds' | 'quotedText'> & { symbol?: string; category?: string; group?: string; renderTarget?: { source?: string; textRanges?: unknown[] } | null };
 
+/** Codes that are about a whole sentence, whatever the length of the quote. Content and Organization codes count too (annotation-classification.ts). */
+const SENTENCE_CODES = ['FRAG', 'RO'];
+/** A quote longer than this many words is a phrase, not a word error. */
+const MAX_WORD_LEVEL_WORDS = 4;
 /** Fewer boxed lines than this leave no line spacing to compare against. */
 const MIN_BOXED_LINES = 3;
 /** The boxes of one line may differ by this share of a word's height (handwriting drifts). More means the line covers two rows of the page. */
@@ -65,14 +71,21 @@ export function reliableTranscriptLines(words: OcrWord[]): Map<number, Transcrip
   return reliable;
 }
 
+/** A sentence or long phrase, as opposed to an error in one word or a few. */
+export function isSentenceLevel(target: Pick<LineTarget, 'symbol' | 'category' | 'group' | 'quotedText'>): boolean {
+  if (SENTENCE_CODES.includes(String(target.symbol ?? '').trim().toUpperCase())) return true;
+  if (classifyCorrectionVisualType(target as FeedbackAnnotation) === 'semantic') return true;
+  return String(target.quotedText ?? '').trim().split(/\s+/).length > MAX_WORD_LEVEL_WORDS;
+}
+
 /**
- * The lines to mark for a correction the server could not place on a word, or nothing. All of this must hold: the server checked the correction's
- * offsets against the text (textRanges) and refused only for want of a box (source 'none'); its words exist, read as its quote, and none has a box;
- * and every line it touches is reliable.
+ * The lines to mark for a sentence-level correction the server could not place on words, or nothing. All of this must hold: it is sentence-level; the server
+ * checked its offsets against the text (textRanges) and refused only for want of a box (source 'none'); its words exist, read as its quote, and none has a box;
+ * and the lines it touches follow each other and are all reliable.
  */
 export function lineFallbackBands(target: LineTarget, words: OcrWord[], lines = reliableTranscriptLines(words)): TranscriptLineBand[] {
   const server = target.renderTarget;
-  if (!server || server.source !== 'none' || !server.textRanges?.length || !lines.size) return [];
+  if (!isSentenceLevel(target) || !server || server.source !== 'none' || !server.textRanges?.length || !lines.size) return [];
   const ids = [...new Set(target.wordIds ?? [])];
   const quote = normalized(target.quotedText);
   if (!ids.length || !quote) return [];
@@ -81,6 +94,8 @@ export function lineFallbackBands(target: LineTarget, words: OcrWord[], lines = 
   if (found.length !== ids.length || found.some(word => usable(word.bbox))) return [];
   if (!normalized(found.map(word => word.text).join('')).includes(quote)) return [];
   const lineOf = transcriptLineOfWords(words);
-  const bands = [...new Set(found.map(word => lineOf.get(word.id)!))].map(line => lines.get(line));
+  const touched = [...new Set(found.map(word => lineOf.get(word.id)!))].sort((a, b) => a - b);
+  if (touched.at(-1)! - touched[0] !== touched.length - 1) return [];
+  const bands = touched.map(line => lines.get(line));
   return bands.every((band): band is TranscriptLineBand => !!band) ? bands : [];
 }

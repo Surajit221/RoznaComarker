@@ -45,7 +45,7 @@ interface CorrectionMarker {
   semantic: boolean;
   leaders?: AnnotationLeader[];
 }
-const LINE_LEVEL_NOTE = 'Marked by line: the exact word could not be located on the image.';
+const LINE_LEVEL_NOTE = 'Marked by line: the exact words could not be located on the image.';
 
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
 
