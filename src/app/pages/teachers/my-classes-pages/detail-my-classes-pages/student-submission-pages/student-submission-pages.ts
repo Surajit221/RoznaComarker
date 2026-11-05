@@ -142,6 +142,7 @@ import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/s
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
 import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
+import { CorrectionStatistics } from '../../../../../components/correction-statistics/correction-statistics';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normalizeCanonicalResult,
   type CanonicalResultViewState, evaluationHeading } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
@@ -166,7 +167,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,StudentPreview,
+  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,StudentPreview,
 
 
 

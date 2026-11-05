@@ -229,6 +229,27 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
   return state.statistics[category] ?? 'Unavailable';
 }
 
+export interface RubricScoreLike { score?: unknown; maxScore?: unknown }
+export interface CategoryStatistic { value: number | string; holistic: boolean; score: string | null; percent: number | null; }
+export const HOLISTIC_STATISTIC_HELP = 'Assessed on the whole piece, not by individual corrections.';
+const HOLISTIC_CATEGORIES: readonly CanonicalCategory[] = ['content', 'organization'];
+
+/**
+ * One row of the Correction Statistics card. Content and Organization are judged on the whole piece, so a zero count says nothing about them and they
+ * read "Holistic" with the rubric score. A correction that really was counted there still shows its number. rubricScores is what this viewer may see:
+ * marks hidden means no score. A custom rubric's total is not made of these categories, so they carry no score then.
+ */
+export function categoryStatistic(state: CanonicalResultViewState | null, category: CanonicalCategory,
+  rubricScores?: Record<string, RubricScoreLike | null | undefined> | null): CategoryStatistic {
+  const value = categoryDisplay(state, category);
+  if (value !== 0 || !HOLISTIC_CATEGORIES.includes(category)) return { value, holistic: false, score: null, percent: null };
+  const rubric = state?.hasValidCustomRubric ? null : rubricScores?.[category.toUpperCase()];
+  const score = Number(rubric?.score), maxScore = Number(rubric?.maxScore);
+  if (rubric?.score == null || !Number.isFinite(score) || !(maxScore > 0)) return { value: 'Holistic', holistic: true, score: null, percent: null };
+  const text = `${score}/${maxScore}`;
+  return { value: `Holistic · ${text}`, holistic: true, score: text, percent: Math.max(0, Math.min(100, Math.round(score / maxScore * 100))) };
+}
+
 /** The evaluation heading that matches the real state. A teacher-reviewed result is never called "provisional". */
 export function evaluationHeading(state: CanonicalResultViewState | null | undefined): string {
   if (state?.evaluationFreshness === 'overridden') return 'Teacher-reviewed Evaluation';
