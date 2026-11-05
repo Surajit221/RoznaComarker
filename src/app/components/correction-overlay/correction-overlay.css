@@ -45,7 +45,7 @@
 .correction-overlay__underline {
   position: absolute;
   z-index: 2;
-  height: min(3px, var(--underline-clearance, 3px));
+  height: max(2px, min(3px, var(--underline-clearance, 3px)));
   background: var(--stroke-color);
   pointer-events: none;
   border-radius: 2px;
@@ -395,7 +395,7 @@
 .has-selection .correction-overlay__semantic-rail,
 .has-selection .correction-overlay__marker { opacity: .38; }
 .has-selection .is-selected { opacity: 1; }
-.correction-overlay__underline.is-selected { height: min(4px, var(--underline-clearance, 4px)); filter: brightness(.72); }
+.correction-overlay__underline.is-selected { height: max(3px, min(4px, var(--underline-clearance, 4px))); filter: brightness(.72); }
 .correction-overlay__boundary.is-selected { height: 5px; }
 .correction-overlay__semantic-rail.is-selected { width: 4px; filter: brightness(.72); }
 .correction-overlay__marker:focus-visible { outline: 2px solid #172033; outline-offset: 2px; }

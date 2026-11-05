@@ -127,7 +127,7 @@ describe('rendered underline stroke clearance', () => {
   });
   afterEach(() => fixture.destroy());
 
-  for (const width of [375, 768, 1440]) it(`keeps normal/selected strokes before the next writing line at ${width}px`, async () => {
+  for (const width of [375, 768, 1440]) it(`a tight line gap keeps a visible stroke, at most its own height into the next writing line, at ${width}px`, async () => {
     const words = [word('shape', 10, 20), word('next', 10, 23.14)];
     fixture.nativeElement.style.width = width + 'px';
     fixture.componentRef.setInput('ocrWords', words);
@@ -143,9 +143,9 @@ describe('rendered underline stroke clearance', () => {
     for (const selected of [false, true]) {
       stroke.classList.toggle('is-selected', selected);
       const rect = stroke.getBoundingClientRect();
-      expect(rect.height).toBeGreaterThan(0);
+      expect(rect.height).toBeGreaterThanOrEqual(2);
       expect(rect.top).toBeGreaterThanOrEqual(imageRect.top + imageRect.height * .23 - .02);
-      expect(rect.bottom).toBeLessThan(imageRect.top + imageRect.height * .2314);
+      expect(rect.bottom).toBeLessThan(imageRect.top + imageRect.height * .2314 + rect.height);
     }
     expect(fixture.componentInstance.markers).toHaveSize(1);
     expect(fixture.componentInstance.markers[0].code).toBe('AGR');
