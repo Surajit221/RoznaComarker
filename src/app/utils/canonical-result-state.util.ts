@@ -60,7 +60,7 @@ const status = (value: any, fallback: ResultStatus): ResultStatus =>
   ['pending', 'processing', 'completed', 'partial', 'failed', 'stale', 'blocked'].includes(String(value)) ? value : fallback;
 
 /** A category count is a number of distinct corrections: a whole number, never a weight. Anything else is not shown as a count. */
-function wholeCount(value: any): number | null {
+function wholeCount(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
   return Number.isInteger(number) && number >= 0 ? number : null;
