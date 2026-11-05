@@ -210,7 +210,7 @@ function check(name, ok, detail) { report.steps.push({ name, ok: Boolean(ok), ..
     const history = await a.page.$eval('.history', el => el.textContent.replace(/\s+/g, ' '));
     check('history: a readable row with the reason', history.includes('Grade checked') && history.includes('Scores kept. No score was changed.') && history.includes('Reason: Kept <b>after</b> checking'), history.slice(0, 300));
     await shot(a.page, '04-history');
-    await a.page.evaluate(() => [...document.querySelectorAll('button')].find(b => /Change history/.test(b.textContent)).click());
+    await a.page.click('[data-history-close]');
 
     // Student page, preview and PDF are unchanged by Keep.
     const after = { student: await studentNow('registered', 'registered-after'), preview: await previewNow('after'), pdf: await pdfNow('registered') };

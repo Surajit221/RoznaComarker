@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
@@ -8,9 +7,10 @@ import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import {
   AnnotationAction, AnnotationBody, AnnotationSnapshot, CorrectionRow, CorrectionValue, FormErrors, HistoryItem, MESSAGE_MAX, QUOTE_MAX, RowFilter, SUGGESTION_MAX,
-  allowedActions, buildRows, describeFailure, filterCounts, historyActionLabel, historyQuote, historySummary, matchesFilter, needsReview, newRequestId, orphanReasonText, rowBadges,
+  allowedActions, buildRows, describeFailure, filterCounts, matchesFilter, needsReview, newRequestId, orphanReasonText, rowBadges,
   snapToWords, validateForm, wordSpans,
 } from './annotation-editor.logic';
+import { ChangeHistoryDialog } from './change-history-dialog';
 import { GradeCheck } from './grade-check';
 import { RowPosition, buildPositions, positionLabels, revealRow, withDrawn } from './annotation-sync.logic';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
@@ -42,7 +42,7 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [DatePipe, FormsModule, GradeCheck, ReviewWorkspace],
+  imports: [ChangeHistoryDialog, FormsModule, GradeCheck, ReviewWorkspace],
   providers: [CorrectionSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
@@ -70,13 +70,14 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly selection = inject(CorrectionSelection);
   private readonly removeDialog = viewChild<ElementRef<HTMLDialogElement>>('removeDialog');
   private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
+  private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
   private version = 0;
+  private historyRequest = 0;
   private trigger: HTMLElement | null = null;
   private readonly spansByPage = new Map<string, { start: number; end: number }[]>();
 
   readonly MESSAGE_MAX = MESSAGE_MAX; readonly SUGGESTION_MAX = SUGGESTION_MAX; readonly QUOTE_MAX = QUOTE_MAX; readonly FILTERS = FILTERS;
-  readonly orphanReasonText = orphanReasonText; readonly rowBadges = rowBadges; readonly needsReview = needsReview; readonly historyActionLabel = historyActionLabel;
-  readonly historySummary = historySummary; readonly historyQuote = historyQuote;
+  readonly orphanReasonText = orphanReasonText; readonly rowBadges = rowBadges; readonly needsReview = needsReview;
 
   readonly open = signal(false);
   readonly loading = signal(false);
@@ -97,6 +98,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly historyLoading = signal(false);
   readonly historyItems = signal<HistoryItem[]>([]);
   readonly historyNext = signal<number | null>(null);
+  readonly historyError = signal('');
   /** Opens only when the teacher asks; closed, none of the workspace exists. */
   readonly workspaceOpen = signal(false);
   private readonly drawn = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
@@ -183,7 +185,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.spansByPage.clear();
     this.open.set(false); this.loading.set(false); this.snapshot.set(null); this.saving.set(false); this.notice.set(''); this.error.set(''); this.closedByServer.set(false);
     this.noAccess.set(false); this.filter.set('all'); this.limit.set(PAGE_SIZE); this.form.set(null); this.conflict.set(false); this.pending.set(null); this.confirmRow.set(null);
-    this.historyOpen.set(false); this.historyItems.set([]); this.historyNext.set(null);
+    this.historyRequest++; this.historyOpen.set(false); this.historyLoading.set(false); this.historyItems.set([]); this.historyNext.set(null); this.historyError.set('');
     this.workspaceOpen.set(false); this.drawn.set(new Map()); this.selection.clear();
   }
 
@@ -419,25 +421,42 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     afterNextRender(() => { (trigger?.isConnected ? trigger : this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]'))?.focus(); }, { injector: this.injector });
   }
 
-  async toggleHistory(): Promise<void> {
-    this.historyOpen.update(open => !open);
-    if (this.historyOpen() && !this.historyItems().length) await this.loadHistory(true);
+  /** Always from the start: the list may have changed since it was last open. */
+  async openHistory(): Promise<void> {
+    this.historyOpen.set(true); this.historyItems.set([]); this.historyNext.set(null);
+    await this.loadHistory(true);
   }
+  /** Called once per close: Escape reaches both this dialog and the bottom sheet's own listener. */
+  closeHistory(): void {
+    if (!this.historyOpen()) return;
+    this.historyRequest++;
+    this.historyOpen.set(false); this.historyLoading.set(false); this.historyError.set('');
+    afterNextRender(() => this.historyButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+  /** The page that failed: the first one when nothing is listed yet, otherwise the next one. */
+  async retryHistory(): Promise<void> { await this.loadHistory(!this.historyItems().length); }
   async loadHistory(fromStart: boolean): Promise<void> {
-    const version = this.version, offset = fromStart ? 0 : this.historyNext() ?? 0;
-    this.historyLoading.set(true);
+    if (!fromStart && this.historyLoading()) return;
+    const version = this.version, request = ++this.historyRequest, offset = fromStart ? 0 : this.historyNext() ?? 0;
+    const current = () => version === this.version && request === this.historyRequest;
+    this.historyLoading.set(true); this.historyError.set('');
     try {
       const page = await this.api.history(this.submissionId(), offset);
-      if (version !== this.version) return;
+      if (!current()) return;
       this.historyItems.update(items => fromStart ? page.items : [...items, ...page.items]);
       this.historyNext.set(page.nextOffset);
     } catch (failure) {
-      if (version === this.version) this.showLoadFailure(failure);
+      if (current()) this.showHistoryFailure(failure);
     } finally {
-      if (version === this.version) this.historyLoading.set(false);
+      if (current()) this.historyLoading.set(false);
     }
   }
-  shortId(id: string | null | undefined): string { return id ? String(id).slice(-8) : ''; }
+  private showHistoryFailure(failure: unknown): void {
+    const { status, code } = this.parseError(failure);
+    const described = describeFailure(status, code);
+    if (described.kind === 'notFound') this.noAccess.set(true);
+    this.historyError.set(described.kind === 'unconfirmed' ? 'The change history could not be loaded. Check your connection and try again.' : described.message);
+  }
 
   /** The grade check recorded a decision. No score changed, so the page's results are not refreshed and the preview is not reloaded. */
   async onGradeChecked(): Promise<void> {

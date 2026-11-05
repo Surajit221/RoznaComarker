@@ -269,7 +269,7 @@ describe('AnnotationControls', () => {
     it('after a decision: the snapshot and an open history reload; the page is not told scores changed', async () => {
       api.current = snapshot({ scoreReview: SCORE_REVIEW });
       await openEditor();
-      await component.toggleHistory(); await settle();
+      await component.openHistory(); await settle();
       const saved: void[] = []; component.saved.subscribe(() => saved.push());
       const before = api.snapshotCalls, historyBefore = api.history.calls.count();
       keepButton().click(); await settle();
@@ -282,7 +282,7 @@ describe('AnnotationControls', () => {
       api.history.and.resolveTo({ nextOffset: null, items: [{ action: 'score_review', previousRevision: 3, newRevision: 4, createdAt: '2026-11-01T10:00:00.000Z', entryId: null, reason: '<img src=x> kept',
         before: { status: 'needed' }, after: { status: 'checked' } }] });
       await openEditor();
-      await component.toggleHistory(); await settle();
+      await component.openHistory(); await settle();
       const history = dom().querySelector('.history')!;
       expect(history.textContent).toContain('Grade checked');
       expect(history.textContent).toContain('Scores kept. No score was changed.');
@@ -620,7 +620,7 @@ describe('AnnotationControls', () => {
   describe('history', () => {
     beforeEach(async () => { await create(); await openEditor(); });
     it('shows createdAt, the item and a summary; load more appends with the next offset', async () => {
-      await component.toggleHistory(); await settle();
+      await component.openHistory(); await settle();
       expect(api.history).toHaveBeenCalledWith('s1', 0);
       expect(text()).toContain('visible → hidden');
       expect(text()).toContain('12345678');
@@ -629,6 +629,102 @@ describe('AnnotationControls', () => {
       expect(api.history).toHaveBeenCalledWith('s1', 20);
       expect(component.historyItems().length).toBe(2);
       expect(button('Load more')).toBeUndefined();
+    });
+
+    const historyButton = () => button('Change history')!;
+    const dialog = () => dom().querySelector<HTMLElement>('[data-history-dialog]');
+    const waitForFocus = async () => { await settle(); await new Promise(resolve => setTimeout(resolve)); await settle(); };
+
+    it('is a dialog, not a list at the end of the page; nothing is rendered until it is opened', async () => {
+      expect(dialog()).toBeNull();
+      expect(dom().querySelector('.history')).toBeNull();
+      expect(historyButton().getAttribute('aria-haspopup')).toBe('dialog');
+      historyButton().click(); await settle();
+      expect(dialog()!.getAttribute('role')).toBe('dialog');
+      expect(dialog()!.closest('[id=annotation-editor-body]')).toBeNull();
+    });
+    for (const [name, close] of [
+      ['the Close button', () => dom().querySelector<HTMLElement>('[data-history-close]')!.click()],
+      ['Escape', () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))],
+      ['the backdrop', () => (dom().querySelector('app-change-history-dialog .fixed') as HTMLElement).click()],
+    ] as const) {
+      it(`closes with ${name} and focus returns to the Change history button`, async () => {
+        historyButton().focus();
+        historyButton().click(); await waitForFocus();
+        expect(dialog()!.contains(document.activeElement)).toBeTrue();
+        close(); await waitForFocus();
+        expect(dialog()).toBeNull();
+        expect(component.historyOpen()).toBeFalse(); expect(document.querySelectorAll('app-change-history-dialog, app-change-history-dialog .fixed').length).toBe(0);
+        expect(document.activeElement).toBe(historyButton());
+      });
+    }
+    it('a click inside the dialog does not close it', async () => {
+      historyButton().click(); await settle();
+      dialog()!.click(); await settle();
+      expect(dialog()).not.toBeNull();
+    });
+    it('reopening asks for the list again from the start, so a change made since then is listed', async () => {
+      historyButton().click(); await settle();
+      dom().querySelector<HTMLElement>('[data-history-close]')!.click(); await settle();
+      api.history.calls.reset();
+      historyButton().click(); await settle();
+      expect(api.history.calls.allArgs()).toEqual([['s1', 0]]);
+    });
+    it('a slow answer that arrives after closing is dropped', async () => {
+      let finish: (value: unknown) => void = () => undefined;
+      api.history.and.returnValue(new Promise(resolve => { finish = resolve; }));
+      historyButton().click(); await settle();
+      dom().querySelector<HTMLElement>('[data-history-close]')!.click(); await settle();
+      finish({ items: [{ action: 'hide', previousRevision: 1, newRevision: 2, createdAt: '2026-11-01T10:00:00.000Z' }], nextOffset: null }); await settle();
+      expect(component.historyItems()).toEqual([]);
+    });
+    it('zero entries: the button still works and the empty state shows', async () => {
+      api.history.and.resolveTo({ items: [], nextOffset: null });
+      expect(historyButton().hasAttribute('disabled')).toBeFalse();
+      historyButton().click(); await settle();
+      expect(dom().querySelector('[data-history-empty]')!.textContent).toContain('No changes yet');
+      dom().querySelector<HTMLElement>('[data-history-close]')!.click(); await settle();
+      expect(dialog()).toBeNull();
+    });
+    it('a failure shows in the dialog with Retry, not behind it; Retry loads the list', async () => {
+      api.history.and.rejectWith(httpError(500));
+      historyButton().click(); await settle();
+      expect(dom().querySelector('[data-history-error]')!.textContent).toContain('could not be loaded');
+      expect(component.error()).toBe('');
+      api.history.and.callThrough();
+      api.history.and.resolveTo({ items: [{ action: 'hide', previousRevision: 1, newRevision: 2, createdAt: '2026-11-01T10:00:00.000Z' }], nextOffset: null });
+      dom().querySelector<HTMLElement>('[data-history-retry]')!.click(); await settle();
+      expect(dom().querySelector('[data-history-error]')).toBeNull();
+      expect(dom().querySelectorAll('[data-history-entry]').length).toBe(1);
+    });
+    it('Retry after a failed Load more asks for the same next page and keeps what is listed', async () => {
+      historyButton().click(); await settle();
+      api.history.and.rejectWith(httpError(500));
+      button('Load more')!.click(); await settle();
+      expect(dom().querySelectorAll('[data-history-entry]').length).toBe(1);
+      api.history.calls.reset();
+      api.history.and.resolveTo({ items: [{ action: 'add', previousRevision: 1, newRevision: 2, createdAt: '2026-11-01T09:00:00.000Z' }], nextOffset: null });
+      dom().querySelector<HTMLElement>('[data-history-retry]')!.click(); await settle();
+      expect(api.history.calls.allArgs()).toEqual([['s1', 20]]);
+      expect(dom().querySelectorAll('[data-history-entry]').length).toBe(2);
+    });
+  });
+
+  describe('history: teacher only', () => {
+    it('someone the server refuses gets no history button and no history request', async () => {
+      await create();
+      api.snapshotFailure = httpError(404, 'ANNOTATION_NOT_FOUND');
+      await openEditor();
+      expect(button('Change history')).toBeUndefined();
+      expect(dom().querySelector('[data-history-dialog]')).toBeNull();
+      expect(api.history).not.toHaveBeenCalled();
+    });
+    it('the server refusing the history itself shows a message and no entries', async () => {
+      await create(); await openEditor();
+      api.history.and.rejectWith(httpError(404, 'ANNOTATION_NOT_FOUND'));
+      button('Change history')!.click(); await settle();
+      expect(dom().querySelector('[data-history-entry]')).toBeNull();
+      expect(dom().querySelector('[data-history-error]')!.textContent).toContain('do not have access');
     });
   });
 

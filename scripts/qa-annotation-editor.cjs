@@ -219,10 +219,51 @@ function check(name, ok, detail) { report.steps.push({ name, ok: Boolean(ok), ..
 
     // History, with its real rows.
     await clickButton(t.page, 'Change history'); await t.page.waitForFunction(sel => document.querySelector(`${sel} .history`)?.innerText.includes('Added'), {}, editor);
-    await t.page.evaluate(sel => document.querySelector(`${sel} .history`).scrollIntoView(), editor);
     await shot(t.page, '05-history');
     check('history shows real rows, no invalid dates', !(await t.page.$eval(`${editor} .history`, h => h.innerText)).includes('Invalid'));
-    await clickButton(t.page, 'Change history');
+    // The dialog in the real page: on top of everything, every way to close it, and crossing 1024px while it is open.
+    const dialogState = () => t.page.evaluate(() => {
+      const panel = document.querySelector('[data-history-dialog]'), backdrop = document.querySelector('app-change-history-dialog .fixed');
+      const box = panel?.getBoundingClientRect(), cover = backdrop?.getBoundingClientRect();
+      const onTop = box ? document.elementFromPoint(box.left + box.width / 2, box.top + 12) : null;
+      return { open: Boolean(panel), panels: document.querySelectorAll('[data-history-dialog]').length, backdrops: document.querySelectorAll('app-change-history-dialog .fixed').length,
+        sheet: Boolean(document.querySelector('app-change-history-dialog app-bottomsheet-dialog')), modal: Boolean(document.querySelector('app-change-history-dialog app-modal-dialog')),
+        focusInside: Boolean(document.activeElement?.closest('[data-history-dialog]')), onTop: Boolean(panel && onTop && panel.contains(onTop)),
+        inView: Boolean(box && box.top >= 0 && box.bottom <= innerHeight + 1 && box.left >= 0 && box.right <= innerWidth + 1),
+        coversViewport: Boolean(cover && cover.left <= 0 && cover.top <= 0 && cover.right >= innerWidth - 1 && cover.bottom >= innerHeight - 1),
+        focusOnButton: document.activeElement?.textContent?.trim() === 'Change history', scrollLocked: [document.body, document.documentElement].some(el => getComputedStyle(el).position === 'fixed' || el.style.overflow === 'hidden') };
+    });
+    const settleDialog = () => sleep(450);
+    let dialog = await dialogState();
+    check('history dialog: desktop modal, focus inside, on top, in view, backdrop covers the page', dialog.modal && !dialog.sheet && dialog.focusInside && dialog.onTop && dialog.inView && dialog.coversViewport, dialog);
+    // The sheet slides in. Headless Chrome draws few frames, so wait for the slide to finish (a sheet that never slides in fails here).
+    const sheetInPlace = async () => { const started = Date.now();
+      await t.page.waitForFunction(() => { const box = document.querySelector('[data-history-dialog]')?.getBoundingClientRect(); return document.querySelector('app-change-history-dialog app-bottomsheet-dialog') && box && box.bottom <= innerHeight + 1; }, { timeout: 3000, polling: 50 }).catch(() => undefined);
+      return Date.now() - started; };
+    await t.page.setViewport({ width: 900, height: 1000 });
+    const slideMs = await sheetInPlace();
+    dialog = await dialogState();
+    await shot(t.page, '05b-history-compact');
+    check('history dialog: crossing to 900px switches to the sheet, one backdrop, focus inside, on top, in view', dialog.sheet && !dialog.modal && dialog.panels === 1 && dialog.backdrops === 1 && dialog.focusInside && dialog.onTop && dialog.inView && dialog.coversViewport && !dialog.scrollLocked, { ...dialog, slideMs });
+    await t.page.setViewport({ width: 390, height: 800 }); await sheetInPlace();
+    dialog = await dialogState();
+    await shot(t.page, '05c-history-phone');
+    check('history dialog: phone width stays in view and on top', dialog.sheet && dialog.onTop && dialog.inView && dialog.coversViewport, dialog);
+    await t.page.setViewport({ width: 1366, height: 1000 }); await settleDialog();
+    dialog = await dialogState();
+    check('history dialog: back across 1024px switches to the modal, one backdrop, focus inside', dialog.modal && !dialog.sheet && dialog.panels === 1 && dialog.backdrops === 1 && dialog.focusInside && !dialog.scrollLocked, dialog);
+    await t.page.keyboard.press('Escape'); await settleDialog();
+    dialog = await dialogState();
+    check('history dialog: Escape closes, no backdrop left, focus back on the button, no scroll lock', !dialog.open && dialog.backdrops === 0 && dialog.focusOnButton && !dialog.scrollLocked, dialog);
+    await t.page.keyboard.press('Enter'); await settleDialog();
+    check('history dialog: reopens from the keyboard', (await dialogState()).open);
+    await t.page.mouse.click(8, 8); await settleDialog();
+    dialog = await dialogState();
+    check('history dialog: a backdrop click closes, focus back on the button', !dialog.open && dialog.backdrops === 0 && dialog.focusOnButton, dialog);
+    await clickButton(t.page, 'Change history'); await settleDialog();
+    await t.page.click('[data-history-close]'); await settleDialog();
+    dialog = await dialogState();
+    check('history dialog: the Close button closes, focus back on the button', !dialog.open && dialog.backdrops === 0 && dialog.focusOnButton, dialog);
 
     // 2. Orphans: real OCR re-run ("realy" and "home" change). One edit and one manual entry lose their text.
     key = await rowKey(t.page, 'realy');

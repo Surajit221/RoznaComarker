@@ -1,0 +1,14 @@
+.history { color: #203864; overflow-wrap: anywhere; outline: none; }
+.history__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.history__head h3 { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.history__status { min-height: 1.35em; margin: 6px 0; font-size: .9rem; }
+.history__error { margin: 6px 0; color: #9f261c; font-size: .9rem; font-weight: 600; }
+/* The list scrolls, not the page: the bottom sheet has no height limit of its own. */
+.history__list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.history__list:focus-visible { outline: 3px solid #172033; outline-offset: 2px; }
+.history ol { list-style: none; margin: 0 0 8px; padding: 0; }
+.history li { padding: 10px 0; border-top: 1px solid #e2e8f0; }
+.history li p { margin: 4px 0; font-size: .9rem; line-height: 1.5; }
+.history blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid #94a3b8; color: #334155; font-size: .9rem; }
+.history .history__id { color: #475569; font-size: .75rem; }
+.history button { min-height: 44px; }

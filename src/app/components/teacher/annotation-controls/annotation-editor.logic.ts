@@ -39,7 +39,7 @@ export interface HistoryItem {
   /** score_review rows: the teacher's own text, shown by interpolation only. */
   reason?: string;
 }
-export interface HistorySide { status?: string; kind?: string; value?: { quotedText?: string; message?: string } | null; anchor?: { quotedText?: string } | null; }
+export interface HistorySide { status?: string; kind?: string; targetId?: string; value?: { quotedText?: string; message?: string; symbol?: string; category?: string } | null; anchor?: { quotedText?: string } | null; }
 
 export interface CorrectionValue {
   fileId: string; page: number; startChar: number; endChar: number; quotedText: string; symbol: string; category: string; message: string; suggestedText: string;
@@ -233,6 +233,24 @@ export function historySummary(item: HistoryItem): string {
 }
 export function historyQuote(item: HistoryItem): string {
   return item.after?.value?.quotedText ?? item.after?.anchor?.quotedText ?? item.before?.value?.quotedText ?? item.before?.anchor?.quotedText ?? '';
+}
+
+export interface HistoryTarget { code: string; category: string; }
+export interface HistoryTargetIndex { byId: Map<string, { symbol?: string; category?: string }>; categoryLabels: Map<string, string>; }
+/** What the current snapshot knows about each correction and overlay entry id, for naming a history row. */
+export function historyTargetIndex(snapshot: AnnotationSnapshot | null): HistoryTargetIndex {
+  const byId: HistoryTargetIndex['byId'] = new Map();
+  for (const c of snapshot?.corrections || []) { byId.set(c.id, c); if (c.entryId) byId.set(c.entryId, c); }
+  for (const o of [...(snapshot?.orphans || []), ...(snapshot?.archivedOrphans || [])]) if (o.value && !byId.has(o.entryId)) byId.set(o.entryId, o.value);
+  return { byId, categoryLabels: new Map((snapshot?.legend?.groups || []).map(g => [g.key, g.label])) };
+}
+/** The short code and category of the correction a history row is about, or null when it cannot be resolved. A value stored on the row wins: it is what was true then. */
+export function historyTarget(item: HistoryItem, index: HistoryTargetIndex): HistoryTarget | null {
+  if (item.action === 'score_review') return null;
+  const stored = [item.after?.value, item.before?.value].find(value => value?.symbol || value?.category);
+  const known = stored ?? [item.correctionId, item.entryId, item.after?.targetId, item.before?.targetId].map(id => id ? index.byId.get(id) : undefined).find(Boolean);
+  if (!known?.symbol && !known?.category) return null;
+  return { code: known.symbol ?? '', category: known.category ? index.categoryLabels.get(known.category) ?? known.category : '' };
 }
 
 /** A request id the server accepts (36 hex-and-dash characters), also on browsers without crypto.randomUUID. */

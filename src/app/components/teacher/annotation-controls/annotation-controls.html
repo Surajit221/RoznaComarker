@@ -40,7 +40,7 @@
           <div class="editor__actions">
             @if (!readOnly()) { <button type="button" class="btn-primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }
             <button type="button" class="btn-info" [attr.aria-disabled]="loading()" (click)="reload()">Reload latest</button>
-            <button type="button" class="btn-info" [attr.aria-expanded]="historyOpen()" (click)="toggleHistory()">Change history</button>
+            <button #historyButton type="button" class="btn-info" aria-haspopup="dialog" (click)="openHistory()">Change history</button>
             <button type="button" class="btn-info" data-sync-toggle [attr.aria-expanded]="workspaceOpen()" (click)="toggleWorkspace()">{{ workspaceOpen() ? 'Hide image and transcript' : 'Show image and transcript' }}</button>
           </div>
         </div>
@@ -138,24 +138,6 @@
         @if (filteredCount() > limit()) {
           <button type="button" class="btn-info" (click)="showMore()">Show more (showing {{ shownRows().length }} of {{ filteredCount() }})</button>
         }
-
-        @if (historyOpen()) {
-          <section class="history" aria-label="Change history" [attr.aria-busy]="historyLoading()">
-            <h3>Change history</h3>
-            @if (!historyItems().length && !historyLoading()) { <p>No changes yet.</p> }
-            <ol>
-              @for (item of historyItems(); track item.newRevision + ':' + item.createdAt) {
-                <li>
-                  <p><strong>{{ historyActionLabel(item.action) }}</strong> · <time>{{ item.createdAt | date:'medium' }}</time>@if (item.entryId) {&ngsp;· item {{ shortId(item.entryId) }}}</p>
-                  @if (historySummary(item)) { <p>{{ historySummary(item) }}</p> }
-                  @if (historyQuote(item)) { <blockquote>{{ historyQuote(item) }}</blockquote> }
-                  @if (item.reason) { <p data-history-reason>Reason: {{ item.reason }}</p> }
-                </li>
-              }
-            </ol>
-            @if (historyNext() !== null) { <button type="button" class="btn-info" [attr.aria-disabled]="historyLoading()" (click)="loadHistory(false)">Load more</button> }
-          </section>
-        }
       }
     </div>
   }
@@ -168,4 +150,9 @@
       <button type="button" class="btn-info" (click)="closeRemove()">Keep it</button>
     </div>
   </dialog>
+
+  @if (historyOpen()) {
+    <app-change-history-dialog [items]="historyItems()" [loading]="historyLoading()" [error]="historyError()" [hasMore]="historyNext() !== null" [snapshot]="snapshot()"
+      (closed)="closeHistory()" (retry)="retryHistory()" (loadMore)="loadHistory(false)" />
+  }
 </section>
