@@ -59,6 +59,13 @@ const categories: CanonicalCategory[] = ['content', 'grammar', 'organization', '
 const status = (value: any, fallback: ResultStatus): ResultStatus =>
   ['pending', 'processing', 'completed', 'partial', 'failed', 'stale', 'blocked'].includes(String(value)) ? value : fallback;
 
+/** A category count is a number of distinct corrections: a whole number, never a weight. Anything else is not shown as a count. */
+function wholeCount(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
 function finite(value: any): number | null {
   if (value === null || value === undefined || value === '') return null;
   const number = Number(value);
@@ -92,7 +99,7 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     const inferred: Availability = completeness === 'canonical' || (completeness === 'language_only' && languageCategory)
       ? 'available' : ['failed', 'partial', 'stale'].includes(correctionStatus) ? 'failed' : 'pending';
     availability[category] = ['pending', 'available', 'partial', 'failed'].includes(rawAvailability[category]) ? rawAvailability[category] : inferred;
-    statistics[category] = ['available', 'partial'].includes(availability[category]) ? finite(rawStats[category]) : null;
+    statistics[category] = ['available', 'partial'].includes(availability[category]) ? wholeCount(rawStats[category]) : null;
   }
   const explicitLifecycleActive = value.terminal === true ? false
     : value.processingActive === true || value.automaticPollingAllowed === true
@@ -229,24 +236,29 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
   return state.statistics[category] ?? 'Unavailable';
 }
 
-export interface RubricScoreLike { score?: unknown; maxScore?: unknown }
-export interface CategoryStatistic { value: number | string; score: string | null; }
-const RUBRIC_ONLY_CATEGORIES: readonly CanonicalCategory[] = ['content', 'organization'];
+export interface CategoryStatistic { value: number | string; }
+export interface CodedCorrection { category?: string; group?: string; symbol?: string; }
+
+/** One row of the Correction Statistics card: the number of distinct corrections this viewer sees, nothing else. */
+export function categoryStatistic(state: CanonicalResultViewState | null, category: CanonicalCategory): CategoryStatistic {
+  return { value: categoryDisplay(state, category) };
+}
 
 /**
- * One row of the Correction Statistics card: the real count. Content and Organization can lose marks in the rubric with no counted finding, so a zero there
- * comes with the rubric score, and does not read as full marks. rubricScores is what this viewer may see: marks hidden means no score. A custom rubric's
- * total is not made of these categories, so they carry no score then.
+ * The codes that make up a category's count, most frequent first: "SP 4 · P 2 · CAP 2". Built from the corrections this viewer sees. When those do not add
+ * up to the count shown (a list still loading, or not the same set), nothing is returned rather than a breakdown that disagrees with the number.
  */
-export function categoryStatistic(state: CanonicalResultViewState | null, category: CanonicalCategory,
-  rubricScores?: Record<string, RubricScoreLike | null | undefined> | null): CategoryStatistic {
-  const value = categoryDisplay(state, category);
-  if (value !== 0 || !RUBRIC_ONLY_CATEGORIES.includes(category)) return { value, score: null };
-  const rubric = state?.hasValidCustomRubric ? null : rubricScores?.[category.toUpperCase()];
-  const score = Number(rubric?.score), maxScore = Number(rubric?.maxScore);
-  if (rubric?.score == null || !Number.isFinite(score) || !(maxScore > 0) || score >= maxScore) return { value, score: null };
-  const text = `${score}/${maxScore}`;
-  return { value: `0 · ${text}`, score: text };
+export function categoryCodeCounts(corrections: readonly CodedCorrection[] | null | undefined, category: CanonicalCategory, count: number | string): string {
+  if (typeof count !== 'number' || count <= 0 || !Array.isArray(corrections)) return '';
+  const tally = new Map<string, number>();
+  for (const item of corrections) {
+    if (String(item?.category || item?.group || '').toLowerCase() !== category) continue;
+    const symbol = String(item?.symbol || '').trim();
+    if (symbol) tally.set(symbol, (tally.get(symbol) || 0) + 1);
+  }
+  const total = [...tally.values()].reduce((sum, value) => sum + value, 0);
+  if (total !== count) return '';
+  return [...tally].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([symbol, value]) => `${symbol} ${value}`).join(' · ');
 }
 
 /** The evaluation heading that matches the real state. A teacher-reviewed result is never called "provisional". */

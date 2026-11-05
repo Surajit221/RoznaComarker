@@ -138,7 +138,7 @@
                     } @else if (statisticsState === 'error') {
                     <div class="section-load-error" role="status">Unable to load correction statistics.</div>
                     } @else {
-                    <app-correction-statistics [state]="canonicalResultState" [rubricScores]="$any(currentFeedback)?.rubricScores"
+                    <app-correction-statistics [state]="canonicalResultState" [corrections]="annotations"
                       [barWidths]="{ content: contentIssuesBarWidth, grammar: grammarIssuesBarWidth, organization: organizationIssuesBarWidth, vocabulary: vocabularyIssuesBarWidth, mechanics: mechanicsIssuesBarWidth }" />
                     }
                   </div>

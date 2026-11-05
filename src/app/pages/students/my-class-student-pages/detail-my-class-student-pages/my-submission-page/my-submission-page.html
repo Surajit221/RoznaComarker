@@ -133,7 +133,7 @@
                 @else if (statisticsState === 'processing') { <div class="text-sm text-blue-700" role="status">Still analyzing corrections…</div> }
                 @else if (statisticsState === 'error') { <div class="section-load-error" role="alert">Unable to load statistics — retrying is safe.</div> }
                 @else {
-                <app-correction-statistics [state]="canonicalResultState" [rubricScores]="marksVisible ? $any(feedback)?.rubricScores : null"
+                <app-correction-statistics [state]="canonicalResultState" [corrections]="annotations"
                   [barWidths]="{ content: contentIssuesBarWidth, grammar: grammarIssuesBarWidth, organization: organizationIssuesBarWidth, vocabulary: vocabularyIssuesBarWidth, mechanics: mechanicsIssuesBarWidth }" />
                 }
               </div>
