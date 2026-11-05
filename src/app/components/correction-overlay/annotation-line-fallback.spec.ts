@@ -153,11 +153,12 @@ describe('CorrectionOverlay: what the page shows', () => {
     expect(dom.querySelector('.correction-overlay__marker')).toBeNull();
     expect(dom.querySelector('[data-overlay-unlocated]')!.textContent).toContain('1 correction is not located');
   });
-  it('a word underline is three pixels, in a much darker shade of its colour', () => {
+  it('a word underline is two pixels, in a strong shade of its own colour', () => {
     const boxed = annotation('b', ['w1_0'], { symbol: 'SP', group: 'MECHANICS', color: '#FFF3BF', renderTarget: { version: 1, source: 'wordIds', wordIds: ['w1_0'], anchors: [], boxes: [box(15)] } });
     const { dom } = render([boxed]);
     const line = dom.querySelector<HTMLElement>('.correction-overlay__underline')!;
-    expect(line.getBoundingClientRect().height).toBe(3);
+    expect(line.getBoundingClientRect().height).toBe(2);
+    expect(getComputedStyle(line).backgroundColor).toBe('rgb(203, 167, 11)');
     expect(getComputedStyle(line).backgroundColor).not.toBe('rgb(255, 243, 191)');
   });
   it('a sentence marker is a bracket, has a badge and says in words that it marks the lines', () => {

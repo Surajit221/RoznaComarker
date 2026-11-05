@@ -39,13 +39,13 @@
 
 .correction-overlay__image.is-loaded { opacity: 1; }
 
-/* A stroke has its error type's colour (annotation-stroke.ts). The thin dark halo keeps it visible on any paper without changing the colour. */
-.correction-overlay__underline, .correction-overlay__semantic-rail { outline: 1px solid rgba(15, 23, 42, .85); }
+/* A stroke has its error type's colour (annotation-stroke.ts), 2px. A hairline dark halo keeps it visible on any paper without changing the colour. */
+.correction-overlay__underline, .correction-overlay__semantic-rail { outline: .5px solid rgba(15, 23, 42, .85); }
 
 .correction-overlay__underline {
   position: absolute;
   z-index: 2;
-  height: 3px;
+  height: 2px;
   background: var(--stroke-color, var(--underline-color, #d64545));
   pointer-events: none;
 }
@@ -53,7 +53,7 @@
 .correction-overlay__semantic-rail {
   position: absolute;
   z-index: 2;
-  width: 3px;
+  width: 2px;
   min-height: 8px;
   background: var(--stroke-color, var(--underline-color, #d64545));
   pointer-events: none;
@@ -387,9 +387,9 @@
 .has-selection .correction-overlay__semantic-rail,
 .has-selection .correction-overlay__marker { opacity: .38; }
 .has-selection .is-selected { opacity: 1; }
-.correction-overlay__underline.is-selected { height: 4px; filter: brightness(.72); }
+.correction-overlay__underline.is-selected { height: 3px; filter: brightness(.72); }
 .correction-overlay__boundary.is-selected { height: 5px; }
-.correction-overlay__semantic-rail.is-selected { width: 4px; filter: brightness(.72); }
+.correction-overlay__semantic-rail.is-selected { width: 3px; filter: brightness(.72); }
 .correction-overlay__marker:focus-visible { outline: 2px solid #172033; outline-offset: 2px; }
 .correction-overlay__entries { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px; }
 .correction-overlay__entries button { font: inherit; font-size: 12px; text-align: left; padding: 8px;
@@ -405,7 +405,7 @@
 @media (prefers-reduced-motion: reduce) { .is-sync .correction-overlay__marker { transition: none; } }
 
 /* A bracket over whole lines, so it never reads as a word-level marker. */
-.correction-overlay__line-rail { width: 6px; border: 3px solid var(--stroke-color, var(--underline-color, #d64545)); border-right: 0; background: none; box-sizing: border-box; outline: 0; filter: drop-shadow(0 0 1px rgba(15, 23, 42, .85)); }
+.correction-overlay__line-rail { width: 6px; border: 2px solid var(--stroke-color, var(--underline-color, #d64545)); border-right: 0; background: none; box-sizing: border-box; outline: 0; filter: drop-shadow(0 0 .5px rgba(15, 23, 42, .85)); }
 .correction-overlay__line-note { margin: 0 14px 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
 .correction-overlay__placement { margin-top: 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
 .correction-overlay__placement p { margin: 2px 0; }
