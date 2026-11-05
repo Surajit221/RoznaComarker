@@ -158,8 +158,11 @@ module.exports = async function run({ out, seedAll, harness, teacherUrl, sleep, 
     const metrics = async () => { for (let i = 0; i < 3; i++) { await client.send('HeapProfiler.collectGarbage'); await sleep(250); } const m = await a.page.metrics(); return { listeners: m.JSEventListeners, nodes: m.Nodes, heapMB: +(m.JSHeapUsedSize / 1048576).toFixed(2) }; };
     const cycles = async n => { for (let i = 0; i < n; i++) { await a.page.click('[data-sync-toggle]'); await sleep(300); await a.page.click('[data-sync-toggle]'); await sleep(120); } return metrics(); };
     const start = await metrics(), after5 = await cycles(5), after15 = await cycles(10), after30 = await cycles(15);
-    check('30 open and close cycles: listeners return exactly', after30.listeners === start.listeners, { start, after30 });
-    check('30 open and close cycles: nodes and memory do not keep growing', after30.nodes - after5.nodes <= 300 && after30.heapMB - after5.heapMB <= 2, { start, after5, after15, after30 });
+    // Growth after warm-up, over 25 cycles. Measured on this build and on 7c3a223, three runs each: listeners swing by 2 and nodes by about 305 (one closed workspace not yet collected), in both
+    // directions and at any checkpoint. A leak of 1 listener or 17 nodes per cycle goes over these limits.
+    const growth = { listeners: after30.listeners - after5.listeners, nodes: after30.nodes - after5.nodes, heapMB: +(after30.heapMB - after5.heapMB).toFixed(2) };
+    check('30 open and close cycles: listeners do not keep growing after warm-up', growth.listeners <= 4, { growth, start, after5, after15, after30 });
+    check('30 open and close cycles: nodes and memory do not keep growing after warm-up', growth.nodes <= 400 && growth.heapMB <= 2, { growth, start, after5, after15, after30 });
     report.timings.openCloseCycles = { start, after5, after15, after30 };
     await a.context.close();
 
