@@ -710,6 +710,23 @@ describe('AnnotationControls', () => {
     });
   });
 
+  describe('possible missed line', () => {
+    it('warns the teacher when the server says a written line may have been skipped', async () => {
+      await create();
+      api.current = snapshot({ possibleMissedLines: 1 });
+      await openEditor();
+      const warning = dom().querySelector('[data-possible-missed-line]')!;
+      expect(warning.textContent).toContain('Possible missed line, please check the image.');
+      expect(warning.getAttribute('role')).toBe('status');
+    });
+    it('says nothing when none was found, or the server is older', async () => {
+      await create();
+      api.current = snapshot({ possibleMissedLines: 0 });
+      await openEditor();
+      expect(dom().querySelector('[data-possible-missed-line]')).toBeNull();
+    });
+  });
+
   describe('why a correction has no marker', () => {
     it('the list says so with the workspace closed too', async () => {
       await create();

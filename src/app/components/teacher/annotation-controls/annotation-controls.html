@@ -21,6 +21,9 @@
       @if (loading() && !snapshot()) { <p role="status">Loading corrections…</p> }
       @if (closed()) { <p class="editor__readonly" role="status">This class is closed, so corrections are read-only.</p> }
       @if (snapshot(); as data) {
+        @if (data.possibleMissedLines) {
+          <p class="editor__warning" role="status" data-possible-missed-line><strong>Possible missed line, please check the image.</strong> The text recognition may have skipped a written line, so it may not be marked.</p>
+        }
         <p class="editor__counts" data-counts>
           <strong>{{ studentVisible() }}</strong> of {{ rows().length }} corrections are visible to the student.
           Hidden: {{ counts().hidden }}. Removed: {{ counts().archived }}. Needs review: {{ counts().review }}.

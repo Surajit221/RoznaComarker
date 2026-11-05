@@ -29,6 +29,8 @@ export interface AnnotationSnapshot {
   effective: ({ id: string } & Record<string, unknown>)[]; transitions: Transitions; legend: { groups: LegendGroup[] };
   /** Sent by a backend older than Task 7C; the Grade check panel replaced it and nothing shows it. */
   scorePolicy?: string;
+  /** Lines the geometry provider saw and the reader did not. A warning for the teacher; the transcript is not changed. */
+  possibleMissedLines?: number;
   /** The grade check. Absent from a server older than Task 7BE: the panel is then not shown. */
   scoreReview?: ScoreReview;
 }
