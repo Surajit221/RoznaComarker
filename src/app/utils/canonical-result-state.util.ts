@@ -230,24 +230,23 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
 }
 
 export interface RubricScoreLike { score?: unknown; maxScore?: unknown }
-export interface CategoryStatistic { value: number | string; holistic: boolean; score: string | null; percent: number | null; }
-export const HOLISTIC_STATISTIC_HELP = 'Assessed on the whole piece, not by individual corrections.';
-const HOLISTIC_CATEGORIES: readonly CanonicalCategory[] = ['content', 'organization'];
+export interface CategoryStatistic { value: number | string; score: string | null; }
+const RUBRIC_ONLY_CATEGORIES: readonly CanonicalCategory[] = ['content', 'organization'];
 
 /**
- * One row of the Correction Statistics card. Content and Organization are judged on the whole piece, so a zero count says nothing about them and they
- * read "Holistic" with the rubric score. A correction that really was counted there still shows its number. rubricScores is what this viewer may see:
- * marks hidden means no score. A custom rubric's total is not made of these categories, so they carry no score then.
+ * One row of the Correction Statistics card: the real count. Content and Organization can lose marks in the rubric with no counted finding, so a zero there
+ * comes with the rubric score, and does not read as full marks. rubricScores is what this viewer may see: marks hidden means no score. A custom rubric's
+ * total is not made of these categories, so they carry no score then.
  */
 export function categoryStatistic(state: CanonicalResultViewState | null, category: CanonicalCategory,
   rubricScores?: Record<string, RubricScoreLike | null | undefined> | null): CategoryStatistic {
   const value = categoryDisplay(state, category);
-  if (value !== 0 || !HOLISTIC_CATEGORIES.includes(category)) return { value, holistic: false, score: null, percent: null };
+  if (value !== 0 || !RUBRIC_ONLY_CATEGORIES.includes(category)) return { value, score: null };
   const rubric = state?.hasValidCustomRubric ? null : rubricScores?.[category.toUpperCase()];
   const score = Number(rubric?.score), maxScore = Number(rubric?.maxScore);
-  if (rubric?.score == null || !Number.isFinite(score) || !(maxScore > 0)) return { value: 'Holistic', holistic: true, score: null, percent: null };
+  if (rubric?.score == null || !Number.isFinite(score) || !(maxScore > 0) || score >= maxScore) return { value, score: null };
   const text = `${score}/${maxScore}`;
-  return { value: `Holistic · ${text}`, holistic: true, score: text, percent: Math.max(0, Math.min(100, Math.round(score / maxScore * 100))) };
+  return { value: `0 · ${text}`, score: text };
 }
 
 /** The evaluation heading that matches the real state. A teacher-reviewed result is never called "provisional". */

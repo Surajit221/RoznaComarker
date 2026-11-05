@@ -31,7 +31,7 @@
         <div class="feedback-grid">
           @for (area of model.areasForImprovement; track area.id) {
             <article class="feedback-card" [attr.data-category]="area.category">
-              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible && area.maxScore) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">@if (area.issueCount === null) {Issues unavailable} @else if (area.evidenceKind === 'holistic') {Holistic feedback} @else { {{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }} }</span></div></header>
+              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible && area.maxScore) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">@if (area.issueCount === null) {Issues unavailable} @else if (area.evidenceKind === 'holistic') {Rubric note} @else { {{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }} }</span></div></header>
               <p class="summary">{{ area.explanation || (area.issueCount === null ? 'Detailed correction counts are unavailable.' : area.issueCount + ' distinct issues affected this category.') }}</p>
               @if (area.dominantSymbols.length) {<div class="symbols" aria-label="Dominant correction symbols">@for (symbol of area.dominantSymbols; track symbol) {<span>{{ symbol }}</span>}</div>}
               @for (example of area.examples; track example.correctionId) {

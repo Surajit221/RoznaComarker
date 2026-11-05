@@ -104,7 +104,7 @@ export function buildDetailedFeedbackDisplayModel(
   if (feedback && (areas.length || strengths.length || actions.length || [feedback.areasForImprovement, feedback.strengths, feedback.actionSteps]
     .every((items) => Array.isArray(items) && items.length === 0))) {
     return { status: areas.length ? 'completed' : 'empty', message: !state.correctionsAvailable
-      ? 'Detailed corrections are unavailable. The feedback below is holistic rubric guidance only.'
+      ? 'Detailed corrections are unavailable. The feedback below is rubric guidance only.'
       : areas.length ? null : 'No major improvement areas were identified.',
       retryLabel: canonicalRetryLabel(state),
       sourceHash: state?.detailedFeedbackSourceHash || text(feedback.sourceHash) || null,
