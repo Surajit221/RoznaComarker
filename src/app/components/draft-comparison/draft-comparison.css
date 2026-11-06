@@ -57,3 +57,10 @@ h2, h3, h4, p { margin-top: 0; } h2 { margin-bottom: 0; font-size: 1.5rem; } h3 
 .draft-select label { font-weight: 600; color: #334155; }
 .draft-select select { min-height: 44px; max-width: 100%; padding: 0 .75rem; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; color: #0f172a; }
 .draft-select select:focus-visible { outline: 3px solid #f5b800; outline-offset: 2px; }
+
+/* v2: five summary cards. 5 across on wide screens, 3 on tablets, 2 on phones, 1 on very small screens; never one card alone on a desktop row. */
+.metric-grid.metric-grid--five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .metric-grid.metric-grid--five { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .metric-grid.metric-grid--five { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .metric-grid.metric-grid--five { grid-template-columns: 1fr; } }
+.notice--limited { border-left: 4px solid #b45309; }

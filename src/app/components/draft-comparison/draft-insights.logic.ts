@@ -26,7 +26,8 @@ const NOT_ENOUGH = 'There is not enough comparable information between these dra
 
 /** Insights for a v2 comparison, or null when there is nothing to show (not v2 or not available). */
 export function draftInsights(comparison: DraftComparison | null): DraftInsights | null {
-  if (!comparison?.available || comparison.comparisonVersion !== 2) return null;
+  // Different texts: no insight at all (the comparison shows its own neutral notice).
+  if (!comparison?.available || comparison.comparisonVersion !== 2 || comparison.textsUnrelated) return null;
   if (comparison.rubricChanged || comparison.overall?.status === 'RUBRIC_CHANGED') {
     return { claims: false, note: LIMITED, strongest: null, weakest: null, fixedCount: 0, openAreas: [], focus: null };
   }

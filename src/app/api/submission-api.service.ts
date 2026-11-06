@@ -118,7 +118,9 @@ export type DraftComparison = {
   previousDraftNumber?: number;
   currentDraftNumber?: number;
   // v2 (DRAFT_COMPARISON_V2_ENABLED): when the rubric changed, delta is null and status is RUBRIC_CHANGED (no improved/declined claim).
-  overall?: { previousScore: number; currentScore: number; delta: number | null; status: 'IMPROVED' | 'DECLINED' | 'UNCHANGED' | 'RUBRIC_CHANGED' };
+  overall?: { previousScore: number; currentScore: number; delta: number | null; status: 'IMPROVED' | 'DECLINED' | 'UNCHANGED' | 'RUBRIC_CHANGED' | 'TEXTS_UNRELATED' };
+  /** v2: the two drafts look like different texts (local word similarity); nothing is claimed. */
+  textsUnrelated?: boolean;
   rubricCategories?: DraftComparisonCategory[];
   rubricChanged?: boolean;
   rubricMessage?: string | null;
