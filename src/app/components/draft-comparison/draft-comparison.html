@@ -8,6 +8,16 @@
       <span class="draft-label">Draft {{ comparison?.previousDraftNumber }} to {{ comparison?.currentDraftNumber }}</span>
     }
   </div>
+  @if (draftChoices.length > 1) {
+    <div class="draft-select" data-draft-select>
+      <label for="draft-compare-with">Compare the latest draft with</label>
+      <select id="draft-compare-with" (change)="chooseDraft($any($event.target).value)" [disabled]="loading">
+        @for (choice of draftChoices; track choice.draftNumber; let first = $first) {
+          <option [value]="choice.draftNumber" [selected]="selectedDraft() === choice.draftNumber">Draft {{ choice.draftNumber }}@if (choice.submittedAt) { · {{ choice.submittedAt | date:'mediumDate' }} }@if (choice.score != null) { · score {{ choice.score }} }@if (first) { (previous) }</option>
+        }
+      </select>
+    </div>
+  }
 
   @if (loading) {
     <p class="state" role="status">Loading draft comparison…</p>
@@ -23,15 +33,69 @@
       <article class="metric">
         <span>Overall score</span>
         <strong>{{ comparison?.overall?.previousScore }} → {{ comparison?.overall?.currentScore }}</strong>
-        <small>{{ delta(comparison?.overall?.delta) }} · {{ comparison?.overall?.status | titlecase }}</small>
+        @if (rubricLimited()) {
+          <small class="limited" data-rubric-limited><span aria-hidden="true">⚠</span> Rubric changed - comparison limited</small>
+        } @else {
+          <small>{{ delta(comparison?.overall?.delta) }} · {{ comparison?.overall?.status | titlecase }}</small>
+        }
       </article>
       @if (comparison?.issuesAvailable !== false) {
         <article class="metric metric--positive"><span>Issues corrected</span><strong>{{ comparison?.issues?.correctedCount }}</strong></article>
         <article class="metric"><span>Issues remaining</span><strong>{{ comparison?.issues?.remainingCount }}</strong></article>
         <article class="metric"><span>New issues</span><strong>{{ comparison?.issues?.newIssueCount }}</strong></article>
+        @if (isV2()) { <article class="metric" data-unclear-metric><span>Unclear</span><strong>{{ comparison?.issues?.unclearCount ?? 0 }}</strong></article> }
       }
     </div>
     @if (comparison?.issuesAvailable === false) { <p class="notice">{{ comparison?.issuesMessage }}</p> }
+    @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issuesMessage) { <p class="notice" data-issues-note>{{ comparison?.issuesMessage }}</p> }
+    @if (isV2() && rubricLimited() && comparison?.rubricMessage) { <p class="notice" data-rubric-limited-note>{{ comparison?.rubricMessage }}</p> }
+
+    @if (insights; as insight) {
+      <section class="insights" aria-labelledby="insights-title" data-insights>
+        <h3 id="insights-title">Insights for the next draft</h3>
+        @if (insight.note) { <p class="notice" data-insights-note>{{ insight.note }}</p> }
+        @if (insight.claims) {
+          <ul class="insights__list">
+            @if (insight.strongest) { <li data-insight="strongest"><span aria-hidden="true">▲</span> Strongest progress: <strong>{{ insight.strongest.name }}</strong> ({{ describeDelta(insight.strongest.delta) }})</li> }
+            @if (insight.weakest) { <li data-insight="weakest"><span aria-hidden="true">▼</span> Least progress: <strong>{{ insight.weakest.name }}</strong> ({{ describeDelta(insight.weakest.delta) }})</li> }
+            @if (insight.fixedCount) { <li data-insight="fixed"><span aria-hidden="true">✓</span> Fixed from the previous draft: <strong>{{ insight.fixedCount }}</strong></li> }
+            @if (insight.openAreas.length) {
+              <li data-insight="open"><span aria-hidden="true">●</span> Still needing work:
+                @for (area of insight.openAreas; track area.category; let last = $last) { <strong>{{ categoryName(area.category) }}</strong> ({{ area.count }})@if (!last) {, } }</li>
+            }
+          </ul>
+          @if (insight.focus) { <p class="insights__focus" data-insight="focus">{{ insight.focus }}</p> }
+        }
+      </section>
+    }
+
+    @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issueDetails) {
+      <h3 id="issue-list-title">Writing issues, draft by draft</h3>
+      <div class="issue-tabs" role="tablist" aria-labelledby="issue-list-title" data-issue-tabs>
+        @for (tab of ISSUE_TABS; track tab.key; let i = $index) {
+          <button type="button" role="tab" [id]="'issue-tab-' + tab.key" [attr.aria-selected]="issueTab === tab.key" [attr.aria-controls]="'issue-panel-' + tab.key"
+            [attr.tabindex]="issueTab === tab.key ? 0 : -1" [attr.data-issue-tab]="tab.key" [class]="'issue-tab issue-tab--' + tab.key"
+            (click)="issueTab = tab.key" (keydown)="onIssueTabKey($event, i)">
+            <span aria-hidden="true">{{ tab.icon }}</span> {{ tab.label }} ({{ issueCount(tab.key) }})
+          </button>
+        }
+      </div>
+      <div class="issue-panel" role="tabpanel" [id]="'issue-panel-' + issueTab" [attr.aria-labelledby]="'issue-tab-' + issueTab" data-issue-panel>
+        @for (item of issueItems(issueTab); track $index) {
+          <article class="issue" [class]="'issue issue--' + item.status" data-issue-item>
+            <p class="issue__head"><span class="issue__chip">{{ item.symbol || '—' }}</span> <strong>{{ categoryLabel(item.category) }}</strong></p>
+            @if (item.originalText) { <p><span class="issue__label">{{ item.status === 'new' ? 'In the new draft:' : 'Original:' }}</span> <q>{{ item.originalText }}</q></p> }
+            @if (item.previousSuggestion) { <p><span class="issue__label">Previous suggestion:</span> {{ item.previousSuggestion }}</p> }
+            @if (item.suggestion) { <p><span class="issue__label">Suggestion:</span> {{ item.suggestion }}</p> }
+            @if (item.revisedText) { <p><span class="issue__label">Revised text:</span> <q>{{ item.revisedText }}</q></p> }
+            <p class="issue__why">{{ item.explanation }}</p>
+          </article>
+        } @empty {
+          <p class="issue-empty-tab">No items here.</p>
+        }
+        @if (issueOmitted(issueTab)) { <p class="notice" data-issue-omitted>And {{ issueOmitted(issueTab) }} more not shown.</p> }
+      </div>
+    }
     @if (comparison?.issuesAvailable !== false && comparison?.issues?.previousCount === 0) {
       <p class="notice issue-empty">No previous writing issues were detected.</p>
     }
@@ -56,6 +120,31 @@
 
     @if (comparison?.previousText || comparison?.currentText) {
       <h3>Draft text</h3>
+      @if (isV2()) {
+        <div class="diff-toolbar">
+          <button type="button" class="diff-toggle" data-diff-toggle [attr.aria-pressed]="showChanges" (click)="toggleChanges()">{{ showChanges ? 'Hide changes' : 'Show changes' }}</button>
+        </div>
+      }
+      @if (isV2() && showChanges) {
+        @if (!diff) {
+          <p class="state" role="status" data-diff-preparing>Preparing changes…</p>
+        } @else {
+          <p class="diff-legend" data-diff-legend><span aria-hidden="true">Key:</span>
+            <ins class="diff-added">added</ins> <del class="diff-removed">removed</del> <span class="diff-modified-key">~ changed</span>
+            @if (diff.level === 'sentence') { <span> · Long drafts are compared sentence by sentence.</span> }</p>
+          <p class="sr-only" role="status">{{ diff.added }} additions, {{ diff.removed }} removals and {{ diff.modified }} changes.</p>
+          <div class="diff-view" data-diff-view tabindex="0" role="group" aria-label="Changes from the previous draft to the current draft">
+            @for (segment of diff.segments; track $index) {
+              @switch (segment.kind) {
+                @case ('equal') { <span>{{ segment.text }}</span> }
+                @case ('added') { <ins class="diff-added" data-diff="added"><span class="sr-only">Added: </span>{{ segment.text }}</ins> }
+                @case ('removed') { <del class="diff-removed" data-diff="removed"><span class="sr-only">Removed: </span>{{ segment.text }}</del> }
+                @case ('modified') { <span class="diff-modified" data-diff="modified"><del class="diff-removed"><span class="sr-only">Changed from: </span>{{ segment.previous }}</del><ins class="diff-added"><span class="sr-only">to: </span>{{ segment.text }}</ins></span> }
+              }
+            }
+          </div>
+        }
+      } @else {
       <div class="text-tabs" role="tablist" aria-label="Choose draft text">
         <button type="button" role="tab" [attr.aria-selected]="activeText === 'previous'" (click)="activeText = 'previous'">Previous draft</button>
         <button type="button" role="tab" [attr.aria-selected]="activeText === 'current'" (click)="activeText = 'current'">Current draft</button>
@@ -64,6 +153,7 @@
         <article [class.mobile-hidden]="activeText !== 'previous'"><h4>Previous draft</h4><p>{{ comparison?.previousText || 'No transcript available.' }}</p></article>
         <article [class.mobile-hidden]="activeText !== 'current'"><h4>Current draft</h4><p>{{ comparison?.currentText || 'No transcript available.' }}</p></article>
       </div>
+      }
     }
   }
 </section>

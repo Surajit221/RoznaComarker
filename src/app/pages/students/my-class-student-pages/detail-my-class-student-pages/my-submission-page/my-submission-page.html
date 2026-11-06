@@ -410,7 +410,7 @@
       [submissionId]="submission?._id || ''"
       [skills]="adaptiveSkillScores"
       [canonicalResultState]="canonicalResultState"
-      [allowResubmission]="allowResubmission"
+      [allowResubmission]="allowResubmission" [draftLimitReached]="draftLimitReached" [maxDrafts]="maxDrafts"
       (submitNewDraft)="submitNewDraft()">
     </app-adaptive-writing-studio>
   </div>

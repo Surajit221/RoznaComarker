@@ -20,7 +20,7 @@
           @if (expandedModels.has(questionKey(activity, question))) { <div class="model-answer"><strong>Example model answer</strong><p>{{ question.modelAnswer || attempts[questionKey(activity, question)]?.result?.modelAnswer }}</p></div> }
         </section> }</div>
       </article> }</div>
-      @if (practiceCompleted) { <section class="completion-panel" role="status" aria-live="polite"><div><h3>Adaptive Practice Completed</h3><p>You’ve completed your personalized activities.</p></div>@if (allowResubmission) { <button type="button" class="primary-button completion-panel__cta" (click)="requestNewDraft()">Submit Another Draft</button> } @else { <p class="completion-panel__waiting">Your teacher has not enabled another draft yet.</p> }</section> }<p class="grade-note">Practice scores are saved separately and never change the original assignment grade.</p>
+      @if (practiceCompleted) { <section class="completion-panel" role="status" aria-live="polite"><div><h3>Adaptive Practice Completed</h3><p>You’ve completed your personalized activities.</p></div>@if (allowResubmission && draftLimitReached) { <p class="completion-panel__waiting" data-draft-limit>You have used all {{ maxDrafts }} drafts.</p> } @else if (allowResubmission) { <button type="button" class="primary-button completion-panel__cta" (click)="requestNewDraft()">Submit Another Draft</button> } @else { <p class="completion-panel__waiting">Your teacher has not enabled another draft yet.</p> }</section> }<p class="grade-note">Practice scores are saved separately and never change the original assignment grade.</p>
     </div>
   }
 </section>

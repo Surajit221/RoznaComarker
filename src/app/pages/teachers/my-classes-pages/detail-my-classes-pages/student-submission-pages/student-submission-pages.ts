@@ -3,6 +3,7 @@ import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest
 import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
 import { AnnotationMarkMenu } from '../../../../../components/teacher/annotation-controls/annotation-mark-menu';
 import { AnnotationEditFields } from '../../../../../components/teacher/annotation-controls/annotation-edit-fields';
+import { TeacherEvaluationEditor } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation-editor';
 import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
@@ -169,7 +170,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,AnnotationEditFields,StudentPreview,
+  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,AnnotationEditFields,TeacherEvaluationEditor,StudentPreview,
 
 
 

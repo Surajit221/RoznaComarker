@@ -96,7 +96,8 @@ export const GUEST_STUDENT_PROVIDERS: Provider[] = [
     return {
       getMySubmissionByAssignmentId: async (_assignmentId: string, refresh?: string | number | null) => (await access.presentation(Boolean(refresh))).submission,
       getMySubmissions: async () => [(await access.presentation()).submission],
-      getDraftComparison: () => firstValueFrom(access.get('drafts')),
+      getDraftComparison: (_id?: string, _refresh?: unknown, againstDraft?: number) =>
+        firstValueFrom(access.get(againstDraft ? `drafts?againstDraft=${encodeURIComponent(String(againstDraft))}` : 'drafts')),
     };
   } },
   { provide: AssignmentApiService, useFactory: () => {

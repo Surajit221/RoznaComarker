@@ -20,6 +20,7 @@ import { RubricApiService, type SavedRubric } from '../../../../../api/rubric-ap
 import { RubricLibraryStateService } from '../../../../../services/rubric-library-state.service';
 import { designerToRubricData, rubricDataToDesigner } from '../../../../../utils/rubric-library.util';
 import { getAssignmentCapabilities } from '../../../../../utils/assignment-capabilities';
+import { DraftLimitFeature } from '../../../../../services/draft-limit-feature.service';
 
 @Component({
   selector: 'app-assignment-form',
@@ -37,6 +38,8 @@ export class AssignmentForm {
   @Output() updated = new EventEmitter<BackendAssignment>();
   @Output() closed = new EventEmitter<void>();
   device = inject(DeviceService);
+  /** "Maximum drafts" is offered only when the backend has the draft limit on (fails closed). */
+  draftLimit = inject(DraftLimitFeature);
   private assignmentApi = inject(AssignmentApiService);
   private alert = inject(AlertService);
   private rubricApi = inject(RubricApiService);
@@ -68,7 +71,25 @@ export class AssignmentForm {
 
   ngOnInit(): void {
     void this.guestFeature.load();
+    void this.draftLimit.load().then(() => this.applyMaxDrafts());
     this.applyAssignmentToForm();
+  }
+
+  /** Shown (and validated) only with the draft limit on and "Allow another draft" checked; otherwise ignored and never sent. */
+  get showMaxDrafts(): boolean {
+    return this.draftLimit.config().enabled && this.capabilities.allowResubmission && this.classForm.get('allowResubmission')?.value === true;
+  }
+  private applyMaxDrafts(): void {
+    const control = this.classForm.get('maxDrafts');
+    if (!control) return;
+    const { min, max } = this.draftLimit.config();
+    if (this.showMaxDrafts) {
+      control.setValidators([Validators.required, Validators.min(min), Validators.max(max), Validators.pattern(/^\d+$/)]);
+      if (control.value === null || control.value === '') control.setValue(this.assignment?.maxDrafts ?? this.draftLimit.config().default, { emitEvent: false });
+    } else {
+      control.clearValidators();
+    }
+    control.updateValueAndValidity({ emitEvent: false });
   }
 
   private applyAssignmentToForm(): void {
@@ -98,8 +119,10 @@ export class AssignmentForm {
         showMarksToStudent: a.showMarksToStudent !== false,
         allowResubmission: a.allowResubmission === true,
         requireAdaptiveBeforeResubmission:
-          a.allowResubmission === true && a.requireAdaptiveBeforeResubmission === true
+          a.allowResubmission === true && a.requireAdaptiveBeforeResubmission === true,
+        maxDrafts: a.maxDrafts ?? null
       });
+      this.applyMaxDrafts();
       
       // Load existing rubric if present
       this.loadRubricFromAssignment(a);
@@ -113,8 +136,10 @@ export class AssignmentForm {
       allowGuestSubmission: false,
       showMarksToStudent: true,
       allowResubmission: false,
-      requireAdaptiveBeforeResubmission: false
+      requireAdaptiveBeforeResubmission: false,
+      maxDrafts: null
     });
+    this.applyMaxDrafts();
     
     // A new assignment must be persisted before any rubric workflow starts.
     this.rubricDesignerForModal = null;
@@ -131,6 +156,7 @@ export class AssignmentForm {
         showMarksToStudent: [true],
         allowResubmission: [false],
         requireAdaptiveBeforeResubmission: [false],
+        maxDrafts: [null as number | null],
       }
     );
   }
@@ -144,6 +170,7 @@ export class AssignmentForm {
     if (this.classForm.value.allowResubmission !== true) {
       this.classForm.get('requireAdaptiveBeforeResubmission')?.setValue(false);
     }
+    this.applyMaxDrafts();
   }
 
   onSubmit(): void {
@@ -195,6 +222,7 @@ export class AssignmentForm {
       if (this.capabilities.allowResubmission) payload.allowResubmission = this.classForm.value.allowResubmission === true;
       if (this.capabilities.requireAdaptiveBeforeResubmission) payload.requireAdaptiveBeforeResubmission =
         this.classForm.value.allowResubmission === true && this.classForm.value.requireAdaptiveBeforeResubmission === true;
+      if (this.showMaxDrafts) payload.maxDrafts = Number(this.classForm.value.maxDrafts);
       let guestWarning = false;
       if (guestState) {
         payload.writingType = writingType;

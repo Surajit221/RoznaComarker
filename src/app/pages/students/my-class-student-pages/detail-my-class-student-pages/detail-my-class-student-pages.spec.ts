@@ -331,4 +331,24 @@ describe('DetailMyClassStudentPages', () => {
     }
   });
 
+  it('draft limit: mapped only when the backend sends maxDrafts; at the limit the list says so instead of offering another draft', async () => {
+    const internals = component as unknown as { submissionApi: { getMySubmissionByAssignmentId: (id: string) => Promise<unknown> };
+      mapAssignment: (assignment: object) => Promise<Record<string, unknown>> };
+    const submissionApi = internals.submissionApi;
+    const getSubmission = spyOn(submissionApi, 'getMySubmissionByAssignmentId').and.resolveTo({ _id: 'submission-1', draftNumber: 2 });
+    const limited = await internals.mapAssignment({ _id: 'assignment-1', title: 'Essay', allowResubmission: true, maxDrafts: 2 });
+    expect(limited).toEqual(jasmine.objectContaining({ maxDrafts: 2, draftLimitReached: true }));
+    const unlimited = await internals.mapAssignment({ _id: 'assignment-1', title: 'Essay', allowResubmission: true });
+    expect('maxDrafts' in unlimited).toBeFalse();
+    expect('draftLimitReached' in unlimited).toBeFalse();
+    getSubmission.and.resolveTo({ _id: 'submission-1', draftNumber: 1 });
+    expect((await internals.mapAssignment({ _id: 'assignment-1', title: 'Essay', allowResubmission: true, maxDrafts: 2 }))['draftLimitReached']).toBeFalse();
+    component.assignments = [{ id: 'assignment-1', title: 'Essay', dueDate: '', submitted: 1, total: 1, status: 'completed',
+      showMarksToStudent: true, allowResubmission: true, maxDrafts: 2, draftLimitReached: true }];
+    component.isLoading = false;
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('You have used all 2 drafts.');
+    expect(text).not.toContain('Submit Another Draft');
+  });
 });
