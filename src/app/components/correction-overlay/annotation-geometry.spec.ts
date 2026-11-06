@@ -72,8 +72,10 @@ describe('annotation geometry', () => {
     expect(visuals).toHaveSize(2);
     expect(visuals[0].semantic).toBe(true);
     expect(visuals[0].segments[0].width).toBe(0);
-    expect(visuals[0].segments).toHaveSize(2);
-    expect(visuals[0].segments.every((s) => s.height! < 4)).toBeTrue();
+    // Task 21: one bracket from the first line's top to the last line's bottom (was one rail per line).
+    expect(visuals[0].segments).toHaveSize(1);
+    expect(visuals[0].segments[0].bracket).toBeTrue();
+    expect(visuals[0].segments[0].height!).toBeGreaterThan(4);
     expect(visuals[1].semantic).toBe(false);
     expect(visuals[1].segments[0].width).toBeLessThan(9);
   });

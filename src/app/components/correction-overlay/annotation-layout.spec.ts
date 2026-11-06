@@ -74,7 +74,8 @@ describe('annotation presentation groups', () => {
   it('keeps semantic rails separate from local geometry on the same sentence', () => {
     const built = visuals([correction('semantic', 'DEV', ['w0', 'w1', 'w8'], 'CONTENT'),
       correction('local', 'AGR', ['w1'])]);
-    expect(sharedSegments(built, true)).toHaveSize(2);
+    // Task 21: the two adjacent lines of the semantic correction are one bracket (was one rail per line).
+    expect(sharedSegments(built, true)).toHaveSize(1);
     expect(sharedSegments(built, false)).toHaveSize(1);
     expect(layoutAnnotationGroups(built, 390, 468)).toHaveSize(2);
   });

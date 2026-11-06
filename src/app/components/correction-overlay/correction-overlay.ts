@@ -20,7 +20,7 @@ import {
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
-import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
+import { buildAnnotationVisuals, type AnnotationCover, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
 import { annotationBadgeMetrics } from './annotation-badge-metrics';
 import { annotationStrokeColor } from './annotation-stroke';
@@ -84,6 +84,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   markers: CorrectionMarker[] = [];
   underlineSegments: AnnotationSegment[] = [];
   semanticRails: AnnotationSegment[] = [];
+  /** Task 21: the covered words of each bracket, tinted only while that correction is selected. */
+  bracketCovers: AnnotationCover[] = [];
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
@@ -255,7 +257,17 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   isLineLevel(annotation: FeedbackAnnotation | null): boolean { return !!annotation && this.lineLevelIds.has(annotation._id); }
 
-  isSelected(segment: AnnotationSegment): boolean {
+  /** Task 21: a tap or click on a bracket does exactly what its chip does (popover, sync, selection): it activates the chip. */
+  onRailClick(rail: AnnotationSegment, event: MouseEvent): void {
+    const marker = this.markers.find(m => m.annotations.some(a => rail.correctionIds.includes(a._id)));
+    const button = marker && this.overlayEl?.nativeElement.querySelector<HTMLElement>('[data-marker-id="' + CSS.escape(marker.id) + '"]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    button.click();
+  }
+
+  isSelected(segment: Pick<AnnotationSegment, 'correctionIds'>): boolean {
     if (this.syncActiveId !== null) return segment.correctionIds.includes(this.syncActiveId);
     return this.selectedId !== null && segment.correctionIds.includes(this.selectedId);
   }
@@ -453,6 +465,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.visuals = buildAnnotationVisuals(presentation.annotations, presentation.words, this.page, this.imageWidth, this.imageHeight);
     this.underlineSegments = sharedSegments(this.visuals, false);
     this.semanticRails = sharedSegments(this.visuals, true);
+    this.bracketCovers = this.visuals.flatMap(v => v.covers || []);
     this.lineLevelIds = new Set(this.visuals.filter(v => v.lineLevel).map(v => v.annotation._id));
     this.lineLevelCount = this.lineLevelIds.size;
     const placed = new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id));
@@ -471,7 +484,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const height = rect?.height || 0;
     this.renderedWidth = width;
     this.renderedHeight = height;
-    this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
+    // Task 21: chip size and stroke thickness follow the width the page is drawn at, not only the viewport.
+    this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth, width);
     this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
       label: group.annotations.some(a => this.lineLevelIds.has(a._id)) ? `${group.label}. ${LINE_LEVEL_NOTE}` : group.label,
@@ -491,7 +505,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       const rect = this.imageEl?.nativeElement.getBoundingClientRect();
       if (this.mediaState === 'loaded' && (Math.abs((rect?.width || 0) - this.renderedWidth) > 0.25
         || Math.abs((rect?.height || 0) - this.renderedHeight) > 0.25
-        || annotationBadgeMetrics(window.innerWidth).height !== this.badgeMetrics.height)) {
+        || annotationBadgeMetrics(window.innerWidth, rect?.width || 0).height !== this.badgeMetrics.height)) {
         this.layoutMarkers();
         this.cdr.detectChanges();
         if (this.activeMarker) {

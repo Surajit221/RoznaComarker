@@ -2,7 +2,7 @@
   [style.--badge-height.px]="badgeMetrics.height" [style.--badge-font-size.px]="badgeMetrics.fontSize"
   [style.--badge-padding-x.px]="badgeMetrics.paddingX" [style.--badge-border.px]="badgeMetrics.border"
   [style.--badge-hit-size.px]="badgeMetrics.hitSize" [style.--badge-hit-padding.px]="badgeMetrics.hitPadding"
-  [style.--badge-shadow]="badgeMetrics.shadow"
+  [style.--badge-shadow]="badgeMetrics.shadow" [style.--stroke-width.px]="badgeMetrics.strokeWidth" [style.--bracket-width.px]="badgeMetrics.bracketWidth"
   [attr.aria-busy]="mediaState === 'fetching' || mediaState === 'decoding'">
   @if (mediaState === 'fetching' || mediaState === 'decoding') {
     <div class="document-skeleton" aria-hidden="true">
@@ -40,8 +40,14 @@
       [style.width.%]="line.width" [style.--underline-color]="line.color" [style.--stroke-color]="strokeColor(line.color)" aria-hidden="true"></span>
   }
 
+  @for (cover of mediaState === 'loaded' ? bracketCovers : []; track cover.id) {
+    <span class="correction-overlay__cover" [class.is-selected]="isSelected(cover)" [style.left.%]="cover.left" [style.top.%]="cover.top"
+      [style.width.%]="cover.width" [style.height.%]="cover.height" [style.--stroke-color]="strokeColor(cover.color)" aria-hidden="true"></span>
+  }
+
   @for (rail of mediaState === 'loaded' ? semanticRails : []; track rail.id) {
-    <span class="correction-overlay__semantic-rail" [class.correction-overlay__line-rail]="rail.lineLevel" [attr.data-line-rail]="rail.lineLevel ? true : null" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
+    <span class="correction-overlay__semantic-rail" [class.correction-overlay__line-rail]="rail.lineLevel || rail.bracket" [class.correction-overlay__bracket]="rail.bracket"
+      (click)="onRailClick(rail, $event)" [attr.data-line-rail]="rail.lineLevel ? true : null" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
       [style.height.%]="rail.height" [style.--underline-color]="rail.color" [style.--stroke-color]="strokeColor(rail.color)" aria-hidden="true"></span>
   }
 

@@ -409,3 +409,16 @@
 .correction-overlay__line-note { margin: 0 14px 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
 .correction-overlay__placement { margin-top: 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
 .correction-overlay__placement p { margin: 2px 0; }
+
+/* Task 21: strokes follow the drawn page size (annotation-badge-metrics.ts): 2px on desktop, 3px on a phone-sized page. */
+.correction-overlay__underline { height: var(--stroke-width, 2px); }
+.correction-overlay__underline.is-selected { height: calc(var(--stroke-width, 2px) + 1px); }
+.correction-overlay__semantic-rail { width: var(--stroke-width, 2px); }
+.correction-overlay__semantic-rail.is-selected { width: calc(var(--stroke-width, 2px) + 1px); }
+/* A bracket (sentence-level correction, or a line-level one): one vertical stroke with end ticks, tappable through a wider invisible area. */
+.correction-overlay__line-rail { width: var(--bracket-width, 6px); border-width: var(--stroke-width, 2px); pointer-events: auto; cursor: pointer; }
+.correction-overlay__line-rail.is-selected { width: var(--bracket-width, 6px); border-width: calc(var(--stroke-width, 2px) + 1px); }
+.correction-overlay__line-rail::before { content: ''; position: absolute; top: -6px; bottom: -6px; left: -10px; width: 24px; }
+/* The words a bracket stands for: a light tint, only while that correction is selected, so the handwriting stays fully legible. */
+.correction-overlay__cover { position: absolute; z-index: 1; border-radius: 2px; background: color-mix(in srgb, var(--stroke-color, #2563eb) 10%, transparent); opacity: 0; pointer-events: none; }
+.correction-overlay__cover.is-selected { opacity: 1; }
