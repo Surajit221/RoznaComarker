@@ -32,6 +32,10 @@ export interface CanonicalResultViewState {
   processingActive: boolean;
   automaticPollingAllowed: boolean;
   manualRetryAllowed: boolean;
+  /** Task 20: the correction stage alone is being retried (the score is not changing). The page keeps polling. */
+  correctionRetryActive?: boolean;
+  /** Task 20: the visible retry of the failed correction stage may be started (student, guest, teacher; no credit). */
+  correctionRetryAllowed?: boolean;
   terminal: boolean;
   correctionStage: string;
   evaluationBlockedReason: string | null;
@@ -179,6 +183,8 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     processingActive,
     automaticPollingAllowed,
     manualRetryAllowed: Boolean(value.manualRetryAllowed ?? value.retryable),
+    correctionRetryActive: value.correctionRetryActive === true,
+    correctionRetryAllowed: value.correctionRetryAllowed === true,
     terminal,
     correctionStage: String(value.correctionStage || (prerequisiteFailed ? 'semantic_failed' : correctionStatus)),
     evaluationBlockedReason: value.evaluationBlockedReason || (prerequisiteFailed ? 'corrections_incomplete' : null),

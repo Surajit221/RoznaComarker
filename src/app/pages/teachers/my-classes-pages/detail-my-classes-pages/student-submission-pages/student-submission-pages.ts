@@ -3142,6 +3142,11 @@ export class StudentSubmissionPages {
 
 
 
+    // Task 20: only the correction stage failed. Retry it alone: no credit, the score and feedback (even a teacher override) stay as they are.
+    if (this.canonicalResultState?.correctionRetryAllowed) {
+      if (!this.isLoading && !this.isRetryingAnalysis) await this.retryCorrectionStageOnly(submission._id);
+      return;
+    }
     if (!this.canGenerateAiFeedback) return;
 
 
@@ -5396,6 +5401,38 @@ export class StudentSubmissionPages {
     }
   }
 
+  /** Task 20: the one message about a failed or retrying correction stage, or null. */
+  get correctionRetryNotice(): string | null {
+    const state = this.canonicalResultState;
+    if (!state) return null;
+    if (state.correctionRetryActive) return 'The corrections are being prepared again. They will appear here automatically; the score does not change.';
+    if (state.semanticStatus !== 'failed' || state.correctionStatus !== 'partial') return null;
+    return state.correctionRetryAllowed
+      ? 'The corrections could not be prepared for this draft. Retrying uses no Assessment Credit and does not change the score.'
+      : 'The corrections could not be prepared for this draft.';
+  }
+
+  /** Task 20: the submission whose correction-only retry this page is waiting for. */
+  private correctionRetryWatchId: string | null = null;
+
+  private async retryCorrectionStageOnly(submissionId: string): Promise<void> {
+    this.isRetryingAnalysis = true;
+    try {
+      try { await this.submissionApi.retryCorrectionStage(submissionId); }
+      catch (err: unknown) { if ((err as { error?: { code?: string } })?.error?.code !== 'CORRECTION_RETRY_IN_PROGRESS') throw err; }
+      if (this.currentSubmission?._id !== submissionId || !this.canonicalResultState) return;
+      this.canonicalResultState = { ...this.canonicalResultState, correctionRetryActive: true, correctionRetryAllowed: false,
+        manualRetryAllowed: false, processingActive: true, automaticPollingAllowed: true, terminal: false };
+      this.resultCoordinator.start(submissionId, (id, sequence) => this.refreshRetriedAnalysis(id, sequence));
+      this.alert.showToast('Retrying corrections', 'success');
+    } catch (err: unknown) {
+      const failure = err as { error?: { message?: string }; message?: string };
+      this.alert.showError('Retry failed', failure?.error?.message || failure?.message || 'Please try again');
+    } finally {
+      this.isRetryingAnalysis = false;
+    }
+  }
+
   private async refreshRetriedAnalysis(submissionId: string, sequence?: number): Promise<ResultRefreshSnapshot> {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     const feedback = await this.measureSubmissionRequest('evaluation polling', submissionId,
@@ -5410,6 +5447,17 @@ export class StudentSubmissionPages {
       this.currentSubmission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.currentSubmission.assessmentCompletedAt;
       if (state.ocrStatus) this.currentSubmission.ocrStatus = state.ocrStatus;
       else if (state.correctionStatus === 'completed') this.currentSubmission.ocrStatus = 'completed';
+    }
+    // Task 20: while only the corrections are being retried, the score and the feedback form are left alone (an unsent comment is never
+    // overwritten). When the retry ends, the corrections, counts and highlights reload once, as after a saved correction change.
+    if (state.correctionRetryActive) {
+      this.correctionRetryWatchId = submissionId;
+      return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as ResultRefreshSnapshot['ocrStatus'], canonical: state };
+    }
+    if (this.correctionRetryWatchId === submissionId) {
+      this.correctionRetryWatchId = null;
+      await this.refreshAssessmentResult(submissionId, sequence);
+      return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as ResultRefreshSnapshot['ocrStatus'], canonical: state };
     }
     this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
@@ -6694,6 +6742,10 @@ export class StudentSubmissionPages {
 
       this.recomputeRubricFeedbackItems();
       this.applyFeedbackSectionStates(true);
+      // Task 20: a correction-only retry is running (e.g. the automatic one): wait for its corrections without a reload.
+      if (this.canonicalResultState.correctionRetryActive) {
+        this.resultCoordinator.start(submissionId, (id, sequence) => this.refreshRetriedAnalysis(id, sequence));
+      }
 
       return true;
 

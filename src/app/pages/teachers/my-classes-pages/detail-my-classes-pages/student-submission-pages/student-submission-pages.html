@@ -168,6 +168,15 @@
 
                 <!-- Main Content Area -->
                 <div class="lg:col-span-3 space-y-8">
+                  @if (correctionRetryNotice) {
+                  <div class="correction-retry-notice" role="status" aria-live="polite">
+                    <p>{{ correctionRetryNotice }}</p>
+                    @if (canonicalResultState?.correctionRetryAllowed) {
+                    <button type="button" class="correction-retry-button" [disabled]="isRetryingAnalysis" [attr.aria-busy]="isRetryingAnalysis"
+                      (click)="reEvaluateCurrentSubmission()">{{ isRetryingAnalysis ? 'Starting…' : 'Retry corrections' }}</button>
+                    }
+                  </div>
+                  }
 
                   <!-- Essay with Corrections -->
                   <div class="gradient-card hover-lift fade-in p-4" [attr.aria-busy]="transcriptState === 'loading'">

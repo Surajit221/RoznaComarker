@@ -72,6 +72,17 @@ export class MySubmissionPage {
   get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.feedback); }
   get analysisFailureMessage() { return canonicalFailureMessage(this.canonicalResultState); }
   get retryAnalysisLabel() { return canonicalRetryLabel(this.canonicalResultState); }
+  /** Task 20: the one message about a failed correction stage, or null. The score and feedback are shown as usual; only the corrections are missing. */
+  get correctionRetryNotice(): string | null {
+    const state = this.canonicalResultState;
+    if (!state) return null;
+    if (state.correctionRetryActive) return 'Your corrections are still being prepared. They will appear here automatically.';
+    if (state.semanticStatus !== 'failed' || state.correctionStatus !== 'partial') return null;
+    return state.correctionRetryAllowed ? 'Corrections could not be prepared for this draft.'
+      : 'Corrections could not be prepared for this draft. Please ask your teacher for help.';
+  }
+  correctionRetrySubmitting = false;
+  correctionRetryError: string | null = null;
   adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
 
@@ -1982,6 +1993,31 @@ export class MySubmissionPage {
     this.resultCoordinator.stop();
   }
 
+  /** Task 20: retries the failed correction stage only (no credit, no re-score), then polls until the corrections arrive. Student and guest. */
+  async retryCorrections(): Promise<void> {
+    const submissionId = this.submission?._id;
+    if (!submissionId || this.correctionRetrySubmitting || !this.canonicalResultState?.correctionRetryAllowed) return;
+    this.correctionRetrySubmitting = true;
+    this.correctionRetryError = null;
+    let started = false;
+    try {
+      const url = this.guestAccess ? this.guestAccess.url('corrections/retry')
+        : `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/corrections/retry`;
+      await firstValueFrom(this.http.post(url, {}, this.guestAccess ? { headers: this.guestAccess.headers } : {}));
+      started = true;
+    } catch (error) {
+      // Already running (another tab, or the automatic retry): just wait for it.
+      started = (error as { error?: { code?: string } })?.error?.code === 'CORRECTION_RETRY_IN_PROGRESS';
+      if (!started) this.correctionRetryError = 'The retry could not be started. Please try again later.';
+    } finally {
+      this.correctionRetrySubmitting = false;
+    }
+    if (!started || this.destroyed || this.submission?._id !== submissionId || !this.canonicalResultState) return;
+    this.canonicalResultState = { ...this.canonicalResultState, correctionRetryActive: true, correctionRetryAllowed: false,
+      processingActive: true, automaticPollingAllowed: true, terminal: false };
+    this.syncOcrPolling();
+  }
+
   private async refreshCanonicalResult(submissionId: string, _requestSequence: number): Promise<ResultRefreshSnapshot> {
     if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
     const startedAt = performance.now();
@@ -2009,7 +2045,8 @@ export class MySubmissionPage {
     this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
-    const completionKey = `${submissionId}:${(feedback as any)?.assessmentCompletedAt || canonical.evaluationSourceHash || 'completed'}`;
+    // The correction stage is part of the key: corrections that arrive after the score (Task 20 retry) reload the annotations without a page reload.
+    const completionKey = `${submissionId}:${(feedback as any)?.assessmentCompletedAt || canonical.evaluationSourceHash || 'completed'}:${canonical.semanticStatus}:${canonical.correctionStatus}`;
     if ((canonical.evaluationStatus === 'completed' || canonical.terminal === true)
       && this.ocrCompletionReconciliationKey !== completionKey) {
       this.ocrCompletionReconciliationKey = completionKey;

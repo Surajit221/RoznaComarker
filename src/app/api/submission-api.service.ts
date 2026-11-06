@@ -226,6 +226,11 @@ export class SubmissionApiService {
     await firstValueFrom(this.http.post(`${apiBaseUrl}/submissions/${encodeURIComponent(submissionId)}/ocr-corrections/regenerate`, {}));
   }
 
+  /** Task 20: retries the failed correction stage only. No credit is used and the score does not change. */
+  async retryCorrectionStage(submissionId: string): Promise<void> {
+    await firstValueFrom(this.http.post(`${this.getApiBaseUrl()}/submissions/${encodeURIComponent(submissionId)}/corrections/retry`, {}));
+  }
+
   async retryCanonicalEvaluation(submissionId: string): Promise<void> {
     const apiBaseUrl = this.getApiBaseUrl();
     await firstValueFrom(this.http.post(
