@@ -23,6 +23,9 @@ describe('draft insights', () => {
     expect(result.strongest).toBeNull();
     expect(result.weakest).toEqual({ name: 'Vocabulary', delta: -2 });
   });
+  it('different texts: no insights at all', () => {
+    expect(draftInsights(v2({ textsUnrelated: true }))).toBeNull();
+  });
   it('rubric changed: only a neutral note, no claim', () => {
     const result = draftInsights(v2({ rubricChanged: true, overall: { previousScore: 70, currentScore: 74, delta: null, status: 'RUBRIC_CHANGED' } }))!;
     expect(result).toEqual(jasmine.objectContaining({ claims: false, strongest: null, weakest: null, fixedCount: 0, openAreas: [], focus: null }));

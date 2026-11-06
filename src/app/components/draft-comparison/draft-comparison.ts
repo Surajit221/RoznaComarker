@@ -157,6 +157,10 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
   /** v2 payload (the backend flag is on). Without it the template renders exactly the v1 view. */
   isV2(): boolean { return this.comparison?.comparisonVersion === 2; }
   rubricLimited(): boolean { return this.isV2() && this.comparison?.overall?.status === 'RUBRIC_CHANGED'; }
+  /** v2: the drafts look like different texts: a neutral notice, the scores, and no claim of any kind. */
+  textsUnrelated(): boolean { return this.isV2() && this.comparison?.textsUnrelated === true; }
+  /** v2 with the per-error counts shown: five summary cards (their own responsive grid, so none is left alone on a row). */
+  fiveCards(): boolean { return this.isV2() && this.comparison?.issuesAvailable !== false; }
   issueCount(status: IssueStatus): number { return this.comparison?.issueDetails?.[status]?.total ?? 0; }
   issueItems(status: IssueStatus): DraftIssueItem[] { return this.comparison?.issueDetails?.[status]?.items ?? []; }
   issueOmitted(status: IssueStatus): number { return this.comparison?.issueDetails?.[status]?.omitted ?? 0; }

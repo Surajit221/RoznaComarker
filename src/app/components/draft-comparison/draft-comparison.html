@@ -29,12 +29,17 @@
     @if (comparison?.identicalContent) {
       <p class="notice">Same content as previous draft. No score change.</p>
     }
-    <div class="metric-grid" aria-label="Draft improvement summary">
+    @if (textsUnrelated()) {
+      <p class="notice notice--limited" role="status" data-texts-unrelated><span aria-hidden="true">⚠</span> These drafts look like different texts, so the comparison is limited.</p>
+    }
+    <div class="metric-grid" [class.metric-grid--five]="fiveCards()" aria-label="Draft improvement summary">
       <article class="metric">
         <span>Overall score</span>
         <strong>{{ comparison?.overall?.previousScore }} → {{ comparison?.overall?.currentScore }}</strong>
         @if (rubricLimited()) {
           <small class="limited" data-rubric-limited><span aria-hidden="true">⚠</span> Rubric changed - comparison limited</small>
+        } @else if (textsUnrelated()) {
+          <small class="limited" data-texts-limited><span aria-hidden="true">⚠</span> Different texts - comparison limited</small>
         } @else {
           <small>{{ delta(comparison?.overall?.delta) }} · {{ comparison?.overall?.status | titlecase }}</small>
         }
@@ -46,7 +51,7 @@
         @if (isV2()) { <article class="metric" data-unclear-metric><span>Unclear</span><strong>{{ comparison?.issues?.unclearCount ?? 0 }}</strong></article> }
       }
     </div>
-    @if (comparison?.issuesAvailable === false) { <p class="notice">{{ comparison?.issuesMessage }}</p> }
+    @if (comparison?.issuesAvailable === false && !textsUnrelated()) { <p class="notice">{{ comparison?.issuesMessage }}</p> }
     @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issuesMessage) { <p class="notice" data-issues-note>{{ comparison?.issuesMessage }}</p> }
     @if (isV2() && rubricLimited() && comparison?.rubricMessage) { <p class="notice" data-rubric-limited-note>{{ comparison?.rubricMessage }}</p> }
 

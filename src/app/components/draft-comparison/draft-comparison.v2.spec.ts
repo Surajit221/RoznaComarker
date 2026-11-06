@@ -31,7 +31,7 @@ describe('DraftComparisonComponent v2', () => {
   it('a v1 payload (flag off) renders no v2 element at all', async () => {
     await render(V1);
     for (const selector of ['[data-issue-tabs]', '[data-issue-panel]', '[data-unclear-metric]', '[data-rubric-limited]', '[data-issues-note]', '[data-rubric-limited-note]',
-      '[data-insights]', '[data-diff-toggle]', '[data-diff-view]', '[data-draft-select]']) {
+      '[data-insights]', '[data-diff-toggle]', '[data-diff-view]', '[data-draft-select]', '[data-texts-unrelated]', '[data-texts-limited]']) {
       expect(dom().querySelector(selector)).withContext(selector).toBeNull();
     }
     expect(dom().textContent).toContain('+6 · Improved');
@@ -121,6 +121,31 @@ describe('DraftComparisonComponent v2', () => {
   it('v2 with a single earlier draft: no selector (nothing to choose)', async () => {
     await render({ ...V2, earlierDrafts: [{ draftNumber: 1, submittedAt: null, score: null }] });
     expect(dom().querySelector('[data-draft-select]')).toBeNull();
+  });
+  it('v2, different texts: the neutral notice and label; no improved/declined, no issue cards or tabs, no insights, the message not repeated', async () => {
+    await render({ ...V2, textsUnrelated: true, overall: { previousScore: 70, currentScore: 76, delta: null, status: 'TEXTS_UNRELATED' },
+      summary: { improved: false, unchanged: false, declined: false, limited: true }, issuesAvailable: false, issues: null, issueDetails: undefined,
+      issuesMessage: 'These drafts look like different texts, so the comparison is limited.',
+      rubricCategories: [{ categoryId: 'GRAMMAR', name: 'Grammar', previousScore: 15, currentScore: 18, delta: null, maxScore: null, available: false, reason: 'The drafts look like different texts.' }] });
+    expect(dom().querySelector('[data-texts-unrelated]')!.textContent).toContain('These drafts look like different texts, so the comparison is limited.');
+    expect(dom().querySelector('[data-texts-limited]')!.textContent).toContain('Different texts - comparison limited');
+    expect(dom().textContent).toContain('70 → 76');
+    expect(dom().textContent).not.toMatch(/Improved|Declined|Issues corrected|Focus for the next draft/);
+    for (const selector of ['[data-issue-tabs]', '[data-insights]', '[data-unclear-metric]']) expect(dom().querySelector(selector)).withContext(selector).toBeNull();
+    expect(dom().textContent!.split('These drafts look like different texts').length - 1).toBe(1);
+    expect(dom().querySelector('.metric-grid')!.classList).not.toContain('metric-grid--five');
+    expect(dom().textContent).toContain('Not comparable');
+  });
+  it('v2 summary cards: five cards in their own grid; a v1 payload keeps the old four-card grid', async () => {
+    await render(V2);
+    const grid = dom().querySelector('.metric-grid')!;
+    expect(grid.classList).toContain('metric-grid--five');
+    expect(grid.querySelectorAll('.metric').length).toBe(5);
+    expect(getComputedStyle(grid).gridTemplateColumns.split(' ').length).toBe(window.innerWidth > 1100 ? 5 : window.innerWidth > 720 ? 3 : window.innerWidth > 420 ? 2 : 1);
+    TestBed.resetTestingModule();
+    await render(V1);
+    expect(dom().querySelector('.metric-grid')!.classList).not.toContain('metric-grid--five');
+    expect(dom().querySelectorAll('.metric-grid .metric').length).toBe(4);
   });
   it('v2: a note about the earlier draft is shown even though the list is available', async () => {
     await render({ ...V2, issuesMessage: 'The earlier draft was saved before your teacher\'s changes to its corrections were kept with it, so this list may include corrections your teacher hid.' });
