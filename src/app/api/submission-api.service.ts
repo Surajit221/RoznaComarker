@@ -104,12 +104,15 @@ export interface DraftIssueItem {
   previousSuggestion: string | null; revisedText: string | null; suggestion?: string | null; explanation: string;
 }
 export interface DraftIssueList { items: DraftIssueItem[]; total: number; omitted: number }
+export interface DraftChoice { draftNumber: number; submittedAt: string | null; score: number | null }
 
 export type DraftComparison = {
   available: boolean;
   /** 2 when the backend runs draft comparison v2; absent otherwise (the v1 payload, unchanged). */
   comparisonVersion?: number;
   issueDetails?: { fixed: DraftIssueList; remaining: DraftIssueList; new: DraftIssueList; unclear: DraftIssueList };
+  /** v2: the chain's earlier drafts (newest first) for the "Compare with" selector. */
+  earlierDrafts?: DraftChoice[];
   code?: 'FIRST_DRAFT' | 'CURRENT_UNASSESSED' | 'PREVIOUS_UNASSESSED' | 'MARKS_HIDDEN' | string;
   message?: string;
   previousDraftNumber?: number;
@@ -250,10 +253,13 @@ export class SubmissionApiService {
     ));
   }
 
-  async getDraftComparison(submissionId: string, cacheBustToken?: string | number | null): Promise<DraftComparison> {
+  /** againstDraft (v2 selector): compare the latest draft with this earlier draft of the same chain instead of the previous one. */
+  async getDraftComparison(submissionId: string, cacheBustToken?: string | number | null, againstDraft?: number): Promise<DraftComparison> {
+    const params: Record<string, string> = cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) };
+    if (againstDraft) params['againstDraft'] = String(againstDraft);
     const resp = await firstValueFrom(this.http.get<BackendResponse<DraftComparison>>(
       `${this.getApiBaseUrl()}/submissions/${encodeURIComponent(submissionId)}/draft-comparison`,
-      { params: cacheBustToken == null ? {} : { _refresh: String(cacheBustToken) } }
+      { params }
     ));
     return resp.data;
   }

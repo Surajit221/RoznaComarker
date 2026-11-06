@@ -31,7 +31,7 @@ describe('DraftComparisonComponent v2', () => {
   it('a v1 payload (flag off) renders no v2 element at all', async () => {
     await render(V1);
     for (const selector of ['[data-issue-tabs]', '[data-issue-panel]', '[data-unclear-metric]', '[data-rubric-limited]', '[data-issues-note]', '[data-rubric-limited-note]',
-      '[data-insights]', '[data-diff-toggle]', '[data-diff-view]']) {
+      '[data-insights]', '[data-diff-toggle]', '[data-diff-view]', '[data-draft-select]']) {
       expect(dom().querySelector(selector)).withContext(selector).toBeNull();
     }
     expect(dom().textContent).toContain('+6 · Improved');
@@ -99,6 +99,28 @@ describe('DraftComparisonComponent v2', () => {
     await render(V1);
     expect(dom().querySelector('[data-diff-toggle]')).toBeNull();
     expect(dom().querySelector('.text-grid')).not.toBeNull();
+  });
+  it('v2 "Compare with": shown with two or more earlier drafts; picking one asks for that comparison; the previous draft goes back to the default call', async () => {
+    const choices = [{ draftNumber: 2, submittedAt: '2026-11-02T10:00:00.000Z', score: 74 }, { draftNumber: 1, submittedAt: '2026-11-01T10:00:00.000Z', score: 70 }];
+    await render({ ...V2, currentDraftNumber: 3, previousDraftNumber: 2, earlierDrafts: choices });
+    const select = dom().querySelector<HTMLSelectElement>('[data-draft-select] select')!;
+    expect([...select.options].map(o => o.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Draft 2 · Nov 2, 2026 · score 74 (previous)', 'Draft 1 · Nov 1, 2026 · score 70']);
+    expect(select.value).toBe('2');
+    expect(api.getDraftComparison.calls.mostRecent().args).toEqual(['submission-2', null]);
+    api.getDraftComparison.and.resolveTo({ ...V2, currentDraftNumber: 3, previousDraftNumber: 1, earlierDrafts: choices });
+    select.value = '1'; select.dispatchEvent(new Event('change'));
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(api.getDraftComparison.calls.mostRecent().args).toEqual(['submission-2', null, 1]);
+    expect(dom().querySelector('.draft-label')!.textContent).toContain('Draft 1 to 3');
+    expect(dom().querySelector<HTMLSelectElement>('[data-draft-select] select')!.value).toBe('1');
+    const again = dom().querySelector<HTMLSelectElement>('[data-draft-select] select')!;
+    again.value = '2'; again.dispatchEvent(new Event('change'));
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(api.getDraftComparison.calls.mostRecent().args).toEqual(['submission-2', null]);
+  });
+  it('v2 with a single earlier draft: no selector (nothing to choose)', async () => {
+    await render({ ...V2, earlierDrafts: [{ draftNumber: 1, submittedAt: null, score: null }] });
+    expect(dom().querySelector('[data-draft-select]')).toBeNull();
   });
   it('v2: a note about the earlier draft is shown even though the list is available', async () => {
     await render({ ...V2, issuesMessage: 'The earlier draft was saved before your teacher\'s changes to its corrections were kept with it, so this list may include corrections your teacher hid.' });

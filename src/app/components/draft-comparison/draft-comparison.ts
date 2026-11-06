@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges, inject } from '@angular/core';
-import { DraftComparison, DraftIssueItem, SubmissionApiService } from '../../api/submission-api.service';
+import { DraftChoice, DraftComparison, DraftIssueItem, SubmissionApiService } from '../../api/submission-api.service';
 import { DiffResult, diffTexts } from '../../utils/text-diff.util';
 import { DraftInsights, categoryName, describeDelta, draftInsights } from './draft-insights.logic';
 
@@ -47,8 +47,21 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
   private readonly retryWindowMs = 30000;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['submissionId']) { this.againstDraft = null; this.draftChoices = []; }
     if (changes['submissionId'] || changes['refreshKey']) void this.load();
   }
+
+  /** v2 "Compare with": null = the default (latest vs previous). The list is kept while a chosen comparison loads. */
+  againstDraft: number | null = null;
+  draftChoices: DraftChoice[] = [];
+  chooseDraft(value: string): void {
+    const number = Number(value);
+    const next = Number.isInteger(number) && number !== this.draftChoices[0]?.draftNumber ? number : null;
+    if (next === this.againstDraft) return;
+    this.againstDraft = next;
+    void this.load();
+  }
+  selectedDraft(): number | null { return this.againstDraft ?? this.draftChoices[0]?.draftNumber ?? null; }
 
   async load(): Promise<void> {
     this.cancelRetryCycle();
@@ -74,11 +87,14 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
     if (!retry) this.loading = true;
     try {
       const cacheToken = retry ? `${this.refreshKey ?? ''}:comparison-retry-${this.retryAttempt}` : this.refreshKey;
-      const result = await this.submissionApi.getDraftComparison(submissionId, cacheToken);
+      const result = this.againstDraft
+        ? await this.submissionApi.getDraftComparison(submissionId, cacheToken, this.againstDraft)
+        : await this.submissionApi.getDraftComparison(submissionId, cacheToken);
       if (!this.isCurrent(generation, version, submissionId)) return;
       if (result !== this.comparison) this.resetDiff();
       this.comparison = result;
       this.insights = draftInsights(result);
+      if (result.comparisonVersion === 2 && Array.isArray(result.earlierDrafts)) this.draftChoices = result.earlierDrafts;
       if (this.isV2()) this.issueTab = ISSUE_TABS.find(tab => (result.issueDetails?.[tab.key]?.total ?? 0) > 0)?.key ?? 'fixed';
       if (!result.available && result.code === 'CURRENT_UNASSESSED') this.scheduleRetry(generation);
     } catch {

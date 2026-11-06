@@ -51,3 +51,9 @@ h2, h3, h4, p { margin-top: 0; } h2 { margin-bottom: 0; font-size: 1.5rem; } h3 
 .insights h3 { margin-top: 0; }
 .insights__list { margin: .25rem 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: .25rem; }
 .insights__focus { margin: .5rem 0 0; font-weight: 600; color: #0f5d5e; }
+
+/* v2 "Compare with" selector */
+.draft-select { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .25rem 0 .75rem; font-size: .9rem; }
+.draft-select label { font-weight: 600; color: #334155; }
+.draft-select select { min-height: 44px; max-width: 100%; padding: 0 .75rem; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; color: #0f172a; }
+.draft-select select:focus-visible { outline: 3px solid #f5b800; outline-offset: 2px; }

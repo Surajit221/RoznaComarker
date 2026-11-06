@@ -8,6 +8,16 @@
       <span class="draft-label">Draft {{ comparison?.previousDraftNumber }} to {{ comparison?.currentDraftNumber }}</span>
     }
   </div>
+  @if (draftChoices.length > 1) {
+    <div class="draft-select" data-draft-select>
+      <label for="draft-compare-with">Compare the latest draft with</label>
+      <select id="draft-compare-with" (change)="chooseDraft($any($event.target).value)" [disabled]="loading">
+        @for (choice of draftChoices; track choice.draftNumber; let first = $first) {
+          <option [value]="choice.draftNumber" [selected]="selectedDraft() === choice.draftNumber">Draft {{ choice.draftNumber }}@if (choice.submittedAt) { · {{ choice.submittedAt | date:'mediumDate' }} }@if (choice.score != null) { · score {{ choice.score }} }@if (first) { (previous) }</option>
+        }
+      </select>
+    </div>
+  }
 
   @if (loading) {
     <p class="state" role="status">Loading draft comparison…</p>
