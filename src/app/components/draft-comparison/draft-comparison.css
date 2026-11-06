@@ -14,3 +14,20 @@ h2, h3, h4, p { margin-top: 0; } h2 { margin-bottom: 0; font-size: 1.5rem; } h3 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @media (max-width: 720px) { .draft-comparison { padding: 1rem; } .heading-row { align-items: flex-start; flex-direction: column; } .metric-grid { grid-template-columns: 1fr 1fr; } .text-tabs { display: flex; } .text-grid { grid-template-columns: 1fr; } .text-grid .mobile-hidden { display: none; } }
 @media (max-width: 420px) { .metric-grid { grid-template-columns: 1fr; } }
+
+/* Draft comparison v2 (only rendered with comparisonVersion 2). Every status has an icon and a text label: colour is never the only signal. */
+.limited { color: #92400e; font-weight: 600; }
+.issue-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: .5rem 0; }
+.issue-tab { min-height: 44px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #1e293b; font-weight: 600; cursor: pointer; }
+.issue-tab[aria-selected="true"] { border-color: #0f766e; background: #e6f4f2; color: #0f5d5e; }
+.issue-tab:focus-visible { outline: 3px solid #f5b800; outline-offset: 2px; }
+.issue-panel { display: flex; flex-direction: column; gap: 8px; }
+.issue { padding: .75rem 1rem; border: 1px solid #e2e8f0; border-left-width: 4px; border-radius: .75rem; background: #fff; overflow-wrap: anywhere; }
+.issue p { margin: .2rem 0; }
+.issue--fixed { border-left-color: #15803d; }
+.issue--remaining { border-left-color: #b45309; }
+.issue--new { border-left-color: #b91c1c; }
+.issue--unclear { border-left-color: #64748b; border-left-style: dashed; }
+.issue__chip { display: inline-block; padding: 0 8px; border-radius: 999px; background: #0f766e; color: #fff; font-size: .75rem; font-weight: 700; }
+.issue__label { color: #475569; font-weight: 600; }
+.issue__why { color: #334155; font-style: italic; }

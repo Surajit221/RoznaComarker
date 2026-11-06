@@ -23,15 +23,50 @@
       <article class="metric">
         <span>Overall score</span>
         <strong>{{ comparison?.overall?.previousScore }} → {{ comparison?.overall?.currentScore }}</strong>
-        <small>{{ delta(comparison?.overall?.delta) }} · {{ comparison?.overall?.status | titlecase }}</small>
+        @if (rubricLimited()) {
+          <small class="limited" data-rubric-limited><span aria-hidden="true">⚠</span> Rubric changed - comparison limited</small>
+        } @else {
+          <small>{{ delta(comparison?.overall?.delta) }} · {{ comparison?.overall?.status | titlecase }}</small>
+        }
       </article>
       @if (comparison?.issuesAvailable !== false) {
         <article class="metric metric--positive"><span>Issues corrected</span><strong>{{ comparison?.issues?.correctedCount }}</strong></article>
         <article class="metric"><span>Issues remaining</span><strong>{{ comparison?.issues?.remainingCount }}</strong></article>
         <article class="metric"><span>New issues</span><strong>{{ comparison?.issues?.newIssueCount }}</strong></article>
+        @if (isV2()) { <article class="metric" data-unclear-metric><span>Unclear</span><strong>{{ comparison?.issues?.unclearCount ?? 0 }}</strong></article> }
       }
     </div>
     @if (comparison?.issuesAvailable === false) { <p class="notice">{{ comparison?.issuesMessage }}</p> }
+    @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issuesMessage) { <p class="notice" data-issues-note>{{ comparison?.issuesMessage }}</p> }
+    @if (isV2() && rubricLimited() && comparison?.rubricMessage) { <p class="notice" data-rubric-limited-note>{{ comparison?.rubricMessage }}</p> }
+
+    @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issueDetails) {
+      <h3 id="issue-list-title">Writing issues, draft by draft</h3>
+      <div class="issue-tabs" role="tablist" aria-labelledby="issue-list-title" data-issue-tabs>
+        @for (tab of ISSUE_TABS; track tab.key; let i = $index) {
+          <button type="button" role="tab" [id]="'issue-tab-' + tab.key" [attr.aria-selected]="issueTab === tab.key" [attr.aria-controls]="'issue-panel-' + tab.key"
+            [attr.tabindex]="issueTab === tab.key ? 0 : -1" [attr.data-issue-tab]="tab.key" [class]="'issue-tab issue-tab--' + tab.key"
+            (click)="issueTab = tab.key" (keydown)="onIssueTabKey($event, i)">
+            <span aria-hidden="true">{{ tab.icon }}</span> {{ tab.label }} ({{ issueCount(tab.key) }})
+          </button>
+        }
+      </div>
+      <div class="issue-panel" role="tabpanel" [id]="'issue-panel-' + issueTab" [attr.aria-labelledby]="'issue-tab-' + issueTab" data-issue-panel>
+        @for (item of issueItems(issueTab); track $index) {
+          <article class="issue" [class]="'issue issue--' + item.status" data-issue-item>
+            <p class="issue__head"><span class="issue__chip">{{ item.symbol || '—' }}</span> <strong>{{ categoryLabel(item.category) }}</strong></p>
+            @if (item.originalText) { <p><span class="issue__label">{{ item.status === 'new' ? 'In the new draft:' : 'Original:' }}</span> <q>{{ item.originalText }}</q></p> }
+            @if (item.previousSuggestion) { <p><span class="issue__label">Previous suggestion:</span> {{ item.previousSuggestion }}</p> }
+            @if (item.suggestion) { <p><span class="issue__label">Suggestion:</span> {{ item.suggestion }}</p> }
+            @if (item.revisedText) { <p><span class="issue__label">Revised text:</span> <q>{{ item.revisedText }}</q></p> }
+            <p class="issue__why">{{ item.explanation }}</p>
+          </article>
+        } @empty {
+          <p class="issue-empty-tab">No items here.</p>
+        }
+        @if (issueOmitted(issueTab)) { <p class="notice" data-issue-omitted>And {{ issueOmitted(issueTab) }} more not shown.</p> }
+      </div>
+    }
     @if (comparison?.issuesAvailable !== false && comparison?.issues?.previousCount === 0) {
       <p class="notice issue-empty">No previous writing issues were detected.</p>
     }

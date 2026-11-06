@@ -98,19 +98,31 @@ export type DraftComparisonCategory = {
   reason?: string;
 };
 
+/** v2 per-error item: text only (no ids, offsets or hashes). */
+export interface DraftIssueItem {
+  status: 'fixed' | 'remaining' | 'new' | 'unclear'; category: string; symbol: string; originalText: string;
+  previousSuggestion: string | null; revisedText: string | null; suggestion?: string | null; explanation: string;
+}
+export interface DraftIssueList { items: DraftIssueItem[]; total: number; omitted: number }
+
 export type DraftComparison = {
   available: boolean;
+  /** 2 when the backend runs draft comparison v2; absent otherwise (the v1 payload, unchanged). */
+  comparisonVersion?: number;
+  issueDetails?: { fixed: DraftIssueList; remaining: DraftIssueList; new: DraftIssueList; unclear: DraftIssueList };
   code?: 'FIRST_DRAFT' | 'CURRENT_UNASSESSED' | 'PREVIOUS_UNASSESSED' | 'MARKS_HIDDEN' | string;
   message?: string;
   previousDraftNumber?: number;
   currentDraftNumber?: number;
-  overall?: { previousScore: number; currentScore: number; delta: number; status: 'IMPROVED' | 'DECLINED' | 'UNCHANGED' };
+  // v2 (DRAFT_COMPARISON_V2_ENABLED): when the rubric changed, delta is null and status is RUBRIC_CHANGED (no improved/declined claim).
+  overall?: { previousScore: number; currentScore: number; delta: number | null; status: 'IMPROVED' | 'DECLINED' | 'UNCHANGED' | 'RUBRIC_CHANGED' };
   rubricCategories?: DraftComparisonCategory[];
   rubricChanged?: boolean;
   rubricMessage?: string | null;
   issuesAvailable?: boolean;
   issuesMessage?: string | null;
-  issues?: { previousCount: number; currentCount: number; correctedCount: number; remainingCount: number; newIssueCount: number } | null;
+  issues?: { previousCount: number; currentCount: number; correctedCount: number; remainingCount: number; newIssueCount: number; unclearCount?: number } | null;
+  summary?: { improved: boolean; unchanged: boolean; declined: boolean; limited?: boolean };
   previousText?: string;
   currentText?: string;
   identicalContent?: boolean;
