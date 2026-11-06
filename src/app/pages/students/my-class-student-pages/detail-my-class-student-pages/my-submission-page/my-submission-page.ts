@@ -372,8 +372,15 @@ export class MySubmissionPage {
     return this.assignment?.allowResubmission === true;
   }
 
+  /** Draft limit: the backend sends maxDrafts only when the limit applies. All drafts used: no new draft is offered. */
+  get maxDrafts(): number | null { return typeof this.assignment?.maxDrafts === 'number' ? this.assignment.maxDrafts : null; }
+  get draftLimitReached(): boolean {
+    const max = this.maxDrafts;
+    return max !== null && Math.max(1, Number(this.submission?.draftNumber) || 1) >= max;
+  }
+
   submitNewDraft(): void {
-    if (!this.allowResubmission || !this.assignmentId) return;
+    if (!this.allowResubmission || this.draftLimitReached || !this.assignmentId) return;
     if (this.guestAccess) { this.guestAccess.onRevisionRequested?.(); return; }
     if (this.classId) {
       this.router.navigate(['/student/my-classes/detail', this.classId], {

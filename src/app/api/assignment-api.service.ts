@@ -28,6 +28,8 @@ export type BackendAssignment = {
   showMarksToStudent?: boolean;
   allowResubmission?: boolean;
   requireAdaptiveBeforeResubmission?: boolean;
+  /** Draft limit (backend DRAFT_LIMIT_ENABLED): drafts allowed including the first; absent = no limit. */
+  maxDrafts?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -101,6 +103,7 @@ export class AssignmentApiService {
   showMarksToStudent?: boolean;
     allowResubmission?: boolean;
     requireAdaptiveBeforeResubmission?: boolean;
+    maxDrafts?: number | null;
     resourceType?: 'essay' | 'flashcard' | 'worksheet';
     resourceId?: string;
   }): Promise<BackendAssignment> {
@@ -151,6 +154,7 @@ export class AssignmentApiService {
   showMarksToStudent?: boolean;
       allowResubmission?: boolean;
       requireAdaptiveBeforeResubmission?: boolean;
+      maxDrafts?: number | null;
     }
   ): Promise<BackendAssignment> {
     const apiBaseUrl = this.getApiBaseUrl();

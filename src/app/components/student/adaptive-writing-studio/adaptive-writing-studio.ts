@@ -64,6 +64,9 @@ export class AdaptiveWritingStudio {
 
   @Input() previewEnabled = environment.adaptivePracticeFixtureEnabled;
   @Input() allowResubmission = false;
+  /** Draft limit: all drafts used (the page knows the limit and the draft number). */
+  @Input() draftLimitReached = false;
+  @Input() maxDrafts: number | null = null;
 
   @Input() set skills(value: readonly AdaptiveSkillScore[] | null | undefined) {
     const list = Array.isArray(value) ? value : [];
@@ -304,7 +307,7 @@ export class AdaptiveWritingStudio {
     this.showModelAnswer.emit({ submissionId: this.submissionId, activityId: activity.id, questionId: question.id });
   }
   requestNewDraft(): void {
-    if (this.practiceCompleted && this.allowResubmission) this.submitNewDraft.emit();
+    if (this.practiceCompleted && this.allowResubmission && !this.draftLimitReached) this.submitNewDraft.emit();
   }
 
   /** Asks the page's result observer again, after it gave up waiting. */

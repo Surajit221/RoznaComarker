@@ -16,3 +16,10 @@
   .assignment-setting--dependent { margin-left: 0; }
   .rubric-actions,.save-rubric-dialog>div { flex-direction: column; }.rubric-action,.save-rubric-dialog button { width: 100%; }
 }
+
+/* Draft limit: "Maximum drafts" (only with the backend flag on and another draft allowed). */
+.assignment-setting--number { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.assignment-setting--number label { display: flex; flex-direction: column; flex: 1 1 220px; }
+.assignment-setting--number input { width: 6rem; min-height: 44px; padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 8px; }
+.assignment-setting--number input[aria-invalid="true"] { border-color: #b91c1c; }
+.assignment-setting__error { flex-basis: 100%; margin: 0; color: #b91c1c; font-size: .85rem; font-weight: 600; }

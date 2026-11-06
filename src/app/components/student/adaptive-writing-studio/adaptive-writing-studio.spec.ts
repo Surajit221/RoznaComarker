@@ -728,4 +728,19 @@ describe('AdaptiveWritingStudio', () => {
     fixture.nativeElement.querySelector('.completion-panel__cta').click();
     expect(emitted).toHaveBeenCalledTimes(1);
   });
+
+  it('draft limit reached: says all drafts are used, offers no new draft and emits nothing', () => {
+    component.startGeneration();
+    component.progress = { improvedActivities: 1, completedActivities: 1, totalActivities: 1,
+      requiredActivityCount: 1, completed: true, percentage: 100, activities: [] };
+    component.allowResubmission = true; component.draftLimitReached = true; component.maxDrafts = 3;
+    const emitted = jasmine.createSpy('submitNewDraft');
+    component.submitNewDraft.subscribe(emitted);
+    (component as unknown as { cdr: { markForCheck(): void } }).cdr.markForCheck();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-draft-limit]').textContent).toContain('You have used all 3 drafts.');
+    expect(fixture.nativeElement.querySelector('.completion-panel__cta')).toBeFalsy();
+    component.requestNewDraft();
+    expect(emitted).not.toHaveBeenCalled();
+  });
 });

@@ -41,6 +41,16 @@
       <input type="checkbox" formControlName="allowResubmission" (change)="onAllowResubmissionChange()" />
     </label>
     }
+    @if (showMaxDrafts) {
+      <div class="assignment-setting assignment-setting--dependent assignment-setting--number" data-max-drafts>
+        <label for="assignment-max-drafts"><strong>Maximum drafts</strong><small id="assignment-max-drafts-help">Including the first draft. A whole number from {{ draftLimit.config().min }} to {{ draftLimit.config().max }}.</small></label>
+        <input id="assignment-max-drafts" type="number" inputmode="numeric" formControlName="maxDrafts" [min]="draftLimit.config().min" [max]="draftLimit.config().max" step="1"
+          aria-describedby="assignment-max-drafts-help assignment-max-drafts-error" [attr.aria-invalid]="isFieldInvalid('maxDrafts')" />
+        @if (isFieldInvalid('maxDrafts')) {
+          <p id="assignment-max-drafts-error" class="assignment-setting__error" role="alert">Enter a whole number from {{ draftLimit.config().min }} to {{ draftLimit.config().max }}.</p>
+        }
+      </div>
+    }
     @if (capabilities.requireAdaptiveBeforeResubmission && classForm.get('allowResubmission')?.value === true) {
       <label class="assignment-setting assignment-setting--dependent">
         <span><strong>Require Adaptive Learning first</strong><small>Students must complete Adaptive Learning for their current draft before submitting another one.</small></span>

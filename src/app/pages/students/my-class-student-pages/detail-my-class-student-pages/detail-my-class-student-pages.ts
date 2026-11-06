@@ -119,6 +119,9 @@ export class DetailMyClassStudentPages {
     allowResubmission: boolean;
     requireAdaptiveBeforeResubmission?: boolean;
     adaptiveResubmissionSatisfied?: boolean;
+    /** Draft limit (only when the backend sends maxDrafts): all drafts used. */
+    maxDrafts?: number;
+    draftLimitReached?: boolean;
   }> = [];
 
   constructor(private router: Router) {}
@@ -227,6 +230,7 @@ export class DetailMyClassStudentPages {
     let status: 'waiting' | 'pending' | 'in-progress' | 'completed' = 'waiting';
     let submitted = 0;
     let submissionId: string | null = null;
+    let draftNumber = 1;
     let total = 1; // Each assignment has 1 total submission slot
 
     try {
@@ -250,6 +254,7 @@ export class DetailMyClassStudentPages {
           submitted = 1;
           status = 'completed';
           submissionId = String(submission._id || '');
+          draftNumber = Math.max(1, Number(submission.draftNumber) || 1);
         }
       }
     } catch (err) {
@@ -262,6 +267,8 @@ export class DetailMyClassStudentPages {
     }
 
     const requireAdaptiveBeforeResubmission = a.requireAdaptiveBeforeResubmission === true;
+    const maxDrafts = typeof a.maxDrafts === 'number' ? a.maxDrafts : undefined;
+    const draftLimitReached = maxDrafts !== undefined && submitted > 0 && draftNumber >= maxDrafts;
     let adaptiveResubmissionSatisfied = !requireAdaptiveBeforeResubmission;
     if (submitted > 0 && a.allowResubmission === true && requireAdaptiveBeforeResubmission && submissionId) {
       try {
@@ -287,6 +294,7 @@ export class DetailMyClassStudentPages {
       allowResubmission: a.allowResubmission === true,
       requireAdaptiveBeforeResubmission,
       adaptiveResubmissionSatisfied,
+      ...(maxDrafts !== undefined ? { maxDrafts, draftLimitReached } : {}),
     };
   }
 

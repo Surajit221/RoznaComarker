@@ -1,4 +1,6 @@
 import { GuestSubmissionFeature } from '../../../../../services/guest-submission-feature.service';
+import { DraftLimitFeature } from '../../../../../services/draft-limit-feature.service';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 
@@ -16,7 +18,10 @@ describe('AssignmentForm', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AssignmentForm], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => true, state: () => 'enabled',
-        load: () => Promise.resolve(true), settled: () => Promise.resolve('enabled') } }, ...routedComponentProviders(), ...httpTestingProviders]
+        load: () => Promise.resolve(true), settled: () => Promise.resolve('enabled') } },
+        // Draft limit off (as with the backend flag off): the form must stay exactly as before.
+        { provide: DraftLimitFeature, useValue: { config: signal({ enabled: false, min: 2, max: 10, default: 3 }), load: () => Promise.resolve({ enabled: false, min: 2, max: 10, default: 3 }) } },
+        ...routedComponentProviders(), ...httpTestingProviders]
     })
     .compileComponents();
 
@@ -343,7 +348,9 @@ describe('AssignmentForm guest flag with the real availability service', () => {
   let create: jasmine.Spy, update: jasmine.Spy, alerts: { toast: jasmine.Spy; error: jasmine.Spy; warning: jasmine.Spy };
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [AssignmentForm], providers: [...routedComponentProviders(), ...httpTestingProviders] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [AssignmentForm], providers: [...routedComponentProviders(), ...httpTestingProviders,
+      // These tests drive the guest availability request by hand; the draft limit is off here (no request of its own).
+      { provide: DraftLimitFeature, useValue: { config: signal({ enabled: false, min: 2, max: 10, default: 3 }), load: () => Promise.resolve({ enabled: false, min: 2, max: 10, default: 3 }) } }] }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(AssignmentForm); form = fixture.componentInstance;
     const api = TestBed.inject(AssignmentApiService), alert = TestBed.inject(AlertService);
