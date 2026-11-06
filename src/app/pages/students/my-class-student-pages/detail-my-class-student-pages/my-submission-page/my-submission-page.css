@@ -463,3 +463,6 @@
 .correction-retry-button:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
 .correction-retry-button:disabled { opacity: 0.6; cursor: not-allowed; }
 .correction-retry-notice .correction-retry-error { flex-basis: 100%; color: #991b1b; }
+
+/* C.3b: one short neutral line under the score when the corrections arrived after it was calculated. */
+.score-before-corrections { margin: -0.5rem 0 0.75rem; color: #475569; font-size: 0.8rem; line-height: 1.35; }

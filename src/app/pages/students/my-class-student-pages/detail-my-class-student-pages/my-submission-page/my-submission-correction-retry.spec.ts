@@ -106,6 +106,18 @@ describe('MySubmissionPage: correction-stage retry (Task 20)', () => {
     await Promise.all([first, second]);
   });
 
+  it('C.3b: one neutral line under the score only when the corrections arrived after the score', () => {
+    const line = () => (fixture.nativeElement as HTMLElement).querySelector('.score-before-corrections');
+    component.scoreState = 'loaded'; component.isUploadedFile = false;   // the evaluation view holds the score card
+    component.canonicalResultState = normalizeCanonicalResult({ ...failed, correctionStatus: 'completed', semanticStatus: 'completed', terminal: true });
+    fixture.detectChanges();
+    expect(line()).toBeNull();
+    component.canonicalResultState = normalizeCanonicalResult({ ...failed, correctionStatus: 'completed', semanticStatus: 'completed', terminal: true,
+      scoreBeforeCorrections: true });
+    fixture.detectChanges();
+    expect(line()?.textContent?.trim()).toBe('The score was calculated before the detailed corrections were available.');
+  });
+
   it('late corrections: when the retried stage completes after the score, the annotations reload without a page reload', async () => {
     const page = component as unknown as PageInternals;
     const reload = spyOn(page, 'refreshAssessmentResult').and.resolveTo();

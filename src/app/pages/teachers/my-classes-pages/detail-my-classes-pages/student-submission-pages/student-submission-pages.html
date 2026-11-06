@@ -109,6 +109,7 @@
                       <h3 class="font-semibold text-gray-700">Overall Score</h3>
                       <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
                     </div>
+                    @if (canonicalResultState?.scoreBeforeCorrections) { <p class="score-before-corrections" role="note">The score was calculated before the detailed corrections were available.</p> }
                     <div class="relative w-32 h-32 mx-auto mb-4">
                       <svg class="progress-ring w-32 h-32" width="120" height="120">
                         <circle class="text-gray-200" stroke-width="10" stroke="currentColor" fill="transparent" r="52"
