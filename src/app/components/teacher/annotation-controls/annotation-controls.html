@@ -75,16 +75,9 @@
             (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" (menuAction)="onMenuAction($event)" />
         }
 
-        @if (form(); as f) {
+        @if (form(); as f) { @if ((f.placement ?? 'panel') === 'panel') {
           <form class="form" (ngSubmit)="saveForm()" novalidate>
             <h3 data-form-heading tabindex="-1">{{ f.orphan ? 'Place this correction again' : f.mode === 'edit' ? 'Edit correction' : 'Add correction' }}</h3>
-            @if (conflict() && savedVersion(); as saved) {
-              <div class="form__saved">
-                <p><strong>Saved now:</strong>&ngsp;{{ saved.symbol }}</p>
-                <p>{{ saved.message }}</p>
-                <p>Suggestion: {{ saved.suggestedText }}</p>
-              </div>
-            }
             @if (data.pages.length > 1) {
               <label for="annotation-page">Page</label>
               <select id="annotation-page" [ngModel]="f.pageIndex" name="page" (ngModelChange)="choosePage($event)">
@@ -98,33 +91,9 @@
             @if (f.spanNote) { <p class="form__help">{{ f.spanNote }}</p> }
             @if (showFormErrors() && formErrors().span) { <p class="form__field-error">{{ formErrors().span }}</p> }
 
-            <label for="annotation-symbol">Category and symbol</label>
-            <select id="annotation-symbol" name="symbol" [ngModel]="f.value.symbol" (ngModelChange)="chooseSymbol($event)" [attr.aria-invalid]="showFormErrors() && !!formErrors().symbol">
-              <option value="">Choose…</option>
-              @for (group of groups(); track group.key) {
-                <optgroup [label]="group.label">
-                  @for (item of group.symbols; track item.symbol) { <option [value]="item.symbol">{{ item.symbol }}: {{ item.label }}</option> }
-                </optgroup>
-              }
-            </select>
-            @if (showFormErrors() && formErrors().symbol) { <p class="form__field-error">{{ formErrors().symbol }}</p> }
-
-            <label for="annotation-message">Explanation</label>
-            <textarea id="annotation-message" name="message" rows="3" [maxlength]="MESSAGE_MAX" [ngModel]="f.value.message" (ngModelChange)="patch({ message: $event })" [attr.aria-invalid]="showFormErrors() && !!formErrors().message"></textarea>
-            <p class="form__help">{{ f.value.message.length }} / {{ MESSAGE_MAX }}</p>
-            @if (showFormErrors() && formErrors().message) { <p class="form__field-error">{{ formErrors().message }}</p> }
-
-            <label for="annotation-suggestion">Suggestion</label>
-            <textarea id="annotation-suggestion" name="suggestion" rows="2" [maxlength]="SUGGESTION_MAX" [ngModel]="f.value.suggestedText" (ngModelChange)="patch({ suggestedText: $event })" [attr.aria-invalid]="showFormErrors() && !!formErrors().suggestedText"></textarea>
-            <p class="form__help">{{ f.value.suggestedText.length }} / {{ SUGGESTION_MAX }}</p>
-            @if (showFormErrors() && formErrors().suggestedText) { <p class="form__field-error">{{ formErrors().suggestedText }}</p> }
-
-            <div class="editor__actions">
-              <button type="submit" class="btn-primary" [attr.aria-disabled]="locked()">{{ saving() ? 'Saving…' : 'Save' }}</button>
-              <button type="button" class="btn-info" [attr.aria-disabled]="saving()" (click)="cancelForm()">Cancel</button>
-            </div>
+            <app-annotation-edit-fields [controls]="self" />
           </form>
-        }
+        } }
 
         <h3 class="editor__list-title" data-list-heading tabindex="-1">Corrections</h3>
         @if (!filteredCount()) { <p>No corrections in this view.</p> }
@@ -145,11 +114,13 @@
                 @if (row.message) { <p>{{ row.message }}</p> }
                 @if (row.suggestedText) { <p class="row__suggestion">Suggestion: {{ row.suggestedText }}</p> }
                 @if (needsReview(row)) { <p class="row__reason"><strong>Needs review:</strong>&ngsp;{{ orphanReasonText(row.orphanReason) }}</p> }
-                @if (!readOnly()) {
+                @if (form()?.placement === 'row' && form()?.rowKey === row.key) {
+                  <app-annotation-edit-fields [controls]="self" [inline]="true" />
+                } @else if (!readOnly()) {
                   <div class="editor__actions">
                     @for (action of actionsFor(row); track action) {
                       @switch (action) {
-                        @case ('edit') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(row, $event)">{{ row.orphanReason ? 'Place again' : 'Edit' }}<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('edit') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" data-row-edit (click)="openForm(row, $event, 'row')">{{ row.orphanReason ? 'Place again' : 'Edit' }}<span class="sr-only"> {{ row.symbol }}</span></button> }
                         @case ('hide') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" (click)="run('hide', row)">Hide<span class="sr-only"> {{ row.symbol }}</span></button> }
                         @case ('restore') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" (click)="run('restore', row)">Restore<span class="sr-only"> {{ row.symbol }}</span></button> }
                         @case ('archive') { <button type="button" class="btn-danger" [attr.aria-disabled]="locked() || !!form()" (click)="askRemove(row, $event)">Remove<span class="sr-only"> {{ row.symbol }}</span></button> }

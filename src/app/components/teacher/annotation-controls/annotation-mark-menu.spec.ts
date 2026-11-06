@@ -8,6 +8,7 @@ import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import { AnnotationControls, AnnotationDraftStore } from './annotation-controls';
 import type { AnnotationBody, AnnotationSnapshot, CorrectionRow, SnapshotCorrection } from './annotation-editor.logic';
+import { AnnotationEditFields } from './annotation-edit-fields';
 import { AnnotationMarkMenu, MarkMenuAction, MarkMenuEntry } from './annotation-mark-menu';
 
 const row = (patch: Partial<CorrectionRow>): CorrectionRow => ({ key: 'ai_1', targetId: 'ai_1', status: 'visible', source: 'AI', manual: false, edited: false,
@@ -83,14 +84,18 @@ class FakeApi {
 }
 
 @Component({
-  imports: [AnnotationControls, AnnotationMarkMenu, CorrectionOverlay, TokenizedTranscript],
+  imports: [AnnotationControls, AnnotationEditFields, AnnotationMarkMenu, CorrectionOverlay, TokenizedTranscript],
   template: `
-    <app-correction-overlay [annotations]="annotations" [markMenu]="teacher() ? teacherMarkMenu : null" (markActivated)="controls.markActivated($event, 'image')" />
-    <app-tokenized-transcript [ocrWords]="words" [annotations]="annotations" [markMenu]="teacher() ? teacherMarkMenu : null" (markActivated)="controls.markActivated($event, 'transcript')" />
+    <app-correction-overlay [annotations]="annotations" [markMenu]="teacher() ? teacherMarkMenu : null" (markActivated)="controls.markActivated($event, 'image')"
+      [markMenuHold]="controls.form()?.placement === 'popup'" />
+    <app-tokenized-transcript [ocrWords]="words" [annotations]="annotations" [markMenu]="teacher() ? teacherMarkMenu : null" (markActivated)="controls.markActivated($event, 'transcript')"
+      [markMenuHold]="controls.form()?.placement === 'popup'" />
     <app-annotation-controls #controls submissionId="s1" />
     <ng-template #teacherMarkMenu let-ids>
-      @if (controls.menuFor(ids); as entries) {
-        @if (entries.length) { <app-annotation-mark-menu [entries]="entries" [locked]="controls.locked() || !!controls.form()" (act)="controls.onMenuAction($event)" /> }
+      @if (controls.inlineFormFor(ids, 'popup')) {
+        <app-annotation-edit-fields [controls]="controls" [inline]="true" />
+      } @else if (controls.menuFor(ids); as entries) {
+        @if (entries.length) { <app-annotation-mark-menu [entries]="entries" [locked]="controls.locked() || !!controls.form()" (act)="controls.onMenuAction($event, 'popup')" /> }
       }
     </ng-template>`,
 })
@@ -124,6 +129,12 @@ describe('Teacher submission page: menu on the page image and transcript (Phase 
   function onScreen(target: HTMLElement) {
     const container = dom().querySelector<HTMLElement>('.tokenized-transcript')!;
     if (!placed.has(container)) { spyOn(container, 'getBoundingClientRect').and.returnValue(rect(10, 10, 400, 300)); placed.add(container); }
+    const tip = [...document.querySelectorAll<HTMLElement>('.transcript-tooltip')].find(t => container.contains(t) || t.parentElement === document.body);
+    if (tip && !placed.has(tip)) {   // the tooltip measures itself before showing; karma's layout gives 0 (same stub as the transcript spec)
+      Object.defineProperty(tip, 'offsetWidth', { configurable: true, value: 220 });
+      Object.defineProperty(tip, 'offsetHeight', { configurable: true, value: 120 });
+      placed.add(tip);
+    }
     if (!placed.has(target)) { spyOn(target, 'getBoundingClientRect').and.returnValue(rect(40, 80, 40, 20)); placed.add(target); }
   }
   const tapWord = async (text: string) => {
@@ -166,14 +177,41 @@ describe('Teacher submission page: menu on the page image and transcript (Phase 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await settle();
     expect(document.querySelector('[data-transcript-mark-menu]')).toBeNull();
   });
-  it('transcript: one correction goes straight to the actions; Edit opens the editor with the form', async () => {
+  it('transcript: Edit turns the popup into the form in place (no editor, no scrolling); it holds open; Enter saves', async () => {
     await create();
     await tapWord('home');
     expect(tooltip()!.querySelector('[data-mark-menu-target]')!.textContent).toContain('WC');
-    expect(host.controls().open()).toBeFalse();
     tooltip()!.querySelector<HTMLButtonElement>('[data-sync-menu-action="edit"]')!.click(); await settle();
-    expect(host.controls().open()).toBeTrue();
-    expect(host.controls().form()?.targetId).toBe('ai_3');
+    expect(host.controls().open()).toBeFalse();
+    expect(host.controls().form()?.placement).toBe('popup');
+    const fields = tooltip()!.querySelector('[data-edit-fields]')!;
+    expect(fields).not.toBeNull();
+    // The tooltip shows itself one frame after positioning (the app re-renders after that frame; here settle() does); focus follows.
+    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await frames(); await settle(); await frames();
+    expect(document.activeElement).toBe(fields.querySelector('[data-edit-first]'));
+    // Held: a click elsewhere and Escape at document level do not close it.
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'mouse', bubbles: true })); await settle();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await settle();
+    expect(tooltip()!.querySelector('[data-edit-fields]')).not.toBeNull();
+    const suggestion = fields.querySelector<HTMLInputElement>('#annotation-suggestion')!;
+    suggestion.value = 'phrase'; suggestion.dispatchEvent(new Event('input')); await settle();
+    suggestion.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await settle();
+    expect(api.calls).toEqual([jasmine.objectContaining({ action: 'edit', id: 'ai_3', revision: 3, sourceHash: 'hash-3', value: jasmine.objectContaining({ suggestedText: 'phrase', quotedText: 'home' }) })]);
+    expect(host.controls().form()).toBeNull();
+    expect(host.controls().open()).toBeFalse();
+  });
+  it('image: Edit in the popup, Escape in a field cancels, the menu comes back with focus on Edit', async () => {
+    await create();
+    clickImageMark('ai_3'); await settle();
+    dom().querySelector<HTMLButtonElement>('[data-overlay-mark-menu] [data-sync-menu-action="edit"]')!.click(); await settle();
+    const message = dom().querySelector<HTMLTextAreaElement>('[data-overlay-mark-menu] #annotation-message')!;
+    expect(message.value).toBe('Other word.');
+    message.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); await settle();
+    expect(host.controls().form()).toBeNull();
+    expect(dom().querySelector('.correction-overlay__header')).not.toBeNull();   // the popup is still open
+    expect(document.activeElement).toBe(dom().querySelector('[data-overlay-mark-menu] [data-sync-menu-action="edit"]'));
+    expect(api.calls).toEqual([]);
   });
   it('no access (404): no menu, the old details only', async () => {
     await create();

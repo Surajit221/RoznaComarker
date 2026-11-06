@@ -2,6 +2,7 @@ import { SourceFidelityComponent, type SourceFidelity } from '../../../../../com
 import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
 import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
 import { AnnotationMarkMenu } from '../../../../../components/teacher/annotation-controls/annotation-mark-menu';
+import { AnnotationEditFields } from '../../../../../components/teacher/annotation-controls/annotation-edit-fields';
 import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
@@ -168,7 +169,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,StudentPreview,
+  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,AnnotationEditFields,StudentPreview,
 
 
 

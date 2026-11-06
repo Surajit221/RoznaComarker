@@ -12,6 +12,7 @@ import {
 } from './annotation-editor.logic';
 import { ChangeHistoryDialog } from './change-history-dialog';
 import { ConfirmDialog } from './confirm-dialog';
+import { AnnotationEditFields } from './annotation-edit-fields';
 import { GradeCheck } from './grade-check';
 import { RowPosition, buildPositions, positionLabels, revealRow, withDrawn } from './annotation-sync.logic';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
@@ -27,13 +28,16 @@ const FILTERS: { key: RowFilter; label: string }[] = [
 ];
 const DONE: Record<AnnotationAction, string> = { hide: 'Hidden from the student.', restore: 'Restored. The student can see it again.', archive: 'Removed. You can restore it from this list.', edit: 'Your edit is saved.', add: 'Your correction is added.' };
 
+const placementOf = (f: { placement?: FormPlacement } | null | undefined): FormPlacement => f?.placement ?? 'panel';
 const REMOVE_TEXT = 'The student will no longer see it and it will not count in their totals. It stays in your list marked Removed, you can restore it at any time, and this action is recorded in the change history. Scores do not change.';
 const HIDE_TEXT = 'The student will no longer see them and they will not count in their totals. They stay in your list marked Hidden and you can restore them. Each change is recorded in the change history. Scores do not change.';
 /** Undo is offered this long after a bulk action. */
 export const UNDO_MS = 8000;
 interface BulkConfirm { action: BulkAction; scope: BulkScope; title: string; text: string; confirmLabel: string; }
 interface BulkUndo { action: BulkAction; ids: string[]; label: string; }
-interface FormState { mode: 'add' | 'edit'; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
+/** Where the one form is shown: the panel (Add, Place again, Change the words), a list row, or a mark's popup on the page. */
+export type FormPlacement = 'panel' | 'row' | 'popup';
+interface FormState { placement?: FormPlacement; mode: 'add' | 'edit'; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
 interface PendingAction { body: AnnotationBody; rowKey: string | null; fromForm: boolean; }
 interface EditorDraft { submissionId: string; open: boolean; filter: RowFilter; limit: number; form: FormState | null; pending: PendingAction | null; conflict: boolean; showFormErrors: boolean; error: string; workspaceOpen: boolean; pinnedKey: string | null; }
 
@@ -50,7 +54,7 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
+  imports: [AnnotationEditFields, ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
   providers: [CorrectionSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
@@ -77,6 +81,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   private readonly zone = inject(NgZone);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly selection = inject(CorrectionSelection);
+  /** For templates that hand the editor to a child (AnnotationEditFields). */
+  readonly self = this;
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
@@ -307,12 +313,11 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   }
 
   /** A mark's menu (workspace, page image or page transcript) runs the same actions as the list's buttons. */
-  onMenuAction(event: MarkMenuAction): void {
+  onMenuAction(event: MarkMenuAction, placement: FormPlacement = 'row'): void {
     const row = this.rows().find(r => r.key === event.key);
     if (!row) return;
-    // The form lives inside the editor body: open it first so Edit has somewhere to appear.
-    if (event.action === 'edit' && !this.open()) this.open.set(true);
-    if (event.action === 'edit') this.openForm(row, event.event);
+    // Edit happens where the teacher is: in the popup, or in the row (the workspace's menu sits beside the list).
+    if (event.action === 'edit') this.openForm(row, event.event, placement);
     else if (event.action === 'archive') this.askRemove(row, event.event);
     else this.run(event.action, row);
   }
@@ -403,6 +408,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
       await this.api.mutate(this.submissionId(), body);
       if (version !== this.version) return;
       this.pending.set(null);
+      const savedFrom = fromForm ? placementOf(this.form()) : null;
       if (fromForm) { this.form.set(null); this.conflict.set(false); this.showFormErrors.set(false); }
       await this.reload();
       if (version !== this.version) return;
@@ -410,7 +416,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
       this.notice.set(backInReview ? 'Back in Needs review. It is still not shown to the student.' : DONE[body.action]);
       this.saved.emit();
       if (this.historyOpen()) await this.loadHistory(true);
-      this.focusAfterSave(rowKey, body);
+      // A popup save keeps the teacher on the image or transcript: the list row is not focused (that would scroll the page).
+      if (savedFrom !== 'popup') this.focusAfterSave(rowKey, body);
     } catch (failure) {
       if (version === this.version) await this.handleSaveFailure(failure);
     } finally {
@@ -477,6 +484,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   }
   private onListFocus(event: FocusEvent): void {
     if (!(event.target as Element).matches?.(':focus-visible')) return;
+    if ((event.target as Element).closest?.('[data-edit-fields]')) return;   // typing in a row's form is not a selection
     const key = this.rowKeyAt(event);
     if (key) this.fromList({ ids: [key], kind: 'focus' });
   }
@@ -489,7 +497,13 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   setFilter(filter: RowFilter): void { this.filter.set(filter); this.limit.set(PAGE_SIZE); }
   showMore(): void { this.limit.update(limit => limit + PAGE_SIZE); }
 
-  openForm(row: CorrectionRow | null, event: Event): void {
+  /** True while the one form is open in this place for one of these corrections (the popup shows it instead of its menu). */
+  inlineFormFor(ids: readonly string[] | null | undefined, placement: FormPlacement): boolean {
+    const f = this.form();
+    return Boolean(f && placementOf(f) === placement && ids?.some(id => id === f.rowKey || id === f.targetId));
+  }
+
+  openForm(row: CorrectionRow | null, event: Event, placement: FormPlacement = 'panel'): void {
     const snapshot = this.snapshot();
     if (this.locked() || this.form() || !snapshot?.pages?.length) return;
     this.trigger = event.currentTarget as HTMLElement;
@@ -502,11 +516,42 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
       quotedText: spanValid ? row!.quotedText : '', symbol: row && this.symbols().get(row.symbol) ? row.symbol : '', category: row && this.symbols().get(row.symbol) ? this.symbols().get(row.symbol)! : '',
       message: row?.message ?? '', suggestedText: row?.suggestedText ?? '' };
     this.showFormErrors.set(false); this.conflict.set(false); this.error.set('');
-    this.form.set({ mode: row ? 'edit' : 'add', rowKey: row?.key ?? null, targetId: row?.targetId ?? null, orphan: Boolean(row?.orphanReason), pageIndex, value, initial: JSON.stringify(value), spanNote: '' });
+    // Inline only when the words still match: a correction to place again, or whose span no longer matches, needs the panel's word selection.
+    const where: FormPlacement = placement !== 'panel' && row && spanValid && !row.orphanReason ? placement : 'panel';
+    if (where !== 'popup' && !this.open()) this.open.set(true);
+    this.form.set({ placement: where, mode: row ? 'edit' : 'add', rowKey: row?.key ?? null, targetId: row?.targetId ?? null, orphan: Boolean(row?.orphanReason), pageIndex, value, initial: JSON.stringify(value), spanNote: '' });
     afterNextRender(() => {
-      this.host.nativeElement.querySelector<HTMLElement>('[data-form-heading]')?.focus();
-      if (spanValid) this.host.nativeElement.querySelector<HTMLTextAreaElement>('[data-source-text]')?.setSelectionRange(row!.startChar! - page.startChar, row!.endChar! - page.startChar);
+      if (where !== 'panel') { this.focusInline('[data-edit-first]', where === 'popup'); return; }
+      this.focusPanelForm();
     }, { injector: this.injector });
+  }
+
+  /** "Change the words…": the same form, with what was typed, moves to the panel, which can select words in the transcript. */
+  changeWords(): void {
+    const f = this.form();
+    if (!f || this.saving()) return;
+    this.form.set({ ...f, placement: 'panel' });
+    this.open.set(true);
+    afterNextRender(() => this.focusPanelForm(), { injector: this.injector });
+  }
+  private focusPanelForm(): void {
+    const f = this.form(), page = this.formPage();
+    this.host.nativeElement.querySelector<HTMLElement>('[data-form-heading]')?.focus();
+    if (f && page && f.value.quotedText && f.value.endChar > f.value.startChar) {
+      this.host.nativeElement.querySelector<HTMLTextAreaElement>('[data-source-text]')?.setSelectionRange(f.value.startChar - page.startChar, f.value.endChar - page.startChar);
+    }
+  }
+  /** A popup can still be hidden while it positions itself (one animation frame): try again for a few frames until focus lands. */
+  private focusInline(selector: string, preventScroll: boolean, frames = 10): void {
+    const target = this.inlineField(selector);
+    target?.focus({ preventScroll });
+    if (target && document.activeElement !== target && frames > 0 && typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => { if (this.form()) this.focusInline(selector, preventScroll, frames - 1); });
+    }
+  }
+  /** An inline form can be outside this component (a popup on the page, the transcript tooltip in document.body). Only one form exists at a time. */
+  private inlineField(selector: string): HTMLElement | null {
+    return this.host.nativeElement.querySelector<HTMLElement>(`[data-edit-fields] ${selector}`) ?? document.querySelector<HTMLElement>(`[data-edit-fields] ${selector}`);
   }
 
   patch(patch: Partial<CorrectionValue>): void { this.form.update(f => f ? { ...f, value: { ...f.value, ...patch } } : f); }
@@ -536,7 +581,9 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.showFormErrors.set(true);
     if (Object.keys(this.formErrors()).length) {
       this.error.set('Please fix the highlighted fields.');
-      afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-form-error]')?.focus(), { injector: this.injector });
+      const inline = placementOf(f) !== 'panel';
+      afterNextRender(() => (inline ? this.inlineField('[aria-invalid="true"]') ?? this.inlineField('[data-edit-first]') : this.host.nativeElement.querySelector<HTMLElement>('[data-form-error]'))?.focus(),
+        { injector: this.injector });
       return;
     }
     const body: AnnotationBody = { action: f.mode, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId(), value: { ...f.value },
@@ -546,9 +593,15 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
 
   cancelForm(): void {
     if (this.saving()) return;
+    const closing = this.form();
     this.form.set(null); this.pending.set(null); this.conflict.set(false); this.showFormErrors.set(false); this.error.set(''); this.notice.set('');
-    const trigger = this.trigger;
-    afterNextRender(() => { (trigger?.isConnected ? trigger : this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]'))?.focus(); }, { injector: this.injector });
+    const trigger = this.trigger, placement = closing ? placementOf(closing) : 'panel', key = closing?.rowKey;
+    afterNextRender(() => {
+      // Back to where the edit started: the popup's Edit button, the row's Edit button, or the button that opened the panel form.
+      const back = placement === 'popup' ? document.querySelector<HTMLElement>('[data-sync-menu-action="edit"]')
+        : placement === 'row' && key ? this.host.nativeElement.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"] [data-row-edit]`) : null;
+      (back ?? (trigger?.isConnected ? trigger : this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]')))?.focus({ preventScroll: placement === 'popup' });
+    }, { injector: this.injector });
   }
 
   /** Always from the start: the list may have changed since it was last open. */

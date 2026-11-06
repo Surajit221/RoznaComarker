@@ -67,7 +67,7 @@
               [sourceGeometry]="activeSourceGeometry"
               [sourceLoadError]="imageMediaState === 'error'" (retryRequested)="retryUploadedImage()"
               [annotations]="activeAnnotations" [ocrWords]="activeOcrWords"
-              [markMenu]="currentSubmission?._id ? teacherMarkMenu : null" (markActivated)="annotationControls?.markActivated($event, 'image')"
+              [markMenu]="currentSubmission?._id ? teacherMarkMenu : null" (markActivated)="annotationControls?.markActivated($event, 'image')" [markMenuHold]="annotationControls?.form()?.placement === 'popup'"
               alt="Student submission image"></app-correction-overlay>
             <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
             }
@@ -215,7 +215,7 @@
                             @if (page.status === 'ready' && page.words.length) {
                             <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
                               [ocrWords]="page.words" [annotations]="page.annotations"
-                              [markMenu]="currentSubmission?._id ? teacherMarkMenu : null" (markActivated)="annotationControls?.markActivated($event, 'transcript')"></app-tokenized-transcript>
+                              [markMenu]="currentSubmission?._id ? teacherMarkMenu : null" (markActivated)="annotationControls?.markActivated($event, 'transcript')" [markMenuHold]="annotationControls?.form()?.placement === 'popup'"></app-tokenized-transcript>
                             } @else if (page.status === 'ready' && page.text) {
                             <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
                             } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
@@ -522,7 +522,11 @@
 
 <!-- Phase A: the teacher's actions for a mark chosen on this page's image or transcript (the editor runs them). -->
 <ng-template #teacherMarkMenu let-ids>
-  @if (annotationControls?.menuFor(ids); as entries) {
-    @if (entries.length) { <app-annotation-mark-menu [entries]="entries" [locked]="annotationControls!.locked() || !!annotationControls!.form()" (act)="annotationControls!.onMenuAction($event)" /> }
+  @if (annotationControls; as controls) {
+    @if (controls.inlineFormFor(ids, 'popup')) {
+      <app-annotation-edit-fields [controls]="controls" [inline]="true" />
+    } @else if (controls.menuFor(ids); as entries) {
+      @if (entries.length) { <app-annotation-mark-menu [entries]="entries" [locked]="controls.locked() || !!controls.form()" (act)="controls.onMenuAction($event, 'popup')" /> }
+    }
   }
 </ng-template>

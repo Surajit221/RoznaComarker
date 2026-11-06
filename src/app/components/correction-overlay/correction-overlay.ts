@@ -83,6 +83,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
    */
   @Input() markMenu: TemplateRef<{ $implicit: string[] }> | null = null;
   @Output() markActivated = new EventEmitter<string>();
+  /** Teacher page only: an inline edit form is open in the popup. It stays open (no hover-out, outside-click or Escape close, no other mark). */
+  @Input() markMenuHold = false;
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
   @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
@@ -237,7 +239,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   onMarkerEnter(marker: CorrectionMarker, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
     this.cancelHoverClose();
-    if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+    if (!this.isPinned && !this.markMenuHold) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
   onMarkerLeave(marker: CorrectionMarker, event: PointerEvent): void {
@@ -252,7 +254,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   scheduleHoverClose(): void {
     this.cancelHoverClose();
-    if (!this.isPinned) this.hoverCloseTimer = setTimeout(() => this.closeTooltip(), 220);
+    if (!this.isPinned && !this.markMenuHold) this.hoverCloseTimer = setTimeout(() => this.closeTooltip(), 220);
   }
 
   selectCorrection(annotation: FeedbackAnnotation): void {
@@ -327,7 +329,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.suppressNextFocusReopen = false;
       return;
     }
-    if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+    if (!this.isPinned && !this.markMenuHold) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
 
@@ -346,6 +348,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   onMarkerClick(marker: CorrectionMarker, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    if (this.markMenuHold) return;
     // VisualViewport can settle after initial render on Android Chrome. Resolve
     // the presentation mode at activation so the first tap opens the sheet.
     if (this.device.isMobile()) this.isMobile = true;
@@ -369,6 +372,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
+    if (this.markMenuHold) return;
     if (this.device.isMobile()) this.isMobile = true;
     this.openTooltip(marker, event.currentTarget as HTMLElement, true);
     this.emitMarkActivated();
@@ -400,7 +404,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @HostListener('document:pointerdown', ['$event'])
   onDocumentPointerDown(event: PointerEvent): void {
-    if (!this.activeMarker) return;
+    if (!this.activeMarker || this.markMenuHold) return;
     const element = event.target instanceof Element ? event.target : null;
     if (element?.closest('.correction-overlay__marker, .correction-overlay__tooltip')) return;
     this.closeTooltip();
@@ -408,6 +412,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.markMenuHold) return;
     this.closeFromControl();
   }
 

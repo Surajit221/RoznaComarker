@@ -152,6 +152,77 @@ describe('AnnotationControls', () => {
     });
   });
 
+  describe('Phase A polish: inline edit in the list row', () => {
+    beforeEach(async () => { await create(); await openEditor(); });
+    const key = (target: Element, k: string, init: KeyboardEventInit = {}) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init }));
+    const field = (id: string) => dom().querySelector<HTMLElement>(`#${id}`)!;
+
+    it('Edit turns the row into the form, pre-filled; Enter in the suggestion saves through the existing single action', async () => {
+      button('Edit', row())!.click(); await settle();
+      expect(row().querySelector('[data-edit-fields]')).not.toBeNull();
+      expect(row().querySelector('[data-edit-heading]')!.textContent).toContain('“goes”');
+      expect((field('annotation-message') as HTMLTextAreaElement).value).toBe('Use go.');
+      expect((field('annotation-suggestion') as HTMLInputElement).value).toBe('go');
+      expect((field('annotation-symbol') as HTMLSelectElement).value).toBe('AGR');
+      fill('annotation-message', 'Use the base form.'); await settle();
+      expect(registry.hasWork()).toBeTrue();
+      key(field('annotation-suggestion'), 'Enter'); await settle();
+      expect(api.calls).toEqual([jasmine.objectContaining({ action: 'edit', id: 'ai_1', revision: 3, sourceHash: 'hash-3',
+        value: jasmine.objectContaining({ message: 'Use the base form.', suggestedText: 'go', quotedText: 'goes', startChar: 2, endChar: 6, symbol: 'AGR' }) })]);
+      expect(api.calls[0].requestId).toMatch(/^[a-f0-9-]{36}$/i);
+      expect(component.form()).toBeNull();
+      expect(registry.hasWork()).toBeFalse();
+      expect(text()).toContain('Your edit is saved.');
+    });
+    it('Escape cancels and focus goes back to the row\'s Edit button; nothing is sent', async () => {
+      button('Edit', row())!.click(); await settle();
+      fill('annotation-message', 'Changed'); await settle();
+      key(field('annotation-message'), 'Escape'); await settle();
+      expect(component.form()).toBeNull();
+      expect(api.calls).toEqual([]);
+      expect(document.activeElement).toBe(row().querySelector('[data-row-edit]'));
+    });
+    it('a field error is shown next to the field, nothing is sent, focus goes to the field', async () => {
+      button('Edit', row())!.click(); await settle();
+      fill('annotation-message', '   '); await settle();
+      row().querySelector<HTMLButtonElement>('[data-edit-save]')!.click(); await settle();
+      expect(api.calls).toEqual([]);
+      expect(row().textContent).toContain('Explanation is required');
+      expect(field('annotation-message').getAttribute('aria-invalid')).toBe('true');
+      expect(document.activeElement).toBe(field('annotation-message'));
+    });
+    it('while saving the button says so; a 409 shows the existing reload message in the row and keeps the text', async () => {
+      button('Edit', row())!.click(); await settle();
+      fill('annotation-message', 'Mine'); await settle();
+      let fail: (e: unknown) => void = () => undefined;
+      api.respond = () => new Promise((_, reject) => { fail = reject; });
+      row().querySelector<HTMLButtonElement>('[data-edit-save]')!.click(); await fixture.whenStable(); fixture.detectChanges();
+      expect(row().querySelector('[data-edit-save]')!.textContent).toContain('Saving…');
+      expect(row().querySelector('[data-edit-fields]')!.getAttribute('aria-busy')).toBe('true');
+      api.current = snapshot({ revision: 9, corrections: [correction({ message: 'From the other tab' })] });
+      fail(httpError(409, 'ANNOTATION_REVISION_CONFLICT')); await settle();
+      expect(row().querySelector('[data-edit-alert]')!.textContent).toContain('Your change was not saved');
+      expect(row().textContent).toContain('From the other tab');
+      expect((field('annotation-message') as HTMLTextAreaElement).value).toBe('Mine');
+    });
+    it('"Change the words…" moves the same form, with what was typed, to the panel', async () => {
+      button('Edit', row())!.click(); await settle();
+      fill('annotation-message', 'Typed'); await settle();
+      row().querySelector<HTMLButtonElement>('[data-edit-change-words]')!.click(); await settle();
+      expect(component.form()!.placement).toBe('panel');
+      expect(row().querySelector('[data-edit-fields]')).toBeNull();
+      expect(dom().querySelector('[data-form-heading]')).not.toBeNull();
+      expect(dom().querySelector('[data-source-text]')).not.toBeNull();
+      expect((field('annotation-message') as HTMLTextAreaElement).value).toBe('Typed');
+    });
+    it('a correction to place again still uses the panel (it needs word selection)', async () => {
+      api.current = snapshot({ corrections: [], effective: [], orphans: [{ entryId: 'teacher_6', kind: 'manual', status: 'visible', reason: 'TEXT_NOT_FOUND', value: { fileId: 'f1', page: 1, quotedText: 'gone', message: 'note', suggestedText: 'x', symbol: 'ART', category: 'GRAMMAR' } }] });
+      await component.reload(); await settle();
+      button('Place again', row('orphan:teacher_6'))!.click(); await settle();
+      expect(component.form()!.placement).toBe('panel');
+    });
+  });
+
   describe('review workspace', () => {
     const toggle = () => dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!;
     const workspace = () => dom().querySelector('app-review-workspace');
@@ -494,7 +565,11 @@ describe('AnnotationControls', () => {
     it('edit opens with the current text and span; an unknown legend symbol must be chosen', async () => {
       button('Edit', row())!.click(); await settle();
       expect(component.form()!.value).toEqual(jasmine.objectContaining({ quotedText: 'goes', startChar: 2, endChar: 6, symbol: 'AGR', category: 'GRAMMAR', message: 'Use go.' }));
-      expect(document.activeElement?.hasAttribute('data-form-heading')).toBeTrue();
+      // Phase A polish: Edit opens in the row itself, focus on its first field; the panel form is not used.
+      expect(component.form()!.placement).toBe('row');
+      expect(document.activeElement?.hasAttribute('data-edit-first')).toBeTrue();
+      expect(row().contains(document.activeElement)).toBeTrue();
+      expect(dom().querySelector('[data-form-heading]')).toBeNull();
     });
     it('an invalid form makes no request and says what to fix', async () => {
       button('Add correction')!.click(); await settle();

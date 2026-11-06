@@ -32,6 +32,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
    */
   @Input() markMenu: TemplateRef<{ $implicit: string[] }> | null = null;
   @Output() markActivated = new EventEmitter<string>();
+  /** Teacher page only: an inline edit form is open in the tooltip. It stays open (no outside-click or Escape close, no other word). */
+  @Input() markMenuHold = false;
 
   @ViewChild('containerEl', { static: false }) containerEl?: ElementRef<HTMLElement>;
   @ViewChild('tooltipEl', { static: false }) tooltipEl?: ElementRef<HTMLElement>;
@@ -143,7 +145,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
   onWordPointerEnter(wordId: string, event: PointerEvent): void {
     // Hover only for mouse pointers.
     if (event.pointerType && event.pointerType !== 'mouse') return;
-    if (this.menuPinned) return;
+    if (this.menuPinned || this.markMenuHold) return;
     this.openTooltip(wordId, event);
   }
 
@@ -158,6 +160,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
 
   onWordPointerDown(wordId: string, event: PointerEvent): void {
     // Tap/pen support. Also works with mouse click if user prefers.
+    if (this.markMenuHold) return;
     // Teacher menu: a click on a word whose tooltip the hover opened pins it instead of closing it.
     if (this.markMenu && this.activeWordId === wordId && !this.menuPinned) {
       this.pinMenu(wordId);
@@ -183,7 +186,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
 
   @HostListener('document:pointerdown', ['$event'])
   onDocumentPointerDown(event: PointerEvent): void {
-    if (!this.activeWordId) return;
+    if (!this.activeWordId || this.markMenuHold) return;
     const container = this.containerEl?.nativeElement;
     const tooltip = this.tooltipEl?.nativeElement;
     const target = event.target as Node | null;
@@ -198,6 +201,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
 
   onWordKeydown(wordId: string, event: KeyboardEvent): void {
     if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (this.markMenuHold) { event.preventDefault(); return; }
     event.preventDefault();
     if (this.activeWordId === wordId) this.closeTooltip();
     else {
@@ -216,6 +220,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.markMenuHold) return;
     this.closeTooltip();
   }
 
