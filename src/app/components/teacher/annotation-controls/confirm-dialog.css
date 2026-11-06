@@ -1,0 +1,33 @@
+:host { display: contents; }
+/* margin: auto undoes Tailwind's reset (margin: 0), which is what put the old dialogs in the top-left corner. */
+.confirm-dialog {
+  position: fixed; inset: 0; margin: auto; padding: 0; border: 0; border-radius: 16px;
+  width: min(420px, 92vw); max-height: calc(100dvh - 32px); overflow: auto;
+  background: #fff; color: #1e293b; box-shadow: 0 24px 48px rgb(15 23 42 / 22%), 0 2px 6px rgb(15 23 42 / 12%);
+}
+.confirm-dialog[open] { animation: confirm-dialog-in 160ms ease-out; }
+.confirm-dialog::backdrop { background: rgb(15 23 42 / 50%); }
+.confirm-dialog__card { padding: 20px 20px 16px; }
+.confirm-dialog__title { margin: 0 0 8px; font-size: 1.1rem; font-weight: 700; line-height: 1.35; color: #0f2a4a; }
+.confirm-dialog__text { margin: 0 0 18px; font-size: .925rem; line-height: 1.55; color: #334155; }
+.confirm-dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.confirm-dialog__button {
+  min-height: 44px; padding: 0 18px; border: 1px solid transparent; border-radius: 10px; font-weight: 600; font-size: .925rem; cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.confirm-dialog__button:focus-visible { outline: 3px solid #f5b800; outline-offset: 2px; }
+.confirm-dialog__button--secondary { background: #fff; border-color: #cbd5e1; color: #1e293b; }
+.confirm-dialog__button--secondary:hover { background: #f1f5f9; }
+.confirm-dialog__button--primary { background: #0f766e; color: #fff; }
+.confirm-dialog__button--primary:hover { background: #0b5f59; }
+.confirm-dialog__button--danger { background: #dc2626; color: #fff; }
+.confirm-dialog__button--danger:hover { background: #b91c1c; }
+@media (max-width: 480px) {
+  .confirm-dialog__actions { flex-direction: column-reverse; }
+  .confirm-dialog__button { width: 100%; }
+}
+@keyframes confirm-dialog-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog[open] { animation: none; }
+  .confirm-dialog__button { transition: none; }
+}

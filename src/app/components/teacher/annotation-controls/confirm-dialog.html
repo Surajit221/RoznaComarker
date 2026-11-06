@@ -1,0 +1,14 @@
+<dialog #dialog class="confirm-dialog" [attr.aria-labelledby]="titleId" [attr.aria-describedby]="textId" aria-modal="true"
+  (cancel)="onCancelEvent($event)" (click)="onDialogClick($event)" (keydown)="onKeydown($event)" data-confirm-dialog>
+  @if (open()) {
+    <div class="confirm-dialog__card">
+      <h2 class="confirm-dialog__title" [id]="titleId">{{ heading() }}</h2>
+      <p class="confirm-dialog__text" [id]="textId">{{ text() }}</p>
+      <div class="confirm-dialog__actions">
+        <button type="button" class="confirm-dialog__button confirm-dialog__button--secondary" data-confirm-cancel (click)="cancelled.emit()">{{ cancelLabel() }}</button>
+        <button type="button" class="confirm-dialog__button" [class.confirm-dialog__button--danger]="tone() === 'danger'" [class.confirm-dialog__button--primary]="tone() !== 'danger'"
+          data-confirm-ok (click)="confirmed.emit()">{{ confirmLabel() }}</button>
+      </div>
+    </div>
+  }
+</dialog>

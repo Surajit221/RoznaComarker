@@ -169,25 +169,9 @@
     </div>
   }
 
-  <dialog #removeDialog class="confirm" aria-labelledby="annotation-remove-title" (cancel)="closeRemove()">
-    <h3 id="annotation-remove-title">Remove this correction?</h3>
-    <p>The student will no longer see it and it will not count in their totals. It stays in your list marked Removed, you can restore it at any time, and this action is recorded in the change history. Scores do not change.</p>
-    <div class="editor__actions">
-      <button type="button" class="btn-danger" (click)="confirmRemove()">Remove</button>
-      <button type="button" class="btn-info" (click)="closeRemove()">Keep it</button>
-    </div>
-  </dialog>
-
-  <dialog #bulkDialog class="confirm" aria-labelledby="annotation-bulk-title" (cancel)="closeBulk()" data-bulk-dialog>
-    @if (bulkConfirm(); as b) {
-      <h3 id="annotation-bulk-title">{{ b.title }}</h3>
-      <p>{{ b.text }}</p>
-      <div class="editor__actions">
-        <button type="button" class="btn-primary" data-bulk-confirm (click)="confirmBulk()">{{ b.confirmLabel }}</button>
-        <button type="button" class="btn-info" (click)="closeBulk()">Cancel</button>
-      </div>
-    }
-  </dialog>
+  <app-confirm-dialog [open]="!!confirmDialog()" [heading]="confirmDialog()?.heading ?? ''" [text]="confirmDialog()?.text ?? ''"
+    [confirmLabel]="confirmDialog()?.confirmLabel ?? 'Confirm'" [cancelLabel]="confirmDialog()?.cancelLabel ?? 'Cancel'" [tone]="confirmDialog()?.tone ?? 'primary'"
+    (confirmed)="onConfirmDialog()" (cancelled)="onCancelDialog()" />
 
   @if (historyOpen()) {
     <app-change-history-dialog [items]="historyItems()" [loading]="historyLoading()" [error]="historyError()" [hasMore]="historyNext() !== null" [snapshot]="snapshot()"

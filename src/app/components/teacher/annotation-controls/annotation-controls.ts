@@ -11,6 +11,7 @@ import {
   snapToWords, validateForm, wordSpans,
 } from './annotation-editor.logic';
 import { ChangeHistoryDialog } from './change-history-dialog';
+import { ConfirmDialog } from './confirm-dialog';
 import { GradeCheck } from './grade-check';
 import { RowPosition, buildPositions, positionLabels, revealRow, withDrawn } from './annotation-sync.logic';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
@@ -26,6 +27,7 @@ const FILTERS: { key: RowFilter; label: string }[] = [
 ];
 const DONE: Record<AnnotationAction, string> = { hide: 'Hidden from the student.', restore: 'Restored. The student can see it again.', archive: 'Removed. You can restore it from this list.', edit: 'Your edit is saved.', add: 'Your correction is added.' };
 
+const REMOVE_TEXT = 'The student will no longer see it and it will not count in their totals. It stays in your list marked Removed, you can restore it at any time, and this action is recorded in the change history. Scores do not change.';
 const HIDE_TEXT = 'The student will no longer see them and they will not count in their totals. They stay in your list marked Hidden and you can restore them. Each change is recorded in the change history. Scores do not change.';
 /** Undo is offered this long after a bulk action. */
 export const UNDO_MS = 8000;
@@ -48,7 +50,7 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [ChangeHistoryDialog, FormsModule, GradeCheck, ReviewWorkspace],
+  imports: [ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
   providers: [CorrectionSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
@@ -75,8 +77,6 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   private readonly zone = inject(NgZone);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly selection = inject(CorrectionSelection);
-  private readonly removeDialog = viewChild<ElementRef<HTMLDialogElement>>('removeDialog');
-  private readonly bulkDialog = viewChild<ElementRef<HTMLDialogElement>>('bulkDialog');
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
@@ -141,6 +141,12 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** Blocks new actions while one is running or unconfirmed. Buttons stay focusable (aria-disabled) so keyboard focus is never lost. */
   readonly locked = computed(() => this.saving() || this.pending() !== null || this.readOnly());
   /** A grade check is about what is saved: it waits for anything the editor has not saved yet. */
+  /** What the one confirm dialog asks now: Remove (one correction) or a bulk action. */
+  readonly confirmDialog = computed(() => {
+    if (this.confirmRow()) return { heading: 'Remove this correction?', text: REMOVE_TEXT, confirmLabel: 'Remove', cancelLabel: 'Keep it', tone: 'danger' as const };
+    const bulk = this.bulkConfirm();
+    return bulk ? { heading: bulk.title, text: bulk.text, confirmLabel: bulk.confirmLabel, cancelLabel: 'Cancel', tone: 'primary' as const } : null;
+  });
   readonly hideable = computed(() => new Set(bulkTargets(this.rows(), 'hide', { all: true }).map(row => row.key)));
   readonly selectedCount = computed(() => [...this.selected()].filter(key => this.hideable().has(key)).length);
   readonly categoryOptions = computed(() => this.groups().map(group => ({ key: group.key, label: group.label, count: bulkTargets(this.rows(), 'hide', { category: group.key }).length }))
@@ -273,18 +279,15 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     if (this.locked() || this.form()) return;
     this.trigger = event.currentTarget as HTMLElement;
     this.confirmRow.set(row);
-    this.removeDialog()?.nativeElement.showModal();
   }
   confirmRemove(): void {
     const row = this.confirmRow();
     this.closeRemove();
     if (row) this.run('archive', row);
   }
-  closeRemove(): void {
-    const dialog = this.removeDialog()?.nativeElement;
-    if (dialog?.open) dialog.close();
-    this.confirmRow.set(null);
-  }
+  closeRemove(): void { this.confirmRow.set(null); }
+  onConfirmDialog(): void { if (this.confirmRow()) this.confirmRemove(); else this.confirmBulk(); }
+  onCancelDialog(): void { this.closeRemove(); this.closeBulk(); }
 
   /**
    * A mark the teacher clicked, tapped or pressed Enter on in the page's own image or transcript (outside the workspace). Shares the
@@ -333,18 +336,13 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     if (this.locked() || this.form()) return;
     this.trigger = event.currentTarget as HTMLElement;
     this.bulkConfirm.set(confirm);
-    this.bulkDialog()?.nativeElement.showModal();
   }
   confirmBulk(): void {
     const confirm = this.bulkConfirm();
     this.closeBulk();
     if (confirm) void this.sendBulk(confirm.action, confirm.scope, true);
   }
-  closeBulk(): void {
-    const dialog = this.bulkDialog()?.nativeElement;
-    if (dialog?.open) dialog.close();
-    this.bulkConfirm.set(null);
-  }
+  closeBulk(): void { this.bulkConfirm.set(null); }
   undoBulk(): void {
     const undo = this.undo();
     this.clearUndo();

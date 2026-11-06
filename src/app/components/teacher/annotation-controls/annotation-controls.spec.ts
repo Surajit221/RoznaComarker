@@ -65,8 +65,8 @@ describe('AnnotationControls', () => {
         correction({ id: 'ai_3', moderationStatus: 'hidden', quotedText: 'the', startChar: 10, endChar: 13 })] });
     const openWorkspace = async () => { dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!.click(); await settle(); };
     const menu = () => dom().querySelector('[data-sync-menu]');
-    const dialogOpen = () => dom().querySelector<HTMLDialogElement>('[data-bulk-dialog]')!.open;
-    const confirm = async () => { dom().querySelector<HTMLButtonElement>('[data-bulk-confirm]')!.click(); await settle(); };
+    const dialogOpen = () => dom().querySelector<HTMLDialogElement>('[data-confirm-dialog]')!.open;
+    const confirm = async () => { dom().querySelector<HTMLButtonElement>('[data-confirm-ok]')!.click(); await settle(); };
 
     it('a mark chosen in the transcript or on the image gets a menu with the allowed actions; Hide runs the existing single action', async () => {
       await create(); api.current = three(); await openEditor(); await openWorkspace();
@@ -115,7 +115,7 @@ describe('AnnotationControls', () => {
       expect(button('Hide all Mechanics')!.textContent).toContain('(1)');
       expect(button('Restore all hidden')!.textContent).toContain('(1)');
       button('Hide all Grammar')!.click(); await settle();
-      button('Cancel', dom().querySelector('[data-bulk-dialog]')!)!.click(); await settle();
+      button('Cancel', dom().querySelector('[data-confirm-dialog]')!)!.click(); await settle();
       expect(dialogOpen()).toBeFalse(); expect(api.bulkCalls.length).toBe(0);
       button('Hide all Grammar')!.click(); await settle(); await confirm();
       expect(api.bulkCalls[0]).toEqual(jasmine.objectContaining({ action: 'hide', category: 'GRAMMAR' }));
