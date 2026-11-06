@@ -233,6 +233,42 @@ describe('guest assignment page presentation', () => {
     await fixture.whenStable(); fixture.detectChanges();
   });
   afterEach(() => { http.verify(); fixture.destroy(); });
+  it('after another draft, "Open your results" reopens the results of this submission (the link alone would only add a #fragment to the same page)', async () => {
+    // State after a revision on the results page: the address bar is /guest/results/:id (the #token was removed on load).
+    const original = location.pathname + location.search + location.hash;
+    history.replaceState(history.state, '', '/guest/results/submission-a');
+    try {
+      // As ngOnInit leaves them on a results link: the submission and its token (kept by the page, the #fragment already removed).
+      Object.assign(page as unknown as { submissionId: string; token: string }, { submissionId: 'submission-a', token: 'scoped-token' });
+      page.access.submissionId = 'submission-a'; page.access.token = 'scoped-token';
+      page.assignment = null; page.result = null; page.revising = true;
+      page.confirmation = { received: true, emailSent: true, returnUrl: `${location.origin}/guest/results/submission-a#scoped-token` };
+      fixture.detectChanges();
+      const link = Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>).find(a => a.textContent?.includes('Open your results'))!;
+      link.click(); await new Promise<void>(resolve => setTimeout(resolve, 0));
+      const req = http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/presentation`);
+      expect(req.request.headers.get('X-Guest-Token')).toBe('scoped-token');
+      req.flush({ data: { assignment: { title: 'A place that matters' }, submission: { draftNumber: 2 } } });
+      await new Promise<void>(resolve => setTimeout(resolve, 0)); await fixture.whenStable();
+      expect(page.confirmation).toBeNull();
+      expect(page.revising).toBeFalse();
+      expect(page.result as unknown).toEqual({ title: 'A place that matters' });
+      expect(location.hash).toBe('');
+    } finally { history.replaceState(history.state, '', original); }
+  });
+  it('after a first submission (QR page), "Open your results" stays a plain link to the results page', () => {
+    page.confirmation = { received: true, emailSent: true, returnUrl: `${location.origin}/guest/results/new-id#new-token` };
+    fixture.detectChanges();
+    const link = Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>).find(a => a.textContent?.includes('Open your results'))!;
+    expect(link.getAttribute('href')).toBe(`${location.origin}/guest/results/new-id#new-token`);
+    // The page must not intercept this click: the browser follows the link to the new submission's results.
+    let preventedByPage: boolean | null = null;
+    const record = (e: Event) => { preventedByPage = e.defaultPrevented; e.preventDefault(); };   // runs after the page; keeps the test page in place
+    window.addEventListener('click', record, { once: true });
+    link.click();
+    expect(preventedByPage as boolean | null).toBeFalse();
+    http.expectNone(`${environment.apiUrl}/guest/submissions/new-id/presentation`);
+  });
   it('renders only the temporary-unavailable message without guest forms', () => {
     page.guestUnavailable = true; fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Guest submission is temporarily unavailable');

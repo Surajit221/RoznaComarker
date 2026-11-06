@@ -189,6 +189,23 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
       if ([400, 422].includes((error as HttpErrorResponse)?.status)) this.requestKey = '';
     } finally { this.busy = false; }
   }
+  /**
+   * "Open your results" on the confirmation. After ANOTHER draft the guest is already on this submission's results page, and the address bar
+   * no longer holds the #token (removed on load), so the link would only add a fragment to the same page: the browser makes a same-document
+   * jump that neither reloads nor routes, and nothing happens. In that case the results are reloaded here instead. Any other case (a first
+   * submission on the QR page, another submission or origin) follows the link as before.
+   */
+  async openResults(event: Event): Promise<void> {
+    const href = this.confirmation?.returnUrl;
+    if (!href || !this.viewingResults) return;
+    let target: URL;
+    try { target = new URL(href, location.href); } catch { return; }
+    if (target.origin !== location.origin || target.pathname !== location.pathname) return;
+    event.preventDefault();
+    this.confirmation = null; this.revising = false; this.assignment = null;
+    this.files = []; this.uploadReady = false; this.requestKey = ''; this.access.requestKey = '';
+    await this.loadResults();
+  }
   async loadResults(): Promise<void> {
     this.loading = true; this.error = ''; this.linkProblem = null;
     Object.assign(this.access, { submissionId: this.submissionId, token: this.token });

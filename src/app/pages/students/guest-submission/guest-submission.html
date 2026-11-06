@@ -59,7 +59,7 @@
             </div>
           }
           @if (confirmation.returnUrl) {
-            <a class="btn-primary submission-action-button" [href]="confirmation.returnUrl" rel="noreferrer">Open your results</a>
+            <a class="btn-primary submission-action-button" [href]="confirmation.returnUrl" rel="noreferrer" (click)="openResults($event)">Open your results</a>
             <p class="muted">Keep this link private. Anyone with it can view your feedback.</p>
           }
         </section>
