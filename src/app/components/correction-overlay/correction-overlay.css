@@ -422,3 +422,8 @@
 /* The words a bracket stands for: a light tint, only while that correction is selected, so the handwriting stays fully legible. */
 .correction-overlay__cover { position: absolute; z-index: 1; border-radius: 2px; background: color-mix(in srgb, var(--stroke-color, #2563eb) 10%, transparent); opacity: 0; pointer-events: none; }
 .correction-overlay__cover.is-selected { opacity: 1; }
+
+/* A bracket in the right margin opens towards the text (to the left). */
+.correction-overlay__line-rail.is-right { transform: translateX(-100%); border-right: var(--stroke-width, 2px) solid var(--stroke-color, var(--underline-color, #d64545)); border-left: 0; }
+.correction-overlay__line-rail.is-right.is-selected { border-right-width: calc(var(--stroke-width, 2px) + 1px); }
+.correction-overlay__line-rail.is-right::before { left: auto; right: -10px; }

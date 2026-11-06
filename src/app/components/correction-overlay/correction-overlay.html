@@ -46,7 +46,7 @@
   }
 
   @for (rail of mediaState === 'loaded' ? semanticRails : []; track rail.id) {
-    <span class="correction-overlay__semantic-rail" [class.correction-overlay__line-rail]="rail.lineLevel || rail.bracket" [class.correction-overlay__bracket]="rail.bracket"
+    <span class="correction-overlay__semantic-rail" [class.correction-overlay__line-rail]="rail.lineLevel || rail.bracket" [class.correction-overlay__bracket]="rail.bracket" [class.is-right]="rail.left > 50"
       (click)="onRailClick(rail, $event)" [attr.data-line-rail]="rail.lineLevel ? true : null" [class.is-selected]="isSelected(rail)" [attr.data-sync-state]="syncState(rail.correctionIds)" [style.left.%]="rail.left" [style.top.%]="rail.top"
       [style.height.%]="rail.height" [style.--underline-color]="rail.color" [style.--stroke-color]="strokeColor(rail.color)" aria-hidden="true"></span>
   }
