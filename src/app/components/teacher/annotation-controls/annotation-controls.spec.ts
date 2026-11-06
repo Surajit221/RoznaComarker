@@ -2,8 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
-import { AnnotationControls, AnnotationDraftStore } from './annotation-controls';
-import type { AnnotationBody, AnnotationSnapshot, SnapshotCorrection } from './annotation-editor.logic';
+import { AnnotationControls, AnnotationDraftStore, UNDO_MS } from './annotation-controls';
+import type { AnnotationBody, AnnotationSnapshot, BulkBody, SnapshotCorrection } from './annotation-editor.logic';
 import type { ScoreReview } from './grade-check.logic';
 import { AuthService } from '../../../auth/auth.service';
 
@@ -28,6 +28,9 @@ class FakeApi {
     : { items: [{ action: 'add', previousRevision: 1, newRevision: 2, createdAt: '2026-11-01T09:00:00.000Z', entryId: 'teacher_1', before: null, after: { status: 'visible' } }], nextOffset: null });
   async snapshot() { this.snapshotCalls++; if (this.snapshotFailure) throw this.snapshotFailure; return this.current; }
   mutate(_id: string, body: AnnotationBody) { this.calls.push(JSON.parse(JSON.stringify(body))); return this.respond(body); }
+  bulkCalls: BulkBody[] = [];
+  bulkRespond: (body: BulkBody) => Promise<{ revision: number; changedIds: string[] }> = async body => ({ revision: 4, changedIds: 'ids' in body ? body.ids : ['ai_1'] });
+  bulk(_id: string, body: BulkBody) { this.bulkCalls.push(JSON.parse(JSON.stringify(body))); return this.bulkRespond(body); }
 }
 
 const SCORE_REVIEW: ScoreReview = { status: 'needed', fingerprint: 'a'.repeat(64), decision: null, countsScored: { grammar: 3 }, countsVisible: { grammar: 2 },
@@ -55,6 +58,99 @@ describe('AnnotationControls', () => {
   function fill(id: string, value: string) { const el = dom().querySelector(`#${id}`) as HTMLTextAreaElement; el.value = value; el.dispatchEvent(new Event('input')); }
 
   afterEach(() => { registry?.clear('teacher-annotation-editor'); TestBed.inject(AnnotationDraftStore).draft = null; TestBed.resetTestingModule(); });
+
+  describe('Phase A: menu on a chosen mark, multi-select and bulk actions', () => {
+    const three = () => snapshot({
+      corrections: [correction({}), correction({ id: 'ai_2', category: 'MECHANICS', symbol: 'SP', quotedText: 'park', startChar: 14, endChar: 18 }),
+        correction({ id: 'ai_3', moderationStatus: 'hidden', quotedText: 'the', startChar: 10, endChar: 13 })] });
+    const openWorkspace = async () => { dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!.click(); await settle(); };
+    const menu = () => dom().querySelector('[data-sync-menu]');
+    const dialogOpen = () => dom().querySelector<HTMLDialogElement>('[data-bulk-dialog]')!.open;
+    const confirm = async () => { dom().querySelector<HTMLButtonElement>('[data-bulk-confirm]')!.click(); await settle(); };
+
+    it('a mark chosen in the transcript or on the image gets a menu with the allowed actions; Hide runs the existing single action', async () => {
+      await create(); api.current = three(); await openEditor(); await openWorkspace();
+      component.selection.pin('ai_1', 'transcript'); await settle();
+      expect([...menu()!.querySelectorAll('button')].map(b => b.textContent?.replace(/\s+AGR$/, '').trim())).toEqual(['Edit', 'Hide', 'Remove']);
+      button('Hide', menu()!)!.click(); await settle();
+      expect(api.calls).toEqual([jasmine.objectContaining({ action: 'hide', id: 'ai_1', revision: 3, sourceHash: 'hash-3' })]);
+      component.selection.pin('ai_3', 'image'); await settle();
+      expect([...menu()!.querySelectorAll('button')].map(b => b.getAttribute('data-sync-menu-action'))).toEqual(['edit', 'restore', 'archive']);
+      button('Remove', menu()!)!.click(); await settle();
+      expect(component.confirmRow()?.key).toBe('ai_3');
+      expect(api.calls.length).toBe(1);
+    });
+    it('no menu for a list selection or a closed class', async () => {
+      await create(); api.current = three(); await openEditor(); await openWorkspace();
+      component.selection.pin('ai_1', 'list'); await settle();
+      expect(menu()).toBeNull();
+      TestBed.resetTestingModule();
+      await create({ classClosed: true }); api.current = three(); await openEditor(); await openWorkspace();
+      component.selection.pin('ai_1', 'transcript'); await settle();
+      expect(menu()).toBeNull();
+      expect(dom().querySelector('[data-bulk]')).toBeNull();
+    });
+    it('select several, confirm once, hide; Undo restores exactly those, without asking', async () => {
+      await create(); api.current = three(); await openEditor();
+      dom().querySelector<HTMLButtonElement>('[data-bulk-select-mode]')!.click(); await settle();
+      expect(row('ai_3').querySelector('[data-row-select]')).toBeNull();   // hidden rows cannot be hidden again
+      for (const key of ['ai_1', 'ai_2']) { row(key).querySelector<HTMLInputElement>('[data-row-select]')!.click(); await settle(); }
+      expect(component.selection.pinnedId()).toBeNull();
+      dom().querySelector<HTMLButtonElement>('[data-bulk-hide-selected]')!.click(); await settle();
+      expect(dialogOpen()).toBeTrue();
+      expect(text()).toContain('Hide 2 corrections from the student?');
+      expect(api.bulkCalls.length).toBe(0);
+      await confirm();
+      expect(api.bulkCalls).toEqual([jasmine.objectContaining({ action: 'hide', ids: ['ai_1', 'ai_2'], revision: 3, sourceHash: 'hash-3' })]);
+      expect(api.bulkCalls[0].requestId).toMatch(/^[a-f0-9-]{36}$/i);
+      expect(component.selectMode()).toBeFalse();
+      expect(dom().querySelector('[data-bulk-undo]')?.textContent).toContain('2 corrections hidden from the student.');
+      button('Undo', dom().querySelector('[data-bulk-undo]')!)!.click(); await settle();
+      expect(api.bulkCalls[1]).toEqual(jasmine.objectContaining({ action: 'restore', ids: ['ai_1', 'ai_2'] }));
+      expect(dom().querySelector('[data-bulk-undo]')).toBeNull();
+    });
+    it('hide all of one category and restore all hidden; Cancel sends nothing', async () => {
+      await create(); api.current = three(); await openEditor();
+      expect(button('Hide all Grammar')!.textContent).toContain('(1)');
+      expect(button('Hide all Mechanics')!.textContent).toContain('(1)');
+      expect(button('Restore all hidden')!.textContent).toContain('(1)');
+      button('Hide all Grammar')!.click(); await settle();
+      button('Cancel', dom().querySelector('[data-bulk-dialog]')!)!.click(); await settle();
+      expect(dialogOpen()).toBeFalse(); expect(api.bulkCalls.length).toBe(0);
+      button('Hide all Grammar')!.click(); await settle(); await confirm();
+      expect(api.bulkCalls[0]).toEqual(jasmine.objectContaining({ action: 'hide', category: 'GRAMMAR' }));
+      expect('ids' in api.bulkCalls[0]).toBeFalse();
+      button('Restore all hidden')!.click(); await settle();
+      expect(text()).toContain('Removed corrections stay removed.');
+      await confirm();
+      expect(api.bulkCalls[1]).toEqual(jasmine.objectContaining({ action: 'restore', all: true }));
+    });
+    it('Undo is offered for a few seconds only', async () => {
+      await create(); api.current = three(); await openEditor();
+      let expire: (() => void) | null = null;
+      const real = window.setTimeout.bind(window);
+      spyOn(window, 'setTimeout').and.callFake(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+        if (ms === UNDO_MS) { expire = fn; return 0; }
+        return real(fn, ms, ...rest);
+      }) as typeof window.setTimeout);
+      button('Hide all Grammar')!.click(); await settle(); await confirm();
+      expect(component.undo()).not.toBeNull();
+      expect(expire).not.toBeNull();
+      expire!(); await settle();
+      expect(component.undo()).toBeNull();
+      expect(dom().querySelector('[data-bulk-undo]')).toBeNull();
+    });
+    it('a rejected bulk request shows why, reloads, and offers no Undo', async () => {
+      await create(); api.current = three(); await openEditor();
+      api.bulkRespond = async () => { throw httpError(400, 'ANNOTATION_UNKNOWN_IDS'); };
+      const loads = api.snapshotCalls;
+      button('Hide all Grammar')!.click(); await settle(); await confirm();
+      expect(text()).toContain('Some of the selected corrections are no longer in this submission. Nothing was changed.');
+      expect(api.snapshotCalls).toBe(loads + 1);
+      expect(component.undo()).toBeNull();
+      expect(component.saving()).toBeFalse();
+    });
+  });
 
   describe('review workspace', () => {
     const toggle = () => dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!;

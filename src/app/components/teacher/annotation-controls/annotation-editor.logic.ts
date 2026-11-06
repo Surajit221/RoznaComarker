@@ -113,6 +113,20 @@ export function allowedActions(row: CorrectionRow, transitions: Transitions): An
   return candidates.filter(action => Boolean(table?.[action]?.from.includes(row.status)));
 }
 
+/** Bulk hide / restore (Phase A). The server decides; this mirrors its rule so the buttons show honest counts. */
+export type BulkAction = 'hide' | 'restore';
+export type BulkScope = { ids: string[] } | { category: string } | { all: true };
+export type BulkBody = { action: BulkAction; revision: number; sourceHash: string; requestId: string } & BulkScope;
+export const BULK_MAX = 500;
+const BULK_FROM: Record<BulkAction, ModerationStatus> = { hide: 'visible', restore: 'hidden' };
+/** Rows a bulk action changes: in the action's source state (restore: hidden only, never removed) and not needing review. */
+export function bulkTargets(rows: readonly CorrectionRow[], action: BulkAction, scope: BulkScope): CorrectionRow[] {
+  const ids = 'ids' in scope ? new Set(scope.ids) : null;
+  return rows.filter(row => !row.orphanReason && row.status === BULK_FROM[action]
+    && (ids ? ids.has(row.targetId) : 'category' in scope ? row.category.toUpperCase() === scope.category : true));
+}
+export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 /** An orphan the teacher removed belongs in the Removed group; restoring it brings it back here. */
 export function needsReview(row: CorrectionRow): boolean { return Boolean(row.orphanReason) && row.status !== 'archived'; }
 
@@ -210,6 +224,8 @@ export function describeFailure(status: number, code: string | undefined): Failu
     case 'ANNOTATION_INVALID_CATEGORY': return { kind: 'invalid', message: 'Choose a category and symbol from the legend.' };
     case 'ANNOTATION_INVALID_TEXT': return { kind: 'invalid', message: 'The explanation or suggestion is empty, too long, or contains a character that cannot be saved.' };
     case 'ANNOTATION_PAYLOAD_TOO_LARGE': return { kind: 'invalid', message: 'This correction is too long to save. Shorten it and try again.' };
+    case 'ANNOTATION_UNKNOWN_IDS': return { kind: 'state', message: 'Some of the selected corrections are no longer in this submission. Nothing was changed. The latest version is now loaded.' };
+    case 'ANNOTATION_BULK_TOO_MANY': return { kind: 'invalid', message: `That is more than ${BULK_MAX} corrections at once. Nothing was changed. Select fewer and try again.` };
     default: break;
   }
   if (status === 404) return { kind: 'notFound', message: 'This submission or correction was not found, or you do not have access to it.' };

@@ -4,7 +4,7 @@ import { TranscriptPageView, buildTranscriptPageViews } from '../../../utils/tra
 import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
-import type { AnnotationSnapshot, CorrectionRow } from './annotation-editor.logic';
+import { AnnotationAction, AnnotationSnapshot, CorrectionRow, allowedActions } from './annotation-editor.logic';
 import { APPROXIMATE_POSITION, LINE_IMAGE_POSITION, NO_IMAGE_POSITION, RowPosition, nextInCycle, panelScrollTop, preferCurrent, syncStates, workspaceCorrections } from './annotation-sync.logic';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
 
@@ -54,6 +54,10 @@ export class ReviewWorkspace implements OnDestroy {
   /** The teacher moved to a correction or page on another uploaded file: the page loads it, once, for both views. */
   readonly fileRequested = output<string>();
   readonly drawnChange = output<{ key: string; ids: Set<string> }>();
+  /** Phase A: the menu shown for a mark the teacher clicked or tapped on the image or in the transcript. The editor runs the action. */
+  readonly readOnly = input(false);
+  readonly actionsLocked = input(false);
+  readonly menuAction = output<{ action: AnnotationAction; key: string; event: Event }>();
 
   readonly selection = inject(CorrectionSelection);
   private readonly injector = inject(Injector);
@@ -92,6 +96,21 @@ export class ReviewWorkspace implements OnDestroy {
     const row = this.activeRow(), image = row ? this.positions().get(row.key)?.image : undefined;
     return image === 'none' ? NO_IMAGE_POSITION : image === 'approximate' ? APPROXIMATE_POSITION : image === 'line' ? LINE_IMAGE_POSITION : '';
   });
+  /** Only for a mark chosen (clicked, tapped, Enter) on the image or in the transcript: the list already has its own buttons. */
+  readonly menuRow = computed(() => {
+    const id = this.selection.pinnedId(), source = this.selection.source();
+    if (this.readOnly() || !id || (source !== 'image' && source !== 'transcript')) return null;
+    return this.rows().find(row => row.key === id) ?? null;
+  });
+  readonly menuActions = computed(() => { const row = this.menuRow(); return row ? allowedActions(row, this.snapshot().transitions) : []; });
+  menuLabel(action: AnnotationAction, row: CorrectionRow): string {
+    return action === 'edit' ? (row.orphanReason ? 'Place again' : 'Edit') : action === 'hide' ? 'Hide' : action === 'restore' ? 'Restore' : 'Remove';
+  }
+  act(action: AnnotationAction, row: CorrectionRow, event: Event): void {
+    if (this.actionsLocked()) return;
+    this.menuAction.emit({ action, key: row.key, event });
+  }
+
   /** Announced for what the teacher chose; hovering would flood a screen reader. */
   readonly announcement = computed(() => {
     const id = this.selection.pinnedId(), row = id ? this.rows().find(r => r.key === id) : null;

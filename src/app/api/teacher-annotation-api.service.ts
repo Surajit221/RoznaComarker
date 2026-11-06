@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { AnnotationBody, AnnotationSnapshot, HistoryItem } from '../components/teacher/annotation-controls/annotation-editor.logic';
+import type { AnnotationBody, AnnotationSnapshot, BulkBody, HistoryItem } from '../components/teacher/annotation-controls/annotation-editor.logic';
 import type { ScoreReview, ScoreReviewBody } from '../components/teacher/annotation-controls/grade-check.logic';
 
 /** The student handlers' own output, run for the submission's owner by the server. */
@@ -19,6 +19,10 @@ export class TeacherAnnotationApiService {
   }
   async mutate(submissionId: string, body: AnnotationBody): Promise<{ revision: number; replay?: boolean }> {
     return (await firstValueFrom(this.http.post<{ data: { revision: number; replay?: boolean } }>(this.url(submissionId), body))).data;
+  }
+  /** Hide or restore several at once. `changedIds`: exactly what changed, for Undo. */
+  async bulk(submissionId: string, body: BulkBody): Promise<{ revision: number; changedIds: string[]; replay?: boolean }> {
+    return (await firstValueFrom(this.http.post<{ data: { revision: number; changedIds: string[]; replay?: boolean } }>(`${this.url(submissionId)}/bulk`, body))).data;
   }
   async scoreReview(submissionId: string, body: ScoreReviewBody): Promise<{ revision: number; replay?: boolean; scoreReview: ScoreReview }> {
     return (await firstValueFrom(this.http.post<{ data: { revision: number; replay?: boolean; scoreReview: ScoreReview } }>(`${this.url(submissionId)}/score-review`, body))).data;

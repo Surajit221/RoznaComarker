@@ -1,13 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import {
-  ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
+  ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import {
-  AnnotationAction, AnnotationBody, AnnotationSnapshot, CorrectionRow, CorrectionValue, FormErrors, HistoryItem, MESSAGE_MAX, QUOTE_MAX, RowFilter, SUGGESTION_MAX,
-  allowedActions, buildRows, describeFailure, filterCounts, matchesFilter, needsReview, newRequestId, orphanReasonText, rowBadges,
+  AnnotationAction, AnnotationBody, AnnotationSnapshot, BulkAction, BulkScope, CorrectionRow, CorrectionValue, FormErrors, HistoryItem, MESSAGE_MAX, QUOTE_MAX, RowFilter, SUGGESTION_MAX,
+  allowedActions, buildRows, bulkTargets, plural, describeFailure, filterCounts, matchesFilter, needsReview, newRequestId, orphanReasonText, rowBadges,
   snapToWords, validateForm, wordSpans,
 } from './annotation-editor.logic';
 import { ChangeHistoryDialog } from './change-history-dialog';
@@ -25,6 +25,11 @@ const FILTERS: { key: RowFilter; label: string }[] = [
 ];
 const DONE: Record<AnnotationAction, string> = { hide: 'Hidden from the student.', restore: 'Restored. The student can see it again.', archive: 'Removed. You can restore it from this list.', edit: 'Your edit is saved.', add: 'Your correction is added.' };
 
+const HIDE_TEXT = 'The student will no longer see them and they will not count in their totals. They stay in your list marked Hidden and you can restore them. Each change is recorded in the change history. Scores do not change.';
+/** Undo is offered this long after a bulk action. */
+export const UNDO_MS = 8000;
+interface BulkConfirm { action: BulkAction; scope: BulkScope; title: string; text: string; confirmLabel: string; }
+interface BulkUndo { action: BulkAction; ids: string[]; label: string; }
 interface FormState { mode: 'add' | 'edit'; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
 interface PendingAction { body: AnnotationBody; rowKey: string | null; fromForm: boolean; }
 interface EditorDraft { submissionId: string; open: boolean; filter: RowFilter; limit: number; form: FormState | null; pending: PendingAction | null; conflict: boolean; showFormErrors: boolean; error: string; workspaceOpen: boolean; pinnedKey: string | null; }
@@ -66,9 +71,12 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   private readonly unsaved = inject(UnsavedWorkRegistry);
   private readonly drafts = inject(AnnotationDraftStore);
   private readonly injector = inject(Injector);
+  private readonly zone = inject(NgZone);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly selection = inject(CorrectionSelection);
   private readonly removeDialog = viewChild<ElementRef<HTMLDialogElement>>('removeDialog');
+  private readonly bulkDialog = viewChild<ElementRef<HTMLDialogElement>>('bulkDialog');
+  private undoTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
   private version = 0;
@@ -102,6 +110,11 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** Opens only when the teacher asks; closed, none of the workspace exists. */
   readonly workspaceOpen = signal(false);
   private readonly drawn = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
+  /** Phase A bulk actions. Selection holds row keys of rows a hide can change. */
+  readonly selectMode = signal(false);
+  readonly selected = signal<ReadonlySet<string>>(new Set());
+  readonly bulkConfirm = signal<BulkConfirm | null>(null);
+  readonly undo = signal<BulkUndo | null>(null);
 
   /** The snapshot's indicator is the authority; the page's class status covers the time before it loads, and a 409 is the backstop. */
   readonly closed = computed(() => Boolean(this.snapshot()?.readOnly) || this.classClosed() || this.closedByServer());
@@ -127,6 +140,11 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** Blocks new actions while one is running or unconfirmed. Buttons stay focusable (aria-disabled) so keyboard focus is never lost. */
   readonly locked = computed(() => this.saving() || this.pending() !== null || this.readOnly());
   /** A grade check is about what is saved: it waits for anything the editor has not saved yet. */
+  readonly hideable = computed(() => new Set(bulkTargets(this.rows(), 'hide', { all: true }).map(row => row.key)));
+  readonly selectedCount = computed(() => [...this.selected()].filter(key => this.hideable().has(key)).length);
+  readonly categoryOptions = computed(() => this.groups().map(group => ({ key: group.key, label: group.label, count: bulkTargets(this.rows(), 'hide', { category: group.key }).length }))
+    .filter(option => option.count > 0));
+  readonly hiddenCount = computed(() => bulkTargets(this.rows(), 'restore', { all: true }).length);
   readonly gradeCheckBlock = computed(() => this.saving() ? 'A correction is being saved. Wait for it to finish.'
     : this.hasUnsaved() ? 'Save or cancel your correction first: the scores should be checked against what the student will see.' : '');
 
@@ -187,10 +205,12 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.noAccess.set(false); this.filter.set('all'); this.limit.set(PAGE_SIZE); this.form.set(null); this.conflict.set(false); this.pending.set(null); this.confirmRow.set(null);
     this.historyRequest++; this.historyOpen.set(false); this.historyLoading.set(false); this.historyItems.set([]); this.historyNext.set(null); this.historyError.set('');
     this.workspaceOpen.set(false); this.drawn.set(new Map()); this.selection.clear();
+    this.selectMode.set(false); this.selected.set(new Set()); this.closeBulk(); this.clearUndo();
   }
 
   ngOnDestroy(): void {
     this.version++;   // anything still running belongs to this instance and must not touch it any more
+    this.clearUndo();
     // Registered and unsaved means the user did not agree to leave (the guard clears it when they do): the page is being rebuilt.
     const keep = this.hasUnsaved() && this.unsaved.has(UNSAVED_KEY);
     if (keep || this.open()) {
@@ -263,6 +283,98 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     const dialog = this.removeDialog()?.nativeElement;
     if (dialog?.open) dialog.close();
     this.confirmRow.set(null);
+  }
+
+  /** A mark chosen on the image or in the transcript: the workspace menu runs the same actions as the list's buttons. */
+  onMenuAction(event: { action: AnnotationAction; key: string; event: Event }): void {
+    const row = this.rows().find(r => r.key === event.key);
+    if (!row) return;
+    if (event.action === 'edit') this.openForm(row, event.event);
+    else if (event.action === 'archive') this.askRemove(row, event.event);
+    else this.run(event.action, row);
+  }
+
+  toggleSelectMode(): void { this.selectMode.update(on => !on); this.selected.set(new Set()); }
+  toggleSelected(key: string): void {
+    this.selected.update(set => { const next = new Set(set); if (next.has(key)) next.delete(key); else next.add(key); return next; });
+  }
+  askHideSelected(event: Event): void {
+    const ids = this.rows().filter(row => this.selected().has(row.key) && this.hideable().has(row.key)).map(row => row.targetId);
+    if (ids.length) this.askBulk({ action: 'hide', scope: { ids }, title: `Hide ${plural(ids.length, 'correction')} from the student?`, confirmLabel: 'Hide', text: HIDE_TEXT }, event);
+  }
+  askHideCategory(option: { key: string; label: string; count: number }, event: Event): void {
+    this.askBulk({ action: 'hide', scope: { category: option.key }, title: `Hide all ${option.label} corrections (${option.count}) from the student?`, confirmLabel: 'Hide all', text: HIDE_TEXT }, event);
+  }
+  askRestoreAll(event: Event): void {
+    this.askBulk({ action: 'restore', scope: { all: true }, title: `Restore ${plural(this.hiddenCount(), 'hidden correction')}?`, confirmLabel: 'Restore all',
+      text: 'The student will see them again. Removed corrections stay removed. Each change is recorded in the change history. Scores do not change.' }, event);
+  }
+  private askBulk(confirm: BulkConfirm, event: Event): void {
+    if (this.locked() || this.form()) return;
+    this.trigger = event.currentTarget as HTMLElement;
+    this.bulkConfirm.set(confirm);
+    this.bulkDialog()?.nativeElement.showModal();
+  }
+  confirmBulk(): void {
+    const confirm = this.bulkConfirm();
+    this.closeBulk();
+    if (confirm) void this.sendBulk(confirm.action, confirm.scope, true);
+  }
+  closeBulk(): void {
+    const dialog = this.bulkDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+    this.bulkConfirm.set(null);
+  }
+  undoBulk(): void {
+    const undo = this.undo();
+    this.clearUndo();
+    if (undo && !this.locked()) void this.sendBulk(undo.action, { ids: undo.ids }, false);
+  }
+  private clearUndo(): void {
+    if (this.undoTimer) clearTimeout(this.undoTimer);
+    this.undoTimer = null; this.undo.set(null);
+  }
+
+  /** One request for many items. Undo sends the opposite action for exactly the ids the server changed. */
+  private async sendBulk(action: BulkAction, scope: BulkScope, offerUndo: boolean): Promise<void> {
+    const snapshot = this.snapshot();
+    if (this.locked() || !snapshot || this.form()) return;
+    const version = this.version;
+    this.clearUndo();
+    this.saving.set(true); this.error.set(''); this.notice.set('Saving…');
+    try {
+      const result = await this.api.bulk(this.submissionId(), { action, ...scope, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId() });
+      if (version !== this.version) return;
+      this.selectMode.set(false); this.selected.set(new Set());
+      await this.reload();
+      if (version !== this.version) return;
+      const n = result.changedIds.length;
+      const label = !n ? 'Nothing to change: they were already in that state.' : action === 'hide' ? `${plural(n, 'correction')} hidden from the student.` : `${plural(n, 'correction')} restored. The student can see them again.`;
+      this.notice.set(n && offerUndo ? `${label} Undo is available for a few seconds.` : label);
+      if (n) this.saved.emit();
+      if (n && offerUndo) {
+        this.undo.set({ action: action === 'hide' ? 'restore' : 'hide', ids: result.changedIds, label });
+        // Outside the zone: an 8-second timer must not hold the app "unstable" (whenStable, hydration, tests). The signal still re-renders.
+        this.undoTimer = this.zone.runOutsideAngular(() => setTimeout(() => { this.undoTimer = null; this.undo.set(null); }, UNDO_MS));
+      }
+      if (this.historyOpen()) await this.loadHistory(true);
+      afterNextRender(() => {
+        const trigger = this.trigger;
+        (this.host.nativeElement.querySelector<HTMLElement>('[data-bulk-undo] button') || (trigger?.isConnected ? trigger : null)
+          || this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]'))?.focus({ preventScroll: true });
+      }, { injector: this.injector });
+    } catch (failure) {
+      if (version !== this.version) return;
+      // Nothing is kept for Retry: the list is reloaded to show the truth, and running the action again is safe (it skips what already changed).
+      const { status, code } = this.parseError(failure), described = describeFailure(status, code);
+      this.notice.set('');
+      this.error.set(described.kind === 'unconfirmed' ? 'We could not confirm this change (connection problem). The latest version is now loaded; check it and try again if needed.' : described.message);
+      if (described.kind === 'closed') this.closedByServer.set(true);
+      if (described.kind === 'notFound') this.noAccess.set(true);
+      else await this.reload();
+    } finally {
+      if (version === this.version) this.saving.set(false);
+    }
   }
 
   private async send(body: AnnotationBody, rowKey: string | null, fromForm: boolean): Promise<void> {
@@ -351,7 +463,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     if (key) this.fromList({ ids: [key], kind: 'focus' });
   }
   private onListClick(event: MouseEvent): void {
-    if ((event.target as Element).closest?.('button, a, input, select, textarea')) return;
+    if ((event.target as Element).closest?.('button, a, input, select, textarea, label')) return;
     const key = this.rowKeyAt(event);
     if (key) this.fromList({ ids: [key], kind: 'activate' });
   }

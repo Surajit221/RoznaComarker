@@ -3,6 +3,14 @@
   <div class="workspace__status" data-sync-status>
     @if (activeRow(); as row) {
       <p><strong>Selected:</strong>&ngsp;{{ row.symbol }}@if (row.quotedText) { <span>&ngsp;“{{ row.quotedText }}”</span> }@if (activeNote()) { <span class="workspace__note" data-sync-note>&ngsp;· {{ activeNote() }}</span> }</p>
+      @if (menuRow(); as menu) {
+        <div class="workspace__menu" role="group" [attr.aria-label]="'Actions for ' + (menu.symbol || 'correction')" data-sync-menu>
+          @for (action of menuActions(); track action) {
+            <button type="button" [class]="action === 'archive' ? 'btn-danger' : 'btn-info'" [attr.aria-disabled]="actionsLocked()" [attr.data-sync-menu-action]="action"
+              (click)="act(action, menu, $event)">{{ menuLabel(action, menu) }}<span class="sr-only"> {{ menu.symbol }}</span></button>
+          }
+        </div>
+      }
       <button type="button" class="btn-info" data-sync-clear (click)="selection.clear()">Clear selection</button>
     } @else {
       <p>Select a correction in the list, the transcript or on the image to see it in all three.</p>

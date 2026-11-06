@@ -47,11 +47,32 @@
             <button type="button" class="btn-info" data-sync-toggle [attr.aria-expanded]="workspaceOpen()" (click)="toggleWorkspace()">{{ workspaceOpen() ? 'Hide image and transcript' : 'Show image and transcript' }}</button>
           </div>
         </div>
+        @if (!readOnly()) {
+          <div class="editor__bulk" role="group" aria-label="Change several corrections at once" data-bulk>
+            <button type="button" class="btn-info" [attr.aria-pressed]="selectMode()" data-bulk-select-mode (click)="toggleSelectMode()">{{ selectMode() ? 'Stop selecting' : 'Select several' }}</button>
+            @if (selectMode()) {
+              <button type="button" class="btn-warning" data-bulk-hide-selected [attr.aria-disabled]="locked() || !!form() || !selectedCount()" (click)="askHideSelected($event)">Hide selected ({{ selectedCount() }})</button>
+            }
+            @for (option of categoryOptions(); track option.key) {
+              <button type="button" class="btn-info" [attr.data-bulk-category]="option.key" [attr.aria-disabled]="locked() || !!form()" (click)="askHideCategory(option, $event)">Hide all {{ option.label }} ({{ option.count }})</button>
+            }
+            @if (hiddenCount()) {
+              <button type="button" class="btn-info" data-bulk-restore-all [attr.aria-disabled]="locked() || !!form()" (click)="askRestoreAll($event)">Restore all hidden ({{ hiddenCount() }})</button>
+            }
+          </div>
+        }
+        @if (undo(); as u) {
+          <div class="editor__undo" data-bulk-undo>
+            <span>{{ u.label }}</span>
+            <button type="button" class="btn-info" [attr.aria-disabled]="locked()" (click)="undoBulk()">Undo</button>
+          </div>
+        }
 
         @if (workspaceOpen()) {
           <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
             [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [isPdf]="isPdf()" [imageStore]="imageStore()"
-            (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" />
+            [readOnly]="readOnly()" [actionsLocked]="locked() || !!form()"
+            (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" (menuAction)="onMenuAction($event)" />
         }
 
         @if (form(); as f) {
@@ -111,6 +132,9 @@
           @for (row of shownRows(); track row.key) {
             <li>
               <article class="row" [class.row--dimmed]="row.status !== 'visible'" [class.row--active]="selection.activeId() === row.key" [attr.aria-current]="selection.activeId() === row.key ? 'true' : null" [attr.data-row-key]="row.key" [attr.tabindex]="workspaceOpen() ? 0 : -1" [attr.aria-label]="(row.symbol || 'Correction') + ', ' + rowBadges(row)[0].label">
+                @if (selectMode() && !readOnly() && hideable().has(row.key)) {
+                  <label class="row__select"><input type="checkbox" data-row-select [checked]="selected().has(row.key)" (change)="toggleSelected(row.key)" /> Select<span class="sr-only"> {{ row.symbol }} {{ row.quotedText }}</span></label>
+                }
                 <div class="row__badges">
                   @for (badge of rowBadges(row); track badge.label) { <span class="badge" [class]="'badge badge--' + badge.tone">{{ badge.label }}</span> }
                   @if (selection.activeId() === row.key) { <span class="badge badge--selected" data-row-selected>Selected</span> }
@@ -152,6 +176,17 @@
       <button type="button" class="btn-danger" (click)="confirmRemove()">Remove</button>
       <button type="button" class="btn-info" (click)="closeRemove()">Keep it</button>
     </div>
+  </dialog>
+
+  <dialog #bulkDialog class="confirm" aria-labelledby="annotation-bulk-title" (cancel)="closeBulk()" data-bulk-dialog>
+    @if (bulkConfirm(); as b) {
+      <h3 id="annotation-bulk-title">{{ b.title }}</h3>
+      <p>{{ b.text }}</p>
+      <div class="editor__actions">
+        <button type="button" class="btn-primary" data-bulk-confirm (click)="confirmBulk()">{{ b.confirmLabel }}</button>
+        <button type="button" class="btn-info" (click)="closeBulk()">Cancel</button>
+      </div>
+    }
   </dialog>
 
   @if (historyOpen()) {
