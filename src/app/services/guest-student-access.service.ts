@@ -1,3 +1,5 @@
+import { WritingModelApiService } from '../api/writing-model-api.service';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, Provider } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom, map } from 'rxjs';
@@ -98,6 +100,18 @@ export const GUEST_STUDENT_PROVIDERS: Provider[] = [
       getMySubmissions: async () => [(await access.presentation()).submission],
       getDraftComparison: (_id?: string, _refresh?: unknown, againstDraft?: number) =>
         firstValueFrom(access.get(againstDraft ? `drafts?againstDraft=${encodeURIComponent(String(againstDraft))}` : 'drafts')),
+    };
+  } },
+  // Improved Writing Model: the guest's own submission, through the guest link (404 = feature off: nothing shown).
+  { provide: WritingModelApiService, useFactory: () => {
+    const access = inject(GuestStudentAccess);
+    return {
+      forSubmission: async () => {
+        try { return await firstValueFrom(access.get<{ available: boolean; text?: string }>('writing-model')); } catch (error) {
+          if (error instanceof HttpErrorResponse && error.status === 404) return null;
+          throw error;
+        }
+      },
     };
   } },
   { provide: AssignmentApiService, useFactory: () => {

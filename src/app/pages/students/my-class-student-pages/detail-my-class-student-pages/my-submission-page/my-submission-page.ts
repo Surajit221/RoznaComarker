@@ -41,6 +41,7 @@ import type { RubricDesigner, SubmissionFeedback, RubricItem } from '../../../..
 import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-normalizer.util';
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
+import { WritingModelCard } from '../../../../../components/student/writing-model-card/writing-model-card';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
 import { CorrectionStatistics } from '../../../../../components/correction-statistics/correction-statistics';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
@@ -58,7 +59,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [CorrectionStatistics,AnalysisProgress,SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
+  imports: [CorrectionStatistics,AnalysisProgress,SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent, WritingModelCard],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })

@@ -402,6 +402,8 @@
   @if (!preview && (submission?.draftNumber || 1) > 1) {
     <app-draft-comparison [submissionId]="submission?._id || null"
       [refreshKey]="submission?.draftNumber + ':' + (submission?.assessmentCompletedAt || submission?.evaluationSourceHash || submission?.evaluationStatus || '')"></app-draft-comparison>
+    <!-- Improved Writing Model: rendered only when the backend says the approved text is available for this submission. -->
+    <app-writing-model-card [submissionId]="submission?._id || null" [refreshKey]="submission?.draftNumber ?? null"></app-writing-model-card>
   }
 
   @if (!preview) {

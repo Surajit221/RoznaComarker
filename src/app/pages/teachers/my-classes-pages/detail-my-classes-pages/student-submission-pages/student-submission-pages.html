@@ -384,6 +384,10 @@
             <!-- Phase B3: shown only when the backend reports teacher score editing on for this teacher (renders nothing otherwise). -->
             <app-teacher-evaluation-editor [submissionId]="currentSubmission!._id" (saved)="onAnnotationsSaved(currentSubmission!._id)" />
             }
+            @if (assignmentId) {
+            <!-- Improved Writing Model: per assignment; shown only when the backend has it on and this teacher owns the assignment. -->
+            <app-writing-model-editor [assignmentId]="assignmentId" />
+            }
             <div class="teacher-comments-editor w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
               <p class="text-xl font-bold mb-1">Teacher Comments</p>
               <div class="flex flex-col gap-1">
