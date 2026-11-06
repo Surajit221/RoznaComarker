@@ -40,6 +40,25 @@
     @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issuesMessage) { <p class="notice" data-issues-note>{{ comparison?.issuesMessage }}</p> }
     @if (isV2() && rubricLimited() && comparison?.rubricMessage) { <p class="notice" data-rubric-limited-note>{{ comparison?.rubricMessage }}</p> }
 
+    @if (insights; as insight) {
+      <section class="insights" aria-labelledby="insights-title" data-insights>
+        <h3 id="insights-title">Insights for the next draft</h3>
+        @if (insight.note) { <p class="notice" data-insights-note>{{ insight.note }}</p> }
+        @if (insight.claims) {
+          <ul class="insights__list">
+            @if (insight.strongest) { <li data-insight="strongest"><span aria-hidden="true">▲</span> Strongest progress: <strong>{{ insight.strongest.name }}</strong> ({{ describeDelta(insight.strongest.delta) }})</li> }
+            @if (insight.weakest) { <li data-insight="weakest"><span aria-hidden="true">▼</span> Least progress: <strong>{{ insight.weakest.name }}</strong> ({{ describeDelta(insight.weakest.delta) }})</li> }
+            @if (insight.fixedCount) { <li data-insight="fixed"><span aria-hidden="true">✓</span> Fixed from the previous draft: <strong>{{ insight.fixedCount }}</strong></li> }
+            @if (insight.openAreas.length) {
+              <li data-insight="open"><span aria-hidden="true">●</span> Still needing work:
+                @for (area of insight.openAreas; track area.category; let last = $last) { <strong>{{ categoryName(area.category) }}</strong> ({{ area.count }})@if (!last) {, } }</li>
+            }
+          </ul>
+          @if (insight.focus) { <p class="insights__focus" data-insight="focus">{{ insight.focus }}</p> }
+        }
+      </section>
+    }
+
     @if (isV2() && comparison?.issuesAvailable !== false && comparison?.issueDetails) {
       <h3 id="issue-list-title">Writing issues, draft by draft</h3>
       <div class="issue-tabs" role="tablist" aria-labelledby="issue-list-title" data-issue-tabs>

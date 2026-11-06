@@ -30,7 +30,8 @@ describe('DraftComparisonComponent v2', () => {
 
   it('a v1 payload (flag off) renders no v2 element at all', async () => {
     await render(V1);
-    for (const selector of ['[data-issue-tabs]', '[data-issue-panel]', '[data-unclear-metric]', '[data-rubric-limited]', '[data-issues-note]', '[data-rubric-limited-note]']) {
+    for (const selector of ['[data-issue-tabs]', '[data-issue-panel]', '[data-unclear-metric]', '[data-rubric-limited]', '[data-issues-note]', '[data-rubric-limited-note]',
+      '[data-insights]', '[data-diff-toggle]', '[data-diff-view]']) {
       expect(dom().querySelector(selector)).withContext(selector).toBeNull();
     }
     expect(dom().textContent).toContain('+6 · Improved');
@@ -82,6 +83,17 @@ describe('DraftComparisonComponent v2', () => {
     dom().querySelector<HTMLButtonElement>('[data-diff-toggle]')!.click(); fixture.detectChanges();
     expect(dom().querySelector('[data-diff-view]')).toBeNull();
     expect(dom().querySelector('.text-grid')).not.toBeNull();
+  });
+  it('v2 insights: shown with icons and words; the rubric-changed case shows only the note', async () => {
+    await render(V2);
+    const section = dom().querySelector('[data-insights]')!;
+    expect(section.querySelector('[data-insight="strongest"]')!.textContent).toContain('Strongest progress: Grammar (+3)');
+    expect(section.querySelector('[data-insight="fixed"]')!.textContent).toContain('1');
+    expect(section.querySelector('[data-insight="focus"]')!.textContent).toContain('Focus for the next draft: Grammar');
+    TestBed.resetTestingModule();
+    await render({ ...V2, rubricChanged: true, overall: { previousScore: 70, currentScore: 76, delta: null, status: 'RUBRIC_CHANGED' } });
+    expect(dom().querySelector('[data-insights-note]')!.textContent).toContain('no progress is claimed');
+    expect(dom().querySelector('[data-insight]')).toBeNull();
   });
   it('v1 payload: no "Show changes" toggle, the two text panes as before', async () => {
     await render(V1);

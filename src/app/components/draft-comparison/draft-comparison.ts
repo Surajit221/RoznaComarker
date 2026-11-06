@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges, inject } from '@angular/core';
 import { DraftComparison, DraftIssueItem, SubmissionApiService } from '../../api/submission-api.service';
 import { DiffResult, diffTexts } from '../../utils/text-diff.util';
+import { DraftInsights, categoryName, describeDelta, draftInsights } from './draft-insights.logic';
 
 /** v2 per-error tabs, in reading order. */
 export type IssueStatus = 'fixed' | 'remaining' | 'new' | 'unclear';
@@ -33,6 +34,10 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
   showChanges = false;
   diff: DiffResult | null = null;
   private diffTimer: ReturnType<typeof setTimeout> | null = null;
+  /** v2 insights, computed once per comparison. */
+  insights: DraftInsights | null = null;
+  readonly categoryName = categoryName;
+  readonly describeDelta = describeDelta;
   private requestVersion = 0;
   private retryGeneration = 0;
   private retryAttempt = 0;
@@ -73,6 +78,7 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
       if (!this.isCurrent(generation, version, submissionId)) return;
       if (result !== this.comparison) this.resetDiff();
       this.comparison = result;
+      this.insights = draftInsights(result);
       if (this.isV2()) this.issueTab = ISSUE_TABS.find(tab => (result.issueDetails?.[tab.key]?.total ?? 0) > 0)?.key ?? 'fixed';
       if (!result.available && result.code === 'CURRENT_UNASSESSED') this.scheduleRetry(generation);
     } catch {
