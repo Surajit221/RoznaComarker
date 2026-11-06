@@ -12,6 +12,7 @@ import {
   OnDestroy,
   Output,
   SimpleChanges,
+  TemplateRef,
   ViewChild,
   inject,
   isDevMode
@@ -76,6 +77,12 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Output() syncDrawn = new EventEmitter<Set<string>>();
   @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
   @Output() retryRequested = new EventEmitter<void>();
+  /**
+   * Teacher page only (Phase A): extra content for a mark the teacher chose (clicked, tapped, Enter), shown under the correction details.
+   * Context: the chosen correction's id. Not set (students, guests, workspace): nothing is added and nothing is emitted.
+   */
+  @Input() markMenu: TemplateRef<{ $implicit: string[] }> | null = null;
+  @Output() markActivated = new EventEmitter<string>();
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
   @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
@@ -253,6 +260,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.selectedId = annotation._id;
     this.isPinned = true;
     this.schedulePosition();
+    this.emitMarkActivated();
   }
 
   isLineLevel(annotation: FeedbackAnnotation | null): boolean { return !!annotation && this.lineLevelIds.has(annotation._id); }
@@ -350,9 +358,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.isPinned = true;
       this.tooltipTarget = target;
       this.cdr.markForCheck();
+      this.emitMarkActivated();
       return;
     }
     this.openTooltip(marker, target, true);
+    this.emitMarkActivated();
   }
 
   onMarkerKeydown(marker: CorrectionMarker, event: KeyboardEvent): void {
@@ -361,6 +371,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     event.stopPropagation();
     if (this.device.isMobile()) this.isMobile = true;
     this.openTooltip(marker, event.currentTarget as HTMLElement, true);
+    this.emitMarkActivated();
+  }
+
+  private emitMarkActivated(): void {
+    if (this.markMenu && this.selectedId) this.markActivated.emit(this.selectedId);
   }
 
   preventControlPointerDown(event: PointerEvent): void {

@@ -1,11 +1,12 @@
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
 import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
+import { AnnotationMarkMenu } from '../../../../../components/teacher/annotation-controls/annotation-mark-menu';
 import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { SharedPageImages } from '../../../../../components/submission-page-review/shared-page-images';
-import { Component, EventEmitter, inject, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Output, ViewChild } from '@angular/core';
 
 
 
@@ -167,7 +168,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,StudentPreview,
+  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,StudentPreview,
 
 
 
@@ -222,6 +223,8 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 export class StudentSubmissionPages {
+  /** The teacher's correction editor (Phase A): the page's own image and transcript open its action menu for a chosen mark. */
+  @ViewChild(AnnotationControls) annotationControls?: AnnotationControls;
   onHumanSourceReviewed(source:SourceFidelity):void {
     if(!this.currentSubmission)return;
     this.currentSubmission.sourceFidelity=source;

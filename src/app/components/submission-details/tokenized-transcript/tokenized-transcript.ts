@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { type AfterViewChecked, type AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, type SimpleChanges, ViewChild } from '@angular/core';
+import { type AfterViewChecked, type AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, type SimpleChanges, type TemplateRef, ViewChild } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
@@ -25,6 +25,14 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
   @Input() syncStates: ReadonlyMap<string, 'hidden' | 'archived'> | null = null;
   @Output() syncPointer = new EventEmitter<{ ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate' }>();
 
+  /**
+   * Teacher page only (Phase A): extra content for a word the teacher chose (click, tap, Enter), shown under the correction text. The tooltip
+   * then stays open and takes pointer input until Escape, a click outside or a second click on the word. Context: the word's correction ids.
+   * Not set (students, guests, workspace): nothing changes and nothing is emitted.
+   */
+  @Input() markMenu: TemplateRef<{ $implicit: string[] }> | null = null;
+  @Output() markActivated = new EventEmitter<string>();
+
   @ViewChild('containerEl', { static: false }) containerEl?: ElementRef<HTMLElement>;
   @ViewChild('tooltipEl', { static: false }) tooltipEl?: ElementRef<HTMLElement>;
 
@@ -45,6 +53,9 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
   private readonly syncWordStates = new Map<string, 'hidden' | 'archived' | null>();
 
   activeWordId: string | null = null;
+  /** Only with markMenu: the teacher chose this word, so the menu shows and the tooltip stays open. */
+  menuPinned = false;
+  menuIds: string[] = [];
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
 
@@ -132,12 +143,13 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
   onWordPointerEnter(wordId: string, event: PointerEvent): void {
     // Hover only for mouse pointers.
     if (event.pointerType && event.pointerType !== 'mouse') return;
+    if (this.menuPinned) return;
     this.openTooltip(wordId, event);
   }
 
   onWordPointerLeave(wordId: string, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
-    if (this.activeWordId !== wordId) return;
+    if (this.activeWordId !== wordId || this.menuPinned) return;
     const version = this.positionVersion;
     requestAnimationFrame(() => {
       if (version === this.positionVersion && this.activeWordId === wordId) this.closeTooltip();
@@ -146,12 +158,19 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
 
   onWordPointerDown(wordId: string, event: PointerEvent): void {
     // Tap/pen support. Also works with mouse click if user prefers.
+    // Teacher menu: a click on a word whose tooltip the hover opened pins it instead of closing it.
+    if (this.markMenu && this.activeWordId === wordId && !this.menuPinned) {
+      this.pinMenu(wordId);
+      try { event.preventDefault(); event.stopPropagation(); } catch { /* ignore */ }
+      return;
+    }
     if (this.activeWordId === wordId) {
       this.closeTooltip();
       return;
     }
 
     this.openTooltip(wordId, event);
+    if (this.markMenu) this.pinMenu(wordId);
 
     // Avoid selecting text on touch/pen taps.
     try {
@@ -181,7 +200,18 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     if (this.activeWordId === wordId) this.closeTooltip();
-    else this.openTooltip(wordId, event);
+    else {
+      this.openTooltip(wordId, event);
+      if (this.markMenu) this.pinMenu(wordId);
+    }
+  }
+
+  private pinMenu(wordId: string): void {
+    if (this.activeWordId !== wordId) return;
+    this.menuPinned = true;
+    this.menuIds = this.getWordAnnotations(wordId).map(a => a._id);
+    if (this.menuIds[0]) this.markActivated.emit(this.menuIds[0]);
+    this.scheduleActiveReposition();
   }
 
   @HostListener('document:keydown.escape')
@@ -227,6 +257,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
     this.bindViewport(null);
     this.activeWordId = null;
     this.activeTarget = null;
+    this.menuPinned = false;
+    this.menuIds = [];
     this.tooltipText = '';
     this.tooltipStyle = { display: 'none' };
   }

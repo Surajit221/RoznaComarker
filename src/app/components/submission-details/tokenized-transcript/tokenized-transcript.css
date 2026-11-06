@@ -47,6 +47,9 @@
   backdrop-filter: blur(10px);
   pointer-events: none;
 }
+/* Teacher menu (Phase A): the chosen word's tooltip takes clicks and taps. */
+.transcript-tooltip.transcript-tooltip--menu { pointer-events: auto; }
+.transcript-tooltip__menu { white-space: normal; }
 
 @media (max-width: 768px) {
   .tokenized-transcript { overflow-wrap: anywhere; word-break: break-word; line-height: 1.65; }

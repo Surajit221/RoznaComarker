@@ -2,8 +2,6 @@
 .workspace { margin-top: 12px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 16px; background: #f8fafc; }
 .workspace__status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
 .workspace__status p { margin: 0; font-size: .9rem; }
-.workspace__menu { display: flex; flex-wrap: wrap; gap: 8px; }
-.workspace__menu button { min-height: 44px; min-width: 44px; }
 .workspace__note { font-weight: 700; }
 .workspace__panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 8px; }
 .workspace__column { min-width: 0; }

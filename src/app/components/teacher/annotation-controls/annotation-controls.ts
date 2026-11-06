@@ -14,6 +14,7 @@ import { ChangeHistoryDialog } from './change-history-dialog';
 import { GradeCheck } from './grade-check';
 import { RowPosition, buildPositions, positionLabels, revealRow, withDrawn } from './annotation-sync.logic';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
+import type { MarkMenuAction, MarkMenuEntry } from './annotation-mark-menu';
 import { ReviewWorkspace, SyncPointer, applySyncPointer, scrollPanelTo } from './review-workspace';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
 
@@ -285,10 +286,29 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.confirmRow.set(null);
   }
 
-  /** A mark chosen on the image or in the transcript: the workspace menu runs the same actions as the list's buttons. */
-  onMenuAction(event: { action: AnnotationAction; key: string; event: Event }): void {
+  /**
+   * A mark the teacher clicked, tapped or pressed Enter on in the page's own image or transcript (outside the workspace). Shares the
+   * selection with the list and the workspace, and loads the corrections once if the editor was never opened, so menuFor can answer.
+   */
+  markActivated(id: string, source: SelectionSource): void {
+    if (!id) return;
+    this.selection.pin(id, source);
+    if (!this.snapshot() && !this.loading() && !this.noAccess()) void this.reload();
+  }
+  /** The teacher rows a mark's correction ids belong to, with their allowed actions; empty when the teacher cannot change them. */
+  menuFor(ids: readonly string[] | null | undefined): MarkMenuEntry[] {
+    if (this.readOnly() || !this.snapshot() || !ids?.length) return [];
+    const byKey = new Map(this.rows().map(row => [row.key, row]));
+    return [...new Set(ids)].map(id => byKey.get(id)).filter((row): row is CorrectionRow => Boolean(row))
+      .map(row => ({ row, actions: this.actionsFor(row) })).filter(entry => entry.actions.length > 0);
+  }
+
+  /** A mark's menu (workspace, page image or page transcript) runs the same actions as the list's buttons. */
+  onMenuAction(event: MarkMenuAction): void {
     const row = this.rows().find(r => r.key === event.key);
     if (!row) return;
+    // The form lives inside the editor body: open it first so Edit has somewhere to appear.
+    if (event.action === 'edit' && !this.open()) this.open.set(true);
     if (event.action === 'edit') this.openForm(row, event.event);
     else if (event.action === 'archive') this.askRemove(row, event.event);
     else this.run(event.action, row);

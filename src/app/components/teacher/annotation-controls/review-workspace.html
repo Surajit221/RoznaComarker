@@ -4,12 +4,7 @@
     @if (activeRow(); as row) {
       <p><strong>Selected:</strong>&ngsp;{{ row.symbol }}@if (row.quotedText) { <span>&ngsp;“{{ row.quotedText }}”</span> }@if (activeNote()) { <span class="workspace__note" data-sync-note>&ngsp;· {{ activeNote() }}</span> }</p>
       @if (menuRow(); as menu) {
-        <div class="workspace__menu" role="group" [attr.aria-label]="'Actions for ' + (menu.symbol || 'correction')" data-sync-menu>
-          @for (action of menuActions(); track action) {
-            <button type="button" [class]="action === 'archive' ? 'btn-danger' : 'btn-info'" [attr.aria-disabled]="actionsLocked()" [attr.data-sync-menu-action]="action"
-              (click)="act(action, menu, $event)">{{ menuLabel(action, menu) }}<span class="sr-only"> {{ menu.symbol }}</span></button>
-          }
-        </div>
+        <app-annotation-mark-menu [entries]="[{ row: menu, actions: menuActions() }]" [locked]="actionsLocked()" [showTarget]="false" (act)="menuAction.emit($event)" />
       }
       <button type="button" class="btn-info" data-sync-clear (click)="selection.clear()">Clear selection</button>
     } @else {

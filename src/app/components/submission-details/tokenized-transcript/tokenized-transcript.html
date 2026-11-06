@@ -35,9 +35,10 @@
   <div
     #tooltipEl
     class="transcript-tooltip"
+    [class.transcript-tooltip--menu]="!!markMenu && menuPinned"
     role="dialog"
     aria-label="Correction details"
     [ngStyle]="tooltipStyle"
     style="white-space: pre-line;"
-  >{{ tooltipText }}</div>
+  >{{ tooltipText }}@if (markMenu && menuPinned && activeWordId) {<div class="transcript-tooltip__menu" data-transcript-mark-menu><ng-container *ngTemplateOutlet="markMenu; context: { $implicit: menuIds }" /></div>}</div>
 </div>

@@ -67,6 +67,7 @@
               [sourceGeometry]="activeSourceGeometry"
               [sourceLoadError]="imageMediaState === 'error'" (retryRequested)="retryUploadedImage()"
               [annotations]="activeAnnotations" [ocrWords]="activeOcrWords"
+              [markMenu]="currentSubmission?._id ? teacherMarkMenu : null" (markActivated)="annotationControls?.markActivated($event, 'image')"
               alt="Student submission image"></app-correction-overlay>
             <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="writingCorrectionsLegend"></app-writing-corrections-legend></details>
             }
@@ -213,7 +214,8 @@
                             @if (transcriptPageViews.length > 1) { <header>Submitted Page {{ page.displayNumber }}</header> }
                             @if (page.status === 'ready' && page.words.length) {
                             <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans"
-                              [ocrWords]="page.words" [annotations]="page.annotations"></app-tokenized-transcript>
+                              [ocrWords]="page.words" [annotations]="page.annotations"
+                              [markMenu]="currentSubmission?._id ? teacherMarkMenu : null" (markActivated)="annotationControls?.markActivated($event, 'transcript')"></app-tokenized-transcript>
                             } @else if (page.status === 'ready' && page.text) {
                             <pre class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap font-sans">{{ page.text }}</pre>
                             } @else if (page.status === 'failed') { <p class="text-sm text-red-500">This page's transcript is unavailable.</p> }
@@ -517,3 +519,10 @@
     <button type="button" class="btn-danger" (click)="toBack()">Back</button>
   }
 </ng-container>
+
+<!-- Phase A: the teacher's actions for a mark chosen on this page's image or transcript (the editor runs them). -->
+<ng-template #teacherMarkMenu let-ids>
+  @if (annotationControls?.menuFor(ids); as entries) {
+    @if (entries.length) { <app-annotation-mark-menu [entries]="entries" [locked]="annotationControls!.locked() || !!annotationControls!.form()" (act)="annotationControls!.onMenuAction($event)" /> }
+  }
+</ng-template>

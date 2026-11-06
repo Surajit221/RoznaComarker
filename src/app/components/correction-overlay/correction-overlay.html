@@ -154,6 +154,11 @@
           <p>{{ tip }}</p>
         </div>
       }
+      @if (markMenu && isPinned && selectedId) {
+        <div class="correction-overlay__mark-menu" data-overlay-mark-menu>
+          <ng-container *ngTemplateOutlet="markMenu; context: { $implicit: [selectedId] }" />
+        </div>
+      }
       </div>
     }
   </section>

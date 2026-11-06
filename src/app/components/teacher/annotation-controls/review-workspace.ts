@@ -4,8 +4,9 @@ import { TranscriptPageView, buildTranscriptPageViews } from '../../../utils/tra
 import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
-import { AnnotationAction, AnnotationSnapshot, CorrectionRow, allowedActions } from './annotation-editor.logic';
+import { AnnotationSnapshot, CorrectionRow, allowedActions } from './annotation-editor.logic';
 import { APPROXIMATE_POSITION, LINE_IMAGE_POSITION, NO_IMAGE_POSITION, RowPosition, nextInCycle, panelScrollTop, preferCurrent, syncStates, workspaceCorrections } from './annotation-sync.logic';
+import { AnnotationMarkMenu, MarkMenuAction } from './annotation-mark-menu';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
 
 export interface SyncPointer { ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate'; }
@@ -34,7 +35,7 @@ export function applySyncPointer(selection: CorrectionSelection, event: SyncPoin
  */
 @Component({
   selector: 'app-review-workspace',
-  imports: [CorrectionOverlay, TokenizedTranscript],
+  imports: [AnnotationMarkMenu, CorrectionOverlay, TokenizedTranscript],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './review-workspace.html',
   styleUrl: './review-workspace.css',
@@ -57,7 +58,7 @@ export class ReviewWorkspace implements OnDestroy {
   /** Phase A: the menu shown for a mark the teacher clicked or tapped on the image or in the transcript. The editor runs the action. */
   readonly readOnly = input(false);
   readonly actionsLocked = input(false);
-  readonly menuAction = output<{ action: AnnotationAction; key: string; event: Event }>();
+  readonly menuAction = output<MarkMenuAction>();
 
   readonly selection = inject(CorrectionSelection);
   private readonly injector = inject(Injector);
@@ -103,13 +104,6 @@ export class ReviewWorkspace implements OnDestroy {
     return this.rows().find(row => row.key === id) ?? null;
   });
   readonly menuActions = computed(() => { const row = this.menuRow(); return row ? allowedActions(row, this.snapshot().transitions) : []; });
-  menuLabel(action: AnnotationAction, row: CorrectionRow): string {
-    return action === 'edit' ? (row.orphanReason ? 'Place again' : 'Edit') : action === 'hide' ? 'Hide' : action === 'restore' ? 'Restore' : 'Remove';
-  }
-  act(action: AnnotationAction, row: CorrectionRow, event: Event): void {
-    if (this.actionsLocked()) return;
-    this.menuAction.emit({ action, key: row.key, event });
-  }
 
   /** Announced for what the teacher chose; hovering would flood a screen reader. */
   readonly announcement = computed(() => {

@@ -1,0 +1,29 @@
+@if (chosen(); as entry) {
+  <div class="mark-menu" role="group" [attr.aria-label]="'Teacher actions for ' + (entry.row.symbol || 'correction')" data-sync-menu>
+    @if (showTarget()) {
+      <p class="mark-menu__target" data-mark-menu-target>
+        <span class="mark-menu__chip">{{ entry.row.symbol || 'Correction' }}</span>
+        @if (entry.row.category) { <span class="mark-menu__category">{{ entry.row.category }}</span> }
+        @if (entry.row.quotedText) { <span class="mark-menu__quote">“{{ entry.row.quotedText }}”</span> }
+      </p>
+    }
+    <div class="mark-menu__actions">
+      @for (action of entry.actions; track action) {
+        <button type="button" [class]="action === 'archive' ? 'btn-danger' : 'btn-info'" [attr.aria-disabled]="locked()" [attr.data-sync-menu-action]="action"
+          (click)="run(action, entry.row, $event)">{{ label(action, entry.row) }}<span class="sr-only"> {{ entry.row.symbol }}</span></button>
+      }
+      @if (entries().length > 1) { <button type="button" class="btn-info" data-mark-menu-back (click)="$event.stopPropagation(); back()">Other corrections here</button> }
+    </div>
+  </div>
+} @else if (entries().length > 1) {
+  <div class="mark-menu" role="group" aria-label="Choose the correction to change" data-mark-menu-chooser>
+    <p class="mark-menu__prompt">This word has {{ entries().length }} corrections. Choose one:</p>
+    @for (entry of entries(); track entry.row.key) {
+      <button type="button" class="btn-info mark-menu__choice" [attr.data-mark-menu-choice]="entry.row.key" (click)="$event.stopPropagation(); choose(entry.row.key)">
+        <span class="mark-menu__chip">{{ entry.row.symbol || 'Correction' }}</span>
+        @if (entry.row.category) { <span class="mark-menu__category">{{ entry.row.category }}</span> }
+        @if (entry.row.quotedText) { <span class="mark-menu__quote">“{{ entry.row.quotedText }}”</span> }
+      </button>
+    }
+  </div>
+}
