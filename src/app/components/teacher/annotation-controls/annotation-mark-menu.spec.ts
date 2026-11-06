@@ -5,7 +5,7 @@ import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api
 import { AuthService } from '../../../auth/auth.service';
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
-import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
+import { TokenizedTranscript, teacherCardMaxHeight } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import { AnnotationControls, AnnotationDraftStore } from './annotation-controls';
 import type { AnnotationBody, AnnotationSnapshot, CorrectionRow, SnapshotCorrection } from './annotation-editor.logic';
 import { AnnotationEditFields } from './annotation-edit-fields';
@@ -33,6 +33,12 @@ describe('AnnotationMarkMenu', () => {
     expect(dom().querySelector('[data-mark-menu-target]')!.textContent).toContain('GRAMMAR');
     expect(dom().querySelector('[data-mark-menu-target]')!.textContent).toContain('“goes”');
     expect(actions()).toEqual(['edit', 'hide', 'archive']);
+    // One hierarchy: Edit primary, Hide neutral, Remove danger; nothing uses the heavy page buttons.
+    const cls = (a: string) => dom().querySelector(`[data-sync-menu-action="${a}"]`)!.className;
+    expect(cls('edit')).toContain('mark-menu__button--primary');
+    expect(cls('hide')).toContain('mark-menu__button--neutral');
+    expect(cls('archive')).toContain('mark-menu__button--danger');
+    expect(dom().querySelector('.btn-info, .btn-danger')).toBeNull();
     dom().querySelector<HTMLButtonElement>('[data-sync-menu-action="hide"]')!.click();
     expect(acted.map(a => [a.action, a.key])).toEqual([['hide', 'ai_1']]);
   });
@@ -213,6 +219,31 @@ describe('Teacher submission page: menu on the page image and transcript (Phase 
     expect(document.activeElement).toBe(dom().querySelector('[data-overlay-mark-menu] [data-sync-menu-action="edit"]'));
     expect(api.calls).toEqual([]);
   });
+  it('transcript teacher card: sections, actions outside the scrolling content, sized to the viewport, pinned word outlined; × closes and returns focus', async () => {
+    await create();
+    await tapWord('home');
+    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await frames(); await settle();
+    const t = tooltip()!;
+    expect(t.classList).toContain('transcript-tooltip--teacher');
+    expect(t.textContent).toContain('What to improve');
+    expect(t.textContent).toContain('Other word.');
+    const card = t.querySelector('[data-transcript-card]')!, body = card.querySelector('[data-transcript-card-body]')!, footer = card.querySelector('[data-transcript-mark-menu]')!;
+    expect(body.contains(footer)).toBeFalse();
+    expect(footer.parentElement === card).toBeTrue();
+    expect(getComputedStyle(card).display).toBe('flex');
+    expect(getComputedStyle(body).overflowY).toBe('auto');
+    expect(getComputedStyle(footer).flexShrink).toBe('0');
+    // Sized against the browser viewport, not the 300 px transcript card (that rule, 55 % of it, would be 165 px and cut the actions).
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+    expect(t.style.maxHeight).toBe(`${teacherCardMaxHeight(viewportHeight, 8)}px`);
+    expect(parseFloat(t.style.maxWidth)).toBeLessThanOrEqual(380);
+    expect(word('home').classList).toContain('correction-highlight--pinned');
+    t.querySelector<HTMLButtonElement>('[data-transcript-close]')!.click(); await settle();
+    expect(t.style.display).toBe('none');
+    expect(document.activeElement).toBe(word('home'));
+    expect(word('home').classList).not.toContain('correction-highlight--pinned');
+  });
   it('no access (404): no menu, the old details only', async () => {
     await create();
     api.failure = new HttpErrorResponse({ status: 404, error: { code: 'ANNOTATION_NOT_FOUND' } });
@@ -229,6 +260,13 @@ describe('Teacher submission page: menu on the page image and transcript (Phase 
     await tapWord('home');
     expect(tooltip()!.textContent).toContain('Other word.');
     expect(tooltip()!.classList).not.toContain('transcript-tooltip--menu');
+    // The student tooltip is the old one: plain text, no card elements, no teacher classes, the old size rule (55 % of the transcript).
+    expect(tooltip()!.children.length).toBe(0);
+    expect(tooltip()!.textContent).toBe('WC - Other word.');
+    expect(tooltip()!.classList).not.toContain('transcript-tooltip--teacher');
+    expect(dom().querySelector('.tokenized-transcript--teacher, .correction-highlight--pinned, [data-transcript-card]')).toBeNull();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    expect(tooltip()!.style.maxHeight).toBe('165px');
     expect(document.querySelector('[data-transcript-mark-menu]')).toBeNull();
     await tapWord('home');
     expect(host.overlay()).toBeTruthy();

@@ -70,3 +70,43 @@
 .correction-highlight[data-sync-state] { background: #f1f5f9 !important; border-bottom-style: dotted; border-bottom-color: #475569 !important; }
 .correction-highlight[data-sync-state='archived'] { text-decoration: line-through; }
 .correction-highlight.is-sync-active { outline: 3px solid #172033; outline-offset: 1px; background: #fde68a !important; font-weight: 600; }
+
+/* ---- Teacher card (markMenu set: the teacher submission page only). Students and guests never get these classes. ---- */
+.tokenized-transcript--teacher { line-height: 1.8; }
+.tokenized-transcript--teacher .correction-highlight { padding: 1px 3px; }
+.correction-highlight--pinned { outline: 2px solid #0f766e; outline-offset: 2px; background: rgba(15, 118, 110, .12); }
+.transcript-tooltip.transcript-tooltip--teacher {
+  width: min(360px, calc(100vw - 24px)); padding: 0; overflow: hidden;
+  background: #fff; color: #1e293b; border: 1px solid #dbe3ea; border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 18%), 0 2px 6px rgb(15 23 42 / 10%); backdrop-filter: none;
+  font-size: .875rem; animation: tt-in 160ms ease-out;
+}
+.tt-card { display: flex; flex-direction: column; max-height: inherit; white-space: normal; }
+.tt-head { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 6px 6px 14px; border-bottom: 1px solid #eef2f6; }
+.tt-title { flex: 1; font-size: .9rem; color: #0f2a4a; text-transform: capitalize; }
+.tt-close { min-width: 44px; min-height: 44px; border: 0; border-radius: 10px; background: none; color: #475569; font-size: 1.4rem; line-height: 1; cursor: pointer; transition: background-color 150ms ease; }
+.tt-close:hover { background: #f1f5f9; }
+.tt-close:focus-visible { outline: 3px solid #f5b800; outline-offset: 1px; }
+.tt-handle { display: none; }
+.tt-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 14px 10px; }
+.tt-item + .tt-item { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+.tt-item__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 2px; }
+.tt-chip { padding: 1px 8px; border: 2px solid #0f766e; border-radius: 999px; background: #fff; color: #0f172a; font-size: .75rem; font-weight: 700; }
+.tt-cat { color: #334155; font-size: .8rem; font-weight: 600; text-transform: capitalize; }
+.tt-label { margin: 6px 0 0; color: #64748b; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.tt-text { margin: 2px 0 0; line-height: 1.45; overflow-wrap: anywhere; }
+.tt-text--suggested { color: #0f5d5e; font-weight: 600; }
+.tt-footer { flex: none; padding: 4px 12px 12px; border-top: 1px solid #eef2f6; background: #fff; }
+@keyframes tt-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 768px) {
+  .transcript-tooltip.transcript-tooltip--teacher {
+    inset: auto 0 0 0 !important; width: auto !important; max-width: none !important; max-height: 70vh !important;
+    border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); overflow: hidden;
+  }
+  .tt-handle { display: block; position: absolute; top: 6px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: #cbd5e1; }
+  .tt-head { padding-top: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .transcript-tooltip.transcript-tooltip--teacher { animation: none; }
+  .tt-close { transition: none; }
+}

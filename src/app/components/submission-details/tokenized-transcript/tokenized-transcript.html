@@ -1,4 +1,4 @@
-<div class="tokenized-transcript" #containerEl>
+<div class="tokenized-transcript" #containerEl [class.tokenized-transcript--teacher]="!!markMenu">
   @for (t of tokens; track t.trackId) {
     @if (t.kind === 'word' && syncMode) {
       <span
@@ -15,6 +15,7 @@
     } @else if (t.kind === 'word') {
       <span
         [ngClass]="getWordAnnotations(t.word.id).length ? 'correction-highlight' : null"
+        [class.correction-highlight--pinned]="menuPinned && activeWordId === t.word.id"
         [ngStyle]="getHighlightStyle(t.word.id) || null"
         (pointerenter)="getWordAnnotations(t.word.id).length ? onWordPointerEnter(t.word.id, $event) : null"
         (pointerleave)="getWordAnnotations(t.word.id).length ? onWordPointerLeave(t.word.id, $event) : null"
@@ -36,9 +37,23 @@
     #tooltipEl
     class="transcript-tooltip"
     [class.transcript-tooltip--menu]="!!markMenu && menuPinned"
+    [class.transcript-tooltip--teacher]="!!markMenu"
     role="dialog"
     aria-label="Correction details"
     [ngStyle]="tooltipStyle"
     style="white-space: pre-line;"
-  >{{ tooltipText }}@if (markMenu && menuPinned && activeWordId) {<div class="transcript-tooltip__menu" data-transcript-mark-menu><ng-container *ngTemplateOutlet="markMenu; context: { $implicit: menuIds }" /></div>}</div>
+  >@if (markMenu) {<div class="tt-card" data-transcript-card>
+      <div class="tt-head"><span class="tt-handle" aria-hidden="true"></span><strong class="tt-title">{{ cardTitle() }}</strong>@if (menuPinned && !markMenuHold) {<button type="button" class="tt-close" aria-label="Close correction details" data-transcript-close (click)="closeFromUser()">&times;</button>}</div>
+      <div class="tt-body" data-transcript-card-body>
+        @for (a of cardAnnotations(); track a._id) {
+          <section class="tt-item">
+            <p class="tt-item__head"><span class="tt-chip" [style.border-color]="a.color || null">{{ a.symbol || 'Correction' }}</span>@if (a.category || a.group) {<span class="tt-cat">{{ a.category || a.group }}</span>}</p>
+            @if (a.message) {<p class="tt-label">What to improve</p><p class="tt-text">{{ a.message }}</p>}
+            @if (a.quotedText) {<p class="tt-label">Original</p><p class="tt-text">{{ a.quotedText }}</p>}
+            @if (a.suggestedText) {<p class="tt-label">Suggested</p><p class="tt-text tt-text--suggested">{{ a.suggestedText }}</p>}
+          </section>
+        }
+      </div>
+      @if (menuPinned && activeWordId) {<div class="tt-footer transcript-tooltip__menu" data-transcript-mark-menu><ng-container *ngTemplateOutlet="markMenu; context: { $implicit: menuIds }" /></div>}
+    </div>} @else {<ng-container>{{ tooltipText }}</ng-container>}</div>
 </div>

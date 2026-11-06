@@ -427,3 +427,11 @@
 .correction-overlay__line-rail.is-right { transform: translateX(-100%); border-right: var(--stroke-width, 2px) solid var(--stroke-color, var(--underline-color, #d64545)); border-left: 0; }
 .correction-overlay__line-rail.is-right.is-selected { border-right-width: calc(var(--stroke-width, 2px) + 1px); }
 .correction-overlay__line-rail.is-right::before { left: auto; right: -10px; }
+
+/* Teacher action bar (only rendered when the teacher page passes markMenu): stays at the bottom of the card while the details scroll. */
+.correction-overlay__mark-menu {
+  position: sticky; bottom: 0; z-index: 2;
+  margin-top: 4px; padding: 4px 14px 12px; border-top: 1px solid #eef2f6; background: #fff;
+}
+/* An inline edit form can be taller than the card: then the whole card scrolls with it instead of pinning it. */
+.correction-overlay__mark-menu:has([data-edit-fields]) { position: static; }

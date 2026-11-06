@@ -4,6 +4,12 @@ import { type AfterViewChecked, type AfterViewInit, Component, ElementRef, Event
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
 
+/** Teacher card: at most this wide, and at most 70% of the viewport high (the content scrolls inside it, the actions do not). */
+export const TEACHER_CARD_MAX_WIDTH = 380;
+export function teacherCardMaxHeight(viewportHeight: number, padding: number): number {
+  return Math.max(160, Math.floor(Math.min(viewportHeight * 0.7, viewportHeight - padding * 2)));
+}
+
 type TranscriptToken =
   | { kind: 'word'; trackId: string; word: OcrWord }
   | { kind: 'space'; trackId: string; value: string }
@@ -61,7 +67,25 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
 
+  /** Teacher card only: the card re-places itself when its content changes size (menu, chooser, inline form). */
+  private cardResize: ResizeObserver | null = null;
+
+  /** Teacher card: the corrections of the word shown. */
+  cardAnnotations(): FeedbackAnnotation[] { return this.activeWordId ? this.getWordAnnotations(this.activeWordId) : []; }
+  cardTitle(): string {
+    const list = this.cardAnnotations();
+    return list.length > 1 ? `${list.length} corrections` : (list[0]?.category || list[0]?.group || 'Correction');
+  }
+  /** Teacher card's close button: closes and puts focus back on the word. */
+  closeFromUser(): void {
+    if (this.markMenuHold) return;
+    const target = this.activeTarget;
+    this.closeTooltip();
+    target?.focus({ preventScroll: true });
+  }
+
   ngOnDestroy(): void {
+    this.cardResize?.disconnect();
     this.syncUnlisten?.();
     this.closeTooltip();
     this.tooltipEl?.nativeElement.remove();
@@ -249,6 +273,10 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
     this.activeWordId = wordId;
     this.activeTarget = target;
     this.tooltipText = text;
+    if (this.markMenu && !this.cardResize && typeof ResizeObserver === 'function') {
+      this.cardResize = new ResizeObserver(() => { if (this.positionFrame === null) this.scheduleActiveReposition(); });
+      this.cardResize.observe(tooltip);
+    }
     this.tooltipStyle = { display: 'block', visibility: 'hidden', left: '0px', top: '0px' };
     this.bindViewport(container.closest('.canonical-transcript-viewport') as HTMLElement | null || container);
     const version = ++this.positionVersion;
@@ -314,11 +342,16 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
     const padding = Math.max(6, Math.min(14, Math.round(containerW * 0.02)));
     const gap = Math.max(6, Math.min(14, Math.round(containerW * 0.015)));
 
-    const maxTooltipWidthPx = Math.max(180, Math.floor(containerW * 0.6));
-    const hardMaxW = Math.max(0, Math.floor(containerW - padding * 2));
+    // Teacher card (markMenu): sized and placed against the browser viewport, not the transcript card, so its actions are never cut off
+    // and it prefers below/above the word. Without markMenu (students, guests) everything below is exactly as before (area = bounds).
+    const teacher = !!this.markMenu;
+    const area = teacher ? { left: 0, top: 0, right: browserWidth, bottom: browserHeight } : bounds;
+    const areaW = area.right - area.left, areaH = area.bottom - area.top;
+    const maxTooltipWidthPx = teacher ? TEACHER_CARD_MAX_WIDTH : Math.max(180, Math.floor(containerW * 0.6));
+    const hardMaxW = Math.max(0, Math.floor((teacher ? areaW : containerW) - padding * 2));
     const effectiveMaxW = Math.max(120, Math.min(maxTooltipWidthPx, hardMaxW));
     tooltip.style.maxWidth = `${effectiveMaxW}px`;
-    tooltip.style.maxHeight = `${Math.max(80, Math.floor(containerH * 0.55))}px`;
+    tooltip.style.maxHeight = `${teacher ? teacherCardMaxHeight(areaH, padding) : Math.max(80, Math.floor(containerH * 0.55))}px`;
 
     // Force measurement after maxWidth is applied.
     const tW = Math.min(tooltip.offsetWidth || 0, effectiveMaxW);
@@ -358,12 +391,12 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
       const y0 = y;
       const x1 = x + tW;
       const y1 = y + tH;
-      const fitsX = x0 >= bounds.left + padding && x1 <= bounds.right - padding;
-      const fitsY = y0 >= bounds.top + padding && y1 <= bounds.bottom - padding;
+      const fitsX = x0 >= area.left + padding && x1 <= area.right - padding;
+      const fitsY = y0 >= area.top + padding && y1 <= area.bottom - padding;
       return { fitsX, fitsY, fits: fitsX && fitsY };
     };
 
-    const preferredOrder: ('top' | 'bottom' | 'right' | 'left')[] = ['top', 'bottom', 'right', 'left'];
+    const preferredOrder: ('top' | 'bottom' | 'right' | 'left')[] = teacher ? ['bottom', 'top', 'right', 'left'] : ['top', 'bottom', 'right', 'left'];
     let chosen = candidates[0];
     for (const p of preferredOrder) {
       const c = candidates.find((x) => x.placement === p)!;
@@ -374,8 +407,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
     }
 
     const clampPx = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-    const x = clampPx(chosen.x, bounds.left + padding, bounds.right - padding - tW);
-    const y = clampPx(chosen.y, bounds.top + padding, bounds.bottom - padding - tH);
+    const x = clampPx(chosen.x, area.left + padding, area.right - padding - tW);
+    const y = clampPx(chosen.y, area.top + padding, area.bottom - padding - tH);
     const positioningElement = tooltip.offsetParent as HTMLElement | null;
     const positioningRect = (positioningElement || document.documentElement).getBoundingClientRect();
     const localLeft = x - positioningRect.left;
