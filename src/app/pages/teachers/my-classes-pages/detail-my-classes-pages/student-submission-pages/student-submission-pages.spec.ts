@@ -10,6 +10,7 @@ import { authenticatedUserProviders, httpTestingProviders, routedComponentProvid
 import { normalizeCanonicalResult } from '../../../../../utils/canonical-result-state.util';
 import type { FeedbackAnnotation } from '../../../../../models/feedback-annotation.model';
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
+import { TeacherEvaluationApiService } from '../../../../../api/teacher-evaluation-api.service';
 import { buildAnnotationVisuals } from '../../../../../components/correction-overlay/annotation-geometry';
 
 describe('StudentSubmissionPages', () => {
@@ -32,7 +33,9 @@ describe('StudentSubmissionPages', () => {
     await TestBed.configureTestingModule({
       imports: [StudentSubmissionPages], providers: [
         ...routedComponentProviders({ classId: 'class-1', assignmentId: 'assignment-1', submissionId: 'submission-1' }),
-        ...httpTestingProviders, ...authenticatedUserProviders('teacher')
+        ...httpTestingProviders, ...authenticatedUserProviders('teacher'),
+        // Phase B3: the score editor is off here (as with the flag off): no request of its own for these page specs to account for.
+        { provide: TeacherEvaluationApiService, useValue: { snapshot: async () => null, save: async () => { throw new Error('not used'); } } }
       ]
     })
     .compileComponents();
