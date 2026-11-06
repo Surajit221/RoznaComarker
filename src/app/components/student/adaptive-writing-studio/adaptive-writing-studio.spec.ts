@@ -50,6 +50,57 @@ describe('AdaptiveWritingStudio', () => {
     fixture.detectChanges();
   });
 
+  describe('without any teacher action', () => {
+    const provisional = { ...currentCanonical, evaluationStatus: 'partial', evaluationSource: 'provisional', processingActive: true, terminal: false } as CanonicalResultViewState;
+    function fresh(canonical: CanonicalResultViewState): AdaptiveWritingStudio {
+      api.getSession.calls.reset();
+      const next = TestBed.createComponent(AdaptiveWritingStudio);
+      next.componentInstance.skills = skills;
+      next.componentInstance.canonicalResultState = canonical;
+      next.componentInstance.submissionId = 'submission-1';
+      next.detectChanges();
+      return next.componentInstance;
+    }
+    it('waits while the assessment runs, then loads practice by itself when the final evaluation matches', () => {
+      const studio = fresh(provisional);
+      expect(studio.state).toBe('waiting_for_analysis');
+      expect(api.getSession).not.toHaveBeenCalled();
+      studio.canonicalResultState = currentCanonical;
+      expect(api.getSession).toHaveBeenCalledTimes(1);
+      expect(studio.state).toBe('idle');
+      expect(studio.canGenerate).toBeTrue();
+    });
+    it('a "not matching yet" answer while the analysis is still running is waiting, not a failure', () => {
+      api.getSession.and.returnValue(throwError(() => ({ status: 400, error: { code: 'STALE_EVALUATION', message: 'The evaluation does not match the latest canonical corrections.' } })));
+      const studio = fresh({ ...provisional, processingActive: false } as CanonicalResultViewState);
+      expect(api.getSession).toHaveBeenCalledTimes(1);
+      expect(studio.state).toBe('waiting_for_analysis');
+      api.getSession.and.returnValue(of(idle));
+      studio.canonicalResultState = currentCanonical;
+      expect(studio.state).toBe('idle');
+    });
+    it('never spins for ever: an analysis that ended without a usable result says why', () => {
+      const next = TestBed.createComponent(AdaptiveWritingStudio);
+      next.componentInstance.skills = skills;
+      next.componentInstance.canonicalResultState = provisional;
+      next.componentInstance.submissionId = 'submission-1';
+      next.detectChanges();
+      expect(next.componentInstance.state).toBe('waiting_for_analysis');
+      next.componentInstance.canonicalResultState = { ...provisional, processingActive: false, terminal: true, evaluationStatus: 'failed' } as CanonicalResultViewState;
+      next.detectChanges();
+      expect(next.componentInstance.state).toBe('error');
+      expect(next.nativeElement.textContent).toContain('did not finish');
+      expect(next.nativeElement.querySelector('.status-region .spinner')).toBeNull();
+    });
+    it('a teacher edit that changes the evaluation identity waits for the new evaluation, then reloads practice', () => {
+      api.getSession.calls.reset();
+      component.canonicalResultState = { ...currentCanonical, correctionSourceHash: 'edited-hash', processingActive: true } as CanonicalResultViewState;
+      expect(component.state).toBe('waiting_for_analysis');
+      component.canonicalResultState = { ...currentCanonical, correctionSourceHash: 'edited-hash', evaluationSourceHash: 'edited-hash' } as CanonicalResultViewState;
+      expect(api.getSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('loads an existing session and remains idle when none exists', () => {
     expect(api.getSession).toHaveBeenCalledOnceWith('submission-1');
     expect(component.state).toBe('idle');

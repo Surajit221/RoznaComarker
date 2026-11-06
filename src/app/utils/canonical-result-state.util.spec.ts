@@ -1,5 +1,5 @@
 import { applySubmissionLifecycleFallback, canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
-  normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
+  evaluationHeading, normalizeCanonicalResult, shouldRetryEvaluationOnly } from './canonical-result-state.util';
 
 describe('canonical result normalization', () => {
   for (const [ocrStatus, correctionStatus, evaluationStatus] of [
@@ -272,5 +272,21 @@ describe('canonical result normalization', () => {
       statistics: { grammar: 1, mechanics: 2 } });
     expect(state.semanticProgressMessage).toBe('Retrying content, organization, and vocabulary analysis…');
     expect(state.automaticPollingAllowed).toBeTrue();
+  });
+});
+
+describe('evaluationHeading', () => {
+  const state = (over: Record<string, unknown>) => normalizeCanonicalResult(over);
+  it('never calls a teacher-reviewed result provisional', () => {
+    expect(evaluationHeading(state({ evaluationFreshness: 'overridden', evaluationStatus: 'completed', evaluationSource: 'deterministic_fallback' })))
+      .toBe('Teacher-reviewed Evaluation');
+  });
+  it('matches every other evaluation state', () => {
+    expect(evaluationHeading(state({ evaluationStatus: 'completed', evaluationSource: 'ai', evaluationFreshness: 'current' }))).toBe('AI-assisted Evaluation');
+    expect(evaluationHeading(state({ evaluationStatus: 'processing' }))).toBe('Evaluation in Progress');
+    expect(evaluationHeading(state({ evaluationStatus: 'failed' }))).toBe('Evaluation Unavailable');
+    expect(evaluationHeading(state({ evaluationStatus: 'partial', evaluationSource: 'provisional' }))).toBe('Provisional Automated Evaluation');
+    expect(evaluationHeading(state({ evaluationStatus: 'completed', evaluationSource: 'deterministic_fallback', evaluationFreshness: 'current' }))).toBe('Automated Evaluation');
+    expect(evaluationHeading(null)).toBe('Evaluation');
   });
 });

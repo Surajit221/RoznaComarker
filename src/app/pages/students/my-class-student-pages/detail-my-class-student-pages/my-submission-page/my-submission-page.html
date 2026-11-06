@@ -1,7 +1,7 @@
 <ng-container>
   @if (submission?.sourceFidelity && !submission?.sourceFidelity?.assessmentAllowed) {
     <header class="source-review-shell mb-6 flex flex-wrap justify-between items-center gap-3"><h1 class="text-4xl font-bold text-gray-800">Your Submissions</h1>
-      <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button></header>
+      @if (!preview) { <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button> }</header>
   }
   <app-source-fidelity [source]="submission?.sourceFidelity" />
   @if (!submission?.sourceFidelity || submission?.sourceFidelity?.assessmentAllowed) {
@@ -11,18 +11,31 @@
 
   <!-- ✅ DESKTOP -->
   <main class="submission-review-page">
-    <app-analysis-progress [progress]="canonicalResultState?.processingProgress || null" />
+    <!-- Task 22: a failed or retrying correction stage has one message, the corrections notice; the general banner stays out of it. -->
+    <app-analysis-progress [progress]="correctionRetryNotice ? null : (canonicalResultState?.processingProgress || null)" />
+    @if (correctionRetryNotice) {
+    <div class="correction-retry-notice" role="status" aria-live="polite">
+      <p>{{ correctionRetryNotice }}</p>
+      @if (canonicalResultState?.correctionRetryAllowed) {
+      <button type="button" class="correction-retry-button" (click)="retryCorrections()" [disabled]="correctionRetrySubmitting"
+        [attr.aria-busy]="correctionRetrySubmitting">{{ correctionRetrySubmitting ? 'Starting…' : 'Retry analysis' }}</button>
+      }
+      @if (correctionRetryError) { <p class="correction-retry-error" role="alert">{{ correctionRetryError }}</p> }
+    </div>
+    }
 
     <div class="mb-6 flex flex-row justify-between items-center">
       <h1 class="text-4xl text-center font-bold text-gray-800">Your Submissions</h1>
       <div class="flex flex-row gap-2">
         <button type="button" class="btn-info" (click)="scrollToAiFeedback()">{{ evaluationFeedbackButtonLabel }}</button>
+        @if (!preview) {
         <button type="button" class="btn-primary" [disabled]="isPdfDownloading || !feedbackPdfReady" (click)="downloadPdf()">
           @if (isPdfDownloading) {
           <span class="pdf-loading"><span class="pdf-spinner" aria-hidden="true"></span>Generating...</span>
           } @else { Download Feedback PDF }
         </button>
         <button type="button" class="btn-danger" (click)="toBack()">{{ backNavigationLabel }}</button>
+        }
       </div>
     </div>
 
@@ -103,6 +116,7 @@
                   <h3 class="font-semibold text-gray-700">Overall Score</h3>
                   <span class="text-blue-500 text-xl font-bold">{{ overallScoreText }}</span>
                 </div>
+                @if (canonicalResultState?.scoreBeforeCorrections) { <p class="score-before-corrections" role="note">The score was calculated before the detailed corrections were available.</p> }
                 <div class="relative w-32 h-32 mx-auto mb-4">
                   <svg class="progress-ring w-32 h-32" width="120" height="120">
                     <circle class="text-gray-200" stroke-width="10" stroke="currentColor" fill="transparent" r="52"
@@ -127,57 +141,13 @@
               <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
                 <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
                 @if (partialStatisticsMessage) { <p class="text-sm text-blue-700 mb-4" role="status">{{ partialStatisticsMessage }}</p> }
-                @if (statisticsState === 'loading') { <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container> }
+                @if (correctionRetryNotice) { <p class="text-sm text-gray-600" role="status">Correction statistics will appear when the corrections are ready.</p> }
+                @else if (statisticsState === 'loading') { <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container> }
                 @else if (statisticsState === 'processing') { <div class="text-sm text-blue-700" role="status">Still analyzing corrections…</div> }
-                @else if (statisticsState === 'error') { <div class="section-load-error" role="alert">Unable to load statistics — retrying is safe.</div> }
+                @else if (statisticsState === 'error') { <div class="section-load-error" role="alert">Statistics could not be loaded. Refresh the page to try again.</div> }
                 @else {
-                <div class="space-y-4">
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">Content Issues</span>
-                        <span class="font-medium">{{ contentIssuesDisplay }}</span>
-                    </div>
-                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div class="h-full bg-red-400 rounded-full" [style.width]="contentIssuesBarWidth"></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">Grammar Issues</span>
-                        <span class="font-medium">{{ grammarIssuesDisplay }}</span>
-                    </div>
-                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div class="h-full bg-green-400 rounded-full" [style.width]="grammarIssuesBarWidth"></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">Organization Issues</span>
-                        <span class="font-medium">{{ organizationIssuesDisplay }}</span>
-                    </div>
-                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div class="h-full bg-blue-400 rounded-full" [style.width]="organizationIssuesBarWidth"></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">Vocabulary Issues</span>
-                        <span class="font-medium">{{ vocabularyIssuesDisplay }}</span>
-                    </div>
-                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div class="h-full bg-purple-400 rounded-full" [style.width]="vocabularyIssuesBarWidth"></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">Mechanics Issues</span>
-                        <span class="font-medium">{{ mechanicsIssuesDisplay }}</span>
-                    </div>
-                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div class="h-full bg-yellow-400 rounded-full" [style.width]="mechanicsIssuesBarWidth"></div>
-                    </div>
-                  </div>
-                </div>
+                <app-correction-statistics [state]="canonicalResultState" [corrections]="annotations"
+                  [barWidths]="{ content: contentIssuesBarWidth, grammar: grammarIssuesBarWidth, organization: organizationIssuesBarWidth, vocabulary: vocabularyIssuesBarWidth, mechanics: mechanicsIssuesBarWidth }" />
                 }
               </div>
 
@@ -429,11 +399,12 @@
   <ng-template #feedbackSkeleton><div class="section-skeleton" aria-hidden="true"><span class="skeleton skeleton--title skeleton--feedback-heading"></span><div class="skeleton-feedback-grid">@for (row of feedbackSkeletonRows; track row) {<div><span class="skeleton skeleton--text skeleton--subheading"></span><span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--short"></span></div>}</div><div class="skeleton-action"><span class="skeleton skeleton--text skeleton--subheading"></span><span class="skeleton skeleton--text"></span><span class="skeleton skeleton--text skeleton--wide"></span></div></div><span class="sr-only">Loading detailed feedback</span></ng-template>
   <ng-template #aiFeedbackSkeleton><div class="section-skeleton skeleton-rubric" aria-hidden="true">@for (row of skeletonRows; track row) {<div class="skeleton-rubric-row"><span class="skeleton skeleton--title"></span><span class="skeleton skeleton--text skeleton--wide"></span></div>}</div><span class="sr-only">Loading AI feedback</span></ng-template>
 
-  @if ((submission?.draftNumber || 1) > 1) {
+  @if (!preview && (submission?.draftNumber || 1) > 1) {
     <app-draft-comparison [submissionId]="submission?._id || null"
       [refreshKey]="submission?.draftNumber + ':' + (submission?.assessmentCompletedAt || submission?.evaluationSourceHash || submission?.evaluationStatus || '')"></app-draft-comparison>
   }
 
+  @if (!preview) {
   <div class="w-full mt-6">
     <app-adaptive-writing-studio
       [submissionId]="submission?._id || ''"
@@ -443,6 +414,7 @@
       (submitNewDraft)="submitNewDraft()">
     </app-adaptive-writing-studio>
   </div>
+  }
 
   <!-- Shared Modal Dialog (outside desktop/mobile conditionals) -->
   <app-modal-dialog [open]="showRubricDialog && hasAssignmentRubric" [maxWidthClass]="'max-w-none'" [panelClass]="'lg:w-[90vw]'"

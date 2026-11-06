@@ -20,6 +20,7 @@ import { WorksheetApiService } from '../../../../api/worksheet-api.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { UploadGuidelines } from './upload-guidelines/upload-guidelines';
 import { AdaptivePracticeApiService } from '../../../../api/adaptive-practice-api.service';
+import { teacherDisplayName } from '../../../../utils/teacher-display-name.util';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
@@ -69,7 +70,7 @@ export class DetailMyClassStudentPages {
   }
 
   get teacherName(): string {
-    return this.classSummary?.teacher?.name || this.classSummary?.teacher?.email || '';
+    return teacherDisplayName(this.classSummary);
   }
 
   get studentsCount(): number {

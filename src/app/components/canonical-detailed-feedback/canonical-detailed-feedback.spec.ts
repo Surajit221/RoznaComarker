@@ -24,15 +24,24 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     expect(fixture.nativeElement.querySelector('[innerHTML]')).toBeNull();
   });
 
+  it('a card with no score (a teacher-added category) has no score badge, and no "0/0"; its issue count stays', () => {
+    const area = { ...model().areasForImprovement[0], id: 'v', category: 'VOCABULARY', title: 'Vocabulary', issueCount: 1, score: 0, maxScore: 0 };
+    fixture.componentRef.setInput('model', model({ areasForImprovement: [area], strengths: [] })); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.score-badge')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('0/0');
+    expect(fixture.nativeElement.textContent).toContain('1 issue');
+    expect(fixture.nativeElement.textContent).toContain('Vocabulary');
+  });
+
   it('never renders a heading-only blank completed section', () => {
     fixture.componentInstance.model = model({ status: 'empty', message: 'No major improvement areas were identified.', areasForImprovement: [], actionSteps: [] });
     fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('No major improvement areas were identified.');
   });
-  it('renders unavailable counts alongside holistic guidance without claiming zero issues',()=>{
+  it('renders unavailable counts alongside rubric guidance without claiming zero issues',()=>{
     const area={...model().areasForImprovement[0],issueCount:null,explanation:'',examples:[],dominantSymbols:[],evidenceKind:'holistic' as const};
-    fixture.componentRef.setInput('model',model({message:'Holistic rubric guidance only.',areasForImprovement:[area]}));
+    fixture.componentRef.setInput('model',model({message:'Rubric guidance only.',areasForImprovement:[area]}));
     fixture.detectChanges();const content=fixture.nativeElement.textContent;
-    expect(content).toContain('Issues unavailable');expect(content).toContain('Holistic rubric guidance only.');
+    expect(content).toContain('Issues unavailable');expect(content).toContain('Rubric guidance only.');
     expect(content).not.toContain('0 issues');expect(content).not.toContain('null distinct issues');
   });
 
@@ -82,5 +91,28 @@ describe('CanonicalDetailedFeedbackComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.feedback-card').length).toBeGreaterThan(0);
     expect(content).toContain('students learn'); expect(content).not.toContain('Preparing detailed feedback');
     expect(content).not.toContain('unavailable');
+  });
+});
+
+describe('CanonicalDetailedFeedbackComponent while the result is still being prepared', () => {
+  it('waits with a neutral message, and after the maximum wait offers Reload, which asks again', async () => {
+    const { BehaviorSubject } = await import('rxjs');
+    const { CanonicalSubmissionResultCoordinator } = await import('../../services/canonical-submission-result-coordinator.service');
+    const pollingState$ = new BehaviorSubject({ submissionId: 's', attempt: 3, running: true, timedOut: false, lastHttpStatus: 200 });
+    const coordinator = { pollingState$, retry: jasmine.createSpy('retry') };
+    await TestBed.configureTestingModule({ imports: [CanonicalDetailedFeedbackComponent], providers: [{ provide: CanonicalSubmissionResultCoordinator, useValue: coordinator }] }).compileComponents();
+    const fixture = TestBed.createComponent(CanonicalDetailedFeedbackComponent);
+    fixture.componentInstance.model = model({ status: 'processing', message: 'Preparing detailed feedback…', areasForImprovement: [], strengths: [], actionSteps: [] });
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Preparing detailed feedback…');
+    expect(element.textContent).not.toContain('out of date');
+    expect(element.querySelector('[data-feedback-reload]')).toBeNull();
+    pollingState$.next({ submissionId: 's', attempt: 40, running: false, timedOut: true, lastHttpStatus: 200 });
+    fixture.detectChanges();
+    const reload = element.querySelector<HTMLButtonElement>('[data-feedback-reload]')!;
+    expect(reload.textContent).toContain('Reload');
+    reload.click();
+    expect(coordinator.retry).toHaveBeenCalledTimes(1);
   });
 });

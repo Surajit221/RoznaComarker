@@ -1,0 +1,61 @@
+@if (controls().form(); as f) {
+  @let c = controls();
+  @let errors = c.formErrors();
+  @let show = c.showFormErrors();
+  <div class="edit-fields" [class.edit-fields--inline]="inline()" [attr.aria-busy]="c.saving()" data-edit-fields
+    role="group" [attr.aria-label]="inline() ? 'Edit correction' : null">
+    @if (inline()) {
+      <p class="edit-fields__title" data-edit-heading>
+        <span class="edit-fields__chip">{{ f.value.symbol || 'Correction' }}</span>
+        <span>Edit correction</span>
+        @if (f.value.quotedText) { <span class="edit-fields__quote">“{{ f.value.quotedText }}”</span> }
+      </p>
+      @if (c.error()) { <p class="edit-fields__alert" role="alert" data-edit-alert>{{ c.error() }}</p> }
+      @if (show && errors.span) { <p class="edit-fields__error" data-edit-error>The marked words no longer match the transcript. Use “Change the words…”.</p> }
+    }
+    @if (c.conflict() && c.savedVersion(); as saved) {
+      <div class="form__saved edit-fields__saved">
+        <p><strong>Saved now:</strong>&ngsp;{{ saved.symbol }}</p>
+        <p>{{ saved.message }}</p>
+        <p>Suggestion: {{ saved.suggestedText }}</p>
+      </div>
+    }
+
+    <label class="edit-fields__label" for="annotation-symbol">Category and symbol</label>
+    <select id="annotation-symbol" class="edit-fields__control" data-edit-first [attr.aria-invalid]="show && !!errors.symbol"
+      [attr.aria-describedby]="show && errors.symbol ? 'annotation-symbol-error' : null"
+      (change)="c.chooseSymbol(value($event))" (keydown)="onKeydown($event, false)">
+      <option value="" [selected]="!f.value.symbol">Choose…</option>
+      @for (group of c.groups(); track group.key) {
+        <optgroup [label]="group.label">
+          @for (item of group.symbols; track item.symbol) { <option [value]="item.symbol" [selected]="item.symbol === f.value.symbol">{{ item.symbol }}: {{ item.label }}</option> }
+        </optgroup>
+      }
+    </select>
+    @if (show && errors.symbol) { <p class="edit-fields__error form__field-error" id="annotation-symbol-error">{{ errors.symbol }}</p> }
+
+    <label class="edit-fields__label" for="annotation-message">Explanation</label>
+    <textarea id="annotation-message" class="edit-fields__control" rows="3" [maxLength]="MESSAGE_MAX" [value]="f.value.message"
+      [attr.aria-invalid]="show && !!errors.message" [attr.aria-describedby]="'annotation-message-help' + (show && errors.message ? ' annotation-message-error' : '')"
+      (input)="c.patch({ message: value($event) })" (keydown)="onKeydown($event, false)"></textarea>
+    <p class="edit-fields__help form__help" id="annotation-message-help">{{ f.value.message.length }} / {{ MESSAGE_MAX }}@if (inline()) { · Ctrl+Enter saves }</p>
+    @if (show && errors.message) { <p class="edit-fields__error form__field-error" id="annotation-message-error">{{ errors.message }}</p> }
+
+    <label class="edit-fields__label" for="annotation-suggestion">Suggestion</label>
+    <input id="annotation-suggestion" type="text" class="edit-fields__control" [maxLength]="SUGGESTION_MAX" [value]="f.value.suggestedText"
+      [attr.aria-invalid]="show && !!errors.suggestedText" [attr.aria-describedby]="show && errors.suggestedText ? 'annotation-suggestion-error' : null"
+      (input)="c.patch({ suggestedText: value($event) })" (keydown)="onKeydown($event, true)" />
+    <p class="edit-fields__help form__help">{{ f.value.suggestedText.length }} / {{ SUGGESTION_MAX }}</p>
+    @if (show && errors.suggestedText) { <p class="edit-fields__error form__field-error" id="annotation-suggestion-error">{{ errors.suggestedText }}</p> }
+
+    <div class="edit-fields__actions">
+      <button type="button" class="edit-fields__button edit-fields__button--primary" data-edit-save [attr.aria-disabled]="c.locked()" (click)="c.saveForm()">
+        @if (c.saving()) { <span class="edit-fields__spinner" aria-hidden="true"></span> Saving… } @else { Save }
+      </button>
+      <button type="button" class="edit-fields__button edit-fields__button--secondary" data-edit-cancel [attr.aria-disabled]="c.saving()" (click)="c.cancelForm()">Cancel</button>
+      @if (inline()) {
+        <button type="button" class="edit-fields__link" data-edit-change-words [attr.aria-disabled]="c.saving()" (click)="c.changeWords()">Change the words…</button>
+      }
+    </div>
+  </div>
+}

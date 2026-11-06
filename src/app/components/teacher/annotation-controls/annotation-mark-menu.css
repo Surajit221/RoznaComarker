@@ -1,0 +1,32 @@
+:host { display: block; }
+.mark-menu { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; color: #1e293b; text-align: left; }
+.mark-menu__target, .mark-menu__prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: .85rem; }
+.mark-menu__prompt { font-weight: 600; color: #334155; }
+.mark-menu__chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #0f766e; color: #fff; font-weight: 700; font-size: .75rem; }
+.mark-menu__category { font-weight: 600; text-transform: capitalize; color: #334155; }
+.mark-menu__quote { font-style: italic; color: #475569; overflow-wrap: anywhere; }
+.mark-menu__actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.mark-menu__button {
+  min-height: 44px; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; font-weight: 600; font-size: .875rem; cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.mark-menu__button--primary { background: #0f766e; color: #fff; }
+.mark-menu__button--primary:hover { background: #0b5f59; }
+.mark-menu__button--neutral { background: #fff; border-color: #cbd5e1; color: #1e293b; }
+.mark-menu__button--neutral:hover { background: #f1f5f9; }
+.mark-menu__button--danger { background: #fff; border-color: #fca5a5; color: #b91c1c; }
+.mark-menu__button--danger:hover { background: #fef2f2; border-color: #dc2626; }
+.mark-menu__button[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.mark-menu__choices { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mark-menu__choice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 6px 10px;
+  border: 1px solid #dbe3ea; border-radius: 10px; background: #fff; color: #1e293b; text-align: left; cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.mark-menu__choice:hover { background: #f0fdfa; border-color: #0f766e; }
+.mark-menu__chevron { margin-left: auto; font-size: 1.2rem; color: #64748b; }
+.mark-menu__back { align-self: flex-start; min-height: 44px; padding: 0 6px; border: 0; background: none; color: #0f5d5e; font-weight: 600; font-size: .85rem; cursor: pointer; }
+.mark-menu__back:hover { text-decoration: underline; }
+.mark-menu__button:focus-visible, .mark-menu__choice:focus-visible, .mark-menu__back:focus-visible { outline: 3px solid #f5b800; outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) { .mark-menu__button, .mark-menu__choice { transition: none; } }

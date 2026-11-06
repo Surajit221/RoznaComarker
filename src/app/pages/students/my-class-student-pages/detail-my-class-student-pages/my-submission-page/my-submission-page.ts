@@ -1,5 +1,6 @@
 import { SourceFidelityComponent } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestStudentAccess } from '../../../../../services/guest-student-access.service';
+import { STUDENT_RESULT_PREVIEW } from '../../../../../services/student-result-preview';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -41,8 +42,10 @@ import { normalizeAssetUrls, normalizeToHttps } from '../../../../../utils/url-n
 import { AdaptiveWritingStudio } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio';
 import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
 import type { AdaptiveSkillScore } from '../../../../../components/student/adaptive-writing-studio/adaptive-writing-studio.types';
+import { CorrectionStatistics } from '../../../../../components/correction-statistics/correction-statistics';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay,
-  normalizeCanonicalResult, type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+  normalizeCanonicalResult, type CanonicalResultViewState, evaluationHeading } from '../../../../../utils/canonical-result-state.util';
+import { teacherDisplayName } from '../../../../../utils/teacher-display-name.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
 import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
@@ -55,18 +58,31 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 @Component({
   selector: 'app-my-submission-page',
-  imports: [AnalysisProgress,SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
+  imports: [CorrectionStatistics,AnalysisProgress,SourceFidelityComponent,SubmissionPageReview,CommonModule, ReactiveFormsModule, TokenizedTranscript, CorrectionOverlay, WritingCorrectionsLegendComponent, CanonicalDetailedFeedbackComponent, ModalDialog, AdaptiveWritingStudio, DraftComparisonComponent],
   templateUrl: './my-submission-page.html',
   styleUrl: './my-submission-page.css',
 })
 export class MySubmissionPage {
   private readonly guestAccess = inject(GuestStudentAccess, { optional: true });
+  /** Set when a teacher previews this page: same rendering, on the supplied student payload. */
+  readonly preview = inject(STUDENT_RESULT_PREVIEW, { optional: true });
   get backNavigationLabel(): string { return this.guestAccess ? 'Back To Assignment' : 'Back To Student Profile'; }
   canonicalResultState: CanonicalResultViewState | null = null;
   get canonicalDetailedFeedback() { return this.canonicalResultState?.detailedFeedback || null; }
   get detailedFeedbackDisplay() { return buildDetailedFeedbackDisplayModel(this.canonicalResultState, this.feedback); }
   get analysisFailureMessage() { return canonicalFailureMessage(this.canonicalResultState); }
   get retryAnalysisLabel() { return canonicalRetryLabel(this.canonicalResultState); }
+  /** Task 20: the one message about a failed correction stage, or null. The score and feedback are shown as usual; only the corrections are missing. */
+  get correctionRetryNotice(): string | null {
+    const state = this.canonicalResultState;
+    if (!state) return null;
+    if (state.correctionRetryActive) return 'Your corrections are still being prepared. They will appear here automatically.';
+    if (state.semanticStatus !== 'failed' || state.correctionStatus !== 'partial') return null;
+    return state.correctionRetryAllowed ? 'Corrections could not be prepared for this draft.'
+      : 'Corrections could not be prepared for this draft. Please ask your teacher for help.';
+  }
+  correctionRetrySubmitting = false;
+  correctionRetryError: string | null = null;
   adaptiveSkillScores: readonly AdaptiveSkillScore[] = this.buildAdaptiveSkillScores(null);
   isUploadedFile = true;
 
@@ -385,22 +401,16 @@ export class MySubmissionPage {
   }
 
   get submissionAuthor(): string {
-    const a: any = this.submission && (this.submission as any).assignment;
-    const teacher: any = a && typeof a === 'object' ? (a.teacher || a.createdBy) : null;
-    const teacherEmail = teacher && typeof teacher === 'object' ? (teacher.email || teacher.userEmail) : '';
-    if (typeof teacherEmail === 'string' && teacherEmail.trim().length) return teacherEmail.trim();
-
-    const s: any = this.submission && (this.submission as any).student;
-    if (!s) return '';
-    if (typeof s === 'string') return '';
-    return s.displayName || s.email || '';
+    return teacherDisplayName(this.submission && (this.submission as any).assignment);
   }
 
   get submissionDateText(): string {
     const a: any = this.submission && (this.submission as any).assignment;
     const assignmentDateRaw: any = a && typeof a === 'object' ? (a.publishedAt || a.createdAt) : null;
 
-    const raw: any = assignmentDateRaw || (this.submission && (this.submission as any).submittedAt);
+    // Task 22: the date of THIS draft (its own submission time); the assignment's date only when the draft has none.
+    const draft = this.submission as { submittedAt?: string; createdAt?: string } | null;
+    const raw: any = draft?.submittedAt || draft?.createdAt || assignmentDateRaw;
     const d = raw ? new Date(raw) : null;
     if (!d || Number.isNaN(d.getTime())) return '';
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -832,13 +842,7 @@ export class MySubmissionPage {
   }
   get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
     ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
-  get evaluationFeedbackHeading(): string {
-    const state = this.canonicalResultState;
-    if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
-    if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
-    if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
-    return 'Provisional Automated Evaluation';
-  }
+  get evaluationFeedbackHeading(): string { return evaluationHeading(this.canonicalResultState); }
   get evaluationFeedbackButtonLabel(): string {
     return this.canonicalResultState?.evaluationSource === 'ai' ? 'View AI-assisted Evaluation' : 'View Evaluation';
   }
@@ -849,6 +853,8 @@ export class MySubmissionPage {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    // Task 22: a failed correction stage is explained once, by the corrections notice (correctionRetryNotice), not here as well.
+    if (this.correctionRetryNotice) return null;
     if (this.canonicalResultState?.semanticStatus === 'partial') {
       return 'Your score is ready, but correction analysis was only partially completed. Some correction statistics are unavailable.';
     }
@@ -857,8 +863,8 @@ export class MySubmissionPage {
       return 'Your score is ready, but detailed writing corrections are temporarily unavailable. This does not mean that no mistakes were found.';
     }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
-    return this.canonicalResultState.correctionStatus === 'partial'
-      ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
+    // Task 22: no "grammar and mechanics are still available" claim here: when the stage failed there are no results at all.
+    return this.canonicalResultState.correctionStatus === 'partial' ? null
       : this.canonicalResultState.semanticProgressMessage
         || 'Grammar and mechanics are available. Content, organization, and vocabulary are still being analyzed.';
   }
@@ -1308,6 +1314,7 @@ export class MySubmissionPage {
   }
 
   private getOcrPayload(submissionId: string, reason: 'initial' | 'tab' | 'route' | 'completion' | 'manual'): Promise<any> {
+    if (this.preview) return this.preview.ocrResponse();
     const sourceHash = String((this.submission as any)?.correctionSourceHash || 'unversioned');
     const key = `${submissionId}:${sourceHash}`;
     const cached = this.ocrPayloadCache.get(key);
@@ -1990,6 +1997,31 @@ export class MySubmissionPage {
     this.resultCoordinator.stop();
   }
 
+  /** Task 20: retries the failed correction stage only (no credit, no re-score), then polls until the corrections arrive. Student and guest. */
+  async retryCorrections(): Promise<void> {
+    const submissionId = this.submission?._id;
+    if (!submissionId || this.correctionRetrySubmitting || !this.canonicalResultState?.correctionRetryAllowed) return;
+    this.correctionRetrySubmitting = true;
+    this.correctionRetryError = null;
+    let started = false;
+    try {
+      const url = this.guestAccess ? this.guestAccess.url('corrections/retry')
+        : `${environment.apiUrl}/submissions/${encodeURIComponent(submissionId)}/corrections/retry`;
+      await firstValueFrom(this.http.post(url, {}, this.guestAccess ? { headers: this.guestAccess.headers } : {}));
+      started = true;
+    } catch (error) {
+      // Already running (another tab, or the automatic retry): just wait for it.
+      started = (error as { error?: { code?: string } })?.error?.code === 'CORRECTION_RETRY_IN_PROGRESS';
+      if (!started) this.correctionRetryError = 'The retry could not be started. Please try again later.';
+    } finally {
+      this.correctionRetrySubmitting = false;
+    }
+    if (!started || this.destroyed || this.submission?._id !== submissionId || !this.canonicalResultState) return;
+    this.canonicalResultState = { ...this.canonicalResultState, correctionRetryActive: true, correctionRetryAllowed: false,
+      processingActive: true, automaticPollingAllowed: true, terminal: false };
+    this.syncOcrPolling();
+  }
+
   private async refreshCanonicalResult(submissionId: string, _requestSequence: number): Promise<ResultRefreshSnapshot> {
     if (this.destroyed || this.submission?._id !== submissionId) throw { status: 409 };
     const startedAt = performance.now();
@@ -2017,7 +2049,8 @@ export class MySubmissionPage {
     this.aiFeedbackState = ['failed', 'blocked'].includes(canonical.evaluationStatus) ? 'error'
       : ['pending', 'processing'].includes(canonical.evaluationStatus) ? 'processing' : 'loaded';
     this.feedbackState = canonical.detailedFeedbackStatus === 'completed' ? 'loaded' : ['failed', 'blocked'].includes(canonical.detailedFeedbackStatus) ? 'error' : 'processing';
-    const completionKey = `${submissionId}:${(feedback as any)?.assessmentCompletedAt || canonical.evaluationSourceHash || 'completed'}`;
+    // The correction stage is part of the key: corrections that arrive after the score (Task 20 retry) reload the annotations without a page reload.
+    const completionKey = `${submissionId}:${(feedback as any)?.assessmentCompletedAt || canonical.evaluationSourceHash || 'completed'}:${canonical.semanticStatus}:${canonical.correctionStatus}`;
     if ((canonical.evaluationStatus === 'completed' || canonical.terminal === true)
       && this.ocrCompletionReconciliationKey !== completionKey) {
       this.ocrCompletionReconciliationKey = completionKey;

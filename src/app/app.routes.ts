@@ -8,6 +8,11 @@ export const routes: Routes = [
     import('./pages/students/guest-submission/guest-submission').then(m => m.GuestSubmissionPage) },
   { path: 'guest/results/:submissionId', loadComponent: () =>
     import('./pages/students/guest-submission/guest-submission').then(m => m.GuestSubmissionPage) },
+  // Multi-assignment recovery portal (guest submissions): ask for a link, and the emailed link's target.
+  { path: 'recover', data: { mode: 'request' }, loadComponent: () =>
+    import('./pages/recovery/recovery-portal').then(m => m.RecoveryPortalPage) },
+  { path: 'recover/portal', data: { mode: 'portal' }, loadComponent: () =>
+    import('./pages/recovery/recovery-portal').then(m => m.RecoveryPortalPage) },
   { path: 'institution/invites/:token', canActivate: [TeacherGuard], loadComponent: () =>
     import('./pages/teachers/institution/institution-invite').then((m) => m.InstitutionInvitePage) },
   {

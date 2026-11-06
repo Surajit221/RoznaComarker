@@ -12,6 +12,7 @@ import {
   OnDestroy,
   Output,
   SimpleChanges,
+  TemplateRef,
   ViewChild,
   inject,
   isDevMode
@@ -20,11 +21,10 @@ import {
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrWord } from '../../models/ocr-token.model';
 import { DeviceService } from '../../services/device.service';
-import { buildAnnotationVisuals, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
+import { buildAnnotationVisuals, type AnnotationCover, type AnnotationSegment, type AnnotationVisual } from './annotation-geometry';
 import { layoutAnnotationGroups, sharedSegments } from './annotation-layout';
-import type { AnnotationLeader } from './annotation-placement';
 import { annotationBadgeMetrics } from './annotation-badge-metrics';
-import { refineBadgeStrokeClearance } from './annotation-badge-clearance';
+import { annotationStrokeColor } from './annotation-stroke';
 import { annotationMatchesImage } from '../../utils/correction-bbox.util';
 import { imagePresentationGeometry, sourceGeometryMatchesImage, type AnnotationImageGeometry } from './annotation-image-geometry';
 
@@ -43,8 +43,8 @@ interface CorrectionMarker {
   label: string;
   textColor: string;
   semantic: boolean;
-  leaders?: AnnotationLeader[];
 }
+const LINE_LEVEL_NOTE = 'Marked by line: the exact words could not be located on the image.';
 
 export type MediaLoadState = 'idle' | 'fetching' | 'decoding' | 'rendering' | 'loaded' | 'error';
 
@@ -67,8 +67,24 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   @Input() submissionId: string | null = null;
   @Input() sourceGeometry: AnnotationImageGeometry | null = null;
   @Input() alt = 'Uploaded submission';
+  /** The teacher's review workspace (Task 6C). Off everywhere else: no listeners, no attributes, no behaviour change. */
+  @Input() syncMode = false;
+  @Input() syncActiveId: string | null = null;
+  /** Corrections that are not visible to the student, by id. */
+  @Input() syncStates: ReadonlyMap<string, 'hidden' | 'archived'> | null = null;
+  @Output() syncPointer = new EventEmitter<{ ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate' }>();
+  /** Which corrections are really drawn, so a target the image's geometry refuses is reported as having no position. */
+  @Output() syncDrawn = new EventEmitter<Set<string>>();
   @Output() mediaStateChange = new EventEmitter<MediaLoadState>();
   @Output() retryRequested = new EventEmitter<void>();
+  /**
+   * Teacher page only (Phase A): extra content for a mark the teacher chose (clicked, tapped, Enter), shown under the correction details.
+   * Context: the chosen correction's id. Not set (students, guests, workspace): nothing is added and nothing is emitted.
+   */
+  @Input() markMenu: TemplateRef<{ $implicit: string[] }> | null = null;
+  @Output() markActivated = new EventEmitter<string>();
+  /** Teacher page only: an inline edit form is open in the popup. It stays open (no hover-out, outside-click or Escape close, no other mark). */
+  @Input() markMenuHold = false;
 
   @ViewChild('overlayEl') private overlayEl?: ElementRef<HTMLElement>;
   @ViewChild('imageEl') private imageEl?: ElementRef<HTMLImageElement>;
@@ -77,6 +93,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   markers: CorrectionMarker[] = [];
   underlineSegments: AnnotationSegment[] = [];
   semanticRails: AnnotationSegment[] = [];
+  /** Task 21: the covered words of each bracket, tinted only while that correction is selected. */
+  bracketCovers: AnnotationCover[] = [];
   activeMarker: CorrectionMarker | null = null;
   isPinned = false;
   isMobile = false;
@@ -85,6 +103,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   tooltipStyle: Record<string, string> = { visibility: 'hidden' };
   mediaState: MediaLoadState = 'idle';
   displayImageUrl: string | null = null;
+  readonly lineLevelNote = LINE_LEVEL_NOTE;
+  /** Shown under the image, so a missing marker is explained on every page. */
+  unlocatedCount = 0;
+  lineLevelCount = 0;
+  private lineLevelIds = new Set<string>();
   selectedAnnotation: FeedbackAnnotation | null = null;
   selectedId: string | null = null;
   debugWords: OcrWord[] = [];
@@ -115,6 +138,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   private renderedHeight = 0;
   private bodyLocked = false;
   private blurFrame: number | null = null;
+  private syncUnlisten: (() => void) | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['page'] && !changes['page'].firstChange) this.closeTooltip();
@@ -142,6 +166,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.updateResponsiveMode();
+    if (this.syncMode) this.listenForSync();
     if (this.displayImageUrl) this.checkCachedImage(this.displayImageUrl);
     document.addEventListener('scroll', this.documentScrollHandler, true);
     document.fonts?.addEventListener('loadingdone', this.fontLoadHandler);
@@ -156,6 +181,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.syncUnlisten?.();
     document.fonts?.removeEventListener('loadingdone', this.fontLoadHandler);
     document.removeEventListener('scroll', this.documentScrollHandler, true);
     this.resizeObserver?.disconnect();
@@ -213,7 +239,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   onMarkerEnter(marker: CorrectionMarker, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
     this.cancelHoverClose();
-    if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+    if (!this.isPinned && !this.markMenuHold) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
   onMarkerLeave(marker: CorrectionMarker, event: PointerEvent): void {
@@ -228,7 +254,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   scheduleHoverClose(): void {
     this.cancelHoverClose();
-    if (!this.isPinned) this.hoverCloseTimer = setTimeout(() => this.closeTooltip(), 220);
+    if (!this.isPinned && !this.markMenuHold) this.hoverCloseTimer = setTimeout(() => this.closeTooltip(), 220);
   }
 
   selectCorrection(annotation: FeedbackAnnotation): void {
@@ -236,10 +262,65 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.selectedId = annotation._id;
     this.isPinned = true;
     this.schedulePosition();
+    this.emitMarkActivated();
   }
 
-  isSelected(segment: AnnotationSegment): boolean {
+  isLineLevel(annotation: FeedbackAnnotation | null): boolean { return !!annotation && this.lineLevelIds.has(annotation._id); }
+
+  /** Task 21: a tap or click on a bracket does exactly what its chip does (popover, sync, selection): it activates the chip. */
+  onRailClick(rail: AnnotationSegment, event: MouseEvent): void {
+    const marker = this.markers.find(m => m.annotations.some(a => rail.correctionIds.includes(a._id)));
+    const button = marker && this.overlayEl?.nativeElement.querySelector<HTMLElement>('[data-marker-id="' + CSS.escape(marker.id) + '"]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    button.click();
+  }
+
+  isSelected(segment: Pick<AnnotationSegment, 'correctionIds'>): boolean {
+    if (this.syncActiveId !== null) return segment.correctionIds.includes(this.syncActiveId);
     return this.selectedId !== null && segment.correctionIds.includes(this.selectedId);
+  }
+
+  isSyncActive(marker: CorrectionMarker): boolean {
+    return this.syncActiveId !== null && marker.annotations.some(a => a._id === this.syncActiveId);
+  }
+
+  /** The state of a drawn item when it is not visible to the student; null for everything on a student's page. */
+  syncState(ids: string[]): 'hidden' | 'archived' | null {
+    if (!this.syncStates || !ids.length) return null;
+    // Shared with something the student does see: it must not read as hidden.
+    const states = ids.map(id => this.syncStates!.get(id));
+    return states.every(Boolean) ? states[0]! : null;
+  }
+  markerIds(marker: CorrectionMarker): string[] { return marker.annotations.map(a => a._id); }
+  syncMarkerLabel(marker: CorrectionMarker): string {
+    const state = this.syncState(this.markerIds(marker));
+    return state ? `${marker.label}, ${state === 'hidden' ? 'hidden from the student' : 'removed'}, approximate position` : marker.label;
+  }
+
+  /** One set of listeners on the overlay, however many markers it draws. Capture phase: a marker's own click handler stops propagation. */
+  private listenForSync(): void {
+    const root = this.overlayEl?.nativeElement;
+    if (!root) return;
+    const idsAt = (event: Event): string[] | null => {
+      const id = (event.target as Element | null)?.closest?.('[data-marker-id]')?.getAttribute('data-marker-id');
+      const marker = id ? this.markers.find(m => m.id === id) : undefined;
+      return marker ? this.markerIds(marker) : null;
+    };
+    const emit = (event: Event, kind: 'hover' | 'leave' | 'focus' | 'activate'): void => { const ids = idsAt(event); if (ids) this.syncPointer.emit({ ids, kind }); };
+    const over = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'hover'); };
+    const out = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'leave'); };
+    // A pointer press is the click that follows, not a keyboard focus (it would count twice).
+    const focus = (event: Event): void => { if ((event.target as Element).matches?.(':focus-visible')) emit(event, 'focus'); };
+    const click = (event: Event): void => emit(event, 'activate');
+    const key = (event: KeyboardEvent): void => { if (event.key === 'Enter' || event.key === ' ') emit(event, 'activate'); };
+    root.addEventListener('pointerover', over, true); root.addEventListener('pointerout', out, true);
+    root.addEventListener('focusin', focus, true); root.addEventListener('click', click, true); root.addEventListener('keydown', key, true);
+    this.syncUnlisten = () => {
+      root.removeEventListener('pointerover', over, true); root.removeEventListener('pointerout', out, true);
+      root.removeEventListener('focusin', focus, true); root.removeEventListener('click', click, true); root.removeEventListener('keydown', key, true);
+    };
   }
 
   onMarkerFocus(marker: CorrectionMarker, event: FocusEvent): void {
@@ -248,7 +329,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.suppressNextFocusReopen = false;
       return;
     }
-    if (!this.isPinned) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
+    if (!this.isPinned && !this.markMenuHold) this.openTooltip(marker, event.currentTarget as HTMLElement, false);
   }
 
 
@@ -267,6 +348,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   onMarkerClick(marker: CorrectionMarker, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    if (this.markMenuHold) return;
     // VisualViewport can settle after initial render on Android Chrome. Resolve
     // the presentation mode at activation so the first tap opens the sheet.
     if (this.device.isMobile()) this.isMobile = true;
@@ -279,17 +361,25 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.isPinned = true;
       this.tooltipTarget = target;
       this.cdr.markForCheck();
+      this.emitMarkActivated();
       return;
     }
     this.openTooltip(marker, target, true);
+    this.emitMarkActivated();
   }
 
   onMarkerKeydown(marker: CorrectionMarker, event: KeyboardEvent): void {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
+    if (this.markMenuHold) return;
     if (this.device.isMobile()) this.isMobile = true;
     this.openTooltip(marker, event.currentTarget as HTMLElement, true);
+    this.emitMarkActivated();
+  }
+
+  private emitMarkActivated(): void {
+    if (this.markMenu && this.selectedId) this.markActivated.emit(this.selectedId);
   }
 
   preventControlPointerDown(event: PointerEvent): void {
@@ -314,7 +404,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @HostListener('document:pointerdown', ['$event'])
   onDocumentPointerDown(event: PointerEvent): void {
-    if (!this.activeMarker) return;
+    if (!this.activeMarker || this.markMenuHold) return;
     const element = event.target instanceof Element ? event.target : null;
     if (element?.closest('.correction-overlay__marker, .correction-overlay__tooltip')) return;
     this.closeTooltip();
@@ -322,6 +412,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.markMenuHold) return;
     this.closeFromControl();
   }
 
@@ -372,6 +463,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       this.markers = [];
       this.underlineSegments = [];
       this.semanticRails = [];
+      this.unlocatedCount = 0; this.lineLevelCount = 0; this.lineLevelIds = new Set();
       this.cdr.markForCheck();
       return;
     }
@@ -383,6 +475,8 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
         this.geometryWarningShown = true;
       }
       this.markers = []; this.underlineSegments = []; this.semanticRails = []; this.visuals = []; this.debugWords = [];
+      this.unlocatedCount = annotations.length; this.lineLevelCount = 0; this.lineLevelIds = new Set();
+      if (this.syncMode) this.syncDrawn.emit(new Set());
       this.cdr.markForCheck(); return;
     }
     const presentation = imagePresentationGeometry(annotations, Array.isArray(this.ocrWords) ? this.ocrWords : [],
@@ -391,7 +485,17 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     this.visuals = buildAnnotationVisuals(presentation.annotations, presentation.words, this.page, this.imageWidth, this.imageHeight);
     this.underlineSegments = sharedSegments(this.visuals, false);
     this.semanticRails = sharedSegments(this.visuals, true);
+    this.bracketCovers = this.visuals.flatMap(v => v.covers || []);
+    this.lineLevelIds = new Set(this.visuals.filter(v => v.lineLevel).map(v => v.annotation._id));
+    this.lineLevelCount = this.lineLevelIds.size;
+    const placed = new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id));
+    this.unlocatedCount = annotations.filter(a => !placed.has(a._id)).length;
     this.layoutMarkers();
+    if (this.syncMode) this.syncDrawn.emit(new Set(this.visuals.filter(v => v.segments.length).map(v => v.annotation._id)));
+  }
+
+  strokeColor(color: string): string {
+    return annotationStrokeColor(color);
   }
 
   private layoutMarkers(): void {
@@ -400,10 +504,11 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
     const height = rect?.height || 0;
     this.renderedWidth = width;
     this.renderedHeight = height;
-    this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth);
-    const groups = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics, this.debugWords);
-    this.markers = refineBadgeStrokeClearance(groups, this.visuals, width, height, this.badgeMetrics, this.debugWords).map((group) => ({
+    // Task 21: chip size and stroke thickness follow the width the page is drawn at, not only the viewport.
+    this.badgeMetrics = annotationBadgeMetrics(typeof window === 'undefined' ? Infinity : window.innerWidth, width);
+    this.markers = layoutAnnotationGroups(this.visuals, width, height, 110, this.badgeMetrics).map((group) => ({
       ...group, annotation: group.annotations[0], offsetX: 0, offsetY: 0,
+      label: group.annotations.some(a => this.lineLevelIds.has(a._id)) ? `${group.label}. ${LINE_LEVEL_NOTE}` : group.label,
       textColor: this.contrastColor(group.annotations[0].color || '#d64545')
     }));
     if (this.selectedId) {
@@ -420,7 +525,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
       const rect = this.imageEl?.nativeElement.getBoundingClientRect();
       if (this.mediaState === 'loaded' && (Math.abs((rect?.width || 0) - this.renderedWidth) > 0.25
         || Math.abs((rect?.height || 0) - this.renderedHeight) > 0.25
-        || annotationBadgeMetrics(window.innerWidth).height !== this.badgeMetrics.height)) {
+        || annotationBadgeMetrics(window.innerWidth, rect?.width || 0).height !== this.badgeMetrics.height)) {
         this.layoutMarkers();
         this.cdr.detectChanges();
         if (this.activeMarker) {
@@ -433,6 +538,7 @@ export class CorrectionOverlay implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private openTooltip(marker: CorrectionMarker, target: HTMLElement, pinned: boolean): void {
+    if (this.syncMode) return;   // the workspace's list shows the details
     this.cancelHoverClose();
     this.updateResponsiveMode();
     const wasMobileOpen = this.isMobile && this.activeMarker !== null;

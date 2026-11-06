@@ -1,56 +1,158 @@
-<section class="moderation" aria-label="Teacher annotation controls">
-  <h2>Teacher Annotation Controls</h2>
-  <button type="button" (click)="load()" [disabled]="busy || !!form || retryPending">{{ open ? 'Reload saved annotations' : 'Review annotations' }}</button>
-  @if (error) { <p role="alert">{{ error }}</p> }
-  @if (retryPending) { <button type="button" (click)="retry()" [disabled]="busy">Retry unconfirmed save</button> }
-  @if (data && open) {
-    <p>{{ data.scorePolicy }}</p>
-    @if (data.scoringReviewRequired) { <p role="status"><strong>Grade review required:</strong> annotation evidence has changed; the authoritative grade is unchanged.</p> }
-    <div class="actions">
-      <button type="button" (click)="begin()" [disabled]="busy || !!form || retryPending">Add Manual Correction</button>
-      <button type="button" (click)="preview = !preview" [disabled]="busy || !!form">Preview Student View</button>
-      <button type="button" (click)="audit()" [disabled]="busy || !!form">View Audit History</button>
+<section class="editor" aria-labelledby="annotation-editor-title">
+  <div class="editor__head">
+    <h2 id="annotation-editor-title">Review corrections</h2>
+    <div class="editor__head-actions">
+      <ng-content />
+      <button type="button" class="ui-btn ui-btn--primary" [attr.aria-expanded]="open()" aria-controls="annotation-editor-body" (click)="toggle()">{{ open() ? 'Close' : 'Open' }}</button>
     </div>
-    @if (preview) {
-      <section aria-label="Saved student annotation preview"><h3>Saved effective annotations</h3>
-        <p>This preview shows saved annotation content using the student transcript renderer. It does not publish grades or change student access. Unsaved edits are excluded.</p>
-        @if (isPdf && pdfPages.length) { <app-submission-page-review [pages]="pdfPages" /> }
-        @if (!isPdf && imageUrl && activePage; as page) {
-          <p>Image highlights for the currently selected submission image. Select another image in the submission viewer to preview it.</p>
-          <app-correction-overlay [imageUrl]="imageUrl" [fileId]="page.fileId" [submissionId]="submissionId" [sourceGeometry]="page.sourceGeometry || null" [annotations]="page.annotations" [ocrWords]="page.words" alt="Saved student annotation preview" />
+  </div>
+  <p class="sr-only" role="status" aria-live="polite">{{ notice() }}</p>
+  @if (notice() && notice() !== 'Saving…') { <p class="editor__notice" aria-hidden="true">✓ {{ notice() }}</p> }
+  @if (error()) { <p class="editor__error" role="alert" data-form-error tabindex="-1">{{ error() }}</p> }
+  @if (pending() && !saving() && error()) {
+    <div class="editor__actions">
+      <button type="button" class="ui-btn ui-btn--primary" (click)="retry()">Retry</button>
+      @if (!pending()!.fromForm) { <button type="button" class="ui-btn ui-btn--secondary" (click)="discardPending()">Discard</button> }
+    </div>
+  }
+
+  @if (open()) {
+    <div id="annotation-editor-body" [attr.aria-busy]="loading()">
+      @if (loading() && !snapshot()) { <p role="status">Loading corrections…</p> }
+      @if (closed()) { <p class="editor__readonly" role="status">This class is closed, so corrections are read-only.</p> }
+      @if (snapshot(); as data) {
+        @if (data.possibleMissedLines) {
+          <p class="editor__warning" role="status" data-possible-missed-line><strong>Possible missed line, please check the image.</strong> The text recognition may have skipped a written line, so it may not be marked.</p>
         }
-        @for (page of previewPages; track page.key) {
-          <h4>Page {{ page.displayNumber }}</h4><app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" />
+        <p class="editor__counts" data-counts>
+          <strong>{{ studentVisible() }}</strong> of {{ rows().length }} corrections are visible to the student.
+          Hidden: {{ counts().hidden }}. Removed: {{ counts().archived }}. Needs review: {{ counts().review }}.
+        </p>
+        @if (data.scoreReview; as review) {
+          <app-grade-check [submissionId]="submissionId()" [review]="review" [revision]="data.revision" [sourceHash]="data.sourceHash" [readOnly]="readOnly()"
+            [closedNote]="closed() ? 'This class is closed, so the grade check is read-only.' : ''" [editorBlock]="gradeCheckBlock()"
+            (decided)="onGradeChecked()" (reloadNeeded)="reload()" (closedByServer)="closedByServer.set(true)" (noAccess)="noAccess.set(true)" />
         }
-      </section>
-    } @else {
-      @for (c of data.corrections; track c.id) {
-        <article><h3>{{ c.symbol }} · {{ c.moderationStatus }} · {{ c.source }}</h3>
-          <blockquote>{{ c.quotedText }}</blockquote><p>{{ c.message }}</p><p>Suggestion: {{ c.suggestedText }}</p>
-          <div class="actions">
-            <button type="button" (click)="begin(c)" [disabled]="busy || !!form || retryPending">Edit</button>
-            @if (c.moderationStatus === 'visible') {
-              <button type="button" (click)="mutate('hide', c.id)" [disabled]="busy || !!form || retryPending">Hide</button>
-              <button type="button" (click)="mutate('reject', c.id)" [disabled]="busy || !!form || retryPending">Reject / Remove</button>
-            } @else { <button type="button" (click)="mutate('restore', c.id)" [disabled]="busy || !!form || retryPending">Restore</button> }
+
+        <div class="editor__toolbar">
+          <div class="editor__filters" role="group" aria-label="Filter corrections">
+            @for (option of FILTERS; track option.key) {
+              <button type="button" class="filter" [class.filter--on]="filter() === option.key" [attr.aria-pressed]="filter() === option.key" (click)="setFilter(option.key)">{{ option.label }} ({{ counts()[option.key] }})</button>
+            }
           </div>
-        </article>
+          <div class="editor__actions">
+            @if (!readOnly()) { <button type="button" class="ui-btn ui-btn--primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }
+            <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="loading()" (click)="reload()">Reload latest</button>
+            <button #historyButton type="button" class="ui-btn ui-btn--secondary" aria-haspopup="dialog" (click)="openHistory()">Change history</button>
+            <button type="button" class="ui-btn ui-btn--secondary" data-sync-toggle [attr.aria-expanded]="workspaceOpen()" (click)="toggleWorkspace()">{{ workspaceOpen() ? 'Hide image and transcript' : 'Show image and transcript' }}</button>
+          </div>
+        </div>
+        @if (!readOnly()) {
+          <div class="editor__bulk" role="group" aria-label="Change several corrections at once" data-bulk>
+            <span class="editor__bulk-label" aria-hidden="true">Several at once</span>
+            <div class="editor__bulk-main">
+              <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-pressed]="selectMode()" data-bulk-select-mode (click)="toggleSelectMode()">{{ selectMode() ? 'Stop selecting' : 'Select several' }}</button>
+              @if (selectMode()) {
+                <button type="button" class="ui-btn ui-btn--primary" data-bulk-hide-selected [attr.aria-disabled]="locked() || !!form() || !selectedCount()" (click)="askHideSelected($event)">Hide selected ({{ selectedCount() }})</button>
+              }
+              @if (hiddenCount()) {
+                <button type="button" class="ui-btn ui-btn--secondary" data-bulk-restore-all [attr.aria-disabled]="locked() || !!form()" (click)="askRestoreAll($event)">Restore all hidden ({{ hiddenCount() }})</button>
+              }
+            </div>
+            @if (categoryOptions().length) {
+              <div class="editor__bulk-cats" role="group" aria-label="Hide every correction of one category">
+                @for (option of categoryOptions(); track option.key) {
+                  <button type="button" class="ui-chip" [attr.data-bulk-category]="option.key" [attr.aria-disabled]="locked() || !!form()" (click)="askHideCategory(option, $event)">Hide all {{ option.label }} <span class="ui-chip__count">({{ option.count }})</span></button>
+                }
+              </div>
+            }
+          </div>
+        }
+        @if (undo(); as u) {
+          <div class="editor__undo" data-bulk-undo>
+            <span>{{ u.label }}</span>
+            <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked()" (click)="undoBulk()">Undo</button>
+          </div>
+        }
+
+        @if (workspaceOpen()) {
+          <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
+            [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [isPdf]="isPdf()" [imageStore]="imageStore()"
+            [readOnly]="readOnly()" [actionsLocked]="locked() || !!form()"
+            (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" (menuAction)="onMenuAction($event)" />
+        }
+
+        @if (form(); as f) { @if ((f.placement ?? 'panel') === 'panel') {
+          <form class="form" (ngSubmit)="saveForm()" novalidate>
+            <h3 data-form-heading tabindex="-1">{{ f.orphan ? 'Place this correction again' : f.mode === 'edit' ? 'Edit correction' : 'Add correction' }}</h3>
+            @if (data.pages.length > 1) {
+              <label for="annotation-page">Page</label>
+              <select id="annotation-page" [ngModel]="f.pageIndex" name="page" (ngModelChange)="choosePage($event)">
+                @for (page of data.pages; track page.fileId + ':' + page.pageNumber) { <option [ngValue]="$index">Page {{ $index + 1 }}</option> }
+              </select>
+            }
+            <label for="annotation-source">Transcript: select the words this correction is about</label>
+            <textarea id="annotation-source" #source data-source-text rows="6" readonly [value]="formPage()?.text ?? ''" (select)="useSelection(source)" (mouseup)="useSelection(source)" (keyup)="useSelection(source)" aria-describedby="annotation-span-help"></textarea>
+            <p id="annotation-span-help" class="form__help">Selections extend to whole words. With a keyboard: move into the text, then hold Shift and use the arrow keys.</p>
+            <p class="form__quote"><strong>Selected:</strong>&ngsp;@if (f.value.quotedText) { <span data-selected-quote>{{ f.value.quotedText }}</span> } @else { <em>nothing yet</em> }</p>
+            @if (f.spanNote) { <p class="form__help">{{ f.spanNote }}</p> }
+            @if (showFormErrors() && formErrors().span) { <p class="form__field-error">{{ formErrors().span }}</p> }
+
+            <app-annotation-edit-fields [controls]="self" />
+          </form>
+        } }
+
+        <h3 class="editor__list-title" data-list-heading tabindex="-1">Corrections</h3>
+        @if (!filteredCount()) { <p>No corrections in this view.</p> }
+        <ul #listPanel class="rows" [class.rows--panel]="workspaceOpen()">
+          @for (row of shownRows(); track row.key) {
+            <li>
+              <article class="row" [class.row--dimmed]="row.status !== 'visible'" [class.row--active]="selection.activeId() === row.key" [attr.aria-current]="selection.activeId() === row.key ? 'true' : null" [attr.data-row-key]="row.key" [attr.tabindex]="workspaceOpen() ? 0 : -1" [attr.aria-label]="(row.symbol || 'Correction') + ', ' + rowBadges(row)[0].label">
+                @if (selectMode() && !readOnly() && hideable().has(row.key)) {
+                  <label class="row__select"><input type="checkbox" data-row-select [checked]="selected().has(row.key)" (change)="toggleSelected(row.key)" /> Select<span class="sr-only"> {{ row.symbol }} {{ row.quotedText }}</span></label>
+                }
+                <div class="row__badges">
+                  @for (badge of rowBadges(row); track badge.label) { <span class="badge" [class]="'badge badge--' + badge.tone">{{ badge.label }}</span> }
+                  @if (selection.activeId() === row.key) { <span class="badge badge--selected" data-row-selected>Selected</span> }
+                  @for (label of positionWords(row); track label) { <span class="badge badge--position" data-row-position>{{ label }}</span> }
+                </div>
+                <p class="row__title"><strong>{{ row.symbol }}</strong>@if (row.symbolLabel && row.symbolLabel !== row.symbol) { <span>: {{ row.symbolLabel }}</span> }@if (row.category) { <span class="row__category"> · {{ row.category }}</span> }</p>
+                @if (row.quotedText) { <blockquote>{{ row.quotedText }}</blockquote> }
+                @if (row.message) { <p>{{ row.message }}</p> }
+                @if (row.suggestedText) { <p class="row__suggestion">Suggestion: {{ row.suggestedText }}</p> }
+                @if (needsReview(row)) { <p class="row__reason"><strong>Needs review:</strong>&ngsp;{{ orphanReasonText(row.orphanReason) }}</p> }
+                @if (form()?.placement === 'row' && form()?.rowKey === row.key) {
+                  <app-annotation-edit-fields [controls]="self" [inline]="true" />
+                } @else if (!readOnly()) {
+                  <div class="editor__actions">
+                    @for (action of actionsFor(row); track action) {
+                      @switch (action) {
+                        @case ('edit') { <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked() || !!form()" data-row-edit (click)="openForm(row, $event, 'row')">{{ row.orphanReason ? 'Place again' : 'Edit' }}<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('hide') { <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked() || !!form()" (click)="run('hide', row)">Hide<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('restore') { <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked() || !!form()" (click)="run('restore', row)">Restore<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('archive') { <button type="button" class="ui-btn ui-btn--danger" [attr.aria-disabled]="locked() || !!form()" (click)="askRemove(row, $event)">Remove<span class="sr-only"> {{ row.symbol }}</span></button> }
+                      }
+                    }
+                    @if (row.orphanReason && row.status === 'archived') { <p class="form__help">It no longer matches the text. Restoring it returns it to Needs review; the student will not see it.</p> }
+                  </div>
+                }
+              </article>
+            </li>
+          }
+        </ul>
+        @if (filteredCount() > limit()) {
+          <button type="button" class="ui-btn ui-btn--secondary" (click)="showMore()">Show more (showing {{ shownRows().length }} of {{ filteredCount() }})</button>
+        }
       }
-    }
-    @if (form) {
-      <fieldset [disabled]="busy || retryPending"><legend>{{ editing ? 'Edit correction' : 'Add manual correction' }}</legend>
-        <label>Source page<select [(ngModel)]="pageIndex">@for (page of data.pages; track page.fileId + ':' + page.pageNumber) { <option [ngValue]="$index">Page {{ $index + 1 }}</option> }</select></label>
-        <label>Select exact source text<textarea #source rows="7" readonly [value]="data.pages[pageIndex].text"></textarea></label>
-        <button type="button" (click)="select(source)">Use selected span</button><blockquote>{{ form.quotedText || 'Select a source span above.' }}</blockquote>
-        <label>Correction symbol<select [(ngModel)]="form.symbol" (ngModelChange)="category()">@for (group of data.legend.groups; track group.key) { <optgroup [label]="group.label">@for (symbol of group.symbols; track symbol.symbol) { <option [value]="symbol.symbol">{{ symbol.symbol }} — {{ symbol.label }}</option> }</optgroup> }</select></label>
-        <label>Explanation<textarea [(ngModel)]="form.message" maxlength="2000" rows="3"></textarea></label>
-        <label>Suggestion<textarea [(ngModel)]="form.suggestedText" maxlength="2000" rows="2"></textarea></label>
-        <div class="actions"><button type="button" (click)="mutate(editing ? 'edit' : 'add', editing || undefined)" [disabled]="!form.quotedText || !form.message.trim() || !form.suggestedText.trim()">Save</button><button type="button" (click)="cancel()">Cancel</button></div>
-      </fieldset>
-    }
-    @for (entry of history; track entry.newRevision) {
-      <details><summary>{{ entry.action }} · revision {{ entry.previousRevision }} → {{ entry.newRevision }} · {{ entry.timestamp | date:'medium' }}</summary><p>Teacher: {{ entry.actor }}</p><pre>{{ entry.before | json }}</pre><pre>{{ entry.after | json }}</pre></details>
-    }
-    @if (history.length && nextOffset !== null) { <button type="button" (click)="audit(nextOffset)" [disabled]="busy">Older history</button> }
+    </div>
+  }
+
+  <app-confirm-dialog [open]="!!confirmDialog()" [heading]="confirmDialog()?.heading ?? ''" [text]="confirmDialog()?.text ?? ''"
+    [confirmLabel]="confirmDialog()?.confirmLabel ?? 'Confirm'" [cancelLabel]="confirmDialog()?.cancelLabel ?? 'Cancel'" [tone]="confirmDialog()?.tone ?? 'primary'"
+    (confirmed)="onConfirmDialog()" (cancelled)="onCancelDialog()" />
+
+  @if (historyOpen()) {
+    <app-change-history-dialog [items]="historyItems()" [loading]="historyLoading()" [error]="historyError()" [hasMore]="historyNext() !== null" [snapshot]="snapshot()"
+      (closed)="closeHistory()" (retry)="retryHistory()" (loadMore)="loadHistory(false)" />
   }
 </section>

@@ -1,0 +1,39 @@
+<ng-template #body>
+  <div #panel class="history" role="dialog" aria-modal="true" aria-labelledby="change-history-title" tabindex="-1" data-history-dialog [attr.aria-busy]="loading()">
+    <div class="history__head">
+      <h3 id="change-history-title">Change history</h3>
+      <button type="button" class="btn-info" data-history-close (click)="closed.emit()">Close</button>
+    </div>
+    <p class="history__status" role="status" data-history-status>{{ loading() ? 'Loading changes…' : '' }}</p>
+    @if (error()) {
+      <p class="history__error" role="alert" data-history-error>{{ error() }}</p>
+      <button type="button" class="btn-warning" data-history-retry [attr.aria-disabled]="loading()" (click)="retry.emit()">Retry</button>
+    }
+    @if (!loading() && !error() && !items().length) { <p data-history-empty>No changes yet</p> }
+    @if (items().length) {
+      <div class="history__list" tabindex="0" role="group" aria-label="Change history entries" data-history-list>
+        <ol>
+          @for (item of items(); track item.newRevision + ':' + item.createdAt) {
+            <li data-history-entry>
+              <p><strong data-history-action>{{ actionLabel(item.action) }}</strong> · <time>{{ item.createdAt | date:'medium' }}</time></p>
+              @if (target(item); as t) {
+                <p data-history-target>@if (t.code) { <strong>{{ t.code }}</strong> }@if (t.code && t.category) { · }{{ t.category }}</p>
+              }
+              @if (summary(item)) { <p data-history-summary>{{ summary(item) }}</p> }
+              @if (quote(item)) { <blockquote>{{ quote(item) }}</blockquote> }
+              @if (item.reason) { <p data-history-reason>Reason: {{ item.reason }}</p> }
+              @if (item.entryId) { <p class="history__id" data-history-id>item {{ shortId(item.entryId) }}</p> }
+            </li>
+          }
+        </ol>
+        @if (hasMore()) { <button type="button" class="btn-info" data-history-more [attr.aria-disabled]="loading()" (click)="loadMore.emit()">Load more</button> }
+      </div>
+    }
+  </div>
+</ng-template>
+
+@if (device.isCompact()) {
+  <app-bottomsheet-dialog [open]="true" (closed)="closed.emit()"><ng-container [ngTemplateOutlet]="body" /></app-bottomsheet-dialog>
+} @else {
+  <app-modal-dialog [open]="true" (closed)="closed.emit()"><ng-container [ngTemplateOutlet]="body" /></app-modal-dialog>
+}

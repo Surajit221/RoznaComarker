@@ -1,0 +1,38 @@
+@if (chosen(); as entry) {
+  <div class="mark-menu" role="group" [attr.aria-label]="'Teacher actions for ' + (entry.row.symbol || 'correction')" data-sync-menu>
+    @if (showTarget()) {
+      <p class="mark-menu__target" data-mark-menu-target>
+        <span class="mark-menu__chip">{{ entry.row.symbol || 'Correction' }}</span>
+        @if (entry.row.category) { <span class="mark-menu__category">{{ entry.row.category }}</span> }
+        @if (entry.row.quotedText) { <span class="mark-menu__quote">“{{ entry.row.quotedText }}”</span> }
+      </p>
+    }
+    <div class="mark-menu__actions">
+      @for (action of entry.actions; track action) {
+        <button type="button" class="mark-menu__button" [class.mark-menu__button--primary]="action === 'edit'" [class.mark-menu__button--danger]="action === 'archive'"
+          [class.mark-menu__button--neutral]="action === 'hide' || action === 'restore'"
+          [attr.aria-disabled]="locked()" [attr.data-sync-menu-action]="action"
+          (click)="run(action, entry.row, $event)">{{ label(action, entry.row) }}<span class="sr-only"> {{ entry.row.symbol }}</span></button>
+      }
+    </div>
+    @if (entries().length > 1) {
+      <button type="button" class="mark-menu__back" data-mark-menu-back (click)="$event.stopPropagation(); back()"><span aria-hidden="true">←</span> Back to all {{ entries().length }} corrections here</button>
+    }
+  </div>
+} @else if (entries().length > 1) {
+  <div class="mark-menu" role="group" aria-label="Choose the correction to change" data-mark-menu-chooser>
+    <p class="mark-menu__prompt">This word has {{ entries().length }} corrections. Choose one:</p>
+    <ul class="mark-menu__choices">
+      @for (entry of entries(); track entry.row.key) {
+        <li>
+          <button type="button" class="mark-menu__choice" [attr.data-mark-menu-choice]="entry.row.key" (click)="$event.stopPropagation(); choose(entry.row.key)">
+            <span class="mark-menu__chip">{{ entry.row.symbol || 'Correction' }}</span>
+            @if (entry.row.category) { <span class="mark-menu__category">{{ entry.row.category }}</span> }
+            @if (entry.row.quotedText) { <span class="mark-menu__quote">“{{ entry.row.quotedText }}”</span> }
+            <span class="mark-menu__chevron" aria-hidden="true">›</span>
+          </button>
+        </li>
+      }
+    </ul>
+  </div>
+}

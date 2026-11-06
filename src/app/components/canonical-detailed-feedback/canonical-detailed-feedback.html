@@ -6,7 +6,12 @@
 
   @if (model.status === 'loading' || model.status === 'processing' || model.status === 'updating') {
     <div class="feedback-state processing-state" role="status" aria-live="polite">
-      <span class="compact-spinner" aria-hidden="true"></span><p>{{ model.message }}</p>
+      @if (polling()?.timedOut) {
+        <div><p>This is taking longer than usual. The result may already be ready.</p>
+          <button type="button" data-feedback-reload (click)="checkAgain()">Reload</button></div>
+      } @else {
+        <span class="compact-spinner" aria-hidden="true"></span><p>{{ model.message }}</p>
+      }
     </div>
   } @else if (model.status === 'blocked' || model.status === 'failed') {
     <div class="feedback-state unavailable-state" role="status">
@@ -31,7 +36,7 @@
         <div class="feedback-grid">
           @for (area of model.areasForImprovement; track area.id) {
             <article class="feedback-card" [attr.data-category]="area.category">
-              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">@if (area.issueCount === null) {Issues unavailable} @else if (area.evidenceKind === 'holistic') {Holistic feedback} @else { {{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }} }</span></div></header>
+              <header><h5>{{ area.title }}</h5><div class="card-badges">@if (marksVisible && area.maxScore) {<span class="score-badge">{{ area.score }}/{{ area.maxScore }}</span>}<span class="issue-badge">@if (area.issueCount === null) {Issues unavailable} @else if (area.evidenceKind === 'holistic') {Rubric note} @else { {{ area.issueCount }} issue{{ area.issueCount === 1 ? '' : 's' }} }</span></div></header>
               <p class="summary">{{ area.explanation || (area.issueCount === null ? 'Detailed correction counts are unavailable.' : area.issueCount + ' distinct issues affected this category.') }}</p>
               @if (area.dominantSymbols.length) {<div class="symbols" aria-label="Dominant correction symbols">@for (symbol of area.dominantSymbols; track symbol) {<span>{{ symbol }}</span>}</div>}
               @for (example of area.examples; track example.correctionId) {

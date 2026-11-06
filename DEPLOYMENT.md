@@ -1,7 +1,7 @@
 # PM2 Deployment Guide for RoznaComarker Frontend
 
 ## Prerequisites
-- Node.js 18+ installed
+- Node.js ^20.19, ^22.12 or >=24 (the versions Angular 20.3 declares in its `engines`)
 - PM2 installed globally: `npm install -g pm2`
 - Angular CLI installed globally: `npm install -g @angular/cli`
 
@@ -17,7 +17,9 @@ npm install
 npm run build:prod
 ```
 
-The production build will be created in the `dist/` directory.
+The production build is created in `dist/rozna-comarker-fe/browser`. That folder is what must be served.
+
+**Recommended: build on your own machine and upload that folder.** This repo has no lockfile, so `npm install` on the server can bring different package versions from the ones that were tested. Always use `npm run build:prod`: plain `ng build` skips the release stamp.
 
 ## PM2 Deployment
 
@@ -60,7 +62,7 @@ npm run pm2:delete
 The PM2 configuration is in `ecosystem.config.js`:
 - App name: `RoznaComarker_Frontend`
 - Port: 4200
-- Serves static files from `dist/` directory
+- **Known mismatch:** `ecosystem.config.js` runs `serve -s dist`, which is the wrong folder: the site is in `dist/rozna-comarker-fe/browser`, and `serve.json` (the cache policy) is only found there. If PM2 serves the site, change the `args` to `serve -s dist/rozna-comarker-fe/browser -l 4200`. If Nginx serves the folder directly, this PM2 app is not needed. Which one the VPS uses has to be checked there (`pm2 describe RoznaComarker_Frontend`).
 - Logs stored in `logs/` directory
 - Auto-restart enabled
 - Max memory: 500MB
@@ -76,7 +78,7 @@ If you encounter "Schema validation failed with the following errors: Data path 
 
 ### Build fails
 - Ensure all dependencies are installed: `npm install`
-- Check Node.js version: `node --version` (should be 18+)
+- Check Node.js version: `node --version` (^20.19, ^22.12 or >=24)
 - Clear Angular cache: `rm -rf .angular/cache`
 
 ### PM2 won't start

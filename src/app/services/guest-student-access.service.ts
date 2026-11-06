@@ -11,6 +11,7 @@ import { AdaptivePracticeApiService } from '../api/adaptive-practice-api.service
 import { WritingCorrectionsApiService } from '../api/writing-corrections-api.service';
 import { DEFAULT_CORRECTION_LEGEND } from '../constants/correction-legend.default';
 import type { ImagePreflightResult } from './image-preflight.service';
+import { RecoveryPortalService } from './recovery-portal.service';
 
 interface GuestPresentation {
   submission: BackendSubmission;
@@ -18,10 +19,16 @@ interface GuestPresentation {
   classSummary: { name: string; gradingScale?: string };
 }
 
+// How long this TAB keeps the link it was opened with (sessionStorage: this tab only, gone when the tab closes), so a refresh, a
+// reopened tab or an update reload later the same day still shows the result. It was one hour, which sent students back to
+// "link unavailable". The server still decides validity on every request.
+const RETURN_TOKEN_TAB_MS = 24 * 60 * 60 * 1000;
+
 /** Component-scoped capability. Never used as an application login/session. */
 @Injectable()
 export class GuestStudentAccess {
   private readonly http = inject(HttpClient);
+  private readonly portal = inject(RecoveryPortalService);
   submissionId = '';
   token = '';
   qrToken = '';
@@ -34,7 +41,7 @@ export class GuestStudentAccess {
     const key = `comarker:guest-return:${id}`;
     try {
       if (fragment) {
-        if (/^[\w-]{43}$/.test(fragment)) sessionStorage.setItem(key, JSON.stringify({ token: fragment, until: Date.now() + 3600000 }));
+        if (/^[\w-]{43}$/.test(fragment)) sessionStorage.setItem(key, JSON.stringify({ token: fragment, until: Date.now() + RETURN_TOKEN_TAB_MS }));
         return fragment;
       }
       const saved = JSON.parse(sessionStorage.getItem(key) || 'null');
@@ -47,7 +54,10 @@ export class GuestStudentAccess {
     try { sessionStorage.removeItem(`comarker:guest-return:${this.submissionId}`); } catch { /* optional session */ }
     this.token = ''; this.metadata = null;
   }
-  get headers(): HttpHeaders { return new HttpHeaders({ 'X-Guest-Token': this.token }); }
+  /** True when this page holds something the server could accept: its own link token or a recovery-portal session. */
+  hasAccess(): boolean { return Boolean(this.token) || Boolean(this.portal.session()); }
+  // The submission's own link wins. Without it, a recovery-portal session (read-only, checked by the server against the email) is used.
+  get headers(): HttpHeaders { return this.token ? new HttpHeaders({ 'X-Guest-Token': this.token }) : this.portal.headers(); }
   mediaHeaders(url: string): HttpHeaders {
     const expected = new URL(this.url('media/'), location.origin);
     const actual = new URL(url, location.origin);

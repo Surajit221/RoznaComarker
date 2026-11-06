@@ -1,6 +1,6 @@
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,6 +13,7 @@ import { MySubmissionPage } from '../my-class-student-pages/detail-my-class-stud
 import { GUEST_STUDENT_PROVIDERS, GuestStudentAccess } from '../../../services/guest-student-access.service';
 import { ImagePreflightService } from '../../../services/image-preflight.service';
 import { CanonicalSubmissionResultCoordinator } from '../../../services/canonical-submission-result-coordinator.service';
+import { RecoveryCooldown, recoveryRequestError } from '../../../services/recovery-cooldown';
 
 interface GuestAssignment { title: string; instructions?: string; deadline?: string; [key: string]: unknown; }
 interface GuestConfirmation { received: boolean; duplicate?: boolean; message?: string; returnUrl?: string; emailSent?: boolean; }
@@ -25,7 +26,7 @@ interface Response<T> { data: T; }
   templateUrl: './guest-submission.html',
   styleUrl: './guest-submission.css',
 })
-export class GuestSubmissionPage implements OnInit {
+export class GuestSubmissionPage implements OnInit, OnDestroy {
   readonly access = inject(GuestStudentAccess);
   identityEstablished = false;
   uploadReady = false;
@@ -95,6 +96,10 @@ export class GuestSubmissionPage implements OnInit {
   recoveryEmail = '';
   recoveryMessage = '';
   recovering = false;
+  recoveryError = false;
+  /** Why a result link cannot be shown: no link at all, an expired/revoked link, or a closed assignment/class. */
+  linkProblem: 'missing' | 'expired' | 'closed' | null = null;
+  readonly recoveryCooldown = new RecoveryCooldown();
   files: File[] = [];
   assignment: GuestAssignment | null = null;
   result: { title?: string; [key: string]: unknown } | null = null;
@@ -117,8 +122,8 @@ export class GuestSubmissionPage implements OnInit {
     this.submissionId = this.route.snapshot.paramMap.get('submissionId') || '';
     if (this.submissionId) {
       this.token = this.access.restoreReturnToken(this.submissionId, this.route.snapshot.fragment);
-      // Remove bearer material before API requests or rendering links. The optional
-      // one-hour tab session supports refresh; the emailed link remains authoritative.
+      // Remove bearer material before API requests or rendering links. The tab keeps the link
+      // (sessionStorage, this tab only) so a refresh or a reopened tab still works; the emailed link remains authoritative.
       history.replaceState(history.state, '', location.pathname + location.search);
       if (!(await this.guestAvailable())) return;
       await this.loadResults();
@@ -184,30 +189,65 @@ export class GuestSubmissionPage implements OnInit {
       if ([400, 422].includes((error as HttpErrorResponse)?.status)) this.requestKey = '';
     } finally { this.busy = false; }
   }
+  /**
+   * "Open your results" on the confirmation. After ANOTHER draft the guest is already on this submission's results page, and the address bar
+   * no longer holds the #token (removed on load), so the link would only add a fragment to the same page: the browser makes a same-document
+   * jump that neither reloads nor routes, and nothing happens. In that case the results are reloaded here instead. Any other case (a first
+   * submission on the QR page, another submission or origin) follows the link as before.
+   */
+  async openResults(event: Event): Promise<void> {
+    const href = this.confirmation?.returnUrl;
+    if (!href || !this.viewingResults) return;
+    let target: URL;
+    try { target = new URL(href, location.href); } catch { return; }
+    if (target.origin !== location.origin || target.pathname !== location.pathname) return;
+    event.preventDefault();
+    this.confirmation = null; this.revising = false; this.assignment = null;
+    this.files = []; this.uploadReady = false; this.requestKey = ''; this.access.requestKey = '';
+    await this.loadResults();
+  }
   async loadResults(): Promise<void> {
-    this.loading = true; this.error = '';
+    this.loading = true; this.error = ''; this.linkProblem = null;
+    Object.assign(this.access, { submissionId: this.submissionId, token: this.token });
+    // No link token and no recovery-portal session: nothing can open this page, so ask for the link instead of
+    // sending a request that can only fail (the server would answer 410 exactly as before).
+    if (!this.access.hasAccess()) { this.result = null; this.linkProblem = 'missing'; this.loading = false; return; }
     try {
-      Object.assign(this.access, { submissionId: this.submissionId, token: this.token });
       const presentation = await this.access.presentation(true);
       this.result = { title: presentation.assignment.title };
     } catch (error: unknown) {
-      if ((error as HttpErrorResponse)?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
-      if ([401, 403, 404, 410].includes((error as HttpErrorResponse)?.status)) {
+      const response = error as HttpErrorResponse;
+      if (response?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.guestUnavailable = true;
+      else if ([401, 403, 404, 410].includes(response?.status)) {
         this.result = null;
         this.access.forgetReturnToken();
+        // 404: the assignment or class is no longer open; the link itself may be fine. Otherwise the link is expired or revoked.
+        this.linkProblem = response.status === 404 ? 'closed' : 'expired';
       }
-      this.error = (error as HttpErrorResponse)?.error?.message || 'Unable to load results. Reopen your emailed link and try again.';
+      if (!this.linkProblem) this.error = response?.error?.message || 'Unable to load results. Reopen your emailed link and try again.';
     } finally { this.loading = false; }
   }
+  get linkHeading(): string {
+    return this.linkProblem === 'missing' ? 'Open the private link from your email'
+      : this.linkProblem === 'closed' ? 'This assignment is no longer available' : 'This link has expired or is no longer valid';
+  }
+  get linkText(): string {
+    return this.linkProblem === 'missing' ? 'This page opens with the private link we emailed you. If you no longer have that email, enter your submission email below and we will send a new link.'
+      : this.linkProblem === 'closed' ? 'Your teacher has closed this assignment or class, so its results can no longer be opened here. Please contact your teacher.'
+        : 'Enter the email address you used when submitting, and we will send you a new link.';
+  }
   async recover(): Promise<void> {
-    if (this.recovering) return;
-    this.recovering = true;
+    if (this.recovering || this.recoveryCooldown.active) return;
+    this.recovering = true; this.recoveryError = false;
     try {
       const recoveryUrl = this.submissionId ? `${this.base}/submissions/${encodeURIComponent(this.submissionId)}/recover`
         : `${this.base}/assignments/${encodeURIComponent(this.qrToken)}/recover`;
-      const response = await firstValueFrom(this.http.post<Response<{ message: string }>>(recoveryUrl, { email: this.recoveryEmail }));
+      const response = await firstValueFrom(this.http.post<Response<{ message: string; retryAfterSeconds?: number }>>(recoveryUrl, { email: this.recoveryEmail }));
+      // The same answer and countdown for every address: nothing here says whether an email exists or was sent.
       this.recoveryMessage = response.data.message;
-    } catch { this.recoveryMessage = 'Please wait a few minutes before trying again.'; }
+      this.recoveryCooldown.start(response.data.retryAfterSeconds);
+    } catch (error) { this.recoveryMessage = recoveryRequestError(error, this.recoveryCooldown); this.recoveryError = true; }
     finally { this.recovering = false; }
   }
+  ngOnDestroy(): void { this.recoveryCooldown.stop(); }
 }

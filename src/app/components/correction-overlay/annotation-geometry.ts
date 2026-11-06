@@ -1,6 +1,7 @@
 import type { FeedbackAnnotation } from '../../models/feedback-annotation.model';
 import type { OcrBBox, OcrWord } from '../../models/ocr-token.model';
 import { classifyCorrectionVisualType } from './annotation-classification';
+import { isSentenceLevel, lineFallbackBands, reliableTranscriptLines } from './annotation-line-fallback';
 
 export interface AnnotationSegment {
   id: string;
@@ -15,6 +16,21 @@ export interface AnnotationSegment {
   boundary?: boolean;
   /** Lowest permitted stroke edge in image-percent coordinates. */
   underlineBottom?: number;
+  /** A bracket over whole lines of the page, not words: a sentence-level correction whose words have no box. */
+  lineLevel?: boolean;
+  /** Task 21: the margin bracket of a sentence-level correction (FRAG, RO, Content/Organization, a quote over four words), drawn with end ticks. */
+  bracket?: boolean;
+}
+
+/** Task 21: the words a bracket stands for, one box per covered line. Tinted only while the correction is hovered, focused or selected. */
+export interface AnnotationCover {
+  id: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  color: string;
+  correctionIds: string[];
 }
 
 export interface AnnotationVisual {
@@ -22,7 +38,15 @@ export interface AnnotationVisual {
   segments: AnnotationSegment[];
   semantic: boolean;
   lineKeys: string[];
+  /** Placed by its line only (annotation-line-fallback.ts). Laid out like a margin rail, drawn differently. */
+  lineLevel?: boolean;
+  /** Task 21: the covered words of a bracket, for the hover/selection tint. */
+  covers?: AnnotationCover[];
 }
+
+/** Task 21: the horizontal step between bracket columns, in percent of the image width, and the vertical gap that counts as an overlap. */
+export const BRACKET_COLUMN_STEP = 1.8;
+const BRACKET_GAP = 0.4;
 
 interface LocatedBox { box: OcrBBox; order: number; newLine: boolean; line: number; }
 
@@ -45,7 +69,8 @@ function connected(a: LocatedBox, b: LocatedBox, imageWidth: number, imageHeight
   hasWordOrder: boolean): boolean {
   if (a.line !== b.line) return false;
   if (b.newLine || !sameLine(a.box, b.box, imageHeight)) return false;
-  if (hasWordOrder && b.order !== a.order + 1) return false;
+  // Words of one correction that follow each other on a line are one contiguous segment, whatever the gap the student left.
+  if (hasWordOrder) return b.order === a.order + 1;
   const gapPx = Math.max(0, b.box.x - a.box.x - a.box.w) * imageWidth / 100;
   const heightPx = Math.min(a.box.h, b.box.h) * imageHeight / 100;
   return gapPx <= Math.max(imageWidth * 0.003, heightPx * 0.85);
@@ -68,10 +93,9 @@ function segment(id: string, boxes: LocatedBox[], color: string, imageWidth: num
   const left = Math.min(...boxes.map((item) => item.box.x));
   const right = Math.max(...boxes.map((item) => item.box.x + item.box.w));
   const bottom = Math.max(...boxes.map((item) => item.box.y + item.box.h));
-  const height = Math.max(...boxes.map((item) => item.box.h));
-  const padX = Math.min(1.5 / imageWidth * 100, height * imageHeight / imageWidth * 0.08);
-  const x1 = clamp(left - padX, 0, 100);
-  const x2 = clamp(Math.max(right + padX, x1 + 2 / imageWidth * 100), 0, 100);
+  // Exactly the word's box. A line never runs past it.
+  const x1 = clamp(left, 0, 100);
+  const x2 = clamp(Math.max(right, x1 + 2 / imageWidth * 100), 0, 100);
   const heights = boxes.map(item => item.box.h).sort((a, b) => a - b);
   const middle = Math.floor(heights.length / 2);
   const medianHeight = heights.length % 2 ? heights[middle] : (heights[middle - 1] + heights[middle]) / 2;
@@ -116,6 +140,12 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
   }
   const textLeft = pageBoxes.length ? Math.min(...pageBoxes.map((box) => box.x)) : 0;
   const textRight = pageBoxes.length ? Math.max(...pageBoxes.map((box) => box.x + box.w)) : 100;
+  const leftFree = textLeft;
+  const rightFree = 100 - textRight;
+  const railX = leftFree >= 6 ? clamp(textLeft - 1.5, 1, 99)
+    : rightFree >= 6 ? clamp(textRight + 1.5, 1, 99)
+      : leftFree >= rightFree ? 1 : 99;
+  const reliableLines = reliableTranscriptLines(words);
   const visuals: AnnotationVisual[] = [];
   for (const annotation of annotations) {
     if (!annotation || (annotation.page && Number(annotation.page) !== Number(page))) continue;
@@ -143,28 +173,43 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
         top: clamp(box.y + box.h, 0, 99), width: 4 / imageWidth * 100, boundary: true,
         color: annotation.color || '#d64545', anchorTop: box.y, lineKey: `word:${item.line}`, correctionIds: [annotation._id] }];
     });
-    if (!located.length && !boundaries.length) continue;
+    if (!located.length && !boundaries.length) {
+      const bands = lineFallbackBands(annotation, words, reliableLines);
+      if (bands.length) visuals.push({ annotation, semantic: true, lineLevel: true, lineKeys: bands.map(band => `transcript:${band.line}`),
+        // One bracket from the first line's top to the last line's bottom.
+        segments: [{ id: `${annotation._id}_line`, left: railX, top: bands[0].top, width: 0, height: bands.at(-1)!.bottom - bands[0].top,
+          color: annotation.color || '#d64545', anchorTop: bands[0].top, correctionIds: [annotation._id], lineLevel: true }] });
+      continue;
+    }
     const semantic = classifyCorrectionVisualType(annotation) === 'semantic';
     const lineKey = (item: LocatedBox): string => hasWordOrder ? `word:${item.line}` : `box:${Math.round(item.box.y)}`;
     const lineKeys = [...new Set([...located.map(lineKey), ...boundaries.map((b) => b.lineKey!)])];
-    if (semantic) {
-      const leftFree = textLeft;
-      const rightFree = 100 - textRight;
-      const railX = leftFree >= 6 ? clamp(textLeft - 1.5, 1, 99)
-        : rightFree >= 6 ? clamp(textRight + 1.5, 1, 99)
-          : leftFree >= rightFree ? 1 : 99;
-      // One rail per affected visual line; never bridge an unrelated intervening line.
+    if (located.length && (semantic || isSentenceLevel(annotation))) {
+      // Task 21: a sentence-level correction is one bracket in the margin from the top of its first line to the bottom of its last, not one long
+      // underline per line. Lines that do not follow each other get separate brackets: an unrelated line in between is never bridged.
       const lines = new Map<number, LocatedBox[]>();
       for (const item of located) {
         const row = lines.get(item.line) || [];
         row.push(item); lines.set(item.line, row);
       }
-      visuals.push({ annotation, semantic: true, lineKeys, segments: [...lines.values()].map((row, index) => {
-        const top = clamp(Math.min(...row.map((item) => item.box.y)) - 0.2, 0, 100);
-        const bottom = clamp(Math.max(...row.map((item) => item.box.y + item.box.h)) + 0.2, 0, 100);
-        return { id: `${annotation._id}_semantic_${index}`, left: railX, top, width: 0,
-          height: bottom - top, color: annotation.color || '#d64545', anchorTop: top,
-          correctionIds: [annotation._id] };
+      const order = [...lines.keys()].sort((a, b) => a - b);
+      const blocks: number[][] = [];
+      for (const line of order) {
+        const block = blocks[blocks.length - 1];
+        if (block && line === block[block.length - 1] + 1) block.push(line); else blocks.push([line]);
+      }
+      const color = annotation.color || '#d64545';
+      visuals.push({ annotation, semantic: true, lineKeys, segments: blocks.map((block, index) => {
+        const boxes = block.flatMap((line) => lines.get(line)!.map((item) => item.box));
+        const top = clamp(Math.min(...boxes.map((box) => box.y)) - 0.2, 0, 100);
+        const bottom = clamp(Math.max(...boxes.map((box) => box.y + box.h)) + 0.2, 0, 100);
+        return { id: `${annotation._id}_bracket_${index}`, left: railX, top, width: 0, height: bottom - top, color, anchorTop: top,
+          correctionIds: [annotation._id], bracket: true };
+      }), covers: order.map((line, index) => {
+        const boxes = lines.get(line)!.map((item) => item.box);
+        const left = Math.min(...boxes.map((box) => box.x)), top = Math.min(...boxes.map((box) => box.y));
+        return { id: `${annotation._id}_cover_${index}`, left, top, width: Math.max(...boxes.map((box) => box.x + box.w)) - left,
+          height: Math.max(...boxes.map((box) => box.y + box.h)) - top, color, correctionIds: [annotation._id] };
       }) });
       continue;
     }
@@ -187,5 +232,35 @@ export function buildAnnotationVisuals(annotations: FeedbackAnnotation[], words:
           .flatMap(([, row]) => row.map(box => box.y)))),
         lineKey: lineKey(group[0]), correctionIds: [annotation._id] })), ...boundaries] });
   }
+  assignBracketColumns(visuals, railX, textLeft, textRight);
   return visuals;
+}
+
+/**
+ * Task 21: brackets whose lines overlap get their own column, a fixed step further from the text, so they never cover each other. The first
+ * column is the margin rail; further columns go outwards while they fit inside the image, then into the other margin, then they stay at the
+ * image edge. Every position is inside the image bounds. Brackets over exactly the same lines share one bracket (and one chip), as before.
+ */
+function assignBracketColumns(visuals: AnnotationVisual[], railX: number, textLeft: number, textRight: number): void {
+  const rails = visuals.filter((visual) => visual.semantic).flatMap((visual) => visual.segments)
+    .sort((a, b) => a.top - b.top || a.id.localeCompare(b.id));
+  if (rails.length < 2) return;
+  const outward = railX <= 50 ? -1 : 1;
+  const slots: number[] = [];
+  for (let x = railX; x >= 0.5 && x <= 99.5; x += outward * BRACKET_COLUMN_STEP) slots.push(x);
+  const otherStart = outward < 0 ? textRight + 1.5 : textLeft - 1.5;
+  for (let x = otherStart; x >= 0.5 && x <= 99.5 && Math.abs(x - railX) > BRACKET_COLUMN_STEP / 2; x -= outward * BRACKET_COLUMN_STEP) slots.push(x);
+  const columns: AnnotationSegment[][] = [];
+  const shared = new Map<string, number>();
+  for (const rail of rails) {
+    const range = `${rail.top.toFixed(3)}:${(rail.height || 0).toFixed(3)}`;
+    if (shared.has(range)) { rail.left = shared.get(range)!; continue; }
+    const bottom = rail.top + (rail.height || 0);
+    let column = columns.findIndex((placed) => placed.every((other) =>
+      other.top + (other.height || 0) + BRACKET_GAP <= rail.top || bottom + BRACKET_GAP <= other.top));
+    if (column < 0) { column = columns.length; columns.push([]); }
+    columns[column].push(rail);
+    rail.left = slots[Math.min(column, slots.length - 1)] ?? clamp(railX, 0.5, 99.5);
+    shared.set(range, rail.left);
+  }
 }

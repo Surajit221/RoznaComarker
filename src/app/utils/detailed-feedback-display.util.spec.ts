@@ -2,11 +2,11 @@ import { buildDetailedFeedbackDisplayModel } from './detailed-feedback-display.u
 import { normalizeCanonicalResult } from './canonical-result-state.util';
 
 describe('detailed feedback display normalization', () => {
-  it('keeps holistic feedback but never turns failed corrections into zero issues',()=>{
+  it('keeps rubric feedback but never turns failed corrections into zero issues',()=>{
     const state=normalizeCanonicalResult({correctionStatus:'partial',semanticStatus:'failed',correctionsAvailable:false,
       correctionSourceHash:'h',evaluationStatus:'completed',detailedFeedbackStatus:'completed',processingActive:false,terminal:true,
       categoryAvailability:{grammar:'failed'},detailedFeedback:{status:'completed',sourceHash:'h',strengths:[],actionSteps:[],
-        areasForImprovement:[{category:'GRAMMAR',evidenceKind:'holistic',issueCount:0,explanation:'Holistic rubric guidance.'}]}});
+        areasForImprovement:[{category:'GRAMMAR',evidenceKind:'holistic',issueCount:0,explanation:'Rubric guidance.'}]}});
     const display=buildDetailedFeedbackDisplayModel(state);
     expect(display.areasForImprovement[0].issueCount).toBeNull();
     expect(display.areasForImprovement[0].evidenceKind).toBe('holistic');

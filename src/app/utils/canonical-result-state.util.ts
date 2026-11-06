@@ -32,6 +32,12 @@ export interface CanonicalResultViewState {
   processingActive: boolean;
   automaticPollingAllowed: boolean;
   manualRetryAllowed: boolean;
+  /** Task 20: the correction stage alone is being retried (the score is not changing). The page keeps polling. */
+  correctionRetryActive?: boolean;
+  /** Task 20: the visible retry of the failed correction stage may be started (student, guest, teacher; no credit). */
+  correctionRetryAllowed?: boolean;
+  /** C.3b: corrections arrived (correction-only retry) after the score was calculated; the score was not recomputed. */
+  scoreBeforeCorrections?: boolean;
   terminal: boolean;
   correctionStage: string;
   evaluationBlockedReason: string | null;
@@ -58,6 +64,13 @@ export interface CanonicalResultViewState {
 const categories: CanonicalCategory[] = ['content', 'grammar', 'organization', 'vocabulary', 'mechanics'];
 const status = (value: any, fallback: ResultStatus): ResultStatus =>
   ['pending', 'processing', 'completed', 'partial', 'failed', 'stale', 'blocked'].includes(String(value)) ? value : fallback;
+
+/** A category count is a number of distinct corrections: a whole number, never a weight. Anything else is not shown as a count. */
+function wholeCount(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
 
 function finite(value: any): number | null {
   if (value === null || value === undefined || value === '') return null;
@@ -92,7 +105,7 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     const inferred: Availability = completeness === 'canonical' || (completeness === 'language_only' && languageCategory)
       ? 'available' : ['failed', 'partial', 'stale'].includes(correctionStatus) ? 'failed' : 'pending';
     availability[category] = ['pending', 'available', 'partial', 'failed'].includes(rawAvailability[category]) ? rawAvailability[category] : inferred;
-    statistics[category] = ['available', 'partial'].includes(availability[category]) ? finite(rawStats[category]) : null;
+    statistics[category] = ['available', 'partial'].includes(availability[category]) ? wholeCount(rawStats[category]) : null;
   }
   const explicitLifecycleActive = value.terminal === true ? false
     : value.processingActive === true || value.automaticPollingAllowed === true
@@ -172,6 +185,9 @@ export function normalizeCanonicalResult(payload: any, previous?: CanonicalResul
     processingActive,
     automaticPollingAllowed,
     manualRetryAllowed: Boolean(value.manualRetryAllowed ?? value.retryable),
+    correctionRetryActive: value.correctionRetryActive === true,
+    correctionRetryAllowed: value.correctionRetryAllowed === true,
+    scoreBeforeCorrections: value.scoreBeforeCorrections === true,
     terminal,
     correctionStage: String(value.correctionStage || (prerequisiteFailed ? 'semantic_failed' : correctionStatus)),
     evaluationBlockedReason: value.evaluationBlockedReason || (prerequisiteFailed ? 'corrections_incomplete' : null),
@@ -227,6 +243,42 @@ export function categoryDisplay(state: CanonicalResultViewState | null, category
   if (availability === 'pending') return 'Analyzing…';
   if (availability === 'failed') return 'Unavailable';
   return state.statistics[category] ?? 'Unavailable';
+}
+
+export interface CategoryStatistic { value: number | string; }
+export interface CodedCorrection { category?: string; group?: string; symbol?: string; }
+
+/** One row of the Correction Statistics card: the number of distinct corrections this viewer sees, nothing else. */
+export function categoryStatistic(state: CanonicalResultViewState | null, category: CanonicalCategory): CategoryStatistic {
+  return { value: categoryDisplay(state, category) };
+}
+
+/**
+ * The codes that make up a category's count, most frequent first: "SP 4 · P 2 · CAP 2". Built from the corrections this viewer sees. When those do not add
+ * up to the count shown (a list still loading, or not the same set), nothing is returned rather than a breakdown that disagrees with the number.
+ */
+export function categoryCodeCounts(corrections: readonly CodedCorrection[] | null | undefined, category: CanonicalCategory, count: number | string): string {
+  if (typeof count !== 'number' || count <= 0 || !Array.isArray(corrections)) return '';
+  const tally = new Map<string, number>();
+  for (const item of corrections) {
+    if (String(item?.category || item?.group || '').toLowerCase() !== category) continue;
+    const symbol = String(item?.symbol || '').trim();
+    if (symbol) tally.set(symbol, (tally.get(symbol) || 0) + 1);
+  }
+  const total = [...tally.values()].reduce((sum, value) => sum + value, 0);
+  if (total !== count) return '';
+  return [...tally].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([symbol, value]) => `${symbol} ${value}`).join(' · ');
+}
+
+/** The evaluation heading that matches the real state. A teacher-reviewed result is never called "provisional". */
+export function evaluationHeading(state: CanonicalResultViewState | null | undefined): string {
+  if (state?.evaluationFreshness === 'overridden') return 'Teacher-reviewed Evaluation';
+  if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
+  if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
+  if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
+  if (state?.evaluationSource === 'provisional' || state?.evaluationStatus === 'partial') return 'Provisional Automated Evaluation';
+  if (state?.evaluationStatus === 'completed') return 'Automated Evaluation';
+  return 'Evaluation';
 }
 
 export function shouldRetryEvaluationOnly(state: CanonicalResultViewState | null | undefined): boolean {

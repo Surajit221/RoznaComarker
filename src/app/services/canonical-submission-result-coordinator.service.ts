@@ -43,7 +43,8 @@ export class CanonicalSubmissionResultCoordinator {
   private startedAt = 0;
   private refresh: Refresh | null = null;
   private submissionId: string | null = null;
-  private maxDurationMs = 5 * 60_000;
+  /** A whole assessment normally finishes within a minute. After this the page stops asking and offers to ask again. */
+  private maxDurationMs = 3 * 60_000;
 
   start(submissionId: string, refresh: Refresh, maxDurationMs = this.maxDurationMs): void {
     this.stop();

@@ -328,3 +328,35 @@
   .submission-review-page .gradient-card { padding: .875rem; border-radius: .875rem; }
   .submission-review-page button, .submission-review-page a.btn-info { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 }
+
+/* Task 20: the one notice about a failed or retrying correction stage. Text carries the meaning; colour is secondary. */
+.correction-retry-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #93c5fd;
+  border-left-width: 4px;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+.correction-retry-notice p { margin: 0; flex: 1 1 16rem; }
+.correction-retry-button {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+}
+.correction-retry-button:hover:not(:disabled) { background: #dbeafe; }
+.correction-retry-button:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.correction-retry-button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* C.3b: one short neutral line under the score when the corrections arrived after it was calculated. */
+.score-before-corrections { margin: -0.5rem 0 0.75rem; color: #475569; font-size: 0.8rem; line-height: 1.35; }
+.correction-retry-notice { margin: .75rem 0; }

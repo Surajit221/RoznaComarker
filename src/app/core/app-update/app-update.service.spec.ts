@@ -5,6 +5,8 @@ import { AppUpdateService } from './app-update.service';
 import { ActivityTracker } from './activity-tracker';
 import { UPDATE_ENVIRONMENT, UpdateEnvironment } from './update-environment';
 import { KeyValueStore, POLL_INTERVAL_MS } from './app-update.logic';
+import { UnsavedWorkRegistry } from './unsaved-work';
+import { UpdateBanner } from './update-banner';
 
 @Component({ template: '' }) class PageA {}
 @Component({ template: '' }) class PageB {}
@@ -197,5 +199,84 @@ describe('AppUpdateService', () => {
     service.start();
     await router.navigateByUrl('/lazy').catch(() => undefined);
     expect(env.store.get('authToken')).toBe('keep-me');
+  });
+
+  describe('unsaved work (a dirty form, focused or not)', () => {
+    afterEach(() => TestBed.inject(UnsavedWorkRegistry).clear('form'));
+
+    it('counts as busy although no field is focused', () => {
+      const { service } = setup();
+      const registry = TestBed.inject(UnsavedWorkRegistry);
+      expect(service.busy()).toBeFalse();
+      registry.register('form');
+      expect(service.busy()).toBeTrue();
+      registry.clear('form');
+      expect(service.busy()).toBeFalse();
+    });
+
+    it('a navigation does not apply the update while a form is dirty', async () => {
+      const { env, service, router } = setup();
+      service.start();
+      await publishNewRelease(env, service);
+      TestBed.inject(UnsavedWorkRegistry).register('form');
+      await router.navigateByUrl('/a');
+      expect(env.assigned).toEqual([]);
+      expect(env.reloads).toBe(0);
+    });
+
+    it('Refresh waits for the form to be saved or discarded, then reloads once', async () => {
+      const { env, service } = setup();
+      service.start();
+      await publishNewRelease(env, service);
+      const registry = TestBed.inject(UnsavedWorkRegistry);
+      registry.register('form');
+      service.applyNow();
+      expect(env.reloads).toBe(0);
+      expect(service.waitingToApply()).toBeTrue();
+      await env.runNextTimer();
+      expect(env.reloads).toBe(0);
+      registry.clear('form');
+      await env.runNextTimer();
+      expect(env.reloads).toBe(1);
+    });
+
+    it('a chunk-load error while a form is dirty shows the banner instead of reloading', async () => {
+      const { env, service, router } = setup();
+      service.start();
+      TestBed.inject(UnsavedWorkRegistry).register('form');
+      await router.navigateByUrl('/lazy').catch(() => undefined);
+      expect(env.reloads + env.assigned.length).toBe(0);
+      expect(service.updateAvailable()).toBeTrue();
+    });
+
+    it('after the user agrees to discard on leaving, the next navigation applies the update', async () => {
+      const { env, service, router } = setup();
+      service.start();
+      await publishNewRelease(env, service);
+      const registry = TestBed.inject(UnsavedWorkRegistry);
+      registry.register('form');
+      spyOn(window, 'confirm').and.returnValue(true);
+      expect(registry.confirmLeave()).toBeTrue();
+      await router.navigateByUrl('/a');
+      expect(env.assigned).toEqual([ORIGIN + '/a']);
+    });
+
+    it('the banner says "Updating when you finish" and offers no Refresh while a form is dirty; it offers Refresh again afterwards', async () => {
+      const { env, service } = setup();
+      service.start();
+      await publishNewRelease(env, service);
+      const registry = TestBed.inject(UnsavedWorkRegistry);
+      registry.register('form');
+      const fixture = TestBed.createComponent(UpdateBanner);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Updating when you finish');
+      expect([...el.querySelectorAll('button')].some(b => b.textContent?.includes('Refresh'))).toBeFalse();
+      expect(env.reloads).toBe(0);
+      registry.clear('form');
+      fixture.detectChanges();
+      expect(el.textContent).toContain('A new version is available');
+      expect([...el.querySelectorAll('button')].some(b => b.textContent?.includes('Refresh'))).toBeTrue();
+    });
   });
 });

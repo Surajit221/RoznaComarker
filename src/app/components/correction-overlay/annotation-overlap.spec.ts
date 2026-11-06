@@ -54,7 +54,7 @@ describe('local visual collision groups', () => {
   });
   it('resolves a transitive A–B–C rectangle cluster deterministically', () => {
     const groups = ['a', 'b', 'c'].map((id, i): AnnotationGroup => ({ id, annotations: [correction(id)], semantic: false,
-      lineKeys: new Set(['word:0']), anchorLeft: 20 + i * 7, anchorTop: 20,
+      lineKeys: new Set(['word:0']), anchorLeft: 20 + i * 7, anchorRight: 20 + i * 7, anchorTop: 20,
       left: 20 + i * 7, top: 17, width: 30, code: 'REL', label: '' }));
     // A/C centers are 52.5px apart, while neighboring rectangles overlap.
     const resolved = groupCollidingBadges(groups, 375, 500, annotationBadgeMetrics(375));

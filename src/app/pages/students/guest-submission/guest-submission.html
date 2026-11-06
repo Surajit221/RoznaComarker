@@ -21,7 +21,7 @@
 
       <header class="assignment-card card">
         <span class="guest-badge">Guest Submission</span>
-        <h1 id="assignment-title">{{ assignment?.title || 'Assignment submission' }}</h1>
+        <h1 id="assignment-title">{{ assignment?.title || (viewingResults ? 'Your submission' : 'Assignment submission') }}</h1>
         @if (assignment?.deadline) {
           <p class="due-date">Due <time [attr.datetime]="assignment?.deadline">{{ assignment?.deadline | date:'medium' }}</time></p>
         }
@@ -36,7 +36,12 @@
           <p class="muted">Please wait a moment.</p>
         </section>
       }
-      @if (error) {
+      @if (linkProblem) {
+        <section class="notice" [class.notice-error]="linkProblem !== 'missing'" role="alert">
+          <h2>{{ linkHeading }}</h2>
+          <p>{{ linkText }}</p>
+        </section>
+      } @else if (error) {
         <section class="notice notice-error" role="alert">
           @if (!assignment && !result) { <h2>{{ viewingResults ? 'This feedback link is unavailable' : 'Unable to open this assignment' }}</h2> }
           <p>{{ error }}</p>
@@ -54,7 +59,7 @@
             </div>
           }
           @if (confirmation.returnUrl) {
-            <a class="btn-primary submission-action-button" [href]="confirmation.returnUrl" rel="noreferrer">Open your results</a>
+            <a class="btn-primary submission-action-button" [href]="confirmation.returnUrl" rel="noreferrer" (click)="openResults($event)">Open your results</a>
             <p class="muted">Keep this link private. Anyone with it can view your feedback.</p>
           }
         </section>
@@ -98,16 +103,18 @@
         <p class="account-option">Already have an account? <a routerLink="/login" [queryParams]="{ returnUrl: currentPath }">Sign in</a></p>
       }
 
-      @if ((qrToken || viewingResults) && !result && !loading) {
-        <details class="recovery card">
+      @if ((qrToken || viewingResults) && !result && !loading && linkProblem !== 'closed') {
+        <details class="recovery card" [open]="linkProblem === 'missing' || linkProblem === 'expired'">
           <summary>Lost your feedback link? <span>Recover it</span></summary>
           <form (ngSubmit)="recover()" class="recovery-form">
             <p class="muted">Use the email address you entered when submitting your work.</p>
             <label for="recovery-email">Submission email</label>
             <input class="input-text" id="recovery-email" name="recoveryEmail" type="email" [(ngModel)]="recoveryEmail" required email maxlength="254" autocomplete="email" />
-            <button type="submit" class="secondary-button" [disabled]="recovering">{{ recovering ? 'Requesting your link…' : 'Email me a new link' }}</button>
-            <p role="status">{{ recoveryMessage }}</p>
+            <button type="submit" class="secondary-button" [disabled]="recovering || recoveryCooldown.active">{{ recovering ? 'Requesting your link…'
+              : recoveryCooldown.active ? 'You can ask again in ' + recoveryCooldown.label : 'Email me a new link' }}</button>
+            <p role="status" [class.field-error]="recoveryError">{{ recoveryMessage }}</p>
           </form>
+          <p class="muted">Submitted more than one assignment? <a routerLink="/recover">Get one link to all your submissions</a>.</p>
         </details>
       }
       <p class="page-footer">Writing feedback, made simple.</p>

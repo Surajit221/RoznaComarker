@@ -1,0 +1,19 @@
+:host { display: block; min-width: 0; scroll-margin-top: 80px; }
+.workspace { margin-top: 12px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 16px; background: #f8fafc; }
+.workspace__status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+.workspace__status p { margin: 0; font-size: .9rem; }
+.workspace__note { font-weight: 700; }
+.workspace__panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 8px; }
+.workspace__column { min-width: 0; }
+.workspace__column h3 { margin: 4px 0; font-size: 1rem; font-weight: 700; }
+.workspace__pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.workspace__panel { max-height: 38vh; overflow: auto; padding: 8px; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; overscroll-behavior: contain; position: relative; }
+.workspace__panel--text { line-height: 1.7; }
+.workspace__panel:focus-visible { outline: 3px solid #006b6c; outline-offset: 2px; }
+.workspace__panel h4 { margin: 8px 0 4px; font-weight: 700; }
+.workspace__legend { margin: 6px 0 0; font-size: .85rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+button { min-height: 44px; cursor: pointer; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+/* Heights: image, transcript and list must fit the window together, or a view scrolls where nobody can see it. One column before the page rebuilds its layout at 1024px; tablets in portrait read better this way too. */
+@media (max-width: 1099px) { .workspace__panels { grid-template-columns: minmax(0, 1fr); } .workspace__panel { max-height: 26vh; } }

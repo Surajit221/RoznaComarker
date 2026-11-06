@@ -1,0 +1,29 @@
+<button type="button" class="btn-info" aria-haspopup="dialog" data-preview-open (click)="open()">Student preview</button>
+
+<dialog #dialog class="preview" tabindex="-1" aria-modal="true" aria-labelledby="student-preview-title" (close)="onClosed()" (keydown)="onKeydown($event)">
+  <header class="preview__head">
+    <div>
+      <h2 id="student-preview-title" data-preview-title tabindex="-1">Preview: this is what the student sees</h2>
+      <p>Saved changes only. Read-only. Draft comparison, practice and the PDF download are not shown here.</p>
+      @if (unsaved.hasWork()) { <p class="preview__unsaved" role="status" data-preview-unsaved>Unsaved changes are not included.</p> }
+    </div>
+    <div class="preview__actions">
+      <button type="button" class="btn-info" [attr.aria-disabled]="state() === 'loading'" (click)="load()">Refresh</button>
+      <button type="button" class="btn-danger" data-preview-close (click)="close()">Close</button>
+    </div>
+  </header>
+  <div class="preview__body" [attr.aria-busy]="state() === 'loading'">
+    @switch (state()) {
+      @case ('loading') { <p role="status" data-preview-loading>Loading the preview…</p> }
+      @case ('error') {
+        <div role="alert" data-preview-error>
+          <p>{{ error() }}</p>
+          <button type="button" class="btn-warning" (click)="load()">Retry</button>
+        </div>
+      }
+      @case ('ready') {
+        @for (key of [generation()]; track key) { <app-student-preview-frame /> }
+      }
+    }
+  </div>
+</dialog>

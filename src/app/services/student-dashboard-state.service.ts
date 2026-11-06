@@ -8,6 +8,7 @@ import type { BackendSubmission } from '../api/submission-api.service';
 import type { SubmissionFeedback } from '../models/submission-feedback.model';
 import { StudentDashboardDataService, type StudentDashboardData } from './student-dashboard-data.service';
 import { NotificationRealtimeService } from './notification-realtime.service';
+import { teacherDisplayName } from '../utils/teacher-display-name.util';
 
 export type StudentDashboardStats = {
   essaysDone: number;
@@ -253,8 +254,7 @@ export class StudentDashboardStateService {
           if (!classId) return null;
 
           const classTitle = typeof cls?.name === 'string' ? cls.name : '';
-          const teacher = cls?.teacher;
-          const teacherName = (teacher && (teacher.displayName || teacher.email)) || '';
+          const teacherName = teacherDisplayName(cls);
 
           const assignmentIds = assignmentsByClass.get(String(classId)) || [];
           const total = assignmentIds.length;

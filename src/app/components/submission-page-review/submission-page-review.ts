@@ -1,8 +1,9 @@
-import { Component, Input, OnChanges, OnDestroy, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnChanges, OnDestroy, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 import { CorrectionOverlay } from '../correction-overlay/correction-overlay';
 import { TranscriptPageView } from '../../utils/transcript-page-views.util';
+import type { SharedPageImages } from './shared-page-images';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -24,9 +25,14 @@ import { environment } from '../../../environments/environment';
 })
 export class SubmissionPageReview implements OnChanges, OnDestroy {
   @Input() pages: TranscriptPageView[] = [];
+  /** The teacher's page shares its downloaded page images with the review workspace. Unset on a student's page and in the preview. */
+  @Input() imageStore: SharedPageImages | null = null;
   private readonly http = inject(HttpClient);
   private request?: Subscription;
   private loadedSource = '';
+  private sharedSource = '';
+  private sharedSequence = 0;
+  private readonly changes = inject(ChangeDetectorRef);
   index = 0;
   imageUrl: string | null = null;
   loading = false;
@@ -41,6 +47,7 @@ export class SubmissionPageReview implements OnChanges, OnDestroy {
     this.index = index; this.load();
   }
   load(): void {
+    if (this.imageStore) { void this.loadShared(); return; }
     this.request?.unsubscribe();
     if (this.imageUrl) URL.revokeObjectURL(this.imageUrl);
     this.imageUrl = null; this.failed = false;
@@ -55,7 +62,23 @@ export class SubmissionPageReview implements OnChanges, OnDestroy {
       .subscribe({ next: blob => { this.imageUrl = URL.createObjectURL(blob); this.loading = false; },
         error: () => { this.loading = false; this.failed = true; } });
   }
+  private async loadShared(): Promise<void> {
+    const source = this.activePage?.imageUrl || '', sequence = ++this.sharedSequence;
+    if (this.sharedSource) this.imageStore!.release(this.sharedSource);
+    this.sharedSource = source; this.loadedSource = source;
+    this.imageUrl = null; this.failed = false; this.loading = Boolean(source);
+    if (!source) return;
+    try {
+      const url = await this.imageStore!.acquire(source);
+      if (sequence === this.sharedSequence) { this.imageUrl = url; this.loading = false; } else this.imageStore!.release(source);
+    } catch {
+      if (sequence === this.sharedSequence) { this.sharedSource = ''; this.loading = false; this.failed = true; }
+    }
+    this.changes.markForCheck();
+  }
   ngOnDestroy(): void {
+    this.sharedSequence++;
+    if (this.imageStore) { if (this.sharedSource) this.imageStore.release(this.sharedSource); return; }
     this.request?.unsubscribe();
     if (this.imageUrl) URL.revokeObjectURL(this.imageUrl);
   }

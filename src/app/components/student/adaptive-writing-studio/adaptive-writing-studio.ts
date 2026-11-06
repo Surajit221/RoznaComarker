@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import type { Subscription } from 'rxjs';
+import { of, type Subscription } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { CanonicalSubmissionResultCoordinator, type ResultPollingState } from '../../../services/canonical-submission-result-coordinator.service';
 import { environment } from '../../../../environments/environment';
 import { AdaptivePracticeApiService, type AdaptivePracticeLifecycleCode } from '../../../api/adaptive-practice-api.service';
 import { DEVELOPMENT_ADAPTIVE_PRACTICE_FIXTURE, DEVELOPMENT_GENERATION_DELAY_MS } from './adaptive-writing-studio.fixture';
@@ -34,6 +36,9 @@ export class AdaptiveWritingStudio {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(AdaptivePracticeApiService);
+  // The page's result observer: the studio waits on it and never polls the result itself.
+  private readonly coordinator = inject(CanonicalSubmissionResultCoordinator, { optional: true });
+  readonly resultPolling = toSignal<ResultPollingState | null>(this.coordinator?.pollingState$ ?? of(null), { initialValue: null });
   private requestSubscription: Subscription | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private requestVersion = 0;
@@ -112,6 +117,11 @@ export class AdaptiveWritingStudio {
       && (this.state === 'waiting_for_analysis' || this.state === 'error')) {
       this.analysisRecoveryPending = false;
       this.loadExistingSession();
+    } else if (this.state === 'waiting_for_analysis' && !usableKey && value?.terminal === true) {
+      // The analysis ended without a result practice can use: say so instead of waiting for ever. A later usable result still loads practice.
+      this.state = 'error';
+      this.retryableFailure = false;
+      this.errorMessage = 'Adaptive practice is unavailable because the writing analysis did not finish. It becomes available when the analysis is complete.';
     }
     this.cdr.markForCheck();
   }
@@ -297,6 +307,11 @@ export class AdaptiveWritingStudio {
     if (this.practiceCompleted && this.allowResubmission) this.submitNewDraft.emit();
   }
 
+  /** Asks the page's result observer again, after it gave up waiting. */
+  checkAgain(): void {
+    this.coordinator?.retry();
+  }
+
   private loadExistingSession(): void {
     const version = ++this.requestVersion;
     if (!this.canonicalResultState) {
@@ -395,7 +410,10 @@ export class AdaptiveWritingStudio {
     if (version !== this.requestVersion) return;
     const value = error as { status?: number; code?: string; error?: { code?: string; message?: string } };
     const code = value?.code || value?.error?.code;
-    if (value?.status === 202 && this.isAnalysisLifecycleCode(code)) {
+    // The server answers "not matching yet" while the page still knows the analysis is running: that is waiting, not a failure.
+    const stillRunning = code === 'STALE_EVALUATION' && !this.isCanonicalUsable(this.canonicalResultState)
+      && this.canonicalResultState?.terminal !== true;
+    if ((value?.status === 202 && this.isAnalysisLifecycleCode(code)) || stillRunning) {
       this.state = 'waiting_for_analysis';
       this.analysisRecoveryPending = true;
       this.errorMessage = '';

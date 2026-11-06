@@ -1,8 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, Input, type OnChanges, type OnDestroy, type SimpleChanges, ViewChild } from '@angular/core';
+import { type AfterViewChecked, type AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, type OnChanges, type OnDestroy, Output, type SimpleChanges, type TemplateRef, ViewChild } from '@angular/core';
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
+
+/** Teacher card: at most this wide, and at most 70% of the viewport high (the content scrolls inside it, the actions do not). */
+export const TEACHER_CARD_MAX_WIDTH = 380;
+export function teacherCardMaxHeight(viewportHeight: number, padding: number): number {
+  return Math.max(160, Math.floor(Math.min(viewportHeight * 0.7, viewportHeight - padding * 2)));
+}
 
 type TranscriptToken =
   | { kind: 'word'; trackId: string; word: OcrWord }
@@ -15,9 +21,25 @@ type TranscriptToken =
   templateUrl: './tokenized-transcript.html',
   styleUrl: './tokenized-transcript.css'
 })
-export class TokenizedTranscript implements OnChanges, OnDestroy {
+export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit, AfterViewChecked {
   @Input() ocrWords: OcrWord[] | null = null;
   @Input() annotations: FeedbackAnnotation[] | null = null;
+  /** The teacher's review workspace (Task 6C). Off everywhere else: the same template, listeners and tooltip as before. */
+  @Input() syncMode = false;
+  @Input() syncActiveId: string | null = null;
+  /** Corrections that are not visible to the student, by id. */
+  @Input() syncStates: ReadonlyMap<string, 'hidden' | 'archived'> | null = null;
+  @Output() syncPointer = new EventEmitter<{ ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate' }>();
+
+  /**
+   * Teacher page only (Phase A): extra content for a word the teacher chose (click, tap, Enter), shown under the correction text. The tooltip
+   * then stays open and takes pointer input until Escape, a click outside or a second click on the word. Context: the word's correction ids.
+   * Not set (students, guests, workspace): nothing changes and nothing is emitted.
+   */
+  @Input() markMenu: TemplateRef<{ $implicit: string[] }> | null = null;
+  @Output() markActivated = new EventEmitter<string>();
+  /** Teacher page only: an inline edit form is open in the tooltip. It stays open (no outside-click or Escape close, no other word). */
+  @Input() markMenuHold = false;
 
   @ViewChild('containerEl', { static: false }) containerEl?: ElementRef<HTMLElement>;
   @ViewChild('tooltipEl', { static: false }) tooltipEl?: ElementRef<HTMLElement>;
@@ -31,11 +53,40 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
   private positionVersion = 0;
   private readonly viewportScrollHandler = () => this.scheduleActiveReposition();
 
+  private syncUnlisten: (() => void) | null = null;
+  private syncDirty = false;
+  private syncElements: Map<string, HTMLElement> | null = null;
+  private syncMarked: HTMLElement[] = [];
+  private readonly syncStyles = new Map<string, Record<string, string> | null>();
+  private readonly syncWordStates = new Map<string, 'hidden' | 'archived' | null>();
+
   activeWordId: string | null = null;
+  /** Only with markMenu: the teacher chose this word, so the menu shows and the tooltip stays open. */
+  menuPinned = false;
+  menuIds: string[] = [];
   tooltipText = '';
   tooltipStyle: Record<string, string> = { display: 'none' };
 
+  /** Teacher card only: the card re-places itself when its content changes size (menu, chooser, inline form). */
+  private cardResize: ResizeObserver | null = null;
+
+  /** Teacher card: the corrections of the word shown. */
+  cardAnnotations(): FeedbackAnnotation[] { return this.activeWordId ? this.getWordAnnotations(this.activeWordId) : []; }
+  cardTitle(): string {
+    const list = this.cardAnnotations();
+    return list.length > 1 ? `${list.length} corrections` : (list[0]?.category || list[0]?.group || 'Correction');
+  }
+  /** Teacher card's close button: closes and puts focus back on the word. */
+  closeFromUser(): void {
+    if (this.markMenuHold) return;
+    const target = this.activeTarget;
+    this.closeTooltip();
+    target?.focus({ preventScroll: true });
+  }
+
   ngOnDestroy(): void {
+    this.cardResize?.disconnect();
+    this.syncUnlisten?.();
     this.closeTooltip();
     this.tooltipEl?.nativeElement.remove();
   }
@@ -52,17 +103,79 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     if (changes['ocrWords'] || changes['annotations']) {
       this.closeTooltip();
     }
+
+    if (this.syncMode) {
+      if (changes['ocrWords']) this.syncElements = null;
+      if (changes['annotations'] || changes['syncStates']) { this.syncStyles.clear(); this.syncWordStates.clear(); }
+      this.syncDirty = true;
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (this.syncMode) this.listenForSync();
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.syncDirty) { this.syncDirty = false; this.markActiveWords(); }
+  }
+
+  /** The same object for the same word, so a selection change does not make Angular restyle every word. */
+  syncStyle(wordId: string): Record<string, string> | null {
+    if (!this.syncStyles.has(wordId)) this.syncStyles.set(wordId, this.getHighlightStyle(wordId));
+    return this.syncStyles.get(wordId) ?? null;
+  }
+
+  syncWordState(wordId: string): 'hidden' | 'archived' | null {
+    if (!this.syncStates) return null;
+    if (!this.syncWordStates.has(wordId)) {
+      // Shared with something the student does see: it must not read as hidden.
+      const states = this.getWordAnnotations(wordId).map(a => this.syncStates!.get(a._id));
+      this.syncWordStates.set(wordId, states.length && states.every(Boolean) ? states[0]! : null);
+    }
+    return this.syncWordStates.get(wordId) ?? null;
+  }
+
+  /** Marks the active correction's words directly: a selection touches those few nodes, not every word of a long essay. */
+  private markActiveWords(): void {
+    const container = this.containerEl?.nativeElement;
+    if (!container) return;
+    for (const element of this.syncMarked) element.classList.remove('is-sync-active');
+    this.syncMarked = [];
+    const wordIds = this.syncActiveId ? (this.annotations ?? []).find(a => a?._id === this.syncActiveId)?.wordIds ?? [] : [];
+    if (!wordIds.length) return;
+    if (!this.syncElements) this.syncElements = new Map(Array.from(container.querySelectorAll<HTMLElement>('[data-word-id]')).map(el => [el.getAttribute('data-word-id')!, el]));
+    for (const id of wordIds) { const element = this.syncElements.get(id); if (element) { element.classList.add('is-sync-active'); this.syncMarked.push(element); } }
+  }
+
+  /** One set of listeners on the transcript, however many words it has. */
+  private listenForSync(): void {
+    const root = this.containerEl?.nativeElement;
+    if (!root) return;
+    const emit = (event: Event, kind: 'hover' | 'leave' | 'focus' | 'activate'): void => {
+      const id = (event.target as Element | null)?.closest?.('[data-word-id]')?.getAttribute('data-word-id');
+      const ids = id ? this.getWordAnnotations(id).map(a => a._id) : [];
+      if (ids.length) this.syncPointer.emit({ ids, kind });
+    };
+    const over = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'hover'); };
+    const out = (event: PointerEvent): void => { if (event.pointerType === 'mouse') emit(event, 'leave'); };
+    // A pointer press is the click that follows, not a keyboard focus (it would count twice).
+    const focus = (event: Event): void => { if ((event.target as Element).matches?.(':focus-visible')) emit(event, 'focus'); };
+    const click = (event: Event): void => emit(event, 'activate');
+    const key = (event: KeyboardEvent): void => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); emit(event, 'activate'); } };
+    root.addEventListener('pointerover', over); root.addEventListener('pointerout', out); root.addEventListener('focusin', focus); root.addEventListener('click', click); root.addEventListener('keydown', key);
+    this.syncUnlisten = () => { root.removeEventListener('pointerover', over); root.removeEventListener('pointerout', out); root.removeEventListener('focusin', focus); root.removeEventListener('click', click); root.removeEventListener('keydown', key); };
   }
 
   onWordPointerEnter(wordId: string, event: PointerEvent): void {
     // Hover only for mouse pointers.
     if (event.pointerType && event.pointerType !== 'mouse') return;
+    if (this.menuPinned || this.markMenuHold) return;
     this.openTooltip(wordId, event);
   }
 
   onWordPointerLeave(wordId: string, event: PointerEvent): void {
     if (event.pointerType && event.pointerType !== 'mouse') return;
-    if (this.activeWordId !== wordId) return;
+    if (this.activeWordId !== wordId || this.menuPinned) return;
     const version = this.positionVersion;
     requestAnimationFrame(() => {
       if (version === this.positionVersion && this.activeWordId === wordId) this.closeTooltip();
@@ -71,12 +184,20 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
 
   onWordPointerDown(wordId: string, event: PointerEvent): void {
     // Tap/pen support. Also works with mouse click if user prefers.
+    if (this.markMenuHold) return;
+    // Teacher menu: a click on a word whose tooltip the hover opened pins it instead of closing it.
+    if (this.markMenu && this.activeWordId === wordId && !this.menuPinned) {
+      this.pinMenu(wordId);
+      try { event.preventDefault(); event.stopPropagation(); } catch { /* ignore */ }
+      return;
+    }
     if (this.activeWordId === wordId) {
       this.closeTooltip();
       return;
     }
 
     this.openTooltip(wordId, event);
+    if (this.markMenu) this.pinMenu(wordId);
 
     // Avoid selecting text on touch/pen taps.
     try {
@@ -89,7 +210,7 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
 
   @HostListener('document:pointerdown', ['$event'])
   onDocumentPointerDown(event: PointerEvent): void {
-    if (!this.activeWordId) return;
+    if (!this.activeWordId || this.markMenuHold) return;
     const container = this.containerEl?.nativeElement;
     const tooltip = this.tooltipEl?.nativeElement;
     const target = event.target as Node | null;
@@ -104,13 +225,26 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
 
   onWordKeydown(wordId: string, event: KeyboardEvent): void {
     if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (this.markMenuHold) { event.preventDefault(); return; }
     event.preventDefault();
     if (this.activeWordId === wordId) this.closeTooltip();
-    else this.openTooltip(wordId, event);
+    else {
+      this.openTooltip(wordId, event);
+      if (this.markMenu) this.pinMenu(wordId);
+    }
+  }
+
+  private pinMenu(wordId: string): void {
+    if (this.activeWordId !== wordId) return;
+    this.menuPinned = true;
+    this.menuIds = this.getWordAnnotations(wordId).map(a => a._id);
+    if (this.menuIds[0]) this.markActivated.emit(this.menuIds[0]);
+    this.scheduleActiveReposition();
   }
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.markMenuHold) return;
     this.closeTooltip();
   }
 
@@ -139,6 +273,10 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.activeWordId = wordId;
     this.activeTarget = target;
     this.tooltipText = text;
+    if (this.markMenu && !this.cardResize && typeof ResizeObserver === 'function') {
+      this.cardResize = new ResizeObserver(() => { if (this.positionFrame === null) this.scheduleActiveReposition(); });
+      this.cardResize.observe(tooltip);
+    }
     this.tooltipStyle = { display: 'block', visibility: 'hidden', left: '0px', top: '0px' };
     this.bindViewport(container.closest('.canonical-transcript-viewport') as HTMLElement | null || container);
     const version = ++this.positionVersion;
@@ -152,6 +290,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     this.bindViewport(null);
     this.activeWordId = null;
     this.activeTarget = null;
+    this.menuPinned = false;
+    this.menuIds = [];
     this.tooltipText = '';
     this.tooltipStyle = { display: 'none' };
   }
@@ -202,11 +342,16 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     const padding = Math.max(6, Math.min(14, Math.round(containerW * 0.02)));
     const gap = Math.max(6, Math.min(14, Math.round(containerW * 0.015)));
 
-    const maxTooltipWidthPx = Math.max(180, Math.floor(containerW * 0.6));
-    const hardMaxW = Math.max(0, Math.floor(containerW - padding * 2));
+    // Teacher card (markMenu): sized and placed against the browser viewport, not the transcript card, so its actions are never cut off
+    // and it prefers below/above the word. Without markMenu (students, guests) everything below is exactly as before (area = bounds).
+    const teacher = !!this.markMenu;
+    const area = teacher ? { left: 0, top: 0, right: browserWidth, bottom: browserHeight } : bounds;
+    const areaW = area.right - area.left, areaH = area.bottom - area.top;
+    const maxTooltipWidthPx = teacher ? TEACHER_CARD_MAX_WIDTH : Math.max(180, Math.floor(containerW * 0.6));
+    const hardMaxW = Math.max(0, Math.floor((teacher ? areaW : containerW) - padding * 2));
     const effectiveMaxW = Math.max(120, Math.min(maxTooltipWidthPx, hardMaxW));
     tooltip.style.maxWidth = `${effectiveMaxW}px`;
-    tooltip.style.maxHeight = `${Math.max(80, Math.floor(containerH * 0.55))}px`;
+    tooltip.style.maxHeight = `${teacher ? teacherCardMaxHeight(areaH, padding) : Math.max(80, Math.floor(containerH * 0.55))}px`;
 
     // Force measurement after maxWidth is applied.
     const tW = Math.min(tooltip.offsetWidth || 0, effectiveMaxW);
@@ -246,12 +391,12 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
       const y0 = y;
       const x1 = x + tW;
       const y1 = y + tH;
-      const fitsX = x0 >= bounds.left + padding && x1 <= bounds.right - padding;
-      const fitsY = y0 >= bounds.top + padding && y1 <= bounds.bottom - padding;
+      const fitsX = x0 >= area.left + padding && x1 <= area.right - padding;
+      const fitsY = y0 >= area.top + padding && y1 <= area.bottom - padding;
       return { fitsX, fitsY, fits: fitsX && fitsY };
     };
 
-    const preferredOrder: ('top' | 'bottom' | 'right' | 'left')[] = ['top', 'bottom', 'right', 'left'];
+    const preferredOrder: ('top' | 'bottom' | 'right' | 'left')[] = teacher ? ['bottom', 'top', 'right', 'left'] : ['top', 'bottom', 'right', 'left'];
     let chosen = candidates[0];
     for (const p of preferredOrder) {
       const c = candidates.find((x) => x.placement === p)!;
@@ -262,8 +407,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy {
     }
 
     const clampPx = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-    const x = clampPx(chosen.x, bounds.left + padding, bounds.right - padding - tW);
-    const y = clampPx(chosen.y, bounds.top + padding, bounds.bottom - padding - tH);
+    const x = clampPx(chosen.x, area.left + padding, area.right - padding - tW);
+    const y = clampPx(chosen.y, area.top + padding, area.bottom - padding - tH);
     const positioningElement = tooltip.offsetParent as HTMLElement | null;
     const positioningRect = (positioningElement || document.documentElement).getBoundingClientRect();
     const localLeft = x - positioningRect.left;

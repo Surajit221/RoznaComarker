@@ -1,6 +1,13 @@
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
+import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
+import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
+import { AnnotationMarkMenu } from '../../../../../components/teacher/annotation-controls/annotation-mark-menu';
+import { AnnotationEditFields } from '../../../../../components/teacher/annotation-controls/annotation-edit-fields';
+import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
+import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
-import { Component, EventEmitter, inject, Output } from '@angular/core';
+import { SharedPageImages } from '../../../../../components/submission-page-review/shared-page-images';
+import { Component, EventEmitter, inject, Output, ViewChild } from '@angular/core';
 
 
 
@@ -137,8 +144,9 @@ import type { SubmissionFeedback, RubricDesigner } from '../../../../../models/s
 import type { AiRubricStructuredResponse } from '../../../../../api/feedback-api.service';
 import { AdaptivePracticeProgress } from '../../../../../components/teacher/adaptive-practice-progress/adaptive-practice-progress';
 import { DraftComparisonComponent } from '../../../../../components/draft-comparison/draft-comparison';
+import { CorrectionStatistics } from '../../../../../components/correction-statistics/correction-statistics';
 import { canonicalFailureMessage, canonicalRetryLabel, categoryDisplay, normalizeCanonicalResult,
-  type CanonicalResultViewState } from '../../../../../utils/canonical-result-state.util';
+  type CanonicalResultViewState, evaluationHeading } from '../../../../../utils/canonical-result-state.util';
 import { buildDetailedFeedbackDisplayModel } from '../../../../../utils/detailed-feedback-display.util';
 import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluation-status-presentation.util';
 import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
@@ -161,7 +169,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [SourceFidelityComponent,SubmissionPageReview,
+  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,AnnotationEditFields,StudentPreview,
 
 
 
@@ -216,6 +224,8 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 export class StudentSubmissionPages {
+  /** The teacher's correction editor (Phase A): the page's own image and transcript open its action menu for a chosen mark. */
+  @ViewChild(AnnotationControls) annotationControls?: AnnotationControls;
   onHumanSourceReviewed(source:SourceFidelity):void {
     if(!this.currentSubmission)return;
     this.currentSubmission.sourceFidelity=source;
@@ -291,6 +301,8 @@ export class StudentSubmissionPages {
 
 
   private http = inject(HttpClient);
+  /** PDF page images, shared by this page and the review workspace so each is downloaded once. */
+  readonly pageImages = new SharedPageImages(this.http);
 
 
 
@@ -302,6 +314,7 @@ export class StudentSubmissionPages {
 
 
   private teacherDashboardState = inject(TeacherDashboardStateService);
+  private unsavedWork = inject(UnsavedWorkRegistry);
   private teacherActivityState = inject(TeacherActivityStateService);
 
 
@@ -1753,7 +1766,9 @@ export class StudentSubmissionPages {
 
 
 
-    const raw: any = assignmentDateRaw || (this.currentSubmission && (this.currentSubmission as any).submittedAt);
+    // Task 22: the date of THIS draft (its own submission time); the assignment's date only when the draft has none.
+    const draft = this.currentSubmission as { submittedAt?: string; createdAt?: string } | null;
+    const raw: any = draft?.submittedAt || draft?.createdAt || assignmentDateRaw;
 
 
 
@@ -2188,13 +2203,7 @@ export class StudentSubmissionPages {
   }
   get scoreSummaryText(): string { return this.canonicalResultState?.score === null || this.canonicalResultState?.score === undefined
     ? (this.canonicalResultState?.scoreMessage || 'Score pending') : 'Strong effort with some areas for refinement'; }
-  get evaluationFeedbackHeading(): string {
-    const state = this.canonicalResultState;
-    if (state?.evaluationSource === 'ai' && state.evaluationStatus === 'completed') return 'AI-assisted Evaluation';
-    if (['processing', 'pending'].includes(state?.evaluationStatus || '')) return 'Evaluation in Progress';
-    if (['failed', 'blocked'].includes(state?.evaluationStatus || '')) return 'Evaluation Unavailable';
-    return 'Provisional Automated Evaluation';
-  }
+  get evaluationFeedbackHeading(): string { return evaluationHeading(this.canonicalResultState); }
 
   get contentIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'content'); }
   get grammarIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'grammar'); }
@@ -2202,12 +2211,14 @@ export class StudentSubmissionPages {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    // Task 22: a failed correction stage is explained once, by the corrections notice (correctionRetryNotice), not here as well.
+    if (this.correctionRetryNotice) return null;
     if (this.canonicalResultState?.semanticStatus === 'partial') {
       return 'Your score is ready, but correction analysis was only partially completed. Some correction statistics are unavailable.';
     }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
-    return this.canonicalResultState.correctionStatus === 'partial'
-      ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
+    // Task 22: no "grammar and mechanics are still available" claim here: when the stage failed there are no results at all.
+    return this.canonicalResultState.correctionStatus === 'partial' ? null
       : this.canonicalResultState.semanticProgressMessage
         || 'Grammar and mechanics are available. Content, organization, and vocabulary are still being analyzed.';
   }
@@ -2688,6 +2699,12 @@ export class StudentSubmissionPages {
     return filtered.length ? filtered : pages;
   }
 
+  /** The review workspace moved to another uploaded file: the page loads it, once, and both views use it. */
+  onWorkspaceFileRequested(fileId: string): void {
+    const index = this.submissionFileIds.indexOf(fileId);
+    if (index >= 0) this.onSelectSubmissionImage(index);
+  }
+
   onSelectSubmissionImage(index: number) {
     const i = Number(index);
     if (!Number.isFinite(i)) return;
@@ -3133,6 +3150,11 @@ export class StudentSubmissionPages {
 
 
 
+    // Task 20: only the correction stage failed. Retry it alone: no credit, the score and feedback (even a teacher override) stay as they are.
+    if (this.canonicalResultState?.correctionRetryAllowed) {
+      if (!this.isLoading && !this.isRetryingAnalysis) await this.retryCorrectionStageOnly(submission._id);
+      return;
+    }
     if (!this.canGenerateAiFeedback) return;
 
 
@@ -5387,6 +5409,38 @@ export class StudentSubmissionPages {
     }
   }
 
+  /** Task 20: the one message about a failed or retrying correction stage, or null. */
+  get correctionRetryNotice(): string | null {
+    const state = this.canonicalResultState;
+    if (!state) return null;
+    if (state.correctionRetryActive) return 'The corrections are being prepared again. They will appear here automatically; the score does not change.';
+    if (state.semanticStatus !== 'failed' || state.correctionStatus !== 'partial') return null;
+    return state.correctionRetryAllowed
+      ? 'The corrections could not be prepared for this draft. Retrying uses no Assessment Credit and does not change the score.'
+      : 'The corrections could not be prepared for this draft.';
+  }
+
+  /** Task 20: the submission whose correction-only retry this page is waiting for. */
+  private correctionRetryWatchId: string | null = null;
+
+  private async retryCorrectionStageOnly(submissionId: string): Promise<void> {
+    this.isRetryingAnalysis = true;
+    try {
+      try { await this.submissionApi.retryCorrectionStage(submissionId); }
+      catch (err: unknown) { if ((err as { error?: { code?: string } })?.error?.code !== 'CORRECTION_RETRY_IN_PROGRESS') throw err; }
+      if (this.currentSubmission?._id !== submissionId || !this.canonicalResultState) return;
+      this.canonicalResultState = { ...this.canonicalResultState, correctionRetryActive: true, correctionRetryAllowed: false,
+        manualRetryAllowed: false, processingActive: true, automaticPollingAllowed: true, terminal: false };
+      this.resultCoordinator.start(submissionId, (id, sequence) => this.refreshRetriedAnalysis(id, sequence));
+      this.alert.showToast('Retrying corrections', 'success');
+    } catch (err: unknown) {
+      const failure = err as { error?: { message?: string }; message?: string };
+      this.alert.showError('Retry failed', failure?.error?.message || failure?.message || 'Please try again');
+    } finally {
+      this.isRetryingAnalysis = false;
+    }
+  }
+
   private async refreshRetriedAnalysis(submissionId: string, sequence?: number): Promise<ResultRefreshSnapshot> {
     if (this.currentSubmission?._id !== submissionId) throw { status: 409 };
     const feedback = await this.measureSubmissionRequest('evaluation polling', submissionId,
@@ -5401,6 +5455,17 @@ export class StudentSubmissionPages {
       this.currentSubmission.assessmentCompletedAt = (feedback as any)?.assessmentCompletedAt || this.currentSubmission.assessmentCompletedAt;
       if (state.ocrStatus) this.currentSubmission.ocrStatus = state.ocrStatus;
       else if (state.correctionStatus === 'completed') this.currentSubmission.ocrStatus = 'completed';
+    }
+    // Task 20: while only the corrections are being retried, the score and the feedback form are left alone (an unsent comment is never
+    // overwritten). When the retry ends, the corrections, counts and highlights reload once, as after a saved correction change.
+    if (state.correctionRetryActive) {
+      this.correctionRetryWatchId = submissionId;
+      return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as ResultRefreshSnapshot['ocrStatus'], canonical: state };
+    }
+    if (this.correctionRetryWatchId === submissionId) {
+      this.correctionRetryWatchId = null;
+      await this.refreshAssessmentResult(submissionId, sequence);
+      return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as ResultRefreshSnapshot['ocrStatus'], canonical: state };
     }
     this.scoreState = state.evaluationStatus === 'completed' ? 'loaded'
       : ['failed', 'blocked'].includes(state.evaluationStatus) && !this.currentFeedback?.previousEvaluation ? 'error' : 'processing';
@@ -5421,6 +5486,24 @@ export class StudentSubmissionPages {
       await this.refreshAssessmentResult(submissionId, sequence);
     }
     return { submissionId, ocrStatus: this.currentSubmission?.ocrStatus as any, canonical: state };
+  }
+
+  /**
+   * A teacher correction changed: refresh the counts, highlights and detailed feedback shown on this page. Unlike the analysis refresh,
+   * this leaves the feedback form alone, so an unsent teacher comment is not overwritten. Scores do not change.
+   */
+  get previewSubmission(): Record<string, unknown> { return this.currentSubmission as unknown as Record<string, unknown>; }
+  /** Goes up after each saved correction change, so an open student preview reloads. */
+  annotationSaves = 0;
+
+  async onAnnotationsSaved(submissionId: string): Promise<void> {
+    if (this.currentSubmission?._id !== submissionId) return;
+    this.annotationSaves++;
+    await this.refreshAssessmentResult(submissionId).catch(() => undefined);
+    const feedback = await this.feedbackApi.getSubmissionFeedback(submissionId).catch(() => null);
+    if (!feedback || this.currentSubmission?._id !== submissionId) return;
+    this.canonicalResultState = normalizeCanonicalResult(feedback, this.canonicalResultState);
+    if (this.canonicalResultState.evaluationStatus === 'completed') this.currentFeedback = this.validateAndNormalizeFeedback(feedback);
   }
 
   private refreshCompletedEvaluationState(submissionId: string): void {
@@ -5726,6 +5809,7 @@ export class StudentSubmissionPages {
 
 
   ngOnDestroy() {
+    this.pageImages.destroy();
     this.teacherCommentDraftDestroyed = true;
 
 
@@ -6412,6 +6496,7 @@ export class StudentSubmissionPages {
 
 
     if (!this.canGoPrev) return;
+    if (!this.unsavedWork.confirmLeave()) return;
 
 
 
@@ -6460,6 +6545,7 @@ export class StudentSubmissionPages {
 
 
     if (!this.canGoNext) return;
+    if (!this.unsavedWork.confirmLeave()) return;
 
 
 
@@ -6500,6 +6586,7 @@ export class StudentSubmissionPages {
 
 
   async onSubmissionSelected(submissionId: string) {
+    if (!this.unsavedWork.confirmLeave()) return;
 
 
 
@@ -6663,6 +6750,10 @@ export class StudentSubmissionPages {
 
       this.recomputeRubricFeedbackItems();
       this.applyFeedbackSectionStates(true);
+      // Task 20: a correction-only retry is running (e.g. the automatic one): wait for its corrections without a reload.
+      if (this.canonicalResultState.correctionRetryActive) {
+        this.resultCoordinator.start(submissionId, (id, sequence) => this.refreshRetriedAnalysis(id, sequence));
+      }
 
       return true;
 

@@ -10,6 +10,7 @@ import { MyProfilePages } from './my-profile-pages/my-profile-pages';
 import { ReportPages } from './report-pages/report-pages';
 import { TeacherGuard } from '../../auth/teacher.guard';
 import { RubricLibraryPage } from './rubric-library/rubric-library';
+import { unsavedWorkGuard } from '../../core/app-update/unsaved-work';
 export const TEACHER_ROUTE: Routes = [
   {
     path: 'teacher',
@@ -24,7 +25,7 @@ export const TEACHER_ROUTE: Routes = [
       { path: 'rubrics', component: RubricLibraryPage },
       { path: 'institution', loadComponent: () => import('./institution/institution').then((m) => m.InstitutionPage) },
       { path: 'my-classes/detail/student-profile/:studentId', component: StudentProfilePages },
-      { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages },
+      { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages, canDeactivate: [unsavedWorkGuard] },
       { path: 'my-classes/detail/:slug', component: DetailMyClassesPages },
     ],
   },

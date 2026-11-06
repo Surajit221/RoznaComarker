@@ -60,16 +60,16 @@ describe('target-relative image underline clearance', () => {
     expect(s.correctionIds).toEqual(['c']);
   });
 
-  it('retains the small existing horizontal padding for a single mapped word', () => {
+  it('underlines exactly the box of a single mapped word', () => {
     const [s] = strokes([word('marrige', 42, 20)], [issue('c', ['marrige'])]);
-    expect(s.left).toBeCloseTo(41.85, 8);
-    expect(s.width).toBeCloseTo(8.3, 8);
+    expect(s.left).toBe(42);
+    expect(s.width).toBeCloseTo(8, 8);
   });
 
   it('spans only the mapped same-line phrase union', () => {
     const words = [word('a', 10, 20), word('b', 19, 20), word('unrelated', 28, 20)];
     const [s] = strokes(words, [issue('c', ['a', 'b'])]);
-    expect(s.left).toBeCloseTo(9.85, 8); expect(s.width).toBeCloseTo(17.3, 8);
+    expect(s.left).toBe(10); expect(s.width).toBeCloseTo(17, 8);
   });
 
   it('keeps multiline targets as separate strokes with one unchanged correction', () => {
@@ -127,7 +127,7 @@ describe('rendered underline stroke clearance', () => {
   });
   afterEach(() => fixture.destroy());
 
-  for (const width of [375, 768, 1440]) it(`keeps normal/selected strokes before the next writing line at ${width}px`, async () => {
+  for (const width of [375, 768, 1440]) it(`a tight line gap keeps a visible stroke, at most its own height into the next writing line, at ${width}px`, async () => {
     const words = [word('shape', 10, 20), word('next', 10, 23.14)];
     fixture.nativeElement.style.width = width + 'px';
     fixture.componentRef.setInput('ocrWords', words);
@@ -143,9 +143,9 @@ describe('rendered underline stroke clearance', () => {
     for (const selected of [false, true]) {
       stroke.classList.toggle('is-selected', selected);
       const rect = stroke.getBoundingClientRect();
-      expect(rect.height).toBeGreaterThan(0);
+      expect(rect.height).toBeGreaterThanOrEqual(2);
       expect(rect.top).toBeGreaterThanOrEqual(imageRect.top + imageRect.height * .23 - .02);
-      expect(rect.bottom).toBeLessThan(imageRect.top + imageRect.height * .2314);
+      expect(rect.bottom).toBeLessThan(imageRect.top + imageRect.height * .2314 + rect.height);
     }
     expect(fixture.componentInstance.markers).toHaveSize(1);
     expect(fixture.componentInstance.markers[0].code).toBe('AGR');

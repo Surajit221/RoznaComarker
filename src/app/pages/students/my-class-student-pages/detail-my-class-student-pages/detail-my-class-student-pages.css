@@ -96,13 +96,21 @@
 @media (prefers-reduced-motion: reduce) {
   .upload-info-button, .upload-info-button::after { animation: none; }
 }
-.student-assignment-actions { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; }
+/* Task 22: one action group. "View Submission" primary, "Submit Another Draft" secondary (outlined): same height, radius, font and spacing. */
+/* One column of equal-width buttons (the card's action area is narrow on every layout). */
+.student-assignment-actions { display: inline-flex; flex-direction: column; align-items: stretch; gap: .5rem; min-width: 11rem; }
 .student-assignment-actions button:not(.submission-action-button) { color: #374151; font-size: .875rem; text-decoration: underline; }
 .student-assignment-actions button:not(.submission-action-button):hover { color: #111827; }
-.student-assignment-actions .student-assignment-actions__resubmit { color: #008081; font-weight: 600; }
+.student-assignment-actions .student-assignment-actions__resubmit { padding: .5rem 1rem; border: 2px solid #136C6D; border-radius: .75rem; background: #fff;
+  color: #136C6D; font-size: .875rem; font-weight: 600; line-height: 1.25rem; text-decoration: none; box-shadow: 0 4px 0 #136C6D; cursor: pointer; }
+.student-assignment-actions .student-assignment-actions__resubmit:hover { background: #e7f5f5; color: #0f5556; }
+.student-assignment-actions .student-assignment-actions__resubmit:active { transform: translateY(2px); box-shadow: 0 2px 0 #136C6D; }
+.student-assignment-actions .student-assignment-actions__resubmit:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; transform: none; }
+.student-assignment-actions__adaptive-required { flex-basis: 100%; }
 .student-assignment-actions__adaptive-required { max-width: 16rem; color: #6b7280; font-size: .75rem; line-height: 1.35; text-align: right; }
-.student-assignment-actions--mobile { align-items: flex-start; }
-.student-assignment-actions--mobile button:not(.submission-action-button) { font-size: .75rem; }
+/* Narrow cards: the two actions stacked, full width. */
+.student-assignment-actions--mobile { flex-direction: column; align-items: stretch; width: 100%; }
+.student-assignment-actions--mobile .submission-action-button { width: 100%; }
 .student-assignment-actions--mobile .student-assignment-actions__adaptive-required { text-align: left; }
 .handwriting-button-spinner { display: inline-block; animation: handwriting-button-spin 1s linear infinite; }
 @keyframes handwriting-button-spin { to { transform: rotate(360deg); } }

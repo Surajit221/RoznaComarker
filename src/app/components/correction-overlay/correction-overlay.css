@@ -39,23 +39,23 @@
 
 .correction-overlay__image.is-loaded { opacity: 1; }
 
+/* A stroke has its error type's colour (annotation-stroke.ts), 2px. A hairline dark halo keeps it visible on any paper without changing the colour. */
+.correction-overlay__underline, .correction-overlay__semantic-rail { outline: .5px solid rgba(15, 23, 42, .85); }
+
 .correction-overlay__underline {
   position: absolute;
   z-index: 2;
-  height: min(2px, var(--underline-clearance, 2px));
-  background: var(--underline-color, #d64545);
+  height: 2px;
+  background: var(--stroke-color, var(--underline-color, #d64545));
   pointer-events: none;
-  border-radius: 2px;
 }
 
 .correction-overlay__semantic-rail {
   position: absolute;
   z-index: 2;
-  width: 3px;
+  width: 2px;
   min-height: 8px;
-  border-radius: 999px;
-  background: var(--underline-color, #d64545);
-  opacity: .72;
+  background: var(--stroke-color, var(--underline-color, #d64545));
   pointer-events: none;
 }
 
@@ -66,12 +66,7 @@
   border-bottom: 0;
 }
 
-.correction-overlay__leaders { position: absolute; inset: 0; width: 100%; height: 100%;
-  z-index: 3; pointer-events: none; overflow: visible; }
-.correction-overlay__leader { fill: none; stroke-width: 1.25px; vector-effect: non-scaling-stroke;
-  stroke-linecap: round; stroke-linejoin: round; opacity: .78; }
 .has-selection .correction-overlay__leader { opacity: .25; }
-.has-selection .correction-overlay__leader.is-selected { opacity: 1; }
 
 .correction-overlay__marker--semantic {
   border-radius: 8px;
@@ -392,12 +387,51 @@
 .has-selection .correction-overlay__semantic-rail,
 .has-selection .correction-overlay__marker { opacity: .38; }
 .has-selection .is-selected { opacity: 1; }
-.correction-overlay__underline.is-selected { height: min(3px, var(--underline-clearance, 3px)); filter: brightness(.72); }
+.correction-overlay__underline.is-selected { height: 3px; filter: brightness(.72); }
 .correction-overlay__boundary.is-selected { height: 5px; }
-.correction-overlay__semantic-rail.is-selected { width: 4px; filter: brightness(.72); }
+.correction-overlay__semantic-rail.is-selected { width: 3px; filter: brightness(.72); }
 .correction-overlay__marker:focus-visible { outline: 2px solid #172033; outline-offset: 2px; }
 .correction-overlay__entries { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px; }
 .correction-overlay__entries button { font: inherit; font-size: 12px; text-align: left; padding: 8px;
   border: 1px solid #cbd5e1; border-radius: 7px; color: #172033; background: #fff; cursor: pointer; }
 .correction-overlay__entries button[aria-pressed='true'] { border-color: #006b6c; background: #e7f5f5; }
 .correction-overlay__entries button:focus-visible { outline: 2px solid #006b6c; outline-offset: 2px; }
+
+/* The teacher's review workspace (Task 6C). Never set on a student page. */
+.is-sync .correction-overlay__marker.is-sync-active { outline: 3px solid #172033; outline-offset: 2px; transform: translate(-50%, -50%) scale(1.2); z-index: 8; }
+.correction-overlay__marker[data-sync-state] { border-style: dashed; border-color: #172033; background: #fff; color: #172033 !important; }
+.correction-overlay__marker[data-sync-state='archived'] { text-decoration: line-through; }
+.correction-overlay__underline[data-sync-state] { background: repeating-linear-gradient(90deg, var(--stroke-color, #d64545) 0 4px, transparent 4px 7px); }
+@media (prefers-reduced-motion: reduce) { .is-sync .correction-overlay__marker { transition: none; } }
+
+/* A bracket over whole lines, so it never reads as a word-level marker. */
+.correction-overlay__line-rail { width: 6px; border: 2px solid var(--stroke-color, var(--underline-color, #d64545)); border-right: 0; background: none; box-sizing: border-box; outline: 0; filter: drop-shadow(0 0 .5px rgba(15, 23, 42, .85)); }
+.correction-overlay__line-note { margin: 0 14px 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
+.correction-overlay__placement { margin-top: 8px; color: #475569; font-size: .8rem; line-height: 1.4; }
+.correction-overlay__placement p { margin: 2px 0; }
+
+/* Task 21: strokes follow the drawn page size (annotation-badge-metrics.ts): 2px on desktop, 3px on a phone-sized page. */
+.correction-overlay__underline { height: var(--stroke-width, 2px); }
+.correction-overlay__underline.is-selected { height: calc(var(--stroke-width, 2px) + 1px); }
+.correction-overlay__semantic-rail { width: var(--stroke-width, 2px); }
+.correction-overlay__semantic-rail.is-selected { width: calc(var(--stroke-width, 2px) + 1px); }
+/* A bracket (sentence-level correction, or a line-level one): one vertical stroke with end ticks, tappable through a wider invisible area. */
+.correction-overlay__line-rail { width: var(--bracket-width, 6px); border-width: var(--stroke-width, 2px); pointer-events: auto; cursor: pointer; }
+.correction-overlay__line-rail.is-selected { width: var(--bracket-width, 6px); border-width: calc(var(--stroke-width, 2px) + 1px); }
+.correction-overlay__line-rail::before { content: ''; position: absolute; top: -6px; bottom: -6px; left: -10px; width: 24px; }
+/* The words a bracket stands for: a light tint, only while that correction is selected, so the handwriting stays fully legible. */
+.correction-overlay__cover { position: absolute; z-index: 1; border-radius: 2px; background: color-mix(in srgb, var(--stroke-color, #2563eb) 10%, transparent); opacity: 0; pointer-events: none; }
+.correction-overlay__cover.is-selected { opacity: 1; }
+
+/* A bracket in the right margin opens towards the text (to the left). */
+.correction-overlay__line-rail.is-right { transform: translateX(-100%); border-right: var(--stroke-width, 2px) solid var(--stroke-color, var(--underline-color, #d64545)); border-left: 0; }
+.correction-overlay__line-rail.is-right.is-selected { border-right-width: calc(var(--stroke-width, 2px) + 1px); }
+.correction-overlay__line-rail.is-right::before { left: auto; right: -10px; }
+
+/* Teacher action bar (only rendered when the teacher page passes markMenu): stays at the bottom of the card while the details scroll. */
+.correction-overlay__mark-menu {
+  position: sticky; bottom: 0; z-index: 2;
+  margin-top: 4px; padding: 4px 14px 12px; border-top: 1px solid #eef2f6; background: #fff;
+}
+/* An inline edit form can be taller than the card: then the whole card scrolls with it instead of pinning it. */
+.correction-overlay__mark-menu:has([data-edit-fields]) { position: static; }
