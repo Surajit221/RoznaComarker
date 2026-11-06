@@ -466,3 +466,4 @@
 
 /* C.3b: one short neutral line under the score when the corrections arrived after it was calculated. */
 .score-before-corrections { margin: -0.5rem 0 0.75rem; color: #475569; font-size: 0.8rem; line-height: 1.35; }
+.correction-retry-notice { margin: .75rem 0; }

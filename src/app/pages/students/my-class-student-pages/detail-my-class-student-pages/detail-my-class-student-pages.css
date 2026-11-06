@@ -97,7 +97,8 @@
   .upload-info-button, .upload-info-button::after { animation: none; }
 }
 /* Task 22: one action group. "View Submission" primary, "Submit Another Draft" secondary (outlined): same height, radius, font and spacing. */
-.student-assignment-actions { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .5rem; }
+/* One column of equal-width buttons (the card's action area is narrow on every layout). */
+.student-assignment-actions { display: inline-flex; flex-direction: column; align-items: stretch; gap: .5rem; min-width: 11rem; }
 .student-assignment-actions button:not(.submission-action-button) { color: #374151; font-size: .875rem; text-decoration: underline; }
 .student-assignment-actions button:not(.submission-action-button):hover { color: #111827; }
 .student-assignment-actions .student-assignment-actions__resubmit { padding: .5rem 1rem; border: 2px solid #136C6D; border-radius: .75rem; background: #fff;
