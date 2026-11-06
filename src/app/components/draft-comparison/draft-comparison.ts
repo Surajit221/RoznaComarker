@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges, inject } from '@angular/core';
 import { DraftComparison, DraftIssueItem, SubmissionApiService } from '../../api/submission-api.service';
+import { DiffResult, diffTexts } from '../../utils/text-diff.util';
 
 /** v2 per-error tabs, in reading order. */
 export type IssueStatus = 'fixed' | 'remaining' | 'new' | 'unclear';
@@ -28,6 +29,10 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
   readonly ISSUE_TABS = ISSUE_TABS;
   /** v2: the per-error tab shown (chosen when a comparison arrives: the first non-empty one). */
   issueTab: IssueStatus = 'fixed';
+  /** v2 "Show changes": the text diff, computed locally on demand and kept until the comparison changes. */
+  showChanges = false;
+  diff: DiffResult | null = null;
+  private diffTimer: ReturnType<typeof setTimeout> | null = null;
   private requestVersion = 0;
   private retryGeneration = 0;
   private retryAttempt = 0;
@@ -49,6 +54,7 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resetDiff();
     this.cancelRetryCycle();
     ++this.retryGeneration;
     ++this.requestVersion;
@@ -65,6 +71,7 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
       const cacheToken = retry ? `${this.refreshKey ?? ''}:comparison-retry-${this.retryAttempt}` : this.refreshKey;
       const result = await this.submissionApi.getDraftComparison(submissionId, cacheToken);
       if (!this.isCurrent(generation, version, submissionId)) return;
+      if (result !== this.comparison) this.resetDiff();
       this.comparison = result;
       if (this.isV2()) this.issueTab = ISSUE_TABS.find(tab => (result.issueDetails?.[tab.key]?.total ?? 0) > 0)?.key ?? 'fixed';
       if (!result.available && result.code === 'CURRENT_UNASSESSED') this.scheduleRetry(generation);
@@ -107,6 +114,22 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
     return this.comparison?.code === 'CURRENT_UNASSESSED'
       ? 'Finalizing draft comparison…'
       : this.comparison?.message || '';
+  }
+
+  /** Shows or hides the changes. The diff runs after this click has been painted (a macrotask), so the page never freezes on it. */
+  toggleChanges(): void {
+    this.showChanges = !this.showChanges;
+    if (!this.showChanges || this.diff || this.diffTimer !== null) return;
+    const comparison = this.comparison;
+    this.diffTimer = setTimeout(() => {
+      this.diffTimer = null;
+      if (comparison !== this.comparison) return;
+      this.diff = diffTexts(comparison?.previousText ?? '', comparison?.currentText ?? '');
+    }, 0);
+  }
+  private resetDiff(): void {
+    if (this.diffTimer !== null) clearTimeout(this.diffTimer);
+    this.diffTimer = null; this.diff = null; this.showChanges = false;
   }
 
   /** v2 payload (the backend flag is on). Without it the template renders exactly the v1 view. */

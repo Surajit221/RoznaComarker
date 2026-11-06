@@ -66,6 +66,28 @@ describe('DraftComparisonComponent v2', () => {
     expect(dom().textContent).not.toMatch(/Improved|Declined|Rubric_changed/i);
     expect(dom().querySelector('[data-rubric-limited-note]')!.textContent).toContain('partially unavailable');
   });
+  it('v2 "Show changes": prepared after the click, then underline/strikethrough with words for screen readers; essay text never becomes HTML', async () => {
+    await render({ ...V2, previousText: 'I goes to <b>the</b> park.', currentText: 'I go to <b>the</b> big park.' });
+    expect(dom().querySelector('[data-diff-view]')).toBeNull();
+    dom().querySelector<HTMLButtonElement>('[data-diff-toggle]')!.click(); fixture.detectChanges();
+    expect(dom().querySelector('[data-diff-preparing]')).not.toBeNull();
+    await new Promise(resolve => setTimeout(resolve, 0)); fixture.detectChanges();
+    const view = dom().querySelector('[data-diff-view]')!;
+    expect(view.querySelector('[data-diff="modified"] del')!.textContent).toContain('goes');
+    expect(view.querySelector('[data-diff="modified"] ins')!.textContent).toContain('go');
+    expect(view.querySelector('[data-diff="added"]')!.textContent).toContain('Added: big');
+    expect(view.querySelector('b')).toBeNull();
+    expect(view.textContent).toContain('<b>the</b>');
+    expect(dom().querySelector('[data-diff-legend]')).not.toBeNull();
+    dom().querySelector<HTMLButtonElement>('[data-diff-toggle]')!.click(); fixture.detectChanges();
+    expect(dom().querySelector('[data-diff-view]')).toBeNull();
+    expect(dom().querySelector('.text-grid')).not.toBeNull();
+  });
+  it('v1 payload: no "Show changes" toggle, the two text panes as before', async () => {
+    await render(V1);
+    expect(dom().querySelector('[data-diff-toggle]')).toBeNull();
+    expect(dom().querySelector('.text-grid')).not.toBeNull();
+  });
   it('v2: a note about the earlier draft is shown even though the list is available', async () => {
     await render({ ...V2, issuesMessage: 'The earlier draft was saved before your teacher\'s changes to its corrections were kept with it, so this list may include corrections your teacher hid.' });
     expect(dom().querySelector('[data-issues-note]')!.textContent).toContain('may include corrections your teacher hid');

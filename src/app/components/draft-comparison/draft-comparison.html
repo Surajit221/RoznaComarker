@@ -91,6 +91,31 @@
 
     @if (comparison?.previousText || comparison?.currentText) {
       <h3>Draft text</h3>
+      @if (isV2()) {
+        <div class="diff-toolbar">
+          <button type="button" class="diff-toggle" data-diff-toggle [attr.aria-pressed]="showChanges" (click)="toggleChanges()">{{ showChanges ? 'Hide changes' : 'Show changes' }}</button>
+        </div>
+      }
+      @if (isV2() && showChanges) {
+        @if (!diff) {
+          <p class="state" role="status" data-diff-preparing>Preparing changes…</p>
+        } @else {
+          <p class="diff-legend" data-diff-legend><span aria-hidden="true">Key:</span>
+            <ins class="diff-added">added</ins> <del class="diff-removed">removed</del> <span class="diff-modified-key">~ changed</span>
+            @if (diff.level === 'sentence') { <span> · Long drafts are compared sentence by sentence.</span> }</p>
+          <p class="sr-only" role="status">{{ diff.added }} additions, {{ diff.removed }} removals and {{ diff.modified }} changes.</p>
+          <div class="diff-view" data-diff-view tabindex="0" role="group" aria-label="Changes from the previous draft to the current draft">
+            @for (segment of diff.segments; track $index) {
+              @switch (segment.kind) {
+                @case ('equal') { <span>{{ segment.text }}</span> }
+                @case ('added') { <ins class="diff-added" data-diff="added"><span class="sr-only">Added: </span>{{ segment.text }}</ins> }
+                @case ('removed') { <del class="diff-removed" data-diff="removed"><span class="sr-only">Removed: </span>{{ segment.text }}</del> }
+                @case ('modified') { <span class="diff-modified" data-diff="modified"><del class="diff-removed"><span class="sr-only">Changed from: </span>{{ segment.previous }}</del><ins class="diff-added"><span class="sr-only">to: </span>{{ segment.text }}</ins></span> }
+              }
+            }
+          </div>
+        }
+      } @else {
       <div class="text-tabs" role="tablist" aria-label="Choose draft text">
         <button type="button" role="tab" [attr.aria-selected]="activeText === 'previous'" (click)="activeText = 'previous'">Previous draft</button>
         <button type="button" role="tab" [attr.aria-selected]="activeText === 'current'" (click)="activeText = 'current'">Current draft</button>
@@ -99,6 +124,7 @@
         <article [class.mobile-hidden]="activeText !== 'previous'"><h4>Previous draft</h4><p>{{ comparison?.previousText || 'No transcript available.' }}</p></article>
         <article [class.mobile-hidden]="activeText !== 'current'"><h4>Current draft</h4><p>{{ comparison?.currentText || 'No transcript available.' }}</p></article>
       </div>
+      }
     }
   }
 </section>
