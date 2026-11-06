@@ -8,7 +8,8 @@
 
   <!-- ✅ DESKTOP -->
   <main class="submission-review-page">
-    <app-analysis-progress [progress]="canonicalResultState?.processingProgress || null" />
+    <!-- Task 22: a failed or retrying correction stage has one message, the corrections notice; the general banner stays out of it. -->
+    <app-analysis-progress [progress]="correctionRetryNotice ? null : (canonicalResultState?.processingProgress || null)" />
 
     <div class="mb-6 flex flex-row justify-between items-center">
       <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
@@ -133,11 +134,12 @@
                   <div class="gradient-card p-6 hover-lift" [attr.aria-busy]="correctionsState === 'loading'">
                     <h3 class="font-semibold text-gray-700 mb-4">Correction Statistics</h3>
                     @if (partialStatisticsMessage) { <p class="text-sm text-blue-700 mb-4" role="status">{{ partialStatisticsMessage }}</p> }
-                    @if (statisticsState === 'loading') {
+                    @if (correctionRetryNotice) { <p class="text-sm text-gray-600" role="status">Correction statistics will appear when the corrections are ready.</p> }
+                    @else if (statisticsState === 'loading') {
                     <ng-container *ngTemplateOutlet="correctionsSkeleton"></ng-container>
                     } @else if (statisticsState === 'processing') { <div class="text-sm text-blue-700" role="status">Still analyzing corrections…</div>
                     } @else if (statisticsState === 'error') {
-                    <div class="section-load-error" role="status">Unable to load correction statistics.</div>
+                    <div class="section-load-error" role="status">Correction statistics could not be loaded. Refresh the page to try again.</div>
                     } @else {
                     <app-correction-statistics [state]="canonicalResultState" [corrections]="annotations"
                       [barWidths]="{ content: contentIssuesBarWidth, grammar: grammarIssuesBarWidth, organization: organizationIssuesBarWidth, vocabulary: vocabularyIssuesBarWidth, mechanics: mechanicsIssuesBarWidth }" />

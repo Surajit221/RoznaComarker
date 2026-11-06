@@ -1762,7 +1762,9 @@ export class StudentSubmissionPages {
 
 
 
-    const raw: any = assignmentDateRaw || (this.currentSubmission && (this.currentSubmission as any).submittedAt);
+    // Task 22: the date of THIS draft (its own submission time); the assignment's date only when the draft has none.
+    const draft = this.currentSubmission as { submittedAt?: string; createdAt?: string } | null;
+    const raw: any = draft?.submittedAt || draft?.createdAt || assignmentDateRaw;
 
 
 
@@ -2205,12 +2207,14 @@ export class StudentSubmissionPages {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    // Task 22: a failed correction stage is explained once, by the corrections notice (correctionRetryNotice), not here as well.
+    if (this.correctionRetryNotice) return null;
     if (this.canonicalResultState?.semanticStatus === 'partial') {
       return 'Your score is ready, but correction analysis was only partially completed. Some correction statistics are unavailable.';
     }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
-    return this.canonicalResultState.correctionStatus === 'partial'
-      ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
+    // Task 22: no "grammar and mechanics are still available" claim here: when the stage failed there are no results at all.
+    return this.canonicalResultState.correctionStatus === 'partial' ? null
       : this.canonicalResultState.semanticProgressMessage
         || 'Grammar and mechanics are available. Content, organization, and vocabulary are still being analyzed.';
   }

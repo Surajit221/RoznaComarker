@@ -106,6 +106,27 @@ describe('MySubmissionPage: correction-stage retry (Task 20)', () => {
     await Promise.all([first, second]);
   });
 
+  it('Task 22: a failed correction stage has one message: the notice; no progress banner, no contradictory statistics text', () => {
+    component.isUploadedFile = false; component.scoreState = 'loaded'; component.statisticsState = 'error';
+    component.canonicalResultState = normalizeCanonicalResult({ ...failed, correctionRetryAllowed: true, statisticsCompleteness: 'language_only',
+      processingProgress: { status: 'partial', stage: 'partial', percent: 95, message: 'Analysis partially completed. Some writing details are unavailable.',
+        active: false, failed: false, completed: false } });
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(component.partialStatisticsMessage).toBeNull();
+    expect(text).toContain('Correction statistics will appear when the corrections are ready.');
+    expect(text).not.toContain('Grammar and mechanics');
+    expect(text).not.toContain('retrying is safe');
+    expect(text).not.toContain('Analysis partially completed');
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-analysis-progress section')).toBeNull();
+  });
+
+  it("Task 22: the date under the title is this draft's submission date, not the assignment's", () => {
+    component.submission = { _id: 'submission-2', submittedAt: '2026-11-05T10:00:00.000Z',
+      assignment: { _id: 'assignment-1', createdAt: '2026-11-01T10:00:00.000Z', title: 'Essay' } } as unknown as NonNullable<typeof component.submission>;
+    expect(component.submissionDateText).toBe(new Date('2026-11-05T10:00:00.000Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }));
+  });
+
   it('C.3b: one neutral line under the score only when the corrections arrived after the score', () => {
     const line = () => (fixture.nativeElement as HTMLElement).querySelector('.score-before-corrections');
     component.scoreState = 'loaded'; component.isUploadedFile = false;   // the evaluation view holds the score card

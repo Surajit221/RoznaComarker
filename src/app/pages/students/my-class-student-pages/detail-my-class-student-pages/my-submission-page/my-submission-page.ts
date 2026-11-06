@@ -408,7 +408,9 @@ export class MySubmissionPage {
     const a: any = this.submission && (this.submission as any).assignment;
     const assignmentDateRaw: any = a && typeof a === 'object' ? (a.publishedAt || a.createdAt) : null;
 
-    const raw: any = assignmentDateRaw || (this.submission && (this.submission as any).submittedAt);
+    // Task 22: the date of THIS draft (its own submission time); the assignment's date only when the draft has none.
+    const draft = this.submission as { submittedAt?: string; createdAt?: string } | null;
+    const raw: any = draft?.submittedAt || draft?.createdAt || assignmentDateRaw;
     const d = raw ? new Date(raw) : null;
     if (!d || Number.isNaN(d.getTime())) return '';
     return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -851,6 +853,8 @@ export class MySubmissionPage {
   get vocabularyIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'vocabulary'); }
   get mechanicsIssuesDisplay() { return categoryDisplay(this.canonicalResultState, 'mechanics'); }
   get partialStatisticsMessage(): string | null {
+    // Task 22: a failed correction stage is explained once, by the corrections notice (correctionRetryNotice), not here as well.
+    if (this.correctionRetryNotice) return null;
     if (this.canonicalResultState?.semanticStatus === 'partial') {
       return 'Your score is ready, but correction analysis was only partially completed. Some correction statistics are unavailable.';
     }
@@ -859,8 +863,8 @@ export class MySubmissionPage {
       return 'Your score is ready, but detailed writing corrections are temporarily unavailable. This does not mean that no mistakes were found.';
     }
     if (this.canonicalResultState?.statisticsCompleteness !== 'language_only') return null;
-    return this.canonicalResultState.correctionStatus === 'partial'
-      ? 'Semantic analysis could not be completed. Grammar and mechanics results are still available.'
+    // Task 22: no "grammar and mechanics are still available" claim here: when the stage failed there are no results at all.
+    return this.canonicalResultState.correctionStatus === 'partial' ? null
       : this.canonicalResultState.semanticProgressMessage
         || 'Grammar and mechanics are available. Content, organization, and vocabulary are still being analyzed.';
   }

@@ -65,6 +65,15 @@ describe('StudentSubmissionPages: correction-stage retry (Task 20)', () => {
     expect(regenerate).toHaveBeenCalledTimes(1);
   });
 
+  it("Task 22: one message for a failed correction stage, and the draft's own date", () => {
+    component.canonicalResultState = normalizeCanonicalResult({ ...failed, correctionRetryAllowed: true, statisticsCompleteness: 'language_only' });
+    expect(component.partialStatisticsMessage).toBeNull();
+    expect(component.correctionRetryNotice).toContain('could not be prepared');
+    component.currentSubmission = { _id: 'submission-2', submittedAt: '2026-11-05T10:00:00.000Z',
+      assignment: { _id: 'assignment-1', createdAt: '2026-11-01T10:00:00.000Z' } } as unknown as NonNullable<typeof component.currentSubmission>;
+    expect(component.submissionDateText).toBe(new Date('2026-11-05T10:00:00.000Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }));
+  });
+
   it('while the corrections are retried an unsent comment is kept; the corrections reload once when they arrive', async () => {
     const page = component as unknown as Page;
     const reload = spyOn(page, 'refreshAssessmentResult').and.resolveTo();
