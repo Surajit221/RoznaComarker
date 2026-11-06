@@ -15,8 +15,6 @@ p { margin: 6px 0; font-size: .9rem; line-height: 1.5; }
 .editor__toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
 .editor__filters, .editor__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .editor__actions { margin-top: 8px; }
-.editor__bulk { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.editor__bulk button, .editor__undo button { min-height: 44px; }
 .editor__undo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 12px; border: 1px solid #dce5e9; border-radius: 10px; background: #f6fafb; }
 .row__select { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 4px; cursor: pointer; }
 .row__select input { width: 22px; height: 22px; }
@@ -59,3 +57,42 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #008081; b
 .row--active { outline: 3px solid #172033; outline-offset: -3px; background: #fef3c7; }
 .badge--selected { background: #172033; color: #fff; }
 .badge--position { border: 1px dashed #475569; background: #fff; color: #1e293b; }
+
+/* ---- Panel polish: one button hierarchy for the editor (scoped; the page's global .btn-* classes are not used here). ---- */
+.ui-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 14px;
+  border: 1px solid transparent; border-radius: 10px; font-weight: 600; font-size: .875rem; line-height: 1.2;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.ui-btn--primary { background: #0f766e; color: #fff; }
+.ui-btn--primary:hover { background: #0b5f59; }
+.ui-btn--secondary { background: #fff; border-color: #cbd5e1; color: #1e293b; }
+.ui-btn--secondary:hover { background: #f1f5f9; border-color: #94a3b8; }
+.ui-btn--danger { background: #fff; border-color: #fca5a5; color: #b91c1c; }
+.ui-btn--danger:hover { background: #fef2f2; border-color: #dc2626; }
+.ui-btn[aria-pressed="true"] { background: #e6f4f2; border-color: #0f766e; color: #0f5d5e; }
+.ui-btn[aria-disabled="true"]:hover { background: inherit; }
+.ui-chip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px;
+  border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #1e293b; font-size: .8rem; font-weight: 600;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.ui-chip:hover { background: #f0fdfa; border-color: #0f766e; }
+.ui-chip__count { color: #0f5d5e; }
+@media (pointer: coarse) { .ui-chip { min-height: 44px; } }
+.editor__bulk { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+.editor__bulk-label { color: #64748b; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.editor__bulk-main, .editor__bulk-cats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.editor__undo { box-shadow: 0 4px 12px rgb(15 23 42 / 8%); }
+.editor__counts { padding: 8px 12px; border-radius: 10px; background: #f0fdfa; color: #134e4a; }
+.filter { min-height: 36px; transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+.filter:hover:not(.filter--on) { border-color: #203864; }
+@media (pointer: coarse) { .filter { min-height: 44px; } }
+.row { transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
+.row:hover { border-color: #b6c6d2; }
+@media (max-width: 480px) {
+  .editor__actions .ui-btn, .editor__bulk-main .ui-btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn, .ui-chip, .filter, .row { transition: none; }
+}

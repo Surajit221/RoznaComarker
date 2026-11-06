@@ -152,6 +152,19 @@ describe('AnnotationControls', () => {
     });
   });
 
+  describe('Phase A polish: panel', () => {
+    it('bulk actions sit in one labelled toolbar, categories as compact chips; no global page buttons in the editor', async () => {
+      await create(); await openEditor();
+      const bulk = dom().querySelector('[data-bulk]')!;
+      expect(bulk.getAttribute('role')).toBe('group');
+      expect(bulk.querySelector('[data-bulk-category="GRAMMAR"]')!.className).toContain('ui-chip');
+      expect(bulk.querySelector('[data-bulk-select-mode]')!.className).toContain('ui-btn--secondary');
+      expect(dom().querySelector('.btn-info, .btn-danger, .btn-primary, .btn-warning')).toBeNull();
+      expect(button('Remove', row())!.className).toContain('ui-btn--danger');
+      expect(button('Add correction')!.className).toContain('ui-btn--primary');
+    });
+  });
+
   describe('Phase A polish: inline edit in the list row', () => {
     beforeEach(async () => { await create(); await openEditor(); });
     const key = (target: Element, k: string, init: KeyboardEventInit = {}) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init }));

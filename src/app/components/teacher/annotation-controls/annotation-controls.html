@@ -3,7 +3,7 @@
     <h2 id="annotation-editor-title">Review corrections</h2>
     <div class="editor__head-actions">
       <ng-content />
-      <button type="button" class="btn-primary" [attr.aria-expanded]="open()" aria-controls="annotation-editor-body" (click)="toggle()">{{ open() ? 'Close' : 'Open' }}</button>
+      <button type="button" class="ui-btn ui-btn--primary" [attr.aria-expanded]="open()" aria-controls="annotation-editor-body" (click)="toggle()">{{ open() ? 'Close' : 'Open' }}</button>
     </div>
   </div>
   <p class="sr-only" role="status" aria-live="polite">{{ notice() }}</p>
@@ -11,8 +11,8 @@
   @if (error()) { <p class="editor__error" role="alert" data-form-error tabindex="-1">{{ error() }}</p> }
   @if (pending() && !saving() && error()) {
     <div class="editor__actions">
-      <button type="button" class="btn-warning" (click)="retry()">Retry</button>
-      @if (!pending()!.fromForm) { <button type="button" class="btn-info" (click)="discardPending()">Discard</button> }
+      <button type="button" class="ui-btn ui-btn--primary" (click)="retry()">Retry</button>
+      @if (!pending()!.fromForm) { <button type="button" class="ui-btn ui-btn--secondary" (click)="discardPending()">Discard</button> }
     </div>
   }
 
@@ -41,30 +41,37 @@
             }
           </div>
           <div class="editor__actions">
-            @if (!readOnly()) { <button type="button" class="btn-primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }
-            <button type="button" class="btn-info" [attr.aria-disabled]="loading()" (click)="reload()">Reload latest</button>
-            <button #historyButton type="button" class="btn-info" aria-haspopup="dialog" (click)="openHistory()">Change history</button>
-            <button type="button" class="btn-info" data-sync-toggle [attr.aria-expanded]="workspaceOpen()" (click)="toggleWorkspace()">{{ workspaceOpen() ? 'Hide image and transcript' : 'Show image and transcript' }}</button>
+            @if (!readOnly()) { <button type="button" class="ui-btn ui-btn--primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }
+            <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="loading()" (click)="reload()">Reload latest</button>
+            <button #historyButton type="button" class="ui-btn ui-btn--secondary" aria-haspopup="dialog" (click)="openHistory()">Change history</button>
+            <button type="button" class="ui-btn ui-btn--secondary" data-sync-toggle [attr.aria-expanded]="workspaceOpen()" (click)="toggleWorkspace()">{{ workspaceOpen() ? 'Hide image and transcript' : 'Show image and transcript' }}</button>
           </div>
         </div>
         @if (!readOnly()) {
           <div class="editor__bulk" role="group" aria-label="Change several corrections at once" data-bulk>
-            <button type="button" class="btn-info" [attr.aria-pressed]="selectMode()" data-bulk-select-mode (click)="toggleSelectMode()">{{ selectMode() ? 'Stop selecting' : 'Select several' }}</button>
-            @if (selectMode()) {
-              <button type="button" class="btn-warning" data-bulk-hide-selected [attr.aria-disabled]="locked() || !!form() || !selectedCount()" (click)="askHideSelected($event)">Hide selected ({{ selectedCount() }})</button>
-            }
-            @for (option of categoryOptions(); track option.key) {
-              <button type="button" class="btn-info" [attr.data-bulk-category]="option.key" [attr.aria-disabled]="locked() || !!form()" (click)="askHideCategory(option, $event)">Hide all {{ option.label }} ({{ option.count }})</button>
-            }
-            @if (hiddenCount()) {
-              <button type="button" class="btn-info" data-bulk-restore-all [attr.aria-disabled]="locked() || !!form()" (click)="askRestoreAll($event)">Restore all hidden ({{ hiddenCount() }})</button>
+            <span class="editor__bulk-label" aria-hidden="true">Several at once</span>
+            <div class="editor__bulk-main">
+              <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-pressed]="selectMode()" data-bulk-select-mode (click)="toggleSelectMode()">{{ selectMode() ? 'Stop selecting' : 'Select several' }}</button>
+              @if (selectMode()) {
+                <button type="button" class="ui-btn ui-btn--primary" data-bulk-hide-selected [attr.aria-disabled]="locked() || !!form() || !selectedCount()" (click)="askHideSelected($event)">Hide selected ({{ selectedCount() }})</button>
+              }
+              @if (hiddenCount()) {
+                <button type="button" class="ui-btn ui-btn--secondary" data-bulk-restore-all [attr.aria-disabled]="locked() || !!form()" (click)="askRestoreAll($event)">Restore all hidden ({{ hiddenCount() }})</button>
+              }
+            </div>
+            @if (categoryOptions().length) {
+              <div class="editor__bulk-cats" role="group" aria-label="Hide every correction of one category">
+                @for (option of categoryOptions(); track option.key) {
+                  <button type="button" class="ui-chip" [attr.data-bulk-category]="option.key" [attr.aria-disabled]="locked() || !!form()" (click)="askHideCategory(option, $event)">Hide all {{ option.label }} <span class="ui-chip__count">({{ option.count }})</span></button>
+                }
+              </div>
             }
           </div>
         }
         @if (undo(); as u) {
           <div class="editor__undo" data-bulk-undo>
             <span>{{ u.label }}</span>
-            <button type="button" class="btn-info" [attr.aria-disabled]="locked()" (click)="undoBulk()">Undo</button>
+            <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked()" (click)="undoBulk()">Undo</button>
           </div>
         }
 
@@ -120,10 +127,10 @@
                   <div class="editor__actions">
                     @for (action of actionsFor(row); track action) {
                       @switch (action) {
-                        @case ('edit') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" data-row-edit (click)="openForm(row, $event, 'row')">{{ row.orphanReason ? 'Place again' : 'Edit' }}<span class="sr-only"> {{ row.symbol }}</span></button> }
-                        @case ('hide') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" (click)="run('hide', row)">Hide<span class="sr-only"> {{ row.symbol }}</span></button> }
-                        @case ('restore') { <button type="button" class="btn-info" [attr.aria-disabled]="locked() || !!form()" (click)="run('restore', row)">Restore<span class="sr-only"> {{ row.symbol }}</span></button> }
-                        @case ('archive') { <button type="button" class="btn-danger" [attr.aria-disabled]="locked() || !!form()" (click)="askRemove(row, $event)">Remove<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('edit') { <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked() || !!form()" data-row-edit (click)="openForm(row, $event, 'row')">{{ row.orphanReason ? 'Place again' : 'Edit' }}<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('hide') { <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked() || !!form()" (click)="run('hide', row)">Hide<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('restore') { <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-disabled]="locked() || !!form()" (click)="run('restore', row)">Restore<span class="sr-only"> {{ row.symbol }}</span></button> }
+                        @case ('archive') { <button type="button" class="ui-btn ui-btn--danger" [attr.aria-disabled]="locked() || !!form()" (click)="askRemove(row, $event)">Remove<span class="sr-only"> {{ row.symbol }}</span></button> }
                       }
                     }
                     @if (row.orphanReason && row.status === 'archived') { <p class="form__help">It no longer matches the text. Restoring it returns it to Needs review; the student will not see it.</p> }
@@ -134,7 +141,7 @@
           }
         </ul>
         @if (filteredCount() > limit()) {
-          <button type="button" class="btn-info" (click)="showMore()">Show more (showing {{ shownRows().length }} of {{ filteredCount() }})</button>
+          <button type="button" class="ui-btn ui-btn--secondary" (click)="showMore()">Show more (showing {{ shownRows().length }} of {{ filteredCount() }})</button>
         }
       }
     </div>
