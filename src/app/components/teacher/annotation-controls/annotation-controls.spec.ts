@@ -264,6 +264,45 @@ describe('AnnotationControls', () => {
       expect(view.layout.desktop()).toBe('split');
       expect(dom().querySelector('[aria-label="Transcript and annotations"] form')).not.toBeNull();
     });
+    for (const width of [1200, 600]) {
+      it('sizes the transcript selection box to the form and its content at ' + width + 'px without changing selection offsets', async () => {
+        await create(); fixture.componentRef.setInput('imageUrl', 'blob:existing');
+        const transcript = ('These flowing words remain on one paragraph and wrap only at the available form width. ').repeat(7) + '\n\nA real paragraph break stays intact.';
+        api.current = snapshot({ pages: [{ ...snapshot().pages[0], text: transcript, endChar: transcript.length, words: transcript.match(/\S+/g)!.map((text, i) => ({ id: 't' + i, text })) }] });
+        await component.toggle(); await settle();
+        button('Add correction')!.click(); await settle();
+        const source = dom().querySelector<HTMLTextAreaElement>('[data-source-text]')!;
+        expect(source.value).toBe(transcript);
+        // A real browsing context exercises wrapping and CSS content sizing at each viewport width.
+        const frame = document.createElement('iframe');
+        frame.style.cssText = 'position:fixed;top:0;left:0;height:900px;border:0;width:' + width + 'px';
+        document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!, win = frame.contentWindow!;
+          for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+          doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true));
+          const box = doc.querySelector<HTMLTextAreaElement>('[data-source-text]')!;
+          const form = box.closest('form')!, style = win.getComputedStyle(form);
+          const available = form.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+          expect(Math.abs(box.getBoundingClientRect().width - available)).toBeLessThan(2);
+          expect(box.getBoundingClientRect().height).toBeGreaterThan(150);
+          expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight + 1);
+          expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
+          expect(box.value).toBe(transcript);
+          box.value = transcript.repeat(50) + 'unbroken'.repeat(100);
+          expect(box.getBoundingClientRect().height).toBeLessThanOrEqual(win.innerHeight * .6 + 1);
+          expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+          expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
+          expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+        } finally { frame.remove(); }
+        // Native keyboard/pointer selection continues to use the original source character positions.
+        setSelection(1, 9); await settle();
+        expect(dom().querySelector('[data-selected-quote]')?.textContent).toBe('These flowing');
+        component.chooseSymbol('ART'); fill('annotation-message', 'Note'); fill('annotation-suggestion', 'Fix'); await settle();
+        component.saveForm(); await settle();
+        expect(api.calls[0].value).toEqual(jasmine.objectContaining({ startChar: 0, endChar: 13, quotedText: 'These flowing' }));
+      });
+    }
     it('image activation selects the matching transcript and list; transcript activation selects the image input', async () => {
       await create(); fixture.componentRef.setInput('imageUrl', 'blob:already-loaded'); await open();
       toggle().click(); await settle();

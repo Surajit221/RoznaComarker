@@ -95,7 +95,7 @@
               </select>
             }
             <label for="annotation-source">Transcript: select the words this correction is about</label>
-            <textarea id="annotation-source" #source data-source-text rows="6" readonly [value]="formPage()?.text ?? ''" (select)="useSelection(source)" (mouseup)="useSelection(source)" (keyup)="useSelection(source)" aria-describedby="annotation-span-help"></textarea>
+            <textarea id="annotation-source" #source data-source-text readonly [value]="formPage()?.text ?? ''" (select)="useSelection(source)" (mouseup)="useSelection(source)" (keyup)="useSelection(source)" aria-describedby="annotation-span-help"></textarea>
             <p id="annotation-span-help" class="form__help">Selections extend to whole words. With a keyboard: move into the text, then hold Shift and use the arrow keys.</p>
             <p class="form__quote"><strong>Selected:</strong>&ngsp;@if (f.value.quotedText) { <span data-selected-quote>{{ f.value.quotedText }}</span> } @else { <em>nothing yet</em> }</p>
             @if (f.spanNote) { <p class="form__help">{{ f.spanNote }}</p> }

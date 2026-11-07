@@ -45,6 +45,7 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #008081; b
 .form label { display: block; margin-top: 12px; font-weight: 600; font-size: .9rem; }
 .form textarea, .form select { display: block; box-sizing: border-box; width: 100%; max-width: 100%; min-height: 44px; padding: 10px; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; color: #203864; font: inherit; }
 .form textarea { resize: vertical; white-space: pre-wrap; }
+.form [data-source-text] { width: 100%; max-width: none; min-width: 0; margin-inline: 0; box-sizing: border-box; field-sizing: content; height: auto; max-height: 60vh; resize: none; white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; }
 .form [aria-invalid="true"] { border-color: #9f261c; }
 .form__help { color: #475569; font-size: .8rem; }
 .form__quote { padding: 6px 0; }
