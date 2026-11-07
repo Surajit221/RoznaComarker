@@ -323,9 +323,8 @@
     <div class="flex flex-col gap-4">
       <div class="w-full bg-white p-4 rounded-3xl flex flex-col gap-6">
 
-        <div class="flex flex-row justify-between items-center">
-          <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
-          <div class="flex flex-row gap-2">
+        <app-teacher-evaluation-editor [heading]="evaluationFeedbackHeading" [submissionId]="currentSubmission?._id ?? ''" (saved)="onAnnotationsSaved(currentSubmission!._id)">
+          <ng-container ngProjectAs="[evaluation-actions]">
             <button type="button" class="btn-info" [disabled]="!canGenerateAiFeedback"
               (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback — 1 Credit' }}</button>
             <button type="button" class="btn-primary" [disabled]="isPdfDownloading"
@@ -340,11 +339,9 @@
               }
             </button>
             <button type="button" class="btn-warning" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
-          </div>
-        </div>
-
-        <div class="">
-          <div class="flex flex-col gap-3">
+          </ng-container>
+          <ng-container ngProjectAs="[evaluation-categories]">
+            <div class="evaluation-categories flex flex-col gap-3" data-evaluation-categories>
             @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
@@ -382,10 +379,11 @@
             }
             }
 
-            @if (currentSubmission?._id) {
-            <!-- Phase B3: shown only when the backend reports teacher score editing on for this teacher (renders nothing otherwise). -->
-            <app-teacher-evaluation-editor [submissionId]="currentSubmission!._id" (saved)="onAnnotationsSaved(currentSubmission!._id)" />
-            }
+            </div>
+          </ng-container>
+        </app-teacher-evaluation-editor>
+        <div>
+          <div class="flex flex-col gap-3">
             @if (assignmentId) {
             <!-- Improved Writing Model: per assignment; shown only when the backend has it on and this teacher owns the assignment. -->
             <app-writing-model-editor [assignmentId]="assignmentId" />

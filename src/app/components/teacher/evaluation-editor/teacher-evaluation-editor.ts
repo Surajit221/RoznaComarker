@@ -26,6 +26,7 @@ const UNSAVED_KEY = 'teacher-evaluation-editor';
 })
 export class TeacherEvaluationEditor implements OnChanges, OnDestroy {
   readonly submissionId = input.required<string>();
+  readonly heading = input('');
   /** A save went through: the page reloads its scores. */
   readonly saved = output<void>();
 
@@ -69,7 +70,7 @@ export class TeacherEvaluationEditor implements OnChanges, OnDestroy {
     this.version++;
     this.snapshot.set(null); this.open.set(false); this.draft.set([]); this.reason.set(''); this.initial.set('');
     this.saving.set(false); this.notice.set(''); this.error.set(''); this.showErrors.set(false); this.confirmReset.set(false); this.pending = null;
-    void this.load();
+    if (this.submissionId()) void this.load();
   }
   ngOnDestroy(): void { this.version++; this.unsaved.clear(UNSAVED_KEY); }
 

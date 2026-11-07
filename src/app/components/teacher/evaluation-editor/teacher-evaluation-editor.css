@@ -1,8 +1,8 @@
 :host { display: block; }
-.te { padding: 16px 20px; border: 1px solid #cfe3e3; border-radius: 12px; background: #fff; color: #1e293b; }
+.te { min-width: 0; color: #1e293b; }
 .te__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .te__head-text { min-width: 0; flex: 1 1 240px; }
-.te__title { margin: 0; font-size: 1.15rem; font-weight: 700; color: #0f2a4a; }
+.te__title { flex: 1 1 240px; min-width: 0; margin: 0; font-size: 1.5rem; font-weight: 700; color: #0f2a4a; }
 .te__sub { margin: 4px 0 0; font-size: .875rem; color: #475569; }
 .te__badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #e6f4f2; color: #0f5d5e; font-size: .75rem; font-weight: 700; }
 .te__notice { margin: 10px 0 0; color: #14532d; font-size: .9rem; }
@@ -29,9 +29,12 @@ textarea.te__input { resize: vertical; line-height: 1.45; }
 .te__help { margin: 2px 0 0; color: #64748b; font-size: .75rem; }
 .te__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .te__edited { margin: 10px 0 0; padding-left: 18px; font-size: .9rem; }
-.te__history { margin-top: 12px; }
+.te__head-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; min-width: 0; max-width: 100%; }
+.te__head-actions > * { min-width: 0; max-width: 100%; }
+.te__history { min-width: 0; margin: 0; }
+.te__history[open] { flex: 1 1 100%; }
 .te__history summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; color: #0f5d5e; }
-.te__history ol { margin: 4px 0 0; padding-left: 18px; }
+.te__history ol { box-sizing: border-box; width: 100%; max-height: 60vh; overflow: auto; margin: 4px 0 0; padding: 12px 12px 12px 30px; border: 1px solid #cfe3e3; border-radius: 10px; background: #fff; box-shadow: 0 6px 20px #0002; }
 .te__history li { margin-bottom: 8px; font-size: .875rem; }
 .te__history li p { margin: 0; }
 .ui-btn {
@@ -50,7 +53,6 @@ textarea.te__input { resize: vertical; line-height: 1.45; }
 @keyframes te-spin { to { transform: rotate(360deg); } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 480px) {
-  .te { padding: 12px; }
   .te__fields { grid-template-columns: 1fr; }
   .te__actions .ui-btn { flex: 1 1 100%; }
 }

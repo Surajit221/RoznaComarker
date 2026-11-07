@@ -1,3 +1,6 @@
+import { TeacherEvaluationEditor } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation-editor';
+import type { TeacherEvaluationSnapshot } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation.logic';
+import { rubricScoresToFeedbackItems } from '../../../../../utils/dynamic-ai-feedback.util';
 import { TeacherRecoveryLinkService } from '../../../../../components/teacher/guest-recovery-link/teacher-recovery-link.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
@@ -13,6 +16,15 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 import { TeacherEvaluationApiService } from '../../../../../api/teacher-evaluation-api.service';
 import { buildAnnotationVisuals } from '../../../../../components/correction-overlay/annotation-geometry';
+
+function evaluationSnapshot(score = 18, comment = 'Original grammar.'): TeacherEvaluationSnapshot {
+  return { enabled: true, editable: true, blockedReason: null, revision: score === 18 ? 3 : 4,
+    criteria: ['GRAMMAR', 'VOCABULARY', 'ORGANIZATION', 'CONTENT', 'MECHANICS', 'PRESENTATION'].map((key, i) => ({ key,
+      maxScore: [25, 20, 20, 20, 10, 5][i], ai: { score: [18, 16, 16, 16, 8, 4][i], comment: i === 0 ? 'Original grammar.' : '' },
+      teacher: { score: i === 0 && score !== 18 ? score : null, comment: i === 0 && score !== 18 ? comment : null },
+      final: { score: i === 0 ? score : [18, 16, 16, 16, 8, 4][i], comment: i === 0 ? comment : '' } })),
+    overall: { ai: 82, final: score + 64, max: 100 }, grade: { ai: 'B', final: 'B' }, edited: score !== 18, history: [] };
+}
 
 describe('StudentSubmissionPages', () => {
   it('renders the same raster review for teacher PDF review', () => {
@@ -75,6 +87,26 @@ describe('StudentSubmissionPages', () => {
     expect(dom.querySelector('.submission-page-header app-guest-recovery-link-action')).toBeNull();
     expect(dom.querySelector('.submission-page-header app-student-preview')).not.toBeNull();
     TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
+  });
+  it('places Edit scores, totals and history in the evaluation header without the old bottom card', async () => {
+    const snapshot = evaluationSnapshot(20, 'Updated grammar.');
+    snapshot.history = [{ at: '2026-11-07T10:00:00Z', actorName: 'Teacher', reason: 'Re-read', reset: false, previousRevision: 3, newRevision: 4,
+      before: { criteria: {}, overallScore: 82, grade: 'B' }, after: { criteria: {}, overallScore: 84, grade: 'B' } }];
+    spyOn(TestBed.inject(TeacherEvaluationApiService), 'snapshot').and.resolveTo(snapshot);
+    component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const dom = fixture.nativeElement as HTMLElement, header = dom.querySelector('[data-evaluation-header]')!;
+    expect(header.querySelector('[data-te-edit]')).not.toBeNull();
+    expect(header.textContent).toContain('Generate AI Feedback');
+    expect(header.textContent).toContain('Download PDF');
+    expect(header.textContent).toContain('Create Rubric');
+    expect(header.querySelector('[data-te-overall]')?.textContent).toBe('84');
+    expect(header.textContent).toContain('AI suggested: 82');
+    expect(header.querySelector('[data-te-history]')).not.toBeNull();
+    expect(dom.textContent).not.toContain('The AI suggested values stay visible here.');
+    expect(dom.querySelectorAll('[data-teacher-evaluation]').length).toBe(1);
+    expect(dom.querySelector('.te__sub')).toBeNull();
+    expect(getComputedStyle(header.querySelector('.te__head-actions')!).flexWrap).toBe('wrap');
   });
   it('should create', () => {
     expect(component).toBeTruthy();
