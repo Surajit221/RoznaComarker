@@ -40,10 +40,10 @@
       @if (approximateShown()) { <p class="workspace__legend" data-sync-legend>Dashed marks are hidden or removed corrections, shown at an approximate position. Students do not see them.</p> }
     </div>
     }
-    <div #transcriptPanel id="annotation-text-panel" class="workspace__column workspace__column--right" role="group" aria-label="Transcript and annotations" tabindex="0">
+    <div id="annotation-text-panel" class="workspace__column workspace__column--right" role="group" aria-label="Transcript and annotations" tabindex="0">
       @if (hasText()) {
       <h3>Transcript</h3>
-      <div class="workspace__panel--text" data-sync-transcript>
+      <div #transcriptPanel class="workspace__panel--text" tabindex="0" aria-label="Transcript" data-sync-transcript>
         @for (page of views(); track page.key) {
           <section>
             @if (views().length > 1) { <h4>Page {{ page.displayNumber }}</h4> }

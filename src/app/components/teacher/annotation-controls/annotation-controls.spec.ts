@@ -1,3 +1,6 @@
+import { By } from '@angular/platform-browser';
+import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
+import { ReviewWorkspace } from './review-workspace';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
@@ -49,7 +52,7 @@ describe('AnnotationControls', () => {
     component = fixture.componentInstance; registry = TestBed.inject(UnsavedWorkRegistry);
     fixture.detectChanges();
   }
-  async function openEditor() { await component.toggle(); await settle(); }
+  async function openEditor() { await component.toggle(); component.workspaceOpen.set(false); await settle(); }
   const dom = () => fixture.nativeElement as HTMLElement;
   const text = () => dom().textContent ?? '';
   const button = (label: string, within: Element = dom()) => [...within.querySelectorAll('button')].find(b => b.textContent?.trim().startsWith(label)) as HTMLButtonElement | undefined;
@@ -249,6 +252,31 @@ describe('AnnotationControls', () => {
     const open = async () => { api.current = two(); await openEditor(); };
     const mouse = (type: string, target: Element) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'mouse' }));
 
+    it('opening Review corrections enables the workspace with one list and form in the right column', async () => {
+      await create(); api.current = two(); await component.toggle(); await settle();
+      expect(component.workspaceOpen()).toBeTrue();
+      expect(dom().querySelectorAll('ul.rows').length).toBe(1);
+      expect(dom().querySelector('[aria-label="Transcript and annotations"] ul.rows')).not.toBeNull();
+      const view = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      view.narrowTab.set('image'); view.layout.desktop.set('image');
+      button('Add correction')!.click(); await settle();
+      expect(view.narrowTab()).toBe('text');
+      expect(view.layout.desktop()).toBe('split');
+      expect(dom().querySelector('[aria-label="Transcript and annotations"] form')).not.toBeNull();
+    });
+    it('image activation selects the matching transcript and list; transcript activation selects the image input', async () => {
+      await create(); fixture.componentRef.setInput('imageUrl', 'blob:already-loaded'); await open();
+      toggle().click(); await settle();
+      const image = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+      image.syncPointer.emit({ ids: ['ai_1'], kind: 'activate' }); await settle();
+      expect(dom().querySelector('[data-sync-transcript] .is-sync-active')).not.toBeNull();
+      expect(row('ai_1').classList.contains('row--active')).toBeTrue();
+      const word = dom().querySelector<HTMLElement>('[data-sync-transcript] [data-word-id="w3"]')!;
+      word.click(); await settle();
+      expect(component.selection.source()).toBe('transcript');
+      expect(image.syncActiveId).toBe('ai_2');
+      expect(row('ai_2').classList.contains('row--active')).toBeTrue();
+    });
     it('is closed until the teacher asks: nothing of it exists; a correction placed on its word has no position label', async () => {
       await create(); await open();
       expect(workspace()).toBeNull();
@@ -291,7 +319,7 @@ describe('AnnotationControls', () => {
       expect(row('ai_2').querySelector('[data-row-selected]')?.textContent).toBe('Selected');
       expect(row('ai_2').getAttribute('aria-current')).toBe('true');
       expect(dom().querySelector('[data-sync-live]')?.textContent).toContain('hidden from the student. Approximate position.');
-      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('Approximate position');
+      expect(dom().querySelector('[data-sync-status], [data-sync-clear]')).toBeNull();
     });
     it('list: a click on a row button does not select; the list has the listeners, not the rows', async () => {
       await create(); await open();
@@ -329,14 +357,14 @@ describe('AnnotationControls', () => {
       await new Promise(r => setTimeout(r, 170));
       expect(component.selection.activeId()).toBeNull();
     });
-    it('Escape and the button clear it', async () => {
+    it('Escape and clicking empty space clear it', async () => {
       await create(); await open();
       toggle().click(); await settle();
       component.selection.pin('ai_1', 'list'); await settle();
       dom().querySelector('#annotation-editor-body')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle();
       expect(component.selection.activeId()).toBeNull();
       component.selection.pin('ai_1', 'list'); await settle();
-      dom().querySelector<HTMLButtonElement>('[data-sync-clear]')!.click(); await settle();
+      dom().querySelector<HTMLElement>('.workspace')!.click(); await settle();
       expect(component.selection.activeId()).toBeNull();
     });
     it('selected from elsewhere while filtered out: the list switches to All and says so', async () => {
@@ -402,7 +430,7 @@ describe('AnnotationControls', () => {
       await create(); await open();
       toggle().click(); await settle();
       component.selection.pin('ai_3', 'list'); await settle();
-      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('Not located on image');
+      expect(dom().querySelector('[data-sync-live]')?.textContent).toContain('Not located on image');
     });
   });
 

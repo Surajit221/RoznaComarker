@@ -7,7 +7,7 @@ import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import { SharedPageImages } from '../../submission-page-review/shared-page-images';
 import { CorrectionSelection } from './correction-selection';
-import { applySyncPointer, scrollPanelTo } from './review-workspace';
+import { AnnotationLayoutSession, ReviewWorkspace, applySyncPointer, scrollPanelTo } from './review-workspace';
 
 const annotation = (patch: Partial<FeedbackAnnotation>): FeedbackAnnotation => ({ _id: 'c1', submissionId: 's', wordIds: ['w1'], symbol: 'AGR', message: 'm', color: '#c00', source: 'AI', editable: false, ...patch });
 const WORDS = Array.from({ length: 200 }, (_, i) => ({ id: `w${i}`, text: `word${i}`, bbox: { x: 1 + (i % 10) * 9, y: 1 + Math.floor(i / 10) * 4, w: 8, h: 3 }, separatorBefore: (i ? ' ' : '') as '' | ' ' }));
@@ -325,5 +325,84 @@ describe('SharedPageImages', () => {
     await store.acquire(SOURCE);
     store.destroy();
     expect(revoked).toHaveBeenCalledOnceWith('blob:held');
+  });
+});
+
+
+describe('ReviewWorkspace split layout', () => {
+  let fixture: ComponentFixture<ReviewWorkspace>, frame: HTMLIFrameElement | undefined;
+  const dom = () => fixture.nativeElement as HTMLElement;
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [ReviewWorkspace], providers: [CorrectionSelection,
+      { provide: DeviceService, useValue: { isMobile: () => false } }] }).compileComponents();
+    fixture = TestBed.createComponent(ReviewWorkspace);
+    fixture.componentRef.setInput('submissionId', 's');
+    fixture.componentRef.setInput('rows', []);
+    fixture.componentRef.setInput('positions', new Map());
+    fixture.componentRef.setInput('snapshot', { pages: [{ fileId: 'f', pageNumber: 1, text: 'word', words: [WORDS[0]] }], effective: [] });
+    fixture.componentRef.setInput('imageUrl', 'blob:existing');
+    fixture.detectChanges();
+  });
+  afterEach(() => frame?.remove());
+  // Real CSS in an isolated browsing context: media queries use its actual viewport width.
+  function atWidth(width: number) {
+    frame?.remove();
+    frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:800px;border:0';
+    frame.style.width = width + 'px'; document.body.appendChild(frame);
+    const doc = frame.contentDocument!;
+    for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+    doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true));
+    return { doc, css: (selector: string) => frame!.contentWindow!.getComputedStyle(doc.querySelector(selector)!) };
+  }
+  it('renders equal desktop columns at 1024px with independent scrolling and no horizontal page overflow', () => {
+    const { doc, css } = atWidth(1024);
+    const image = doc.querySelector('[aria-label="Submission image"]')!.getBoundingClientRect();
+    const text = doc.querySelector('[aria-label="Transcript and annotations"]')!.getBoundingClientRect();
+    expect(image.right).toBeLessThan(text.left);
+    expect(Math.abs(image.width - text.width)).toBeLessThan(2);
+    expect(css('[data-sync-image]').overflowY).toBe('auto');
+    expect(css('.workspace__column--right').overflowY).toBe('auto');
+    expect(css('.workspace__column--image').position).toBe('sticky');
+    expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(1024);
+    expect(css('[role="tablist"]').display).toBe('none');
+  });
+  it('defaults to Text below 1024px; switching tabs keeps the selected mark and supports arrow keys', () => {
+    const selection = TestBed.inject(CorrectionSelection); selection.pin('c1', 'image'); fixture.detectChanges();
+    let view = atWidth(1023);
+    expect(view.css('[role="tablist"]').display).toBe('flex');
+    expect(view.css('.workspace__column--image').display).toBe('none');
+    dom().querySelector<HTMLButtonElement>('[data-tab="image"]')!.click(); fixture.detectChanges();
+    view = atWidth(600);
+    expect(view.css('.workspace__column--image').display).not.toBe('none');
+    expect(view.css('.workspace__column--right').display).toBe('none');
+    expect(selection.pinnedId()).toBe('c1');
+    dom().querySelector('[role="tablist"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); fixture.detectChanges();
+    expect(fixture.componentInstance.narrowTab()).toBe('text');
+    expect(selection.pinnedId()).toBe('c1');
+  });
+  it('text alone has no image column or view switch', () => {
+    fixture.componentRef.setInput('imageUrl', null); fixture.detectChanges();
+    expect(dom().querySelector('[aria-label="Submission image"]')).toBeNull();
+    expect(dom().querySelector('[data-sync-transcript]')).not.toBeNull();
+    expect(dom().querySelector('[role="tablist"], .workspace__desktop-switch')).toBeNull();
+  });
+  it('image alone uses full width without an empty transcript', () => {
+    fixture.componentRef.setInput('snapshot', { pages: [], effective: [] }); fixture.detectChanges();
+    const { doc } = atWidth(1200);
+    expect(dom().querySelector('[data-sync-transcript]')).toBeNull();
+    expect(dom().querySelector('[role="tablist"]')).toBeNull();
+    expect(doc.querySelector('[aria-label="Submission image"]')!.getBoundingClientRect().width).toBeGreaterThan(1100);
+  });
+  it('desktop toggle is remembered in memory when reopened', () => {
+    dom().querySelectorAll<HTMLButtonElement>('.workspace__desktop-switch button')[2].click(); fixture.detectChanges();
+    expect(atWidth(1200).css('.workspace__column--image').display).toBe('none');
+    fixture.destroy();
+    expect(TestBed.inject(AnnotationLayoutSession).desktop()).toBe('text');
+  });
+  it('Escape clears selection and the removed Selected action bar is absent', () => {
+    const selection = TestBed.inject(CorrectionSelection); selection.pin('c1', 'image'); fixture.detectChanges();
+    dom().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(selection.activeId()).toBeNull();
+    expect(dom().querySelector('[data-sync-status], [data-sync-clear]')).toBeNull();
   });
 });

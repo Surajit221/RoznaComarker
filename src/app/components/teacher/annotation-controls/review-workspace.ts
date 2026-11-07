@@ -47,7 +47,6 @@ export function applySyncPointer(selection: CorrectionSelection, event: SyncPoin
 })
 export class ReviewWorkspace implements OnDestroy {
   readonly corrections = input<TemplateRef<unknown> | null>(null);
-  readonly listElement = input<HTMLElement>();
   readonly layout = inject(AnnotationLayoutSession);
   readonly narrowTab = signal<'image' | 'text'>('text');
   readonly hasImage = computed(() => this.isPdf() ? this.views().some(v => !!v.imageUrl) : !!this.imageUrl() || this.imageLoading() || this.imageFailed());
@@ -58,6 +57,10 @@ export class ReviewWorkspace implements OnDestroy {
   clearEmpty(event: MouseEvent): void {
     const target = event.target as Element;
     if (!target.closest('button, a, input, textarea, select, label, [data-marker-id], [data-line-rail], .correction-highlight, [data-row-key], [data-edit-fields]')) this.selection.clear();
+  }
+  revealText(): void {
+    this.narrowTab.set('text');
+    if (this.layout.desktop() === 'image') this.layout.desktop.set('split');
   }
   switchTab(tab: 'image' | 'text'): void {
     this.narrowTab.set(tab);
@@ -121,11 +124,6 @@ export class ReviewWorkspace implements OnDestroy {
   readonly displayFailed = computed(() => this.isPdf() ? this.pdfImage().failed : this.imageFailed());
   readonly noImage = computed(() => this.isPdf() && !this.view()?.imageUrl);
   readonly approximateShown = computed(() => { const positions = this.positions(); return this.overlayAnnotations().some(a => positions.get(a._id)?.image === 'approximate'); });
-  readonly activeRow = computed(() => { const id = this.selection.activeId(); return id ? this.rows().find(row => row.key === id) ?? null : null; });
-  readonly activeNote = computed(() => {
-    const row = this.activeRow(), image = row ? this.positions().get(row.key)?.image : undefined;
-    return image === 'none' ? NO_IMAGE_POSITION : image === 'approximate' ? APPROXIMATE_POSITION : image === 'line' ? LINE_IMAGE_POSITION : '';
-  });
   /** Only for a mark chosen (clicked, tapped, Enter) on the image or in the transcript: the list already has its own buttons. */
   readonly menuRow = computed(() => {
     const id = this.selection.pinnedId(), source = this.selection.source();
@@ -190,7 +188,6 @@ export class ReviewWorkspace implements OnDestroy {
   private scrollViews(source: SelectionSource | null): void {
     if (source !== 'image') scrollPanelTo(this.imagePanel()?.nativeElement, this.imagePanel()?.nativeElement.querySelector('.correction-overlay__marker.is-sync-active'));
     if (source !== 'transcript') scrollPanelTo(this.transcriptPanel()?.nativeElement, this.transcriptPanel()?.nativeElement.querySelector('.is-sync-active'));
-    if (source !== 'list') scrollPanelTo(this.transcriptPanel()?.nativeElement, this.listElement()?.querySelector('.row--active'));
   }
   /** Markers exist only once the image has loaded, possibly after the selection moved to its page. */
   onDrawn(ids: Set<string>): void {

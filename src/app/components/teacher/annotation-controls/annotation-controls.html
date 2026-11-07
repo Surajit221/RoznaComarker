@@ -78,7 +78,7 @@
         @if (workspaceOpen()) {
           <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
             [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [isPdf]="isPdf()" [imageStore]="imageStore()"
-            [corrections]="corrections" [listElement]="listPanel()?.nativeElement" [readOnly]="readOnly()" [actionsLocked]="locked() || !!form()"
+            [corrections]="corrections" [readOnly]="readOnly()" [actionsLocked]="locked() || !!form()"
             (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" (menuAction)="onMenuAction($event)" />
         } @else {
           <ng-container *ngTemplateOutlet="corrections" />

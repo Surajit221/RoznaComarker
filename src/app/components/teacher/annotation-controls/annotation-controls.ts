@@ -85,7 +85,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** For templates that hand the editor to a child (AnnotationEditFields). */
   readonly self = this;
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
-  readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
+  private readonly workspace = viewChild(ReviewWorkspace);
+  private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
   private version = 0;
   private historyRequest = 0;
@@ -522,6 +523,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.showFormErrors.set(false); this.conflict.set(false); this.error.set('');
     // Inline only when the words still match: a correction to place again, or whose span no longer matches, needs the panel's word selection.
     const where: FormPlacement = placement !== 'panel' && row && spanValid && !row.orphanReason ? placement : 'panel';
+    if (where !== 'popup') this.workspace()?.revealText();
     if (where !== 'popup' && !this.open()) this.open.set(true);
     this.form.set({ placement: where, mode: row ? 'edit' : 'add', rowKey: row?.key ?? null, targetId: row?.targetId ?? null, orphan: Boolean(row?.orphanReason), pageIndex, value, initial: JSON.stringify(value), spanNote: '' });
     afterNextRender(() => {
@@ -534,6 +536,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   changeWords(): void {
     const f = this.form();
     if (!f || this.saving()) return;
+    this.workspace()?.revealText();
     this.form.set({ ...f, placement: 'panel' });
     this.open.set(true);
     afterNextRender(() => this.focusPanelForm(), { injector: this.injector });

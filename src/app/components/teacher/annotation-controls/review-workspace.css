@@ -5,7 +5,7 @@
 .workspace__column h3 { margin: 4px 0; font-size: 1rem; font-weight: 700; }
 .workspace__pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .workspace__panel, .workspace__column--right { box-sizing: border-box; max-height: calc(100dvh - 180px); overflow: auto; padding: 8px; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; overscroll-behavior: contain; position: relative; }
-.workspace__panel--text { line-height: 1.7; white-space: pre-wrap; }
+.workspace__panel--text { max-height: 32dvh; overflow: auto; overscroll-behavior: contain; line-height: 1.7; white-space: pre-wrap; }
 .workspace__panel:focus-visible, .workspace__column--right:focus-visible, button:focus-visible { outline: 3px solid #006b6c; outline-offset: 2px; }
 .workspace__panel h4 { margin: 8px 0 4px; font-weight: 700; }
 .workspace__legend { margin: 6px 0 0; font-size: .85rem; }
