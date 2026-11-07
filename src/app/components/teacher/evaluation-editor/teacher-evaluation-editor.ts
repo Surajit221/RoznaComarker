@@ -98,7 +98,7 @@ export class TeacherEvaluationEditor implements OnChanges, OnDestroy {
     this.draft.set(draft); this.reason.set(''); this.showErrors.set(false); this.error.set(''); this.notice.set('');
     this.initial.set(JSON.stringify({ draft, reason: '' }));
     this.open.set(true);
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-te-first]')?.focus(), { injector: this.injector });
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('[data-te-heading]')?.focus(), { injector: this.injector });
   }
   setScore(key: string, event: Event): void { const v = this.value(event); this.draft.update(rows => rows.map(r => r.key === key ? { ...r, score: v } : r)); }
   setComment(key: string, event: Event): void { const v = this.value(event); this.draft.update(rows => rows.map(r => r.key === key ? { ...r, comment: v } : r)); }

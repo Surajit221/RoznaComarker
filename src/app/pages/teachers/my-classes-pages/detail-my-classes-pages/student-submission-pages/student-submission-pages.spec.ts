@@ -1,4 +1,5 @@
-import { TeacherEvaluationEditor } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation-editor';
+import { HttpErrorResponse } from '@angular/common/http';
+import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import type { TeacherEvaluationSnapshot } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation.logic';
 import { rubricScoresToFeedbackItems } from '../../../../../utils/dynamic-ai-feedback.util';
 import { TeacherRecoveryLinkService } from '../../../../../components/teacher/guest-recovery-link/teacher-recovery-link.service';
@@ -95,6 +96,7 @@ describe('StudentSubmissionPages', () => {
     spyOn(TestBed.inject(TeacherEvaluationApiService), 'snapshot').and.resolveTo(snapshot);
     component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
     const dom = fixture.nativeElement as HTMLElement, header = dom.querySelector('[data-evaluation-header]')!;
     expect(header.querySelector('[data-te-edit]')).not.toBeNull();
     expect(header.textContent).toContain('Generate AI Feedback');
@@ -107,6 +109,83 @@ describe('StudentSubmissionPages', () => {
     expect(dom.querySelectorAll('[data-teacher-evaluation]').length).toBe(1);
     expect(dom.querySelector('.te__sub')).toBeNull();
     expect(getComputedStyle(header.querySelector('.te__head-actions')!).flexWrap).toBe('wrap');
+    for (const width of [360, 768, 1024, 1440]) {
+      const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+      try {
+        const doc = frame.contentDocument!;
+        for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+        doc.body.style.margin = '0'; doc.body.appendChild(header.cloneNode(true));
+        expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+        doc.querySelector<HTMLDetailsElement>('details')!.open = true;
+        expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+      } finally { frame.remove(); }
+    }
+
+  });
+  describe('evaluation edit layout', () => {
+    const dom = () => fixture.nativeElement as HTMLElement;
+    async function settle() { for (let i = 0; i < 4; i++) { await fixture.whenStable(); fixture.detectChanges(); await Promise.resolve(); } }
+    async function prepare() {
+      const snapshot = evaluationSnapshot();
+      spyOn(TestBed.inject(TeacherEvaluationApiService), 'snapshot').and.resolveTo(snapshot);
+      spyOn(component, 'onAnnotationsSaved').and.resolveTo();
+      component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
+      component.aiFeedbackState = 'loaded'; component.isLoading = false;
+      component.canonicalResultState = normalizeCanonicalResult({ evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', processingActive: false });
+      component.rubricFeedbackItems = rubricScoresToFeedbackItems(Object.fromEntries(snapshot.criteria.map(c => [c.key, { ...c.final, maxScore: c.maxScore }])));
+      fixture.detectChanges(); await settle();
+      TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
+    }
+    async function click(selector: string) { dom().querySelector<HTMLElement>(selector)!.click(); await settle(); }
+    function type(selector: string, value: string) { const field = dom().querySelector<HTMLInputElement>(selector)!; field.value = value; field.dispatchEvent(new Event('input')); }
+    it('swaps categories for the form, focuses its heading and disables AI generation; Cancel restores the original', async () => {
+      await prepare();
+      const generate = () => dom().querySelector<HTMLButtonElement>('[data-generate-evaluation]')!;
+      expect(dom().querySelector('[data-evaluation-categories]')?.textContent).toContain('Original grammar.');
+      expect(generate().disabled).toBeFalse();
+      await click('[data-te-edit]');
+      expect(dom().querySelector('[data-evaluation-categories]')).toBeNull();
+      expect(dom().querySelector('.te__form')).not.toBeNull();
+      expect(document.activeElement).toBe(dom().querySelector('[data-te-heading]'));
+      expect(generate().disabled).toBeTrue();
+      expect(dom().querySelector('[data-evaluation-header]')?.textContent).toContain('Download PDF');
+      type('#te-score-GRAMMAR', '20'); type('#te-comment-GRAMMAR', 'Unsaved change'); await settle();
+      expect(TestBed.inject(UnsavedWorkRegistry).has('teacher-evaluation-editor')).toBeTrue();
+      await click('[data-te-cancel]');
+      expect(dom().querySelector('.te__form')).toBeNull();
+      expect(dom().querySelector('[data-evaluation-categories]')?.textContent).toContain('Original grammar.');
+      expect(dom().querySelector('[data-evaluation-categories]')?.textContent).not.toContain('Unsaved change');
+      expect(dom().querySelector('[data-te-overall]')?.textContent).toBe('82');
+      expect(generate().disabled).toBeFalse();
+      expect(TestBed.inject(UnsavedWorkRegistry).has('teacher-evaluation-editor')).toBeFalse();
+    });
+    it('Save shows the returned teacher scores and comments in the category list and header', async () => {
+      await prepare();
+      const save = spyOn(TestBed.inject(TeacherEvaluationApiService), 'save').and.resolveTo({ revision: 4, snapshot: evaluationSnapshot(20, 'Updated teacher comment.') });
+      await click('[data-te-edit]'); type('#te-score-GRAMMAR', '20'); type('#te-comment-GRAMMAR', 'Updated teacher comment.'); await settle();
+      await click('[data-te-save]');
+      expect(save.calls.mostRecent().args).toEqual(['submission-1', jasmine.objectContaining({ revision: 3, criteria: { GRAMMAR: { score: 20, comment: 'Updated teacher comment.' } } })]);
+      expect(dom().querySelector('.te__form')).toBeNull();
+      const categories = dom().querySelector('[data-evaluation-categories]')!;
+      expect(categories.textContent).toContain('Updated teacher comment.');
+      expect(categories.querySelector('.score-earned')?.textContent?.trim()).toBe('20.0');
+      expect(dom().querySelector('[data-te-overall]')?.textContent).toBe('84');
+      expect(dom().querySelector('[data-te-grade]')?.textContent).toBe('B');
+      expect(dom().querySelector('[data-evaluation-header]')?.textContent).toContain('AI suggested: 82');
+      expect(TestBed.inject(UnsavedWorkRegistry).has('teacher-evaluation-editor')).toBeFalse();
+    });
+    it('a rate-limited save leaves the form, typed values and unsaved protection intact', async () => {
+      await prepare();
+      spyOn(TestBed.inject(TeacherEvaluationApiService), 'save').and.rejectWith(new HttpErrorResponse({ status: 429 }));
+      await click('[data-te-edit]'); type('#te-score-GRAMMAR', '20'); type('#te-comment-GRAMMAR', 'Keep this draft.'); await settle();
+      await click('[data-te-save]');
+      expect(dom().querySelector('[data-evaluation-categories]')).toBeNull();
+      expect(dom().querySelector<HTMLInputElement>('#te-score-GRAMMAR')?.value).toBe('20');
+      expect(dom().querySelector<HTMLTextAreaElement>('#te-comment-GRAMMAR')?.value).toBe('Keep this draft.');
+      expect(dom().querySelector('[data-te-error]')?.textContent?.trim()).toBeTruthy();
+      expect(TestBed.inject(UnsavedWorkRegistry).has('teacher-evaluation-editor')).toBeTrue();
+      await click('[data-te-cancel]');
+    });
   });
   it('should create', () => {
     expect(component).toBeTruthy();

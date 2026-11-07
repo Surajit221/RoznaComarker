@@ -54,10 +54,11 @@
 
       }
     </header>
-    <ng-content select="[evaluation-categories]" />
+    @if (!open()) { <ng-content select="[evaluation-categories]" /> }
     @if (s) {
     @if (open()) {
       <form class="te__form" (submit)="$event.preventDefault(); save()" (keydown)="onKeydown($event)" novalidate [attr.aria-busy]="saving()">
+        <h3 class="te__title" data-te-heading tabindex="-1">Edit scores</h3>
         <ul class="te__rows">
           @for (row of draft(); track row.key; let first = $first) {
             @let c = criterion(row.key);

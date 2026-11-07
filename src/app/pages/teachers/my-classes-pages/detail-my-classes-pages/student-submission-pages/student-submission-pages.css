@@ -368,3 +368,5 @@
 .submission-page-actions > * { min-width: 0; max-width: 100%; }
 .submission-page-actions button { min-height: 44px; white-space: normal; }
 @media (max-width: 767px) { .submission-page-actions { justify-content: flex-start; } }
+
+.evaluation-action { min-height: 44px; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

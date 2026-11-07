@@ -325,9 +325,9 @@
 
         <app-teacher-evaluation-editor [heading]="evaluationFeedbackHeading" [submissionId]="currentSubmission?._id ?? ''" (saved)="onAnnotationsSaved(currentSubmission!._id)">
           <ng-container ngProjectAs="[evaluation-actions]">
-            <button type="button" class="btn-info" [disabled]="!canGenerateAiFeedback"
+            <button type="button" class="evaluation-action btn-info" data-generate-evaluation [disabled]="!canGenerateAiFeedback"
               (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback — 1 Credit' }}</button>
-            <button type="button" class="btn-primary" [disabled]="isPdfDownloading"
+            <button type="button" class="evaluation-action btn-primary" [disabled]="isPdfDownloading"
               (click)="downloadPdfForCurrentSubmission()">
               @if (isPdfDownloading) {
               <span class="pdf-loading">
@@ -338,7 +338,7 @@
               Download PDF
               }
             </button>
-            <button type="button" class="btn-warning" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
+            <button type="button" class="evaluation-action btn-warning" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
           </ng-container>
           <ng-container ngProjectAs="[evaluation-categories]">
             <div class="evaluation-categories flex flex-col gap-3" data-evaluation-categories>
@@ -352,8 +352,8 @@
               This overall score is calculated from the assignment’s custom rubric.
             </div>
             }
-            @if (rubricFeedbackItems.length) {
-            @for (item of rubricFeedbackItems; track item.category) {
+            @if (displayedRubricFeedbackItems.length) {
+            @for (item of displayedRubricFeedbackItems; track item.category) {
             <div
               class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
               <div class="min-w-0 flex-1">
