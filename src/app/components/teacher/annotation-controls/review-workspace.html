@@ -1,18 +1,24 @@
-<section class="workspace" aria-label="Image and transcript">
+<section class="workspace" aria-label="Image and transcript" (click)="clearEmpty($event)">
   <p class="sr-only" role="status" aria-live="polite" data-sync-live>{{ announcement() }}</p>
-  <div class="workspace__status" data-sync-status>
-    @if (activeRow(); as row) {
-      <p><strong>Selected:</strong>&ngsp;{{ row.symbol }}@if (row.quotedText) { <span>&ngsp;“{{ row.quotedText }}”</span> }@if (activeNote()) { <span class="workspace__note" data-sync-note>&ngsp;· {{ activeNote() }}</span> }</p>
-      @if (menuRow(); as menu) {
-        <app-annotation-mark-menu [entries]="[{ row: menu, actions: menuActions() }]" [locked]="actionsLocked()" [showTarget]="false" (act)="menuAction.emit($event)" />
-      }
-      <button type="button" class="btn-info" data-sync-clear (click)="selection.clear()">Clear selection</button>
-    } @else {
-      <p>Select a correction in the list, the transcript or on the image to see it in all three.</p>
-    }
-  </div>
-  <div class="workspace__panels">
-    <div class="workspace__column">
+  @if (both()) {
+    <div class="workspace__desktop-switch" role="group" aria-label="Annotation layout">
+      <button type="button" [attr.aria-pressed]="layout.desktop() === 'split'" (click)="layout.desktop.set('split')">Split</button>
+      <button type="button" [attr.aria-pressed]="layout.desktop() === 'image'" (click)="layout.desktop.set('image')">Image only</button>
+      <button type="button" [attr.aria-pressed]="layout.desktop() === 'text'" (click)="layout.desktop.set('text')">Text only</button>
+    </div>
+    <div class="workspace__tabs" role="tablist" aria-label="Annotation view" (keydown)="tabKey($event)">
+      <button type="button" role="tab" id="annotation-image-tab" aria-controls="annotation-image-panel" data-tab="image" [attr.aria-selected]="narrowTab() === 'image'" [tabIndex]="narrowTab() === 'image' ? 0 : -1" (click)="switchTab('image')">Image</button>
+      <button type="button" role="tab" id="annotation-text-tab" aria-controls="annotation-text-panel" data-tab="text" [attr.aria-selected]="narrowTab() === 'text'" [tabIndex]="narrowTab() === 'text' ? 0 : -1" (click)="switchTab('text')">Text</button>
+    </div>
+  }
+  @if (menuRow(); as menu) {
+    <aside class="workspace__mark-menu" aria-label="Correction actions">
+      <app-annotation-mark-menu [entries]="[{ row: menu, actions: menuActions() }]" [locked]="actionsLocked()" (act)="menuAction.emit($event)" />
+    </aside>
+  }
+  <div class="workspace__panels" [class.workspace__panels--both]="both()" [class.workspace__panels--image]="layout.desktop() === 'image'" [class.workspace__panels--text]="layout.desktop() === 'text'" [class.workspace__panels--tab-image]="narrowTab() === 'image'">
+    @if (hasImage()) {
+    <div id="annotation-image-panel" class="workspace__column workspace__column--image" role="group" aria-label="Submission image">
       <h3>Image</h3>
       @if (views().length > 1) {
         <nav class="workspace__pages" aria-label="Pages in the workspace">
@@ -33,16 +39,22 @@
       </div>
       @if (approximateShown()) { <p class="workspace__legend" data-sync-legend>Dashed marks are hidden or removed corrections, shown at an approximate position. Students do not see them.</p> }
     </div>
-    <div class="workspace__column">
+    }
+    <div #transcriptPanel id="annotation-text-panel" class="workspace__column workspace__column--right" role="group" aria-label="Transcript and annotations" tabindex="0">
+      @if (hasText()) {
       <h3>Transcript</h3>
-      <div #transcriptPanel class="workspace__panel workspace__panel--text" tabindex="0" role="group" aria-label="Transcript, scrollable" data-sync-transcript>
+      <div class="workspace__panel--text" data-sync-transcript>
         @for (page of views(); track page.key) {
           <section>
             @if (views().length > 1) { <h4>Page {{ page.displayNumber }}</h4> }
+            @if (page.words.length) {
             <app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'transcript')" />
+            } @else { <p>{{ page.text }}</p> }
           </section>
         }
       </div>
+      }
+      <ng-container *ngTemplateOutlet="corrections()" />
     </div>
   </div>
 </section>

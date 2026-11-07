@@ -78,10 +78,13 @@
         @if (workspaceOpen()) {
           <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
             [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [isPdf]="isPdf()" [imageStore]="imageStore()"
-            [readOnly]="readOnly()" [actionsLocked]="locked() || !!form()"
+            [corrections]="corrections" [listElement]="listPanel()?.nativeElement" [readOnly]="readOnly()" [actionsLocked]="locked() || !!form()"
             (fileRequested)="fileRequested.emit($event)" (drawnChange)="onDrawn($event)" (menuAction)="onMenuAction($event)" />
+        } @else {
+          <ng-container *ngTemplateOutlet="corrections" />
         }
 
+        <ng-template #corrections>
         @if (form(); as f) { @if ((f.placement ?? 'panel') === 'panel') {
           <form class="form" (ngSubmit)="saveForm()" novalidate>
             <h3 data-form-heading tabindex="-1">{{ f.orphan ? 'Place this correction again' : f.mode === 'edit' ? 'Edit correction' : 'Add correction' }}</h3>
@@ -143,6 +146,7 @@
         @if (filteredCount() > limit()) {
           <button type="button" class="ui-btn ui-btn--secondary" (click)="showMore()">Show more (showing {{ shownRows().length }} of {{ filteredCount() }})</button>
         }
+        </ng-template>
       }
     </div>
   }

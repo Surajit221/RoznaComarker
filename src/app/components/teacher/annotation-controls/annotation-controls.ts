@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
@@ -54,7 +55,7 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [AnnotationEditFields, ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
+  imports: [NgTemplateOutlet, AnnotationEditFields, ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
   providers: [CorrectionSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
@@ -84,7 +85,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** For templates that hand the editor to a child (AnnotationEditFields). */
   readonly self = this;
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
+  readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
   private version = 0;
   private historyRequest = 0;
@@ -235,7 +236,10 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
 
   async toggle(): Promise<void> {
     this.open.update(open => !open);
-    if (this.open() && !this.snapshot()) await this.reload();
+    if (this.open()) {
+      this.workspaceOpen.set(true);
+      if (!this.snapshot()) await this.reload();
+    }
   }
 
   /** Loads the latest snapshot. The old list stays on screen until the new one arrives, so nothing jumps. */

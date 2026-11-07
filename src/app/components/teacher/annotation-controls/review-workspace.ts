@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, OnDestroy, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, Injectable, Injector, OnDestroy, TemplateRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import { TranscriptPageView, buildTranscriptPageViews } from '../../../utils/transcript-page-views.util';
 import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
@@ -10,6 +11,10 @@ import { AnnotationMarkMenu, MarkMenuAction } from './annotation-mark-menu';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
 
 export interface SyncPointer { ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate'; }
+
+/** View preference stays in memory, including when the responsive shell rebuilds the page. */
+@Injectable({ providedIn: 'root' })
+export class AnnotationLayoutSession { readonly desktop = signal<'split' | 'image' | 'text'>('split'); }
 
 /** Every view scrolls the same way: inside its own panel, never the window, and without animation when the user asked for less motion. */
 export function scrollPanelTo(panel: HTMLElement | undefined, target: Element | null | undefined): void {
@@ -35,12 +40,36 @@ export function applySyncPointer(selection: CorrectionSelection, event: SyncPoin
  */
 @Component({
   selector: 'app-review-workspace',
-  imports: [AnnotationMarkMenu, CorrectionOverlay, TokenizedTranscript],
+  imports: [NgTemplateOutlet, AnnotationMarkMenu, CorrectionOverlay, TokenizedTranscript],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './review-workspace.html',
   styleUrl: './review-workspace.css',
 })
 export class ReviewWorkspace implements OnDestroy {
+  readonly corrections = input<TemplateRef<unknown> | null>(null);
+  readonly listElement = input<HTMLElement>();
+  readonly layout = inject(AnnotationLayoutSession);
+  readonly narrowTab = signal<'image' | 'text'>('text');
+  readonly hasImage = computed(() => this.isPdf() ? this.views().some(v => !!v.imageUrl) : !!this.imageUrl() || this.imageLoading() || this.imageFailed());
+  readonly hasText = computed(() => this.views().some(v => v.words.length > 0 || !!v.text.trim()));
+  readonly both = computed(() => this.hasImage() && this.hasText());
+
+  @HostListener('keydown.escape') clearSelection(): void { this.selection.clear(); }
+  clearEmpty(event: MouseEvent): void {
+    const target = event.target as Element;
+    if (!target.closest('button, a, input, textarea, select, label, [data-marker-id], [data-line-rail], .correction-highlight, [data-row-key], [data-edit-fields]')) this.selection.clear();
+  }
+  switchTab(tab: 'image' | 'text'): void {
+    this.narrowTab.set(tab);
+    afterNextRender(() => this.scrollViews(null), { injector: this.injector });
+  }
+  tabKey(event: KeyboardEvent): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const tab = event.key === 'Home' ? 'image' : event.key === 'End' ? 'text' : this.narrowTab() === 'text' ? 'image' : 'text';
+    this.switchTab(tab);
+    this.host.nativeElement.querySelector<HTMLElement>(`[data-tab="${tab}"]`)?.focus();
+  }
   readonly submissionId = input.required<string>();
   readonly snapshot = input.required<AnnotationSnapshot>();
   readonly rows = input.required<CorrectionRow[]>();
@@ -161,6 +190,7 @@ export class ReviewWorkspace implements OnDestroy {
   private scrollViews(source: SelectionSource | null): void {
     if (source !== 'image') scrollPanelTo(this.imagePanel()?.nativeElement, this.imagePanel()?.nativeElement.querySelector('.correction-overlay__marker.is-sync-active'));
     if (source !== 'transcript') scrollPanelTo(this.transcriptPanel()?.nativeElement, this.transcriptPanel()?.nativeElement.querySelector('.is-sync-active'));
+    if (source !== 'list') scrollPanelTo(this.transcriptPanel()?.nativeElement, this.listElement()?.querySelector('.row--active'));
   }
   /** Markers exist only once the image has loaded, possibly after the selection moved to its page. */
   onDrawn(ids: Set<string>): void {
