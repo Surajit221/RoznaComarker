@@ -1,3 +1,4 @@
+import { TeacherRecoveryLinkService } from '../../../../../components/teacher/guest-recovery-link/teacher-recovery-link.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
@@ -45,6 +46,36 @@ describe('StudentSubmissionPages', () => {
     fixture.detectChanges();
   });
 
+  it('puts recovery and student preview in the wrapping page header, leaving guest details in navigation', async () => {
+    spyOn(TestBed.inject(TeacherRecoveryLinkService), 'status').and.resolveTo({ available: true, reason: null, emailMasked: 'g***@example.com', lastSentAt: null });
+    component.currentSubmission = { _id: 'submission-1', submissionMode: 'guest', guest: { normalizedEmail: 'guest@example.com' } } as NonNullable<typeof component.currentSubmission>;
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const dom = fixture.nativeElement as HTMLElement, header = dom.querySelector('.submission-page-header')!;
+    expect(header.querySelector('[data-action="open"]')?.textContent).toContain('Send recovery link');
+    expect(header.querySelector('[data-preview-open]')?.textContent).toContain('Student preview');
+    expect(dom.querySelector('.submission-navigation')?.textContent).toContain('guest@example.com');
+    expect(dom.querySelector('.submission-navigation app-guest-recovery-link-action, app-annotation-controls app-student-preview')).toBeNull();
+    expect(dom.querySelectorAll('app-student-preview').length).toBe(1);
+    for (const width of [360, 768, 1024, 1440]) {
+      const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+      try {
+        const doc = frame.contentDocument!, win = frame.contentWindow!;
+        for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+        doc.body.style.margin = '0'; doc.body.appendChild(header.cloneNode(true));
+        const actions = doc.querySelector('.submission-page-actions')!;
+        expect(win.getComputedStyle(actions).flexWrap).toBe('wrap');
+        expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+        const title = doc.querySelector('h1')!.getBoundingClientRect(), group = actions.getBoundingClientRect();
+        expect(title.bottom <= group.top || title.right <= group.left).toBeTrue();
+        for (const button of Array.from(actions.querySelectorAll('button')).filter(button => !button.closest('dialog'))) expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+      } finally { frame.remove(); }
+    }
+    component.currentSubmission = { _id: 'submission-1', submissionMode: 'registered' } as NonNullable<typeof component.currentSubmission>;
+    fixture.detectChanges();
+    expect(dom.querySelector('.submission-page-header app-guest-recovery-link-action')).toBeNull();
+    expect(dom.querySelector('.submission-page-header app-student-preview')).not.toBeNull();
+    TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
+  });
   it('should create', () => {
     expect(component).toBeTruthy();
   });

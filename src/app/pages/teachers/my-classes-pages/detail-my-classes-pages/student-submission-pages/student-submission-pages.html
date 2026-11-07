@@ -20,23 +20,26 @@
     </div>
     }
 
-    <div class="mb-6 flex flex-row justify-between items-center">
+    <header class="submission-page-header mb-6">
       <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
-      <div class="flex flex-row gap-2">
+      <div class="submission-page-actions" aria-label="Submission actions">
         <button type="button" class="btn-primary" (click)="openSheetSubmission = true">
           View All Submission
         </button>
         <button type="button" class="btn-danger" (click)="toBack()">{{ currentSubmission?.submissionMode === 'guest' ? 'Back to class' : 'Back To Student Profile' }}</button>
+        @if (currentSubmission?._id) {
+          @if (currentSubmission?.submissionMode === 'guest') { <app-guest-recovery-link-action [submissionId]="currentSubmission!._id" /> }
+          <app-student-preview [submission]="previewSubmission" [refreshKey]="annotationSaves" />
+        }
       </div>
-    </div>
+    </header>
 
-    <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
+    <div class="submission-navigation w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
       <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
       <div class="flex flex-col justify-center items-center">
         <p class="font-bold text-2xl">{{ studentName }}</p>
         @if (currentSubmission?.submissionMode === 'guest') {
           <p class="text-sm text-gray-500">{{ currentSubmission?.guest?.normalizedEmail }}</p>
-          @if (currentSubmission?._id) { <app-guest-recovery-link-action [submissionId]="currentSubmission!._id" /> }
         }
         <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
       </div>
@@ -314,7 +317,6 @@
     <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)"
       [imageUrl]="essayImageUrl" [imageLoading]="imageMediaState === 'fetching'" [imageFailed]="imageMediaState === 'error'" [activeFileId]="activeFileId"
       [isPdf]="isProbablyPdfUrl(currentSubmission?.fileUrl)" [imageStore]="pageImages" (fileRequested)="onWorkspaceFileRequested($event)">
-      <app-student-preview [submission]="previewSubmission" [refreshKey]="annotationSaves" />
     </app-annotation-controls>
     }
 

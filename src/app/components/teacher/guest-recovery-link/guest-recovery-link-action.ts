@@ -44,7 +44,9 @@ export type RecoveryActionState = 'loading' | 'ready' | 'confirming' | 'sending'
     </div>
   `,
   styles: [`
-    .recovery-action { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px; }
+    :host { min-width: 0; max-width: 100%; }
+    button { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    .recovery-action { display: flex; flex-direction: column; align-items: center; gap: 6px; }
     .note { font-size: 13px; color: #6b7280; margin: 0; }
     .note.error { color: #b42318; }
     .confirm { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }

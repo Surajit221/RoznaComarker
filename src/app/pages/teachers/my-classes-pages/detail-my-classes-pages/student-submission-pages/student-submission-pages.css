@@ -360,3 +360,11 @@
 /* C.3b: one short neutral line under the score when the corrections arrived after it was calculated. */
 .score-before-corrections { margin: -0.5rem 0 0.75rem; color: #475569; font-size: 0.8rem; line-height: 1.35; }
 .correction-retry-notice { margin: .75rem 0; }
+
+/* Page actions share the header without competing with the title for narrow space. */
+.submission-page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.submission-page-header h1 { flex: 1 1 16rem; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.submission-page-actions { display: flex; flex: 1 1 32rem; flex-wrap: wrap; align-items: flex-start; justify-content: flex-end; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.submission-page-actions > * { min-width: 0; max-width: 100%; }
+.submission-page-actions button { min-height: 44px; white-space: normal; }
+@media (max-width: 767px) { .submission-page-actions { justify-content: flex-start; } }
