@@ -1,28 +1,33 @@
 <!-- One layout element and one router outlet for both views. Crossing 1024px changes classes and the chrome around the page, and never destroys the routed page or what is typed in it. -->
 <ng-container>
-  <div [ngClass]="device.isDesktop() ? 'flex h-screen' : 'min-h-screen bg-[#F3F3F3] flex flex-col'">
+  <div class="dashboard-shell" [class.dashboard-shell--desktop]="device.isDesktop()" [class.dashboard-shell--collapsed]="device.isDesktop() && sidebarCollapsed()" [ngClass]="device.isDesktop() ? 'flex h-screen' : 'min-h-screen bg-[#F3F3F3] flex flex-col'">
     @if(device.isDesktop() && !isFullScreen()) {
-    <aside class="hidden md:flex w-60 flex-col">
+    <aside class="desktop-sidebar hidden md:flex w-60 flex-col" aria-label="Main navigation">
       <div class="flex items-center justify-center h-16 px-4 mt-10">
         <div class="flex items-center gap-2">
           <img src="./img/logo.png" class="w-10" alt="" />
-          <p class="text-3xl font-bold text-primary-text-color">RoznaHub</p>
+          <p class="desktop-sidebar-label text-3xl font-bold text-primary-text-color">RoznaHub</p>
         </div>
       </div>
-      <nav class="flex-1 mt-4 px-4 py-4 space-y-2 overflow-y-auto">
+      <nav id="desktop-sidebar-navigation" class="flex-1 mt-4 px-4 py-4 space-y-2 overflow-y-auto">
         @for (menu of mainMenu; track menu.path) {
-        <a [routerLink]="menu.path" routerLinkActive="active-menu" class="nav-link">
-          <i class="{{ menu.icon }} text-xl"></i>
-          <span>{{ menu.name }}</span>
+        <a [routerLink]="menu.path" routerLinkActive="active-menu" class="nav-link" [attr.aria-label]="menu.name" [attr.title]="sidebarCollapsed() ? menu.name : null">
+          <i class="{{ menu.icon }} text-xl" aria-hidden="true"></i>
+          <span class="desktop-sidebar-label">{{ menu.name }}</span>
         </a>
         }
       </nav>
     </aside>
     }
 
-    <div [ngClass]="device.isDesktop() ? 'flex flex-col flex-1 overflow-hidden' : 'contents'">
+    <div class="dashboard-content" [ngClass]="device.isDesktop() ? 'flex flex-col flex-1 overflow-hidden' : 'contents'">
       @if(device.isDesktop() && !isFullScreen()) {
       <header class="desktop-dashboard-header flex items-center justify-end px-6 py-3">
+        <button type="button" class="desktop-sidebar-toggle" data-sidebar-toggle aria-controls="desktop-sidebar-navigation"
+          [attr.aria-expanded]="!sidebarCollapsed()" [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          [attr.title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'" (click)="sidebarState.toggle()">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" [class.is-collapsed]="sidebarCollapsed()"><path d="m14 6-6 6 6 6" /></svg>
+        </button>
         <div class="desktop-header-content">
           @if (role === 'teacher') {
             <div class="desktop-account-actions">
@@ -193,7 +198,7 @@
     </header>
     }
 
-      <main [ngClass]="device.isDesktop() ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-auto'" [class.p-6]="device.isDesktop() && !isFullScreen()">
+      <main class="dashboard-main" [ngClass]="device.isDesktop() ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-auto'" [class.p-6]="device.isDesktop() && !isFullScreen()">
         <div [ngClass]="device.isDesktop() ? 'contents' : { 'mt-20 px-4': !isFullScreen(), 'mobile-teacher-content': !isFullScreen() && showBottomNav() && role === 'teacher', 'pb-20': showBottomNav() && !isFullScreen() }">
           <router-outlet></router-outlet>
         </div>

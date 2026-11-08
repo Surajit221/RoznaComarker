@@ -91,10 +91,10 @@ describe('TeacherEvaluationEditor', () => {
     await click('[data-te-edit]');
     expect(dom().querySelector('form')).toBeNull();
   });
-  it('edit: AI suggested shown, focus on the first score, live overall and grade, dirty registered; Save sends only the change', async () => {
+  it('edit: AI suggested shown, focus on the form heading, live overall and grade, dirty registered; Save sends only the change', async () => {
     await create();
     await click('[data-te-edit]');
-    expect(document.activeElement).toBe(dom().querySelector('#te-score-GRAMMAR'));
+    expect(document.activeElement).toBe(dom().querySelector('[data-te-heading]'));
     expect(dom().querySelector('[data-te-ai="GRAMMAR"]')!.textContent).toContain('AI suggested: 18 / 25');
     expect(dom().textContent).toContain('AI suggested comment: Watch verb agreement.');
     type('#te-score-GRAMMAR', '20'); await settle();

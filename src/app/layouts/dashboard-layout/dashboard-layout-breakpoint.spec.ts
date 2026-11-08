@@ -14,6 +14,7 @@ import { DeviceService } from '../../services/device.service';
 import { NotificationRealtimeService } from '../../services/notification-realtime.service';
 import { PricingCatalogStateService } from '../../services/pricing-catalog-state.service';
 import { RoleService } from '../../services/role.service';
+import { DashboardSidebarState } from '../../services/dashboard-sidebar-state.service';
 import { DashboardLayout } from './dashboard-layout';
 
 /** Stands in for any routed page: one plain textarea, whose text lives only in the DOM, and one reactive form control. */
@@ -41,7 +42,7 @@ describe('DashboardLayout across the 1024px layout switch', () => {
     TestBed.configureTestingModule({
       imports: [DashboardLayout, RouterOutlet],
       providers: [
-        provideRouter([{ path: 'teacher', component: DashboardLayout, children: [{ path: 'page', component: RoutedPage }] }]),
+        provideRouter([{ path: 'teacher', component: DashboardLayout, children: [{ path: 'page', component: RoutedPage }, { path: 'dashboard', component: RoutedPage }, { path: 'my-classes', component: RoutedPage }] }]),
         { provide: AuthService, useValue: { getBackendJwt: () => jwt, logout: () => Promise.resolve(),
           getMeProfile: () => Promise.resolve({ id: 'teacher-1', email: 'teacher@example.test', displayName: 'Teacher', role: 'teacher' }) } },
         { provide: SubscriptionApiService, useValue: { getMySubscription: () => new Promise(() => undefined), createCustomerPortal: () => Promise.reject(new Error('unused')) } },
@@ -95,6 +96,80 @@ describe('DashboardLayout across the 1024px layout switch', () => {
       expectSurvived(harness, plain);
     });
   }
+
+  it('collapses only desktop navigation, keeps accessible labels/routes and never recreates the routed page', async () => {
+    const harness = await open('desktop'), plain = type(harness), root = harness.routeNativeElement!;
+    const button = () => root.querySelector<HTMLButtonElement>('[data-sidebar-toggle]')!;
+    const links = () => [...root.querySelectorAll<HTMLAnchorElement>('.desktop-sidebar a')];
+    const originalHrefs = links().map(link => link.getAttribute('href'));
+    expect(button().getAttribute('aria-expanded')).toBe('true');
+    button().click(); harness.detectChanges();
+    expect(button().getAttribute('aria-expanded')).toBe('false');
+    expect(button().getAttribute('aria-label')).toBe('Expand sidebar');
+    expect(links().map(link => link.getAttribute('href'))).toEqual(originalHrefs);
+    for (const link of links()) { expect(link.querySelector('i')).not.toBeNull(); expect(link.getAttribute('aria-label')).toBeTruthy(); expect(link.title).toBe(link.getAttribute('aria-label')!); }
+    expectSurvived(harness, plain);
+    setViewport('mobile'); harness.detectChanges();
+    expect(root.querySelector('[data-sidebar-toggle], .desktop-sidebar')).toBeNull();
+    expect(root.querySelector('.mobile-dashboard-header')).not.toBeNull();
+    expect(root.querySelector('nav.fixed.bottom-0')).not.toBeNull();
+    expectSurvived(harness, plain);
+    setViewport('desktop'); harness.detectChanges();
+    expect(button().getAttribute('aria-expanded')).toBe('false');
+    button().click(); harness.detectChanges();
+    expect(button().getAttribute('aria-expanded')).toBe('true');
+    expectSurvived(harness, plain);
+    await harness.navigateByUrl('/teacher/dashboard'); harness.detectChanges();
+    expect(root.querySelector('.desktop-sidebar a.active-menu')?.getAttribute('href')).toBe('/teacher/dashboard');
+    button().click(); harness.detectChanges();
+    expect(root.querySelector('.desktop-sidebar a.active-menu')?.getAttribute('href')).toBe('/teacher/dashboard');
+  });
+
+  it('uses the same accessible navigation for temporary editor collapse and respects manual changes', async () => {
+    const harness = await open('desktop'), plain = type(harness), root = harness.routeNativeElement!;
+    const state = TestBed.inject(DashboardSidebarState);
+    state.setCorrectionEditorOpen(true); harness.detectChanges();
+    expect(root.querySelector('.dashboard-shell--collapsed')).not.toBeNull();
+    expect(root.querySelector('[data-sidebar-toggle]')?.getAttribute('aria-expanded')).toBe('false');
+    expect(root.querySelectorAll('.desktop-sidebar a[aria-label] i').length).toBeGreaterThan(0); expectSurvived(harness, plain);
+    root.querySelector<HTMLButtonElement>('[data-sidebar-toggle]')!.click(); harness.detectChanges();
+    expect(root.querySelector('.dashboard-shell--collapsed')).toBeNull();
+    state.setCorrectionEditorOpen(false); harness.detectChanges();
+    expect(root.querySelector('.dashboard-shell--collapsed')).toBeNull(); expectSurvived(harness, plain);
+  });
+
+  it('reflows the desktop sidebar and content without overflow, while compact chrome stays unchanged', async () => {
+    const harness = await open('desktop'), root = harness.routeNativeElement!;
+    for (const width of [1440, 1280, 1025, 1024, 768, 375]) {
+      const desktopWidth = width > 1024;
+      setViewport(desktopWidth ? 'desktop' : width <= 768 ? 'mobile' : 'tablet'); harness.detectChanges();
+      for (const collapsed of desktopWidth ? [false, true] : [true]) {
+        const toggle = root.querySelector<HTMLButtonElement>('[data-sidebar-toggle]');
+        if (toggle && toggle.getAttribute('aria-expanded') !== String(!collapsed)) { toggle.click(); harness.detectChanges(); }
+        const frame = document.createElement('iframe'); frame.setAttribute('data-shell-qa', '');
+        frame.style.cssText = 'position:fixed;top:0;left:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!, win = frame.contentWindow!, css = doc.createElement('style');
+          css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+          doc.head.appendChild(css); doc.body.style.margin = '0'; doc.body.appendChild(root.cloneNode(true));
+          if (desktopWidth) {
+            const sidebar = doc.querySelector<HTMLElement>('.desktop-sidebar')!, content = doc.querySelector<HTMLElement>('.dashboard-content')!;
+            expect(Math.round(sidebar.getBoundingClientRect().width)).toBe(collapsed ? 80 : 240);
+            expect(content.getBoundingClientRect().left).toBe(sidebar.getBoundingClientRect().right);
+            expect(Math.round(content.getBoundingClientRect().width)).toBe(width - (collapsed ? 80 : 240));
+            for (const label of Array.from(sidebar.querySelectorAll('.desktop-sidebar-label'))) expect(win.getComputedStyle(label).display === 'none').toBe(collapsed);
+            expect(doc.querySelector('.mobile-dashboard-header, nav.fixed.bottom-0')).toBeNull();
+          } else {
+            expect(doc.querySelector('.desktop-sidebar, [data-sidebar-toggle], .desktop-dashboard-header')).toBeNull();
+            expect(doc.querySelector('.mobile-dashboard-header')).not.toBeNull();
+            expect(doc.querySelector('nav.fixed.bottom-0')).not.toBeNull();
+          }
+          expect(doc.documentElement.scrollWidth).withContext(width + 'px horizontal overflow').toBeLessThanOrEqual(width);
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        } finally { frame.remove(); }
+      }
+    }
+  });
 
   it('moving between tablet and mobile, which has always shared a layout, keeps the text too', async () => {
     const harness = await open('tablet');

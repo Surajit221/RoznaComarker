@@ -24,6 +24,7 @@ describe('GuestRecoveryLinkAction (teacher)', () => {
     fixture.componentRef.setInput('submissionId', ID);
     fixture.detectChanges();
     expect(text()).toContain('Checking recovery link');
+    expect(fixture.nativeElement.querySelector('button')).toBeNull();
     http.expectOne(r => r.method === 'GET' && r.url === URL_).flush({ data: status });
     await settle();
   }
@@ -48,6 +49,7 @@ describe('GuestRecoveryLinkAction (teacher)', () => {
     await open();
     const req = await confirmAndSend();
     expect(req.request.body).toBeNull();
+    expect(button('button[data-action=open]').disabled).toBeTrue();
     expect(text()).toContain('Sending…');
     expect(TestBed.inject(ActivityTracker).inFlight()).toBe(1);   // Task 1: no update reload while this runs
     req.flush({ data: { sent: true, emailMasked: 'j***@gmail.com', lastSentAt: '2026-11-02T09:00:00.000Z' } });
@@ -98,6 +100,17 @@ describe('GuestRecoveryLinkAction (teacher)', () => {
     http.expectOne(URL_).flush({ code: 'SUBMISSION_NOT_FOUND' }, { status: 404, statusText: 'Not Found' });
     await settle();
     expect(fixture.componentInstance.state()).toBe('not_allowed');
+    expect(text()).toContain('You cannot send a link for this submission.');
+    expect(fixture.nativeElement.querySelector('button')).toBeNull();
+    http.expectNone(r => r.method === 'POST');
+  });
+
+  it('removes the action when teacher authorization is refused (403)', async () => {
+    await open();
+    (await confirmAndSend()).flush({ message: 'Forbidden' }, { status: 403, statusText: 'Forbidden' });
+    await settle();
+    expect(fixture.componentInstance.state()).toBe('not_allowed');
+    expect(fixture.nativeElement.querySelector('button')).toBeNull();
     expect(text()).toContain('You cannot send a link for this submission.');
   });
 

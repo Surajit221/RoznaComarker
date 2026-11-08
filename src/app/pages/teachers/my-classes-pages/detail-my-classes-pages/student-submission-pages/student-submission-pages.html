@@ -20,40 +20,52 @@
     </div>
     }
 
-    <div class="mb-6 flex flex-row justify-between items-center">
+    <header class="submission-page-header mb-6">
       <h1 class="text-4xl text-center font-bold text-gray-800">Student Submissions</h1>
-      <div class="flex flex-row gap-2">
+      <div class="submission-page-actions" aria-label="Submission actions">
+        @if (currentSubmission?._id) {
+          @if (currentSubmission?.submissionMode === 'guest') { <app-guest-recovery-link-action [submissionId]="currentSubmission!._id" /> }
+          <app-student-preview [submission]="previewSubmission" [refreshKey]="annotationSaves" />
+        }
         <button type="button" class="btn-primary" (click)="openSheetSubmission = true">
           View All Submission
         </button>
         <button type="button" class="btn-danger" (click)="toBack()">{{ currentSubmission?.submissionMode === 'guest' ? 'Back to class' : 'Back To Student Profile' }}</button>
       </div>
-    </div>
+    </header>
 
-    <div class="w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
+    <div class="submission-navigation w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
       <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
       <div class="flex flex-col justify-center items-center">
         <p class="font-bold text-2xl">{{ studentName }}</p>
         @if (currentSubmission?.submissionMode === 'guest') {
           <p class="text-sm text-gray-500">{{ currentSubmission?.guest?.normalizedEmail }}</p>
-          @if (currentSubmission?._id) { <app-guest-recovery-link-action [submissionId]="currentSubmission!._id" /> }
         }
         <p class="font-bold text-sm text-gray-500">ID:{{ studentDisplayId }}</p>
       </div>
       <button class="btn-primary" [disabled]="!canGoNext" (click)="onNextSubmission()">Next</button>
     </div>
 
+    <ng-template #reviewCorrectionsTrigger>
+      @if (currentSubmission?._id) {
+        <button id="annotation-review-toggle" type="button" class="btn-info" data-review-corrections
+          [attr.aria-expanded]="annotationControls?.open() ?? false" aria-controls="annotation-editor-body" (click)="annotationControls?.toggle()"><span class="submission-review-label-spacer" aria-hidden="true">Review corrections</span><span>{{ annotationControls?.open() ? 'Close' : 'Review corrections' }}</span></button>
+      }
+    </ng-template>
     @if(isUploadedFile) {
     <div class="w-full mb-4">
       <div class="flex flex-col gap-4">
         <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
-          <div class="flex flex-row justify-between items-center">
+          <div class="submission-media-header">
             <p class="text-2xl font-bold">Student's Uploaded File</p>
+            <div class="submission-media-actions">
+              <ng-container *ngTemplateOutlet="reviewCorrectionsTrigger" />
             <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
               View Student Transcribed Text
             </button>
+            </div>
           </div>
-          <div class="w-full rounded-2xl overflow-visible">
+          <div class="w-full rounded-2xl overflow-visible" data-standalone-viewer [hidden]="annotationControls?.open() ?? false">
             @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
             @if (pdfReviewPages.length) { <app-submission-page-review [pages]="pdfReviewPages" [imageStore]="pageImages" /> }
             <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
@@ -73,7 +85,7 @@
             }
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
-          <div class="w-full mt-3">
+          <div class="w-full mt-3" data-standalone-page-picker [hidden]="annotationControls?.open() ?? false">
             <div class="submission-thumbs" role="tablist" aria-label="Submission images">
               @for (url of submissionPreviewUrls; track $index) {
               <button type="button" class="submission-thumb" [class.active]="$index === activeFileIndex"
@@ -91,11 +103,14 @@
     <div class="w-full mb-4">
       <div class="flex flex-col gap-4">
         <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">
-          <div class="flex flex-row justify-between items-center">
+          <div class="submission-media-header">
             <p class="text-2xl font-bold">Student's Transcribed Text</p>
+            <div class="submission-media-actions">
+              <ng-container *ngTemplateOutlet="reviewCorrectionsTrigger" />
             <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
               View Student Uploaded File
             </button>
+            </div>
           </div>
           <div class="bg-[#F3F3F3] p-4 rounded-2xl">
             <div class="w-full px-0">
@@ -311,22 +326,20 @@
     }
 
     @if (currentSubmission?._id) {
-    <app-annotation-controls [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)"
-      [imageUrl]="essayImageUrl" [imageLoading]="imageMediaState === 'fetching'" [imageFailed]="imageMediaState === 'error'" [activeFileId]="activeFileId"
+    <app-annotation-controls [showGradeCheck]="false" [externalToggle]="true" [submissionId]="currentSubmission!._id" [classClosed]="currentSubmission?.class?.status === 'archived'" (saved)="onAnnotationsSaved(currentSubmission!._id)"
+      [imageUrl]="essayImageUrl" [imageLoading]="imageMediaState === 'fetching'" [imageFailed]="imageMediaState === 'error'" [activeFileId]="activeFileId" [fileIds]="submissionFileIds"
       [isPdf]="isProbablyPdfUrl(currentSubmission?.fileUrl)" [imageStore]="pageImages" (fileRequested)="onWorkspaceFileRequested($event)">
-      <app-student-preview [submission]="previewSubmission" [refreshKey]="annotationSaves" />
     </app-annotation-controls>
     }
 
     <div class="flex flex-col gap-4">
       <div class="w-full bg-white p-4 rounded-3xl flex flex-col gap-6">
 
-        <div class="flex flex-row justify-between items-center">
-          <p class="text-2xl font-bold">{{ evaluationFeedbackHeading }}</p>
-          <div class="flex flex-row gap-2">
-            <button type="button" class="btn-info" [disabled]="!canGenerateAiFeedback"
+        <app-teacher-evaluation-editor [heading]="evaluationFeedbackHeading" [submissionId]="currentSubmission?._id ?? ''" (saved)="onAnnotationsSaved(currentSubmission!._id)">
+          <ng-container ngProjectAs="[evaluation-actions]">
+            <button type="button" class="evaluation-action btn-info" data-generate-evaluation [disabled]="!canGenerateAiFeedback"
               (click)="reEvaluateCurrentSubmission()">{{ isCanonicalEvaluationPending || isRetryingAnalysis ? 'Re-evaluating…' : 'Generate AI Feedback — 1 Credit' }}</button>
-            <button type="button" class="btn-primary" [disabled]="isPdfDownloading"
+            <button type="button" class="evaluation-action btn-primary" [disabled]="isPdfDownloading"
               (click)="downloadPdfForCurrentSubmission()">
               @if (isPdfDownloading) {
               <span class="pdf-loading">
@@ -337,12 +350,10 @@
               Download PDF
               }
             </button>
-            <button type="button" class="btn-warning" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
-          </div>
-        </div>
-
-        <div class="">
-          <div class="flex flex-col gap-3">
+            <button type="button" class="evaluation-action btn-warning" (click)="onEditRubric()">{{ hasAssignmentRubric ? 'View / Edit Rubric' : 'Create Rubric' }}</button>
+          </ng-container>
+          <ng-container ngProjectAs="[evaluation-categories]">
+            <div class="evaluation-categories flex flex-col gap-3" data-evaluation-categories>
             @if (aiFeedbackState === 'loading' || aiFeedbackState === 'processing') {
             <ng-container *ngTemplateOutlet="aiFeedbackSkeleton"></ng-container>
             } @else if (aiFeedbackState === 'error') {
@@ -353,8 +364,8 @@
               This overall score is calculated from the assignment’s custom rubric.
             </div>
             }
-            @if (rubricFeedbackItems.length) {
-            @for (item of rubricFeedbackItems; track item.category) {
+            @if (displayedRubricFeedbackItems.length) {
+            @for (item of displayedRubricFeedbackItems; track item.category) {
             <div
               class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl">
               <div class="min-w-0 flex-1">
@@ -380,10 +391,11 @@
             }
             }
 
-            @if (currentSubmission?._id) {
-            <!-- Phase B3: shown only when the backend reports teacher score editing on for this teacher (renders nothing otherwise). -->
-            <app-teacher-evaluation-editor [submissionId]="currentSubmission!._id" (saved)="onAnnotationsSaved(currentSubmission!._id)" />
-            }
+            </div>
+          </ng-container>
+        </app-teacher-evaluation-editor>
+        <div>
+          <div class="flex flex-col gap-3">
             @if (assignmentId) {
             <!-- Improved Writing Model: per assignment; shown only when the backend has it on and this teacher owns the assignment. -->
             <app-writing-model-editor [assignmentId]="assignmentId" />
@@ -402,7 +414,7 @@
               </div>
               <div class="teacher-comments-editor__actions w-full flex justify-end gap-3 mt-4">
                 <button type="button" class="btn-primary" [disabled]="isTeacherCommentSaving"
-                  (click)="submitFeedback()">{{ isTeacherCommentSaving ? 'Saving…' : 'Submit' }}</button>
+                  (click)="submitFeedback()">{{ isTeacherCommentSaving ? 'Saving…' : 'Submit Comment to Student' }}</button>
                 @if (currentSubmission) {
                 <button type="button" class="btn-info-sm teacher-comment-ai-draft disabled:opacity-50 disabled:cursor-not-allowed"
                   [disabled]="isTeacherCommentGenerating || isTeacherCommentSaving || feedbackForm.disabled || teacherCommentState === 'loading'"

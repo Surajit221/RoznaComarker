@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { SimpleChange } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
@@ -6,8 +7,10 @@ import { DeviceService } from '../../../services/device.service';
 import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import { SharedPageImages } from '../../submission-page-review/shared-page-images';
+import { AnnotationSnapshot, buildRows } from './annotation-editor.logic';
+import { buildPositions } from './annotation-sync.logic';
 import { CorrectionSelection } from './correction-selection';
-import { applySyncPointer, scrollPanelTo } from './review-workspace';
+import { AnnotationLayoutSession, ReviewWorkspace, applySyncPointer, scrollPanelTo } from './review-workspace';
 
 const annotation = (patch: Partial<FeedbackAnnotation>): FeedbackAnnotation => ({ _id: 'c1', submissionId: 's', wordIds: ['w1'], symbol: 'AGR', message: 'm', color: '#c00', source: 'AI', editable: false, ...patch });
 const WORDS = Array.from({ length: 200 }, (_, i) => ({ id: `w${i}`, text: `word${i}`, bbox: { x: 1 + (i % 10) * 9, y: 1 + Math.floor(i / 10) * 4, w: 8, h: 3 }, separatorBefore: (i ? ' ' : '') as '' | ' ' }));
@@ -325,5 +328,260 @@ describe('SharedPageImages', () => {
     await store.acquire(SOURCE);
     store.destroy();
     expect(revoked).toHaveBeenCalledOnceWith('blob:held');
+  });
+});
+
+
+describe('ReviewWorkspace split layout', () => {
+  let fixture: ComponentFixture<ReviewWorkspace>, frame: HTMLIFrameElement | undefined;
+  const dom = () => fixture.nativeElement as HTMLElement;
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [ReviewWorkspace], providers: [CorrectionSelection,
+      { provide: DeviceService, useValue: { isMobile: () => false } }] }).compileComponents();
+    fixture = TestBed.createComponent(ReviewWorkspace);
+    fixture.componentRef.setInput('submissionId', 's');
+    fixture.componentRef.setInput('rows', []);
+    fixture.componentRef.setInput('positions', new Map());
+    fixture.componentRef.setInput('snapshot', { pages: [{ fileId: 'f', pageNumber: 1, text: 'word', words: [WORDS[0]] }], effective: [] });
+    fixture.componentRef.setInput('imageUrl', 'blob:existing');
+    fixture.detectChanges();
+  });
+  afterEach(() => frame?.remove());
+  // Real CSS in an isolated browsing context: media queries use its actual viewport width.
+  function atWidth(width: number) {
+    frame?.remove();
+    frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:800px;border:0';
+    frame.style.width = width + 'px'; document.body.appendChild(frame);
+    const doc = frame.contentDocument!;
+    for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+    doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true));
+    return { doc, css: (selector: string) => frame!.contentWindow!.getComputedStyle(doc.querySelector(selector)!) };
+  }
+  function images(count: number): AnnotationSnapshot {
+    const pages = Array.from({ length: count }, (_, index) => ({ fileId: 'file-' + index, pageNumber: 1,
+      startChar: index * 5, endChar: index * 5 + 4, text: 'word', words: [{ ...WORDS[0], text: 'word' }] }));
+    const corrections = pages.map(page => ({ id: 'mark-' + page.fileId, fileId: page.fileId, page: 1, moderationStatus: 'visible' as const,
+      wordIds: ['w0'], startChar: page.startChar, endChar: page.endChar, quotedText: 'word', symbol: 'AGR', message: 'Use this word.' }));
+    const snapshot: AnnotationSnapshot = { revision: 1, sourceHash: 'original-source', scoringReviewRequired: false,
+      pages, corrections, orphans: [], effective: corrections.map(c => ({ ...c, renderTarget: { version: 1, source: 'wordIds', wordIds: c.wordIds, boxes: [WORDS[0].bbox] } })), transitions: {}, legend: { groups: [] } };
+    fixture.componentRef.setInput('snapshot', snapshot);
+    fixture.componentRef.setInput('fileIds', pages.map(page => page.fileId));
+    fixture.componentRef.setInput('activeFileId', pages[0].fileId);
+    fixture.componentRef.setInput('rows', buildRows(snapshot));
+    fixture.componentRef.setInput('positions', buildPositions(buildRows(snapshot), snapshot));
+    fixture.componentInstance.fileRequested.subscribe(fileId => {
+      fixture.componentRef.setInput('activeFileId', fileId);
+      fixture.componentRef.setInput('imageUrl', 'blob:' + fileId);
+    });
+    fixture.detectChanges();
+    return snapshot;
+  }
+  const imageTabs = () => [...dom().querySelectorAll<HTMLButtonElement>('[data-image-index]')];
+  for (const count of [1, 2, 3, 23]) {
+    it('derives image navigation from ' + count + ' uploaded files and preserves a single image', () => {
+      images(count);
+      expect(imageTabs().length).toBe(count === 1 ? 0 : count);
+      expect(dom().querySelector('app-correction-overlay')).not.toBeNull();
+      expect(dom().querySelector('.workspace__pages')).toBeNull();
+      if (count > 1) {
+        expect(imageTabs().map(tab => tab.textContent?.trim())).toEqual(Array.from({ length: count }, (_, i) => 'Image ' + (i + 1)));
+        expect(imageTabs()[0].getAttribute('aria-selected')).toBe('true');
+      }
+    });
+  }
+  it('switches the existing viewer by file identity with scoped overlays and untouched full-document transcript offsets', () => {
+    const snapshot = images(3), component = fixture.componentInstance;
+    const transcript = component.views().map(view => ({ text: view.text, annotations: view.annotations.map(a => [a._id, a.startChar, a.endChar]) }));
+    const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+    expect((overlay.annotations ?? []).map(a => a._id)).toEqual(['mark-file-0']);
+    component.selection.pin('mark-file-0', 'image'); fixture.detectChanges();
+    imageTabs()[1].click(); fixture.detectChanges();
+    expect(component.view()?.fileId).toBe('file-1');
+    expect(overlay.fileId).toBe('file-1'); expect(overlay.page).toBe(1); expect(overlay.imageUrl).toBe('blob:file-1');
+    expect((overlay.annotations ?? []).map(a => a._id)).toEqual(['mark-file-1']);
+    expect(imageTabs()[1].getAttribute('aria-selected')).toBe('true');
+    expect((overlay.annotations ?? []).some(a => a._id === component.selection.activeId())).toBeFalse();
+    expect(component.views().map(view => ({ text: view.text, annotations: view.annotations.map(a => [a._id, a.startChar, a.endChar]) }))).toEqual(transcript);
+    expect(component.snapshot()).toBe(snapshot);
+    imageTabs()[0].click(); fixture.detectChanges();
+    expect((overlay.annotations ?? []).map(a => a._id)).toEqual(['mark-file-0']);
+    expect(fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance).toBe(overlay);
+  });
+  it('keeps tabs for an uploaded file without OCR and never substitutes another file\'s marks', () => {
+    images(2); fixture.componentRef.setInput('fileIds', ['file-0', 'file-1', 'missing-ocr']); fixture.detectChanges();
+    imageTabs()[2].click(); fixture.detectChanges();
+    expect(imageTabs().length).toBe(3);
+    expect(fixture.componentInstance.view()?.fileId).toBe('missing-ocr');
+    expect(fixture.componentInstance.overlayAnnotations()).toEqual([]);
+    fixture.componentRef.setInput('activeFileId', 'unknown'); fixture.detectChanges();
+    expect(fixture.componentInstance.overlayAnnotations()).toEqual([]);
+  });
+  it('renders only the active canonical transcript, retaining the full snapshot and repeated-word correction identities', () => {
+    const original = images(3), component = fixture.componentInstance;
+    const snapshot = { ...original, pages: original.pages.map((page, index) => ({ ...page, text: 'word page ' + (index + 1), endChar: page.startChar + 11,
+      words: [{ ...page.words[0], text: 'word' }, { id: 'page', text: 'page', separatorBefore: ' ' }, { id: 'number', text: String(index + 1), separatorBefore: ' ' }] })) };
+    fixture.componentRef.setInput('snapshot', snapshot); fixture.detectChanges();
+    const visible = () => dom().querySelector('[data-sync-transcript]')!;
+    for (const index of [0, 1, 2, 1, 0]) {
+      imageTabs()[index].click(); fixture.detectChanges();
+      expect(dom().querySelectorAll('[data-source-content]').length).toBe(1);
+      expect(visible().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe('file-' + index);
+      expect(visible().textContent?.replace(/\s+/g, ' ').trim()).toBe('word page ' + (index + 1));
+      const transcript = fixture.debugElement.query(By.directive(TokenizedTranscript)).componentInstance as TokenizedTranscript;
+      expect(transcript.annotations?.map(annotation => annotation._id)).toEqual(['mark-file-' + index]);
+      expect(component.snapshot()).toBe(snapshot); expect(component.views().length).toBe(3);
+    }
+  });
+  it('uses an unavailable state for an unmapped or unknown page without borrowing another transcript', () => {
+    images(2); fixture.componentRef.setInput('fileIds', ['file-0', 'file-1', 'without-ocr']); fixture.detectChanges();
+    imageTabs()[2].click(); fixture.detectChanges();
+    expect(dom().querySelector('[data-transcript-unavailable]')).not.toBeNull();
+    expect(dom().querySelector('[data-sync-transcript]')?.textContent).not.toContain('word');
+    fixture.componentRef.setInput('activeFileId', 'not-a-source'); fixture.detectChanges();
+    expect(dom().querySelector('[data-transcript-unavailable]')).not.toBeNull();
+    expect(dom().querySelector('[data-source-content]')).toBeNull();
+    const snapshot = fixture.componentInstance.snapshot();
+    fixture.componentRef.setInput('snapshot', { ...snapshot, pages: snapshot.pages.map(page => ({ ...page, text: '', words: [] })) });
+    fixture.componentRef.setInput('activeFileId', 'file-0'); fixture.detectChanges();
+    expect(dom().querySelector('[data-transcript-unavailable]')).not.toBeNull();
+    expect(dom().querySelector('[data-sync-transcript]')).toBeNull();
+  });
+  it('navigates a selected list correction to its own image and transcript even without image geometry', async () => {
+    images(2); const component = fixture.componentInstance;
+    const positions = new Map(component.positions());
+    positions.set('mark-file-1', { fileId: 'file-1', page: 1, image: 'none', transcriptWordIds: ['w0'] });
+    fixture.componentRef.setInput('positions', positions); fixture.detectChanges();
+    component.onPointer({ ids: ['mark-file-1'], kind: 'activate' }, 'list'); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(component.view()?.fileId).toBe('file-1');
+    expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe('file-1');
+    expect(component.selection.pinnedId()).toBe('mark-file-1');
+    expect(component.overlayAnnotations()).toEqual([]);
+    expect(dom().querySelector('.workspace__mark-menu')).toBeNull();
+  });
+  it('supports roving keyboard focus and quick consecutive tab changes through the original navigation output', () => {
+    images(3); fixture.componentInstance.narrowTab.set('image'); fixture.detectChanges();
+    imageTabs()[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })); fixture.detectChanges();
+    expect(fixture.componentInstance.view()?.fileId).toBe('file-2');
+    expect(document.activeElement).toBe(imageTabs()[2]);
+    expect(imageTabs()[2].tabIndex).toBe(0);
+    imageTabs()[2].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); fixture.detectChanges();
+    expect(fixture.componentInstance.view()?.fileId).toBe('file-0');
+    imageTabs()[1].click(); imageTabs()[2].click(); imageTabs()[0].click(); fixture.detectChanges();
+    expect(fixture.componentInstance.displayUrl()).toBe('blob:file-0');
+    expect(fixture.componentInstance.overlayAnnotations().map(a => a._id)).toEqual(['mark-file-0']);
+  });
+  it('uses the established PDF page selector and shared page-image loader without image tabs', async () => {
+    const snapshot = images(2);
+    fixture.componentRef.setInput('snapshot', { ...snapshot, pages: snapshot.pages.map((page, i) => ({ ...page, pageImageUrl: 'https://example.test/page-' + i + '.png' })) });
+    fixture.componentRef.setInput('isPdf', true);
+    const store = { acquire: jasmine.createSpy().and.callFake((source: string) => Promise.resolve('blob:' + source)), release: jasmine.createSpy() };
+    fixture.componentRef.setInput('imageStore', store); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(imageTabs()).toEqual([]);
+    expect(dom().querySelector('[data-sync-page]')?.textContent).toContain('Page 1 of 2');
+    dom().querySelectorAll<HTMLButtonElement>('.workspace__pages button')[1].click(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.componentInstance.viewIndex()).toBe(1);
+    expect(dom().querySelectorAll('[data-source-content]').length).toBe(1);
+    expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe('file-1');
+    expect(store.acquire).toHaveBeenCalledWith('https://example.test/page-1.png');
+  });
+  it('keeps canonical file/page ordering when the existing PDF page abstraction contains multiple files', async () => {
+    const original = images(2);
+    const page = (fileId: string, pageNumber: number, text: string, startChar: number) => ({ fileId, pageNumber, text, startChar, endChar: startChar + text.length,
+      pageImageUrl: 'https://example.test/' + fileId + '-' + pageNumber + '.png', words: text.split(' ').map((text, index) => ({ id: 'w' + index, text, separatorBefore: index ? ' ' : '' })) });
+    const pages = [page('file-1', 1, 'Second file first page.', 80), page('file-0', 2, 'First file second page.', 40), page('file-0', 1, 'First file first page.', 0)];
+    fixture.componentRef.setInput('snapshot', { ...original, pages, corrections: [], effective: [] }); fixture.componentRef.setInput('rows', []);
+    fixture.componentRef.setInput('positions', new Map()); fixture.componentRef.setInput('isPdf', true); fixture.detectChanges();
+    expect(fixture.componentInstance.views().map(view => view.key)).toEqual(['file-0:1', 'file-0:2', 'file-1:1']);
+    for (const [index, text] of ['First file first page.', 'First file second page.', 'Second file first page.'].entries()) {
+      fixture.componentInstance.goTo(index); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+      expect(dom().querySelectorAll('[data-source-content]').length).toBe(1);
+      expect(dom().querySelector('[data-sync-transcript]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(text);
+      expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe(fixture.componentInstance.view()?.fileId ?? '');
+    }
+    expect(fixture.componentInstance.snapshot().pages).toBe(pages);
+  });
+  it('retains source geometry and existing loading/failure presentation on the chosen file', () => {
+    const snapshot = images(2);
+    const geometry = { version: 1 as const, fileId: 'file-1', pageNumber: 1, width: 1600, height: 1200, orientation: 6 as const, coordinateSpace: 'encoded-image' as const };
+    fixture.componentRef.setInput('snapshot', { ...snapshot, pages: snapshot.pages.map((page, index) => index === 1 ? { ...page, sourceGeometry: geometry } : page) });
+    fixture.detectChanges(); imageTabs()[1].click(); fixture.detectChanges();
+    const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+    expect(overlay.sourceGeometry).toBe(geometry);
+    fixture.componentRef.setInput('imageUrl', null); fixture.componentRef.setInput('imageLoading', true); fixture.detectChanges();
+    expect(overlay.sourceLoading).toBeTrue(); expect((overlay.annotations ?? []).map(a => a._id)).toEqual(['mark-file-1']);
+    fixture.componentRef.setInput('imageLoading', false); fixture.componentRef.setInput('imageFailed', true); fixture.detectChanges();
+    expect(overlay.sourceLoadError).toBeTrue(); expect(overlay.imageUrl).toBeNull();
+  });
+  it('keeps single, two, three and many image layouts within all requested viewport widths', async () => {
+    for (const count of [1, 2, 3, 23]) {
+      images(count);
+      fixture.componentRef.setInput('imageUrl', 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="600" height="800" fill="white"/><text x="25" y="60" font-size="26">word ? original handwriting fixture</text></svg>'));
+      fixture.componentInstance.narrowTab.set('image'); fixture.detectChanges();
+      for (const width of [1440, 1024, 768, 375, 320]) {
+        const { doc, css } = atWidth(width);
+        doc.documentElement.setAttribute('data-qa-image-count', String(count));
+        if (count > 1) {
+          expect(css('.workspace__image-tabs').overflowX).toBe('auto');
+          expect(css('.workspace__image-tabs').flexWrap).toBe('nowrap');
+          expect(parseFloat(css('.workspace__image-tabs button').minHeight)).toBeGreaterThanOrEqual(40);
+        }
+        expect(doc.documentElement.scrollWidth).withContext(count + ' images at ' + width + 'px').toBeLessThanOrEqual(width);
+        expect(doc.querySelector('.workspace__mark-menu')).toBeNull();
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      }
+    }
+  });
+  it('renders equal desktop columns at 1024px with independent scrolling and no horizontal page overflow', () => {
+    const { doc, css } = atWidth(1024);
+    const image = doc.querySelector('[aria-label="Submission image"]')!.getBoundingClientRect();
+    const text = doc.querySelector('[aria-label="Transcript and annotations"]')!.getBoundingClientRect();
+    expect(image.right).toBeLessThan(text.left);
+    expect(Math.abs(image.width - text.width)).toBeLessThan(2);
+    expect(css('[data-sync-image]').overflowY).toBe('auto');
+    expect(css('.workspace__column-body').overflowY).toBe('auto');
+    expect(Math.abs(image.top - text.top)).toBeLessThan(1);
+    expect(Math.abs(image.bottom - text.bottom)).toBeLessThan(1);
+    expect(css('.workspace__column--image').position).toBe('sticky');
+    expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(1024);
+    expect(css('[role="tablist"]').display).toBe('none');
+  });
+  it('defaults to Text below 1024px; switching tabs keeps the selected mark and supports arrow keys', () => {
+    const selection = TestBed.inject(CorrectionSelection); selection.pin('c1', 'image'); fixture.detectChanges();
+    let view = atWidth(1023);
+    expect(view.css('[role="tablist"]').display).toBe('flex');
+    expect(view.css('.workspace__column--image').display).toBe('none');
+    dom().querySelector<HTMLButtonElement>('[data-tab="image"]')!.click(); fixture.detectChanges();
+    view = atWidth(600);
+    expect(view.css('.workspace__column--image').display).not.toBe('none');
+    expect(view.css('.workspace__column--right').display).toBe('none');
+    expect(selection.pinnedId()).toBe('c1');
+    dom().querySelector('[role="tablist"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); fixture.detectChanges();
+    expect(fixture.componentInstance.narrowTab()).toBe('text');
+    expect(selection.pinnedId()).toBe('c1');
+  });
+  it('text alone has no image column or view switch', () => {
+    fixture.componentRef.setInput('imageUrl', null); fixture.detectChanges();
+    expect(dom().querySelector('[aria-label="Submission image"]')).toBeNull();
+    expect(dom().querySelector('[data-sync-transcript]')).not.toBeNull();
+    expect(dom().querySelector('[role="tablist"], .workspace__desktop-switch')).toBeNull();
+  });
+  it('image alone uses full width without an empty transcript', () => {
+    fixture.componentRef.setInput('snapshot', { pages: [], effective: [] }); fixture.detectChanges();
+    const { doc } = atWidth(1200);
+    expect(dom().querySelector('[data-sync-transcript]')).toBeNull();
+    expect(dom().querySelector('[role="tablist"]')).toBeNull();
+    expect(doc.querySelector('[aria-label="Submission image"]')!.getBoundingClientRect().width).toBeGreaterThan(1100);
+  });
+  it('desktop toggle is remembered in memory when reopened', () => {
+    dom().querySelectorAll<HTMLButtonElement>('.workspace__desktop-switch button')[2].click(); fixture.detectChanges();
+    expect(atWidth(1200).css('.workspace__column--image').display).toBe('none');
+    fixture.destroy();
+    expect(TestBed.inject(AnnotationLayoutSession).desktop()).toBe('text');
+  });
+  it('Escape clears selection and the removed Selected action bar is absent', () => {
+    const selection = TestBed.inject(CorrectionSelection); selection.pin('c1', 'image'); fixture.detectChanges();
+    dom().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(selection.activeId()).toBeNull();
+    expect(dom().querySelector('[data-sync-status], [data-sync-clear]')).toBeNull();
   });
 });

@@ -45,6 +45,26 @@ describe('WritingModelEditor', () => {
   });
   it('typing registers unsaved work; Save draft and Approve send the text, rule and release', async () => {
     await create();
+    expect(dom().querySelector('[data-wm-approve]')?.textContent?.trim()).toBe('Submit Improved Writing to Student');
+    expect(dom().querySelector('[data-wm-save-draft]')?.textContent?.trim()).toBe('Save draft');
+    expect(dom().querySelector('[data-wm-generate]')?.textContent).toContain('Generate draft with AI (1 credit)');
+    for (const width of [320, 360, 768, 1024, 1440]) {
+      const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;inset:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+      try {
+        const doc = frame.contentDocument!;
+        const css = doc.createElement('style');
+        css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+        doc.head.appendChild(css);
+        doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true));
+        doc.documentElement.setAttribute('data-button-labels-qa', 'model');
+        expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+        const approve = doc.querySelector<HTMLButtonElement>('[data-wm-approve]')!;
+        expect(approve.scrollWidth).toBeLessThanOrEqual(approve.clientWidth + 1);
+        expect(approve.scrollHeight).toBeLessThanOrEqual(approve.clientHeight + 1);
+        expect(approve.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      } finally { frame.remove(); }
+    }
     type('A model answer written by me.'); await settle();
     expect(registry.has('writing-model-editor')).toBeTrue();
     expect(dom().querySelector('#wm-count')!.textContent).toContain('29 / 4000');

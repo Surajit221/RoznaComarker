@@ -1,16 +1,36 @@
-@if (snapshot(); as s) {
-  <section class="te" aria-labelledby="te-title" data-teacher-evaluation>
-    <div class="te__head">
-      <div class="te__head-text">
-        <h3 id="te-title" class="te__title">Edit scores</h3>
-        <p class="te__sub">The AI suggested values stay visible here. Students see your final values.
-          @if (s.edited) { <span class="te__badge" data-te-edited>Edited by you</span> }</p>
-      </div>
-      @if (!open()) {
-        <button type="button" class="ui-btn ui-btn--primary" data-te-edit [attr.aria-disabled]="!s.editable" (click)="startEdit()">Edit scores</button>
-      }
-    </div>
+@let s = snapshot();
+@if (s || heading()) {
+  <section class="te" data-teacher-evaluation>
+    <header class="te__header" data-evaluation-header>
+      <div class="te__head">
+        @if (heading()) { <h2 class="te__title">{{ heading() }}</h2> }
+        <div class="te__head-actions" aria-label="Evaluation actions">
+          <ng-content select="[evaluation-actions]" />
+          @if (s) {
+            @if (!open()) {
+              <button type="button" class="btn-primary" data-te-edit [attr.aria-disabled]="!s.editable" (click)="startEdit()">Edit scores</button>
+            }
+    @if (s.history.length) {
+      <details class="te__history" data-te-history>
+        <summary>Change history ({{ s.history.length }})</summary>
+        <ol>
+          @for (h of s.history; track h.newRevision) {
+            <li>
+              <p><strong>{{ h.actorName || 'Teacher' }}</strong>, <time [attr.datetime]="h.at">{{ h.at | date:'medium' }}</time></p>
+              <p>{{ summary(h) }}</p>
+              @if (h.reason) { <p class="te__muted">Reason: {{ h.reason }}</p> }
+            </li>
+          }
+        </ol>
+      </details>
+    }
 
+
+          }
+        </div>
+      </div>
+      @if (s) {
+        @if (s.edited) { <span class="te__badge" data-te-edited>Edited by you</span> }
     <p class="sr-only" role="status" aria-live="polite">{{ notice() }}</p>
     @if (notice() && notice() !== 'Saving…') { <p class="te__notice" aria-hidden="true" data-te-notice>✓ {{ notice() }}</p> }
     @if (error()) { <p class="te__error" role="alert" data-te-error>{{ error() }}</p> }
@@ -22,8 +42,23 @@
       <span class="te__muted">AI suggested: {{ s.overall?.ai ?? '—' }} · {{ s.grade?.ai ?? '—' }}</span>
     </div>
 
+    @if (editedRows().length) {
+      <ul class="te__edited" data-te-edited-list>
+        @for (c of editedRows(); track c.key) {
+          <li><strong>{{ label(c.key) }}</strong>: {{ c.final.score ?? '—' }} / {{ c.maxScore ?? '—' }} <span class="te__muted">(AI suggested {{ c.ai.score ?? '—' }})</span>
+            @if (c.teacher.comment != null) { <span class="te__muted"> · comment edited</span> }</li>
+        }
+      </ul>
+    }
+
+
+      }
+    </header>
+    @if (!open()) { <ng-content select="[evaluation-categories]" /> }
+    @if (s) {
     @if (open()) {
       <form class="te__form" (submit)="$event.preventDefault(); save()" (keydown)="onKeydown($event)" novalidate [attr.aria-busy]="saving()">
+        <h3 class="te__title" data-te-heading tabindex="-1">Edit scores</h3>
         <ul class="te__rows">
           @for (row of draft(); track row.key; let first = $first) {
             @let c = criterion(row.key);
@@ -64,32 +99,11 @@
           @if (s.edited) { <button type="button" class="ui-btn ui-btn--danger" data-te-reset [attr.aria-disabled]="saving()" (click)="askReset()">Reset to AI suggested</button> }
         </div>
       </form>
-    } @else if (editedRows().length) {
-      <ul class="te__edited" data-te-edited-list>
-        @for (c of editedRows(); track c.key) {
-          <li><strong>{{ label(c.key) }}</strong>: {{ c.final.score ?? '—' }} / {{ c.maxScore ?? '—' }} <span class="te__muted">(AI suggested {{ c.ai.score ?? '—' }})</span>
-            @if (c.teacher.comment != null) { <span class="te__muted"> · comment edited</span> }</li>
-        }
-      </ul>
     }
-
-    @if (s.history.length) {
-      <details class="te__history" data-te-history>
-        <summary>Change history ({{ s.history.length }})</summary>
-        <ol>
-          @for (h of s.history; track h.newRevision) {
-            <li>
-              <p><strong>{{ h.actorName || 'Teacher' }}</strong>, <time [attr.datetime]="h.at">{{ h.at | date:'medium' }}</time></p>
-              <p>{{ summary(h) }}</p>
-              @if (h.reason) { <p class="te__muted">Reason: {{ h.reason }}</p> }
-            </li>
-          }
-        </ol>
-      </details>
-    }
-
     <app-confirm-dialog [open]="confirmReset()" heading="Reset all scores to AI suggested?"
       text="Your scores and comments for this draft are removed and students see the AI values again. The change is recorded in the history."
       confirmLabel="Reset" cancelLabel="Keep my scores" tone="danger" (confirmed)="doReset()" (cancelled)="confirmReset.set(false)" />
+
+    }
   </section>
 }

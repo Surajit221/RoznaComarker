@@ -1,3 +1,6 @@
+import { By } from '@angular/platform-browser';
+import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
+import { ReviewWorkspace } from './review-workspace';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
@@ -5,6 +8,9 @@ import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { AnnotationControls, AnnotationDraftStore, UNDO_MS } from './annotation-controls';
 import type { AnnotationBody, AnnotationSnapshot, BulkBody, SnapshotCorrection } from './annotation-editor.logic';
 import type { ScoreReview } from './grade-check.logic';
+import { DeviceService } from '../../../services/device.service';
+import { DashboardSidebarState } from '../../../services/dashboard-sidebar-state.service';
+import { wordSpans } from './annotation-editor.logic';
 import { AuthService } from '../../../auth/auth.service';
 
 const TEXT = 'I goes to the park and <img src=x onerror=alert(1)> it';
@@ -40,21 +46,34 @@ describe('AnnotationControls', () => {
   let fixture: ComponentFixture<AnnotationControls>, component: AnnotationControls, api: FakeApi, registry: UnsavedWorkRegistry;
 
   async function settle() { for (let i = 0; i < 4; i++) { await fixture.whenStable(); fixture.detectChanges(); await Promise.resolve(); } }
-  async function create(inputs: { classClosed?: boolean } = {}) {
+  async function create(inputs: { classClosed?: boolean; desktop?: boolean } = {}) {
     api = new FakeApi();
-    await TestBed.configureTestingModule({ imports: [AnnotationControls], providers: [{ provide: AuthService, useValue: { getMeProfile: async () => ({ id: 'me' }) } }, { provide: TeacherAnnotationApiService, useValue: api }] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [AnnotationControls], providers: [{ provide: DeviceService, useValue: { isDesktop: () => !!inputs.desktop, isMobile: () => !inputs.desktop, isCompact: () => !inputs.desktop, isTablet: () => false } }, { provide: AuthService, useValue: { getMeProfile: async () => ({ id: 'me' }) } }, { provide: TeacherAnnotationApiService, useValue: api }] }).compileComponents();
     fixture = TestBed.createComponent(AnnotationControls);
     fixture.componentRef.setInput('submissionId', 's1');
     if (inputs.classClosed) fixture.componentRef.setInput('classClosed', true);
     component = fixture.componentInstance; registry = TestBed.inject(UnsavedWorkRegistry);
     fixture.detectChanges();
   }
-  async function openEditor() { await component.toggle(); await settle(); }
+  async function openEditor() { await component.toggle(); component.workspaceOpen.set(false); await settle(); }
   const dom = () => fixture.nativeElement as HTMLElement;
   const text = () => dom().textContent ?? '';
-  const button = (label: string, within: Element = dom()) => [...within.querySelectorAll('button')].find(b => b.textContent?.trim().startsWith(label)) as HTMLButtonElement | undefined;
+  const button = (label: string, within: Element = dom()) => [...within.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') ?? b.textContent ?? '').trim().startsWith(label)) as HTMLButtonElement | undefined;
   const row = (key = 'ai_1') => dom().querySelector(`[data-row-key="${key}"]`) as HTMLElement;
-  function setSelection(start: number, end: number) { const ta = dom().querySelector('[data-source-text]') as HTMLTextAreaElement; ta.setSelectionRange(start, end); ta.dispatchEvent(new Event('select')); }
+  function setSelection(start: number, end: number, pageIndex = component.form()?.pageIndex ?? 0, keyboard = false) {
+    const ta = dom().querySelector<HTMLTextAreaElement>('[data-source-text]');
+    if (ta) { ta.setSelectionRange(start, end); ta.dispatchEvent(new Event('select')); return; }
+    const page = component.snapshot()!.pages[pageIndex], spans = wordSpans(page.text, page.words);
+    const source = Array.from(dom().querySelectorAll<HTMLElement>('[data-source-content]')).find(el => el.dataset['fileId'] === page.fileId && Number(el.dataset['page']) === page.pageNumber)!;
+    const words = source.querySelectorAll('[data-word-id]');
+    const first = spans.findIndex(span => span.end > start), last = spans.map(span => span.start < end).lastIndexOf(true);
+    const range = document.createRange();
+    range.setStart(words[first].firstChild!, Math.max(0, start - spans[first].start) + (words[first].firstChild!.textContent ?? '').indexOf(page.words[first].text));
+    range.setEnd(words[last].firstChild!, Math.min(page.words[last].text.length, end - spans[last].start) + (words[last].firstChild!.textContent ?? '').indexOf(page.words[last].text));
+    document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
+    source.dispatchEvent(keyboard ? new KeyboardEvent('keyup', { key: 'ArrowRight', shiftKey: true, bubbles: true }) : new MouseEvent('mouseup', { bubbles: true }));
+    fixture.detectChanges();
+  }
   function fill(id: string, value: string) { const el = dom().querySelector(`#${id}`) as HTMLTextAreaElement; el.value = value; el.dispatchEvent(new Event('input')); }
 
   afterEach(() => { registry?.clear('teacher-annotation-editor'); TestBed.inject(AnnotationDraftStore).draft = null; TestBed.resetTestingModule(); });
@@ -68,15 +87,20 @@ describe('AnnotationControls', () => {
     const dialogOpen = () => dom().querySelector<HTMLDialogElement>('[data-confirm-dialog]')!.open;
     const confirm = async () => { dom().querySelector<HTMLButtonElement>('[data-confirm-ok]')!.click(); await settle(); };
 
-    it('a mark chosen in the transcript or on the image gets a menu with the allowed actions; Hide runs the existing single action', async () => {
+    it('image/transcript selections reveal the list card without a floating action menu; list actions keep their contracts', async () => {
       await create(); api.current = three(); await openEditor(); await openWorkspace();
-      component.selection.pin('ai_1', 'transcript'); await settle();
-      expect([...menu()!.querySelectorAll('button')].map(b => b.textContent?.replace(/\s+AGR$/, '').trim())).toEqual(['Edit', 'Hide', 'Remove']);
-      button('Hide', menu()!)!.click(); await settle();
+      const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      for (const source of ['transcript', 'image'] as const) {
+        workspace.onPointer({ ids: ['ai_1'], kind: 'activate' }, source); await settle();
+        expect(component.selection.pinnedId()).toBe('ai_1');
+        expect(row().classList).toContain('row--active');
+        expect(menu()).toBeNull();
+        expect(dom().querySelector('.workspace__mark-menu, app-annotation-mark-menu')).toBeNull();
+      }
+      button('Hide', row())!.click(); await settle();
       expect(api.calls).toEqual([jasmine.objectContaining({ action: 'hide', id: 'ai_1', revision: 3, sourceHash: 'hash-3' })]);
       component.selection.pin('ai_3', 'image'); await settle();
-      expect([...menu()!.querySelectorAll('button')].map(b => b.getAttribute('data-sync-menu-action'))).toEqual(['edit', 'restore', 'archive']);
-      button('Remove', menu()!)!.click(); await settle();
+      button('Remove', row('ai_3'))!.click(); await settle();
       expect(component.confirmRow()?.key).toBe('ai_3');
       expect(api.calls.length).toBe(1);
     });
@@ -152,6 +176,392 @@ describe('AnnotationControls', () => {
     });
   });
 
+  describe('workspace action presentation', () => {
+    it('projects one original Add correction trigger to the workspace toolbar, with no Transcript-header trigger', async () => {
+      await create(); await component.toggle(); await settle();
+      const original = spyOn(component, 'openForm').and.callThrough();
+      const header = dom().querySelector('.workspace__toolbar-actions')!;
+      expect(button('Add correction', dom().querySelector('.workspace__transcript-header')!)).toBeUndefined();
+      expect([...dom().querySelectorAll('button')].filter(b => b.textContent?.trim() === 'Add correction').length).toBe(1);
+      expect(button('Add correction', dom().querySelector('.editor__toolbar')!)).toBeUndefined();
+      button('Add correction', header)!.click(); await settle();
+      expect(original).toHaveBeenCalledOnceWith(null, jasmine.any(MouseEvent));
+      setSelection(3, 5); await settle();
+      expect(component.form()?.value).toEqual(jasmine.objectContaining({ fileId: 'f1', page: 1, startChar: 2, endChar: 6, quotedText: 'goes' }));
+      expect(dom().querySelector('[data-selected-quote]')?.textContent).toBe('goes');
+    });
+    it('uses labelled, titled icons with unchanged permissions and a 44px target', async () => {
+      await create(); await openEditor();
+      const icons = [['Edit', 'bx-pencil'], ['Hide', 'bx-hide'], ['Remove', 'bx-trash']];
+      for (const [label, icon] of icons) {
+        const action = button(label, row())!;
+        expect(action.getAttribute('aria-label')).toBe(label + ' correction AGR');
+        expect(action.title).toBe(label + ' correction');
+        expect(action.querySelector('i')?.classList).toContain(icon);
+        expect(action.querySelector('i')?.getAttribute('aria-hidden')).toBe('true');
+        expect(action.textContent?.trim()).toBe('');
+        expect(action.getBoundingClientRect().width).toBe(44);
+        expect(action.getBoundingClientRect().height).toBe(44);
+      }
+      button('Edit', row())!.click(); await settle();
+      expect(component.form()?.mode).toBe('edit');
+      component.cancelForm(); await settle();
+      api.current = snapshot({ corrections: [correction({ moderationStatus: 'hidden' })] }); await component.reload(); await settle();
+      expect(button('Restore', row())!.querySelector('i')?.classList).toContain('bx-show');
+      expect(button('Hide', row())).toBeUndefined();
+    });
+    it('preserves a manual draft and its canonical offsets while changing source images', async () => {
+      await create();
+      const first = snapshot().pages[0];
+      api.current = snapshot({ pages: [first, { ...first, fileId: 'f2', startChar: TEXT.length, endChar: TEXT.length * 2 }] });
+      fixture.componentRef.setInput('imageUrl', 'blob:f1'); fixture.componentRef.setInput('activeFileId', 'f1'); fixture.componentRef.setInput('fileIds', ['f1', 'f2']);
+      component.fileRequested.subscribe(fileId => { fixture.componentRef.setInput('activeFileId', fileId); fixture.componentRef.setInput('imageUrl', 'blob:' + fileId); });
+      await component.toggle(); await settle();
+      button('Add correction')!.click(); await settle(); setSelection(3, 5); fill('annotation-message', 'Draft explanation'); await settle();
+      const draft = component.form(), value = { ...draft!.value }, snapshots = api.snapshotCalls;
+      dom().querySelector<HTMLButtonElement>('[data-image-index="1"]')!.click(); await settle();
+      expect(component.form()).toBe(draft); expect(component.form()?.value).toEqual(value);
+      expect(registry.has('teacher-annotation-editor')).toBeTrue();
+      expect(api.snapshotCalls).toBe(snapshots); expect(api.calls).toEqual([]);
+      expect(dom().querySelector('[data-source-text]')).toBeNull();
+      expect(dom().querySelector('[data-selected-quote]')?.textContent).toBe(value.quotedText);
+    });
+  });
+
+  describe('manual correction selection and side editor', () => {
+    it('waits for a verified span, then opens the panel and temporarily collapses the desktop sidebar', async () => {
+      await create({ desktop: true }); await component.toggle(); await settle();
+      const sidebar = TestBed.inject(DashboardSidebarState), workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance;
+      const original = dom().querySelector('[data-sync-transcript]'), list = dom().querySelector('ul.rows');
+      expect(sidebar.collapsed()).toBeFalse();
+      workspace.onPointer({ ids: ['ai_1'], kind: 'activate' }, 'transcript'); await settle();
+      expect(component.form()).toBeNull(); expect(dom().querySelector('.workspace__editor')).toBeNull();
+      button('Add correction')!.click(); await settle();
+      expect(sidebar.collapsed()).toBeFalse(); expect(component.manualSelection()).toBeTrue();
+      expect(dom().querySelector('ul.rows')).toBe(list);
+      expect(dom().querySelector('.workspace__editor, [data-source-text], [data-edit-fields]')).toBeNull();
+      expect(document.activeElement?.hasAttribute('data-source-content')).toBeTrue();
+      const source = dom().querySelector<HTMLElement>('[data-source-content]')!;
+      expect(source.getAttribute('aria-readonly')).toBe('true');
+      const before = source.textContent;
+      for (const type of ['beforeinput', 'paste', 'cut', 'drop']) expect(source.dispatchEvent(new Event(type, { cancelable: true, bubbles: true }))).toBeFalse();
+      expect(source.textContent).toBe(before);
+      setSelection(3, 8); await settle();
+      expect(component.form()?.value).toEqual(jasmine.objectContaining({ startChar: 2, endChar: 9, quotedText: 'goes to' }));
+      expect(sidebar.collapsed()).toBeTrue();
+      expect(dom().querySelector('[data-sync-transcript]')).toBe(original); expect(dom().querySelector('ul.rows')).toBeNull();
+      expect(dom().querySelectorAll('.is-manual-selected').length).toBe(2);
+      expect(document.activeElement?.hasAttribute('data-form-heading')).toBeTrue();
+      dom().querySelector<HTMLButtonElement>('[aria-label="Close Add correction"]')!.click(); await settle();
+      expect(component.form()).toBeNull(); expect(sidebar.collapsed()).toBeFalse();
+      expect(dom().querySelectorAll('.workspace__corrections-panel ul.rows').length).toBe(1);
+      expect(dom().querySelector('.workspace__editor, .is-manual-selected')).toBeNull(); expect(api.calls).toEqual([]);
+      expect(document.activeElement?.textContent?.trim()).toBe('Add correction');
+    });
+    for (const desktop of [true, false]) {
+      it('preserves manual sidebar preference and mobile navigation with desktop=' + desktop, async () => {
+        await create({ desktop }); await component.toggle(); await settle();
+        const sidebar = TestBed.inject(DashboardSidebarState);
+        sidebar.toggle(); expect(sidebar.collapsed()).toBeTrue();
+        button('Add correction')!.click(); await settle(); setSelection(2, 6); await settle();
+        expect(sidebar.collapsed()).toBeTrue(); component.cancelForm(); await settle(); expect(sidebar.collapsed()).toBeTrue();
+        sidebar.toggle(); expect(sidebar.collapsed()).toBeFalse();
+        button('Add correction')!.click(); await settle(); setSelection(2, 6); await settle();
+        expect(sidebar.collapsed()).toBe(desktop);
+        if (desktop) { sidebar.toggle(); expect(sidebar.collapsed()).toBeFalse(); }
+        component.patch({ message: 'Typing does not undo a manual sidebar toggle.' }); await settle();
+        expect(sidebar.collapsed()).toBeFalse(); component.cancelForm(); await settle(); expect(sidebar.collapsed()).toBeFalse();
+      });
+    }
+    it('accepts native browser caret extension from the original read-only transcript', async () => {
+      await create(); await component.toggle(); await settle(); button('Add correction')!.click(); await settle();
+      const source = dom().querySelector<HTMLElement>('[data-source-content]')!, word = source.querySelector<HTMLElement>('[data-word-id="w1"]')!;
+      source.focus(); const selection = document.getSelection()!;
+      selection.collapse(word.firstChild, (word.textContent ?? '').indexOf('goes') + 1);
+      (selection as Selection & { modify: (alter: string, direction: string, unit: string) => void }).modify('extend', 'forward', 'word');
+      source.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', shiftKey: true, bubbles: true })); await settle();
+      expect(component.form()?.value.quotedText).toBe('goes'); expect(dom().querySelector('.workspace__editor')).not.toBeNull();
+      expect(document.activeElement).toBe(source);
+      (selection as Selection & { modify: (alter: string, direction: string, unit: string) => void }).modify('extend', 'forward', 'word');
+      source.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', shiftKey: true, bubbles: true })); await settle();
+      expect(component.form()?.value.quotedText).toBe('goes to'); expect(document.activeElement).toBe(source);
+      source.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift', bubbles: true })); await settle();
+      expect(document.activeElement?.hasAttribute('data-form-heading')).toBeTrue();
+    });
+    it('rejects stale source identities, invalid and cross-page ranges without opening an editor', async () => {
+      await create(); await component.toggle(); await settle(); button('Add correction')!.click(); await settle();
+      component.useTranscriptSelection({ fileId: 'f1', page: 1, sourceHash: 'stale', start: 2, end: 6, quotedText: 'goes' }); await settle();
+      expect(component.manualPanelOpen()).toBeFalse(); expect(component.form()?.value.quotedText).toBe('');
+      component.useTranscriptSelection({ fileId: 'f2', page: 1, sourceHash: 'hash-3', start: 2, end: 6, quotedText: 'goes' }); await settle();
+      expect(component.manualPanelOpen()).toBeFalse(); expect(api.calls).toEqual([]);
+      component.useTranscriptSelection(null); await settle();
+      expect(component.error()).toContain('within one transcript page');
+    });
+    for (const pdf of [false, true]) {
+      it('selects canonical text on the second/third source and saves once with PDF=' + pdf, async () => {
+        await create({ desktop: true });
+        const pages = [0, 1, 2].map(i => ({ ...snapshot().pages[0], fileId: pdf ? 'pdf' : 'f' + (i + 1), pageNumber: pdf ? i + 1 : 1, startChar: i * TEXT.length, endChar: (i + 1) * TEXT.length }));
+        api.current = snapshot({ pages }); fixture.componentRef.setInput('isPdf', pdf); fixture.componentRef.setInput('fileIds', [...new Set(pages.map(page => page.fileId))]);
+        fixture.componentRef.setInput('activeFileId', pages[2].fileId);
+        await component.toggle(); await settle();
+        const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+        if (pdf) workspace.goTo(2);
+        await settle(); button('Add correction')!.click(); await settle(); setSelection(2, 6, 2); await settle();
+        expect(component.form()?.value).toEqual(jasmine.objectContaining({ fileId: pages[2].fileId, page: pages[2].pageNumber, startChar: 2 * TEXT.length + 2, endChar: 2 * TEXT.length + 6, quotedText: 'goes' }));
+        component.chooseSymbol('ART'); component.patch({ message: 'Note', suggestedText: 'go' }); await settle();
+        let complete: (value: { revision: number }) => void = () => undefined;
+        api.respond = () => new Promise(resolve => { complete = resolve; });
+        component.saveForm(); component.saveForm(); await settle(); expect(api.calls.length).toBe(1);
+        expect(api.calls[0]).toEqual(jasmine.objectContaining({ action: 'add', revision: 3, sourceHash: 'hash-3', value: component.form()!.value }));
+        const saved = { ...component.form()!.value };
+        api.current = snapshot({ pages, revision: 4, corrections: [correction({}), correction({ ...saved, id: 'manual-new', source: 'Teacher' })] });
+        complete({ revision: 4 }); await settle();
+        expect(component.form()).toBeNull(); expect(dom().querySelector('.workspace__editor')).toBeNull();
+        expect(row('manual-new').textContent).toContain('Note'); expect(TestBed.inject(DashboardSidebarState).collapsed()).toBeFalse();
+        expect(registry.has('teacher-annotation-editor')).toBeFalse();
+        if (pdf) workspace.goTo(1); else fixture.componentRef.setInput('activeFileId', pages[1].fileId);
+        await settle(); button('Add correction')!.click(); await settle(); setSelection(2, 6, 1); await settle();
+        expect(component.form()?.value.fileId).toBe(pages[1].fileId); expect(component.form()?.value.page).toBe(pages[1].pageNumber);
+        component.cancelForm(); await settle(); expect(api.calls.length).toBe(1);
+      });
+    }
+    it('keeps the side editor, selected source, fields and retry identity after an unconfirmed save', async () => {
+      await create({ desktop: true }); await component.toggle(); await settle(); button('Add correction')!.click(); await settle(); setSelection(2, 6); await settle();
+      component.chooseSymbol('ART'); component.patch({ message: 'Keep explanation', suggestedText: 'go' }); api.respond = async () => { throw httpError(0); };
+      component.saveForm(); await settle();
+      expect(dom().querySelector('.workspace__editor')).not.toBeNull(); expect(component.form()?.value.quotedText).toBe('goes');
+      expect(dom().querySelector('ul.rows')).toBeNull();
+      expect(dom().querySelector<HTMLTextAreaElement>('#annotation-message')?.value).toBe('Keep explanation');
+      expect(component.error()).toContain('could not confirm'); expect(registry.hasWork()).toBeTrue();
+      const pending = api.calls[0]; api.respond = async () => ({ revision: 4, replay: true }); component.retry(); await settle();
+      expect(api.calls[1]).toEqual(pending); expect(component.form()).toBeNull();
+      expect(dom().querySelector('.workspace__corrections-panel ul.rows')).not.toBeNull();
+    });
+  });
+
+  describe('shared Add/Edit review presentation', () => {
+    const side = () => dom().querySelector<HTMLElement>('.workspace__editor')!;
+    it('contains hidden live regions inside the review card without creating an outer blank scroll area', async () => {
+      await create(); await component.toggle(); await settle();
+      for (const width of [1440, 1280, 1024, 768, 375, 320]) {
+        const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;inset:0;height:760px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!;
+          for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+          doc.body.style.cssText = 'margin:0;display:flex;flex-direction:column;height:760px';
+          const header = doc.createElement('header'); header.style.cssText = 'height:73px;flex-shrink:0'; doc.body.appendChild(header);
+          const main = doc.createElement('main'); main.style.cssText = 'flex:1;overflow:auto;min-height:0'; doc.body.appendChild(main);
+          const top = doc.createElement('div'); top.style.height = '600px'; main.appendChild(top); main.appendChild(dom().cloneNode(true));
+          const bottom = doc.createElement('div'); bottom.style.height = '1100px'; main.appendChild(bottom);
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          expect(doc.documentElement.scrollHeight).withContext('outer document at ' + width).toBeLessThanOrEqual(760);
+          expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
+          const editor = doc.querySelector('.editor');
+          for (const live of Array.from(doc.querySelectorAll<HTMLElement>('.editor > .sr-only, .workspace > .sr-only'))) expect(live.offsetParent).toBe(editor);
+          main.scrollTop = main.scrollHeight;
+          expect(doc.documentElement.scrollHeight).toBeLessThanOrEqual(760);
+          expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+        } finally { frame.remove(); }
+      }
+    });
+    it('keeps a multiline Unicode source unchanged while short selected phrases flow on one line', async () => {
+      await create();
+      const quote = "husband's\ndeath,", canonical = 'After ' + quote + ' café was quiet.';
+      const page = { fileId: 'f1', pageNumber: 1, startChar: 40, endChar: 40 + canonical.length, text: canonical, words: [...canonical.matchAll(/\S+/g)].map((m, i) => ({ id: 'q' + i, text: m[0] })) };
+      api.current = snapshot({ pages: [page], corrections: [correction({ startChar: 46, endChar: 46 + quote.length, quotedText: quote })] });
+      await component.toggle(); await settle(); button('Edit', row())!.click(); await settle();
+      const value = { ...component.form()!.value }, before = JSON.stringify(api.current.pages);
+      expect(side().querySelector('[data-selected-quote]')?.textContent).toBe(quote);
+      for (const width of [1440, 1280, 1024, 768, 375, 320]) {
+        const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;inset:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!, win = frame.contentWindow!;
+          for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+          doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true)); doc.documentElement.setAttribute('data-four-review-qa', 'edit-short');
+          const selected = doc.querySelector<HTMLElement>('.manual-editor [data-selected-quote]')!;
+          expect(win.getComputedStyle(selected).whiteSpace).toBe('normal');
+          const range = doc.createRange(); range.selectNodeContents(selected);
+          expect(new Set(Array.from(range.getClientRects()).filter(r => r.width > 0).map(r => Math.round(r.top))).size).toBe(1);
+          expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+          expect(doc.querySelector('.row [data-edit-fields]')).toBeNull();
+          for (const selector of ['[data-sync-image]', '[data-sync-transcript]', '.rows--panel', '.workspace__column-body', '.workspace__editor']) {
+            const el = doc.querySelector(selector); if (el) expect(win.getComputedStyle(el).overscrollBehaviorY).toBe('auto');
+          }
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        } finally { frame.remove(); }
+      }
+      component.patch({ message: 'Keep café and punctuation.' }); component.saveForm(); await settle();
+      expect(api.calls[0]).toEqual(jasmine.objectContaining({ action: 'edit', id: 'ai_1', sourceHash: 'hash-3', value: { ...value, message: 'Keep café and punctuation.' } }));
+      expect(JSON.stringify(api.current.pages)).toBe(before);
+    });
+    for (const pdf of [false, true]) {
+      it('edits the original hidden/manual correction on another source and retains draft, retry and sidebar state with PDF=' + pdf, async () => {
+        await create({ desktop: true });
+        const first = snapshot().pages[0], second = { ...first, fileId: pdf ? 'f1' : 'f2', pageNumber: pdf ? 2 : 1, startChar: 100, endChar: 100 + TEXT.length };
+        api.current = snapshot({ pages: [first, second], corrections: [correction({}), correction({ id: 'manual-2', source: 'Teacher', moderationStatus: 'hidden', fileId: second.fileId, page: second.pageNumber, startChar: 102, endChar: 106 })] });
+        fixture.componentRef.setInput('isPdf', pdf); fixture.componentRef.setInput('fileIds', ['f1', 'f2']); fixture.componentRef.setInput('activeFileId', 'f1');
+        component.fileRequested.subscribe(id => fixture.componentRef.setInput('activeFileId', id));
+        await component.toggle(); await settle(); button('Edit', row('manual-2'))!.click(); await settle();
+        const sidebar = TestBed.inject(DashboardSidebarState);
+        expect(sidebar.collapsed()).toBeTrue(); expect(side().textContent).toContain('Edit correction');
+        expect(dom().querySelector('[data-source-content]')?.getAttribute('data-page')).toBe(String(second.pageNumber));
+        expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe(second.fileId);
+        expect(component.selection.pinnedId()).toBe('manual-2'); expect(component.manualSelection()).toBeFalse();
+        component.patch({ message: 'Do not discard.', suggestedText: 'go' }); await settle();
+        const draft = component.form(); button('Add correction')!.click();
+        expect(row()).toBeNull();
+        component.openForm(component.rows().find(row => row.key === 'ai_1')!, new Event('click'), 'row'); await settle();
+        expect(component.form()).toBe(draft);
+        component.selection.pin('ai_1', 'list'); await settle();
+        expect(component.form()).toBe(draft); expect(registry.hasWork()).toBeTrue();
+        api.respond = async () => { throw httpError(0); }; component.saveForm(); component.saveForm(); await settle();
+        expect(api.calls.length).toBe(1); expect(component.form()).toBe(draft);
+        expect(side().querySelector<HTMLTextAreaElement>('#annotation-message')?.value).toBe('Do not discard.');
+        const request = api.calls[0];
+        expect(request).toEqual(jasmine.objectContaining({ action: 'edit', id: 'manual-2', revision: 3, value: jasmine.objectContaining({ fileId: second.fileId, page: second.pageNumber, startChar: 102, endChar: 106 }) }));
+        api.respond = async () => ({ revision: 4, replay: true }); component.retry(); await settle();
+        expect(api.calls[1]).toEqual(request); expect(side()).toBeNull(); expect(sidebar.collapsed()).toBeFalse();
+      });
+    }
+    it('keeps Add drafts and closed-review drafts until explicitly saved or cancelled', async () => {
+      await create({ desktop: true }); await component.toggle(); await settle(); button('Add correction')!.click(); await settle();
+      setSelection(2, 6); component.patch({ message: 'Add draft' }); await settle();
+      const draft = component.form(); expect(row()).toBeNull();
+      component.openForm(component.rows()[0], new Event('click'), 'row'); await settle(); expect(component.form()).toBe(draft);
+      await component.toggle(); await settle(); expect(registry.hasWork()).toBeTrue(); expect(component.form()).toBe(draft);
+      await component.toggle(); await settle(); expect(side().querySelector<HTMLTextAreaElement>('#annotation-message')?.value).toBe('Add draft');
+      component.cancelForm(); await settle(); expect(api.calls).toEqual([]); expect(registry.hasWork()).toBeFalse();
+    });
+    it('replaces an edit span through the existing original-transcript adapter and updates the same correction', async () => {
+      await create(); await component.toggle(); await settle(); button('Edit', row())!.click(); await settle();
+      const initial = component.form()!.initial;
+      component.patch({ message: 'My existing edit.' }); component.changeWords(); await settle(); setSelection(10, 18); await settle();
+      expect(component.form()?.initial).toBe(initial); expect(component.form()?.mode).toBe('edit'); expect(component.form()?.targetId).toBe('ai_1');
+      expect(component.form()?.value.quotedText).toBe('the park'); expect(dom().querySelectorAll('[data-edit-fields]').length).toBe(1);
+      component.saveForm(); await settle();
+      expect(api.calls[0]).toEqual(jasmine.objectContaining({ action: 'edit', id: 'ai_1', value: jasmine.objectContaining({ quotedText: 'the park', startChar: 10, endChar: 18, message: 'My existing edit.' }) }));
+    });
+  });
+
+  describe('aligned page-specific review', () => {
+    it('retains the failed save source and exact retry body after navigating to another page', async () => {
+      await create(); const first = snapshot().pages[0], text = 'We goes home.';
+      const second = { fileId: 'f2', pageNumber: 1, startChar: 100, endChar: 100 + text.length, text, words: text.split(' ').map((text, index) => ({ id: 's' + index, text })) };
+      api.current = snapshot({ pages: [first, second] });
+      fixture.componentRef.setInput('fileIds', ['f1', 'f2']); fixture.componentRef.setInput('activeFileId', 'f2'); fixture.componentRef.setInput('imageUrl', 'blob:f2');
+      component.fileRequested.subscribe(fileId => { fixture.componentRef.setInput('activeFileId', fileId); fixture.componentRef.setInput('imageUrl', 'blob:' + fileId); });
+      await component.toggle(); await settle(); button('Add correction')!.click(); await settle(); setSelection(3, 7, 1); await settle();
+      component.chooseSymbol('ART'); component.patch({ message: 'Keep the original page.', suggestedText: 'go' });
+      api.respond = async () => { throw httpError(0); }; component.saveForm(); await settle();
+      const pending = api.calls[0], value = { ...component.form()!.value };
+      dom().querySelector<HTMLButtonElement>('[data-image-index="0"]')!.click(); await settle();
+      expect(component.form()?.value).toEqual(value); expect(component.form()?.value.startChar).toBe(103);
+      expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe('f1');
+      expect(dom().querySelector('.is-manual-selected')).toBeNull(); expect(registry.hasWork()).toBeTrue();
+      api.respond = async () => ({ revision: 4, replay: true }); component.retry(); await settle();
+      expect(api.calls[1]).toEqual(pending); expect(api.calls[1].value?.fileId).toBe('f2'); expect(component.form()).toBeNull();
+    });
+    it('keeps distinct page transcripts, aligned boundaries and canonical manual drafts through navigation and Save/Cancel', async () => {
+      await create({ desktop: true });
+      const texts = ['Yesterday, I walk to the market.\n\nI bought fresh fruit.', 'My sister has two bright ideas.\n\nWe try them together.', 'Tomorrow, our class will visit the river.\n\nWe will write about it.'];
+      let offset = 0;
+      const pages = texts.map((text, index) => {
+        let previousEnd = 0;
+        const words = [...text.matchAll(/\S+/g)].map((match, wordIndex) => {
+          const gap = text.slice(previousEnd, match.index); previousEnd = match.index + match[0].length;
+          return { id: 'p' + index + '-w' + wordIndex, text: match[0], separatorBefore: gap.includes('\n\n') ? '\n\n' : wordIndex ? ' ' : '',
+            bbox: { x: 3 + wordIndex % 6 * 14, y: 10 + Math.floor(wordIndex / 6) * 9, w: 10, h: 5 } };
+        });
+        const page = { fileId: 'f' + (index + 1), pageNumber: 1, startChar: offset, endChar: offset + text.length, text, words };
+        offset += text.length + 2; return page;
+      });
+      const corrections = pages.map((page, index) => {
+        const span = wordSpans(page.text, page.words)[2];
+        return correction({ id: 'page-mark-' + index, fileId: page.fileId, wordIds: [page.words[2].id], startChar: page.startChar + span.start, endChar: page.startChar + span.end,
+          quotedText: page.text.slice(span.start, span.end) });
+      });
+      const effective = corrections.map((item, index) => ({ ...item, renderTarget: { version: 1, source: 'wordIds', wordIds: item.wordIds, boxes: [pages[index].words[2].bbox] } }));
+      api.current = snapshot({ pages, corrections, effective });
+      const originalPages = JSON.stringify(pages), initial = api.current;
+      const image = (index: number) => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + (600 + index * 90) + '" height="' + (800 - index * 100) + '"><rect width="100%" height="100%" fill="#fff"/><text x="25" y="60" font-size="23">' + texts[index].split('\n')[0] + '</text></svg>');
+      fixture.componentRef.setInput('fileIds', pages.map(page => page.fileId)); fixture.componentRef.setInput('activeFileId', 'f1'); fixture.componentRef.setInput('imageUrl', image(0));
+      component.fileRequested.subscribe(fileId => { fixture.componentRef.setInput('activeFileId', fileId); fixture.componentRef.setInput('imageUrl', image(pages.findIndex(page => page.fileId === fileId))); });
+      await component.toggle(); await settle();
+      const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      const capture = async (state: string, widths = [1440]) => {
+        const loadedImage = dom().querySelector<HTMLImageElement>('app-correction-overlay img');
+        if (loadedImage && !loadedImage.complete) await new Promise<void>(resolve => {
+          const timer = setTimeout(resolve, 1500);
+          const done = () => { clearTimeout(timer); resolve(); };
+          loadedImage.addEventListener('load', done, { once: true }); loadedImage.addEventListener('error', done, { once: true });
+        });
+        await settle();
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await settle();
+        expect(fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance.mediaState).toBe('loaded');
+        for (const width of widths) {
+          const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:1000px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+          try {
+            const doc = frame.contentDocument!, win = frame.contentWindow!;
+            for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+            doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true)); doc.documentElement.setAttribute('data-page-review-qa', state);
+            expect(doc.documentElement.scrollWidth).withContext(state + ' at ' + width).toBeLessThanOrEqual(width);
+            const transcript = doc.querySelector('[data-sync-transcript]')!;
+            expect(transcript.querySelectorAll('[data-source-content]').length).toBe(1);
+            expect(transcript.querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe(workspace.view()?.fileId ?? '');
+            expect(doc.querySelectorAll('[data-row-key]').length).toBe(component.sideEditorOpen() ? 0 : component.rows().length);
+            expect(doc.querySelector('#annotation-text-panel ul.rows')).toBeNull();
+            if (width >= 1024) {
+              const panels = Array.from(doc.querySelectorAll<HTMLElement>('.workspace__column, .workspace__corrections-panel')).filter(panel => win.getComputedStyle(panel).display !== 'none');
+              const boxes = panels.map(panel => panel.getBoundingClientRect());
+              for (const box of boxes) { expect(Math.abs(box.top - boxes[0].top)).toBeLessThan(1); expect(Math.abs(box.bottom - boxes[0].bottom)).toBeLessThan(1); }
+              for (let index = 1; index < boxes.length; index++) expect(boxes[index].left).toBeGreaterThanOrEqual(boxes[index - 1].right);
+              expect(boxes[0].height).toBeLessThanOrEqual(win.innerHeight - 180 + 1);
+              const imageBody = doc.querySelector('.workspace__image-body')!.getBoundingClientRect(), transcriptBody = doc.querySelector('.workspace__column-body')!.getBoundingClientRect();
+              expect(Math.abs(imageBody.top - transcriptBody.top)).toBeLessThan(1);
+              expect(boxes.length).toBe(3);
+            }
+            for (const field of Array.from(doc.querySelectorAll<HTMLElement>('.workspace__editor input, .workspace__editor textarea, .workspace__editor select'))) {
+              expect(field.getBoundingClientRect().right).toBeLessThanOrEqual(doc.querySelector('.workspace__editor')!.getBoundingClientRect().right - 8);
+            }
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          } finally { frame.remove(); }
+        }
+      };
+      for (const index of [0, 1, 2]) {
+        workspace.goTo(index); await settle();
+        expect(dom().querySelector('[data-sync-transcript]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(texts[index].replace(/\s+/g, ' '));
+        await capture('normal-p' + (index + 1), index === 1 ? [1440, 1280, 1024, 768, 375, 320] : [1440]);
+      }
+      for (const index of [0, 1]) {
+        workspace.goTo(index); await settle(); button('Add correction')!.click(); await settle();
+        const span = wordSpans(pages[index].text, pages[index].words)[2]; setSelection(span.start + 1, span.end, index); await settle();
+        expect(component.form()?.value.fileId).toBe(pages[index].fileId);
+        expect(component.form()?.value.startChar).toBe(pages[index].startChar + span.start);
+        expect(dom().querySelector('[data-selected-quote]')?.textContent).toBe(pages[index].text.slice(span.start, span.end));
+        await capture('editor-p' + (index + 1), index === 1 ? [1440, 1280, 1024, 768, 375, 320] : [1440]);
+        if (index === 1) { setSelection(0, pages[index].text.length, index); await settle(); await capture('add-long', [1440, 1280, 1024, 768, 375, 320]); }
+        component.cancelForm(); await settle();
+      }
+      button('Edit', row('page-mark-1'))!.click(); await settle();
+      await capture('edit-existing-p2', [1440, 1280, 1024, 768, 375, 320]);
+      component.cancelForm(); await settle();
+      await capture('cancel-p2');
+      button('Add correction')!.click(); await settle(); const span = wordSpans(pages[1].text, pages[1].words)[2]; setSelection(span.start, span.end, 1); await settle();
+      component.chooseSymbol('ART'); component.patch({ message: 'Keep this page-specific note.', suggestedText: 'has' });
+      const draft = { ...component.form()!.value };
+      workspace.goTo(2); await settle();
+      expect(component.form()?.value).toEqual(draft); expect(dom().querySelector('.is-manual-selected')).toBeNull();
+      expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe('f3');
+      api.respond = async () => { api.current = { ...initial, revision: 4, corrections: [...corrections, correction({ ...draft, id: 'manual-page-2', source: 'Teacher' })] }; return { revision: 4 }; };
+      component.saveForm(); component.saveForm(); await settle();
+      expect(api.calls.length).toBe(1); expect(api.calls[0].value).toEqual(draft);
+      expect(component.form()).toBeNull(); expect(row('manual-page-2').textContent).toContain('page-specific note');
+      workspace.goTo(1); await settle(); await capture('saved-p2');
+      expect(JSON.stringify(api.current.pages)).toBe(originalPages); expect(api.snapshotCalls).toBe(2);
+    });
+  });
+
   describe('Phase A polish: panel', () => {
     it('bulk actions sit in one labelled toolbar, categories as compact chips; no global page buttons in the editor', async () => {
       await create(); await openEditor();
@@ -165,15 +575,16 @@ describe('AnnotationControls', () => {
     });
   });
 
-  describe('Phase A polish: inline edit in the list row', () => {
+  describe('correction edit in the shared side panel', () => {
     beforeEach(async () => { await create(); await openEditor(); });
     const key = (target: Element, k: string, init: KeyboardEventInit = {}) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init }));
     const field = (id: string) => dom().querySelector<HTMLElement>(`#${id}`)!;
 
-    it('Edit turns the row into the form, pre-filled; Enter in the suggestion saves through the existing single action', async () => {
+    it('Edit opens the shared side form, pre-filled; Enter in the suggestion saves through the existing single action', async () => {
       button('Edit', row())!.click(); await settle();
-      expect(row().querySelector('[data-edit-fields]')).not.toBeNull();
-      expect(row().querySelector('[data-edit-heading]')!.textContent).toContain('“goes”');
+      expect(row()).toBeNull();
+      expect(dom().querySelector('.workspace__editor [data-form-heading]')?.textContent).toContain('Edit correction');
+      expect(dom().querySelector('.workspace__editor [data-selected-quote]')?.textContent).toBe('goes');
       expect((field('annotation-message') as HTMLTextAreaElement).value).toBe('Use go.');
       expect((field('annotation-suggestion') as HTMLInputElement).value).toBe('go');
       expect((field('annotation-symbol') as HTMLSelectElement).value).toBe('AGR');
@@ -198,9 +609,9 @@ describe('AnnotationControls', () => {
     it('a field error is shown next to the field, nothing is sent, focus goes to the field', async () => {
       button('Edit', row())!.click(); await settle();
       fill('annotation-message', '   '); await settle();
-      row().querySelector<HTMLButtonElement>('[data-edit-save]')!.click(); await settle();
+      dom().querySelector<HTMLButtonElement>('.workspace__editor [data-edit-save]')!.click(); await settle();
       expect(api.calls).toEqual([]);
-      expect(row().textContent).toContain('Explanation is required');
+      expect(dom().querySelector('.workspace__editor')?.textContent).toContain('Explanation is required');
       expect(field('annotation-message').getAttribute('aria-invalid')).toBe('true');
       expect(document.activeElement).toBe(field('annotation-message'));
     });
@@ -209,23 +620,25 @@ describe('AnnotationControls', () => {
       fill('annotation-message', 'Mine'); await settle();
       let fail: (e: unknown) => void = () => undefined;
       api.respond = () => new Promise((_, reject) => { fail = reject; });
-      row().querySelector<HTMLButtonElement>('[data-edit-save]')!.click(); await fixture.whenStable(); fixture.detectChanges();
-      expect(row().querySelector('[data-edit-save]')!.textContent).toContain('Saving…');
-      expect(row().querySelector('[data-edit-fields]')!.getAttribute('aria-busy')).toBe('true');
+      dom().querySelector<HTMLButtonElement>('.workspace__editor [data-edit-save]')!.click(); await fixture.whenStable(); fixture.detectChanges();
+      expect(dom().querySelector('.workspace__editor [data-edit-save]')!.textContent).toContain('Saving…');
+      expect(dom().querySelector('.workspace__editor [data-edit-fields]')!.getAttribute('aria-busy')).toBe('true');
       api.current = snapshot({ revision: 9, corrections: [correction({ message: 'From the other tab' })] });
       fail(httpError(409, 'ANNOTATION_REVISION_CONFLICT')); await settle();
-      expect(row().querySelector('[data-edit-alert]')!.textContent).toContain('Your change was not saved');
-      expect(row().textContent).toContain('From the other tab');
+      expect(dom().querySelector('.workspace__editor [role="alert"]')!.textContent).toContain('Your change was not saved');
+      expect(component.rows().find(row => row.key === 'ai_1')?.message).toBe('From the other tab');
+      expect(row()).toBeNull();
       expect((field('annotation-message') as HTMLTextAreaElement).value).toBe('Mine');
     });
     it('"Change the words…" moves the same form, with what was typed, to the panel', async () => {
       button('Edit', row())!.click(); await settle();
       fill('annotation-message', 'Typed'); await settle();
-      row().querySelector<HTMLButtonElement>('[data-edit-change-words]')!.click(); await settle();
+      dom().querySelector<HTMLButtonElement>('.workspace__editor [data-edit-change-words]')!.click(); await settle();
       expect(component.form()!.placement).toBe('panel');
-      expect(row().querySelector('[data-edit-fields]')).toBeNull();
+      expect(row()).toBeNull();
       expect(dom().querySelector('[data-form-heading]')).not.toBeNull();
-      expect(dom().querySelector('[data-source-text]')).not.toBeNull();
+      expect(dom().querySelector('[data-source-text]')).toBeNull();
+      expect(dom().querySelector('[data-source-content][contenteditable]')).not.toBeNull();
       expect((field('annotation-message') as HTMLTextAreaElement).value).toBe('Typed');
     });
     it('a correction to place again still uses the panel (it needs word selection)', async () => {
@@ -249,6 +662,105 @@ describe('AnnotationControls', () => {
     const open = async () => { api.current = two(); await openEditor(); };
     const mouse = (type: string, target: Element) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'mouse' }));
 
+    it('opening Review corrections enables the workspace with one list and form in the right column', async () => {
+      await create(); api.current = two(); await component.toggle(); await settle();
+      expect(component.workspaceOpen()).toBeTrue();
+      expect(dom().querySelectorAll('ul.rows').length).toBe(1);
+      expect(dom().querySelector('[aria-label="Transcript and annotations"] ul.rows')).toBeNull();
+      expect(dom().querySelector('.workspace__corrections-panel ul.rows')).not.toBeNull();
+      const view = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      view.narrowTab.set('image'); view.layout.desktop.set('image');
+      button('Add correction')!.click(); await settle();
+      expect(view.narrowTab()).toBe('text');
+      expect(view.layout.desktop()).toBe('split');
+      expect(dom().querySelector('[aria-label="Transcript and annotations"] form')).toBeNull();
+      expect(dom().querySelector('.workspace__editor')).toBeNull();
+      setSelection(2, 6); await settle();
+      expect(dom().querySelector('.workspace__editor form')).not.toBeNull();
+      expect(dom().querySelector('ul.rows')).toBeNull();
+    });
+    it('keeps the toolbar, original transcript, list and separate editor usable at every requested width', async () => {
+      await create({ desktop: true });
+      fixture.componentRef.setInput('imageUrl', 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="600" height="800" fill="white"/><text x="25" y="60" font-size="26">I goes to the park.</text></svg>'));
+      api.current = two(); await component.toggle(); await settle();
+      const render = async (state: string) => {
+        for (const width of [1440, 1280, 1024, 768, 375, 320]) {
+          const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:1000px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+          try {
+            const doc = frame.contentDocument!, win = frame.contentWindow!;
+            for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+            doc.body.style.margin = '0'; doc.body.appendChild(dom().cloneNode(true)); doc.documentElement.setAttribute('data-manual-qa', state);
+            expect(doc.documentElement.scrollWidth).withContext(state + ' at ' + width).toBeLessThanOrEqual(width);
+            expect(doc.querySelectorAll('[data-sync-transcript]').length).toBe(1);
+            expect(doc.querySelector('[data-source-text]')).toBeNull();
+            expect(doc.querySelectorAll('ul.rows').length).toBe(state === 'editor' || state === 'edit' ? 0 : 1);
+            expect(doc.querySelector('#annotation-text-panel ul.rows')).toBeNull();
+            expect(doc.querySelectorAll('.workspace__corrections-panel').length).toBe(1);
+            const panel = doc.querySelector<HTMLElement>('.workspace__editor');
+            if (state === 'editor' || state === 'edit') {
+              expect(panel).not.toBeNull();
+              expect(doc.querySelector('[data-selected-quote]')?.textContent).toBe('goes');
+              expect(doc.querySelectorAll('[data-edit-save]').length).toBe(1);
+              expect(win.getComputedStyle(panel!).overflowY).toBe('auto');
+              if (width >= 1024) expect(panel!.getBoundingClientRect().left).toBeGreaterThan(doc.querySelector('.workspace__column--right')!.getBoundingClientRect().left);
+              for (const field of Array.from(panel!.querySelectorAll<HTMLElement>('input, textarea, select'))) {
+                expect(field.scrollWidth).toBeLessThanOrEqual(field.clientWidth + 1);
+                expect(field.getBoundingClientRect().right).toBeLessThanOrEqual(panel!.getBoundingClientRect().right - 10);
+              }
+            } else expect(panel).toBeNull();
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          } finally { frame.remove(); }
+        }
+      };
+      await render('normal');
+      button('Add correction')!.click(); await settle(); await render('selecting');
+      setSelection(3, 5); await settle(); await render('editor');
+      expect(component.form()?.value).toEqual(jasmine.objectContaining({ startChar: 2, endChar: 6, quotedText: 'goes' }));
+      component.cancelForm(); await settle(); await render('cancel');
+      button('Edit', row())!.click(); await settle(); await render('edit');
+      expect(component.form()?.targetId).toBe('ai_1');
+      component.cancelForm(); await settle();
+      expect(dom().querySelector('.workspace__corrections-panel ul.rows')).not.toBeNull();
+    });
+    it('keeps global rows, counts and filters in the right panel across page changes and edit cancellation', async () => {
+      await create();
+      const first = snapshot().pages[0], second = { ...first, fileId: 'f2', startChar: 100, endChar: 100 + TEXT.length };
+      api.current = snapshot({ pages: [first, second], corrections: Array.from({ length: 7 }, (_, i) => correction({
+        id: 'saved-' + i, moderationStatus: i < 2 ? 'hidden' : 'visible', fileId: i % 2 ? 'f2' : 'f1',
+        startChar: i % 2 ? 102 : 2, endChar: i % 2 ? 106 : 6
+      })) });
+      fixture.componentRef.setInput('fileIds', ['f1', 'f2']); fixture.componentRef.setInput('activeFileId', 'f1');
+      component.fileRequested.subscribe(id => fixture.componentRef.setInput('activeFileId', id));
+      await component.toggle(); await settle();
+      expect(dom().querySelectorAll('.workspace__corrections-panel [data-row-key]').length).toBe(7);
+      expect(dom().querySelectorAll('ul.rows').length).toBe(1);
+      expect(dom().querySelector('[data-counts]')?.textContent).toContain('of 7 corrections');
+      button('Hidden (')!.click(); await settle();
+      expect(component.filter()).toBe('hidden'); expect(dom().querySelectorAll('[data-row-key]').length).toBe(2);
+      const countText = dom().querySelector('[data-counts]')?.textContent;
+      button('Edit', row('saved-1'))!.click(); await settle();
+      expect(component.form()?.targetId).toBe('saved-1'); expect(dom().querySelector('ul.rows')).toBeNull();
+      expect(dom().querySelector('[data-source-content]')?.getAttribute('data-file-id')).toBe('f2');
+      component.cancelForm(); await settle();
+      expect(component.filter()).toBe('hidden'); expect(dom().querySelectorAll('[data-row-key]').length).toBe(2);
+      expect(dom().querySelector('[data-counts]')?.textContent).toBe(countText);
+      button('All (')!.click(); await settle();
+      expect(dom().querySelectorAll('.workspace__corrections-panel [data-row-key]').length).toBe(7);
+      expect(api.calls).toEqual([]); expect(api.snapshotCalls).toBe(1);
+    });
+    it('image activation selects the matching transcript and list; transcript activation selects the image input', async () => {
+      await create(); fixture.componentRef.setInput('imageUrl', 'blob:already-loaded'); await open();
+      toggle().click(); await settle();
+      const image = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+      image.syncPointer.emit({ ids: ['ai_1'], kind: 'activate' }); await settle();
+      expect(dom().querySelector('[data-sync-transcript] .is-sync-active')).not.toBeNull();
+      expect(row('ai_1').classList.contains('row--active')).toBeTrue();
+      const word = dom().querySelector<HTMLElement>('[data-sync-transcript] [data-word-id="w3"]')!;
+      word.click(); await settle();
+      expect(component.selection.source()).toBe('transcript');
+      expect(image.syncActiveId).toBe('ai_2');
+      expect(row('ai_2').classList.contains('row--active')).toBeTrue();
+    });
     it('is closed until the teacher asks: nothing of it exists; a correction placed on its word has no position label', async () => {
       await create(); await open();
       expect(workspace()).toBeNull();
@@ -291,17 +803,19 @@ describe('AnnotationControls', () => {
       expect(row('ai_2').querySelector('[data-row-selected]')?.textContent).toBe('Selected');
       expect(row('ai_2').getAttribute('aria-current')).toBe('true');
       expect(dom().querySelector('[data-sync-live]')?.textContent).toContain('hidden from the student. Approximate position.');
-      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('Approximate position');
+      expect(dom().querySelector('[data-sync-status], [data-sync-clear]')).toBeNull();
     });
-    it('list: a click on a row button does not select; the list has the listeners, not the rows', async () => {
+    it('list: Edit explicitly selects its correction and opens the side panel without an inline form', async () => {
       await create(); await open();
       toggle().click(); await settle();
       const list = dom().querySelector('ul.rows') as HTMLElement;
       expect(list.classList.contains('rows--panel')).toBeTrue();
       button('Change history')!.click(); await settle();
-      row('ai_1').querySelector<HTMLButtonElement>('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      button('Edit', row('ai_1'))!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await settle();
-      expect(component.selection.pinnedId()).toBeNull();
+      expect(component.selection.pinnedId()).toBe('ai_1');
+      expect(dom().querySelector('.workspace__editor [data-edit-fields]')).not.toBeNull();
+      expect(row('ai_1')).toBeNull();
     });
     it('list: hover shows it after the delay and is not announced', async () => {
       await create(); await open();
@@ -329,14 +843,14 @@ describe('AnnotationControls', () => {
       await new Promise(r => setTimeout(r, 170));
       expect(component.selection.activeId()).toBeNull();
     });
-    it('Escape and the button clear it', async () => {
+    it('Escape and clicking empty space clear it', async () => {
       await create(); await open();
       toggle().click(); await settle();
       component.selection.pin('ai_1', 'list'); await settle();
       dom().querySelector('#annotation-editor-body')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle();
       expect(component.selection.activeId()).toBeNull();
       component.selection.pin('ai_1', 'list'); await settle();
-      dom().querySelector<HTMLButtonElement>('[data-sync-clear]')!.click(); await settle();
+      dom().querySelector<HTMLElement>('.workspace')!.click(); await settle();
       expect(component.selection.activeId()).toBeNull();
     });
     it('selected from elsewhere while filtered out: the list switches to All and says so', async () => {
@@ -402,7 +916,7 @@ describe('AnnotationControls', () => {
       await create(); await open();
       toggle().click(); await settle();
       component.selection.pin('ai_3', 'list'); await settle();
-      expect(dom().querySelector('[data-sync-note]')?.textContent).toContain('Not located on image');
+      expect(dom().querySelector('[data-sync-live]')?.textContent).toContain('Not located on image');
     });
   });
 
@@ -431,7 +945,7 @@ describe('AnnotationControls', () => {
       api.current = snapshot({ scoreReview: SCORE_REVIEW });
       await openEditor();
       expect(keepButton().getAttribute('aria-disabled')).toBe('false');
-      button('Add correction')!.click(); await settle();
+      button('Add correction')!.click(); await settle(); setSelection(2, 6); await settle();
       fill('annotation-message', 'Unsaved text'); await settle();
       expect(keepButton().getAttribute('aria-disabled')).toBe('true');
       expect(dom().querySelector('[data-grade-blocked]')!.textContent).toContain('Save or cancel your correction first');
@@ -499,7 +1013,7 @@ describe('AnnotationControls', () => {
       expect(row('ai_1').classList).not.toContain('row--dimmed');
     });
     it('offers only the legal actions per state', () => {
-      const labels = (key: string) => [...row(key).querySelectorAll('button')].map(b => b.textContent?.trim().split(/\s/)[0]);
+      const labels = (key: string) => [...row(key).querySelectorAll('button')].map(b => (b.getAttribute('aria-label') ?? b.textContent)?.trim().split(/\s/)[0]);
       expect(labels('ai_1')).toEqual(['Edit', 'Hide', 'Remove']);
       expect(labels('ai_2')).toEqual(['Edit', 'Restore', 'Remove']);
       expect(labels('ai_3')).toEqual(['Restore']);
@@ -578,22 +1092,21 @@ describe('AnnotationControls', () => {
     it('edit opens with the current text and span; an unknown legend symbol must be chosen', async () => {
       button('Edit', row())!.click(); await settle();
       expect(component.form()!.value).toEqual(jasmine.objectContaining({ quotedText: 'goes', startChar: 2, endChar: 6, symbol: 'AGR', category: 'GRAMMAR', message: 'Use go.' }));
-      // Phase A polish: Edit opens in the row itself, focus on its first field; the panel form is not used.
-      expect(component.form()!.placement).toBe('row');
-      expect(document.activeElement?.hasAttribute('data-edit-first')).toBeTrue();
-      expect(row().contains(document.activeElement)).toBeTrue();
-      expect(dom().querySelector('[data-form-heading]')).toBeNull();
+      expect(component.form()!.placement).toBe('panel');
+      expect(document.activeElement?.hasAttribute('data-form-heading')).toBeTrue();
+      expect(row()).toBeNull();
+      expect(dom().querySelector('.workspace__editor')?.contains(document.activeElement)).toBeTrue();
     });
     it('an invalid form makes no request and says what to fix', async () => {
       button('Add correction')!.click(); await settle();
       component.saveForm(); await settle();
       expect(api.calls).toEqual([]);
-      expect(text()).toContain('Select the words');
-      expect(text()).toContain('Choose a category and symbol');
-      expect(text()).toContain('Explanation is required');
+      expect(text()).toContain('Select words or a sentence');
+      expect(component.formErrors().symbol).toBe('Choose a category and symbol from the legend.');
+      expect(component.formErrors().message).toBe('Explanation is required.');
     });
     it('explanation and suggestion have the server caps', async () => {
-      button('Add correction')!.click(); await settle();
+      button('Add correction')!.click(); await settle(); setSelection(2, 6); await settle();
       expect((dom().querySelector('#annotation-message') as HTMLTextAreaElement).maxLength).toBe(2000);
       expect((dom().querySelector('#annotation-suggestion') as HTMLTextAreaElement).maxLength).toBe(2000);
     });
@@ -952,5 +1465,10 @@ describe('AnnotationControls', () => {
     console.info(`[annotation editor] 300 corrections, first render: ${elapsed.toFixed(0)} ms`);
     button('Show more')!.click(); await settle();
     expect(dom().querySelectorAll('[data-row-key]').length).toBe(100);
+    dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!.click(); await settle();
+    expect(dom().querySelectorAll('.workspace__corrections-panel [data-row-key]').length).toBe(100);
+    expect(dom().querySelector('#annotation-text-panel ul.rows')).toBeNull();
+    button('Show more')!.click(); await settle();
+    expect(dom().querySelectorAll('.workspace__corrections-panel [data-row-key]').length).toBe(150);
   });
 });

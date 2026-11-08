@@ -1,15 +1,20 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, OnDestroy, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, Injectable, Injector, OnDestroy, TemplateRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import { TranscriptPageView, buildTranscriptPageViews } from '../../../utils/transcript-page-views.util';
 import { CorrectionOverlay } from '../../correction-overlay/correction-overlay';
 import { TokenizedTranscript } from '../../submission-details/tokenized-transcript/tokenized-transcript';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
-import { AnnotationSnapshot, CorrectionRow, allowedActions } from './annotation-editor.logic';
+import { AnnotationSnapshot, CorrectionRow, wordSpans } from './annotation-editor.logic';
 import { APPROXIMATE_POSITION, LINE_IMAGE_POSITION, NO_IMAGE_POSITION, RowPosition, nextInCycle, panelScrollTop, preferCurrent, syncStates, workspaceCorrections } from './annotation-sync.logic';
-import { AnnotationMarkMenu, MarkMenuAction } from './annotation-mark-menu';
+import { TranscriptSourceSpan, transcriptSourceRange } from './transcript-source-selection';
 import { CorrectionSelection, SelectionSource } from './correction-selection';
 
 export interface SyncPointer { ids: string[]; kind: 'hover' | 'leave' | 'focus' | 'activate'; }
+
+/** View preference stays in memory, including when the responsive shell rebuilds the page. */
+@Injectable({ providedIn: 'root' })
+export class AnnotationLayoutSession { readonly desktop = signal<'split' | 'image' | 'text'>('split'); }
 
 /** Every view scrolls the same way: inside its own panel, never the window, and without animation when the user asked for less motion. */
 export function scrollPanelTo(panel: HTMLElement | undefined, target: Element | null | undefined): void {
@@ -35,12 +40,75 @@ export function applySyncPointer(selection: CorrectionSelection, event: SyncPoin
  */
 @Component({
   selector: 'app-review-workspace',
-  imports: [AnnotationMarkMenu, CorrectionOverlay, TokenizedTranscript],
+  imports: [NgTemplateOutlet, CorrectionOverlay, TokenizedTranscript],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './review-workspace.html',
   styleUrl: './review-workspace.css',
 })
 export class ReviewWorkspace implements OnDestroy {
+  readonly corrections = input<TemplateRef<unknown> | null>(null);
+  readonly toolbarActions = input<TemplateRef<unknown> | null>(null);
+  readonly editor = input<TemplateRef<unknown> | null>(null);
+  readonly manualSelection = input(false);
+  readonly selectedSource = input<TranscriptSourceSpan | null>(null);
+  readonly sourceSelected = output<TranscriptSourceSpan | null>();
+  readonly cancelSelection = output<void>();
+  readonly manualWords = computed(() => {
+    const span = this.selectedSource(), snapshot = this.snapshot();
+    const page = span && span.sourceHash === snapshot.sourceHash ? snapshot.pages.find(page => page.fileId === span.fileId && page.pageNumber === span.page) : null;
+    if (!page || !span) return new Set<string>();
+    const spans = wordSpans(page.text, page.words);
+    if (spans.length !== page.words.length) return new Set<string>();
+    return new Set(page.words.filter((_, index) => spans[index] && spans[index].start < span.end && spans[index].end > span.start).map(word => word.id));
+  });
+  /** Uploaded file order from the submission; OCR may still be missing for an image. */
+  readonly fileIds = input<readonly string[]>([]);
+  readonly layout = inject(AnnotationLayoutSession);
+  readonly narrowTab = signal<'image' | 'text'>('text');
+  readonly hasImage = computed(() => this.isPdf() ? this.views().some(v => !!v.imageUrl) : !!this.imageUrl() || this.imageLoading() || this.imageFailed());
+  readonly hasText = computed(() => this.views().some(v => v.words.length > 0 || !!v.text.trim()));
+  readonly both = computed(() => this.hasImage() && this.hasText());
+
+  @HostListener('keydown.escape') clearSelection(): void { this.selection.clear(); }
+  clearEmpty(event: MouseEvent): void {
+    const target = event.target as Element;
+    if (!target.closest('button, a, input, textarea, select, label, [data-marker-id], [data-line-rail], .correction-highlight, [data-row-key], [data-edit-fields]')) this.selection.clear();
+  }
+  focusTranscript(): void {
+    this.revealText();
+    afterNextRender(() => {
+      const active = this.view();
+      const pages = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-source-content]'));
+      (pages.find(page => page.dataset['fileId'] === active?.fileId && Number(page.dataset['page']) === active?.pageNumber) ?? pages[0])?.focus();
+    }, { injector: this.injector });
+  }
+  captureTranscriptSelection(event: Event): void {
+    if (!this.manualSelection()) return;
+    if (event instanceof KeyboardEvent && !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Shift'].includes(event.key)) return;
+    const root = event.currentTarget as HTMLElement, selection = root.ownerDocument.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return;
+    const page = this.snapshot().pages.find(page => page.fileId === root.dataset['fileId'] && page.pageNumber === Number(root.dataset['page']));
+    const span = page ? transcriptSourceRange(root, selection.getRangeAt(0), page) : null;
+    this.sourceSelected.emit(span && page ? { fileId: page.fileId, page: page.pageNumber, sourceHash: this.snapshot().sourceHash,
+      ...span, quotedText: page.text.slice(span.start, span.end), focusEditor: !(event instanceof KeyboardEvent && event.shiftKey) } : null);
+  }
+  protectTranscript(event: Event): void { if (this.manualSelection()) event.preventDefault(); }
+
+  revealText(): void {
+    this.narrowTab.set('text');
+    if (this.layout.desktop() === 'image') this.layout.desktop.set('split');
+  }
+  switchTab(tab: 'image' | 'text'): void {
+    this.narrowTab.set(tab);
+    afterNextRender(() => this.scrollViews(null), { injector: this.injector });
+  }
+  tabKey(event: KeyboardEvent): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const tab = event.key === 'Home' ? 'image' : event.key === 'End' ? 'text' : this.narrowTab() === 'text' ? 'image' : 'text';
+    this.switchTab(tab);
+    this.host.nativeElement.querySelector<HTMLElement>(`[data-tab="${tab}"]`)?.focus();
+  }
   readonly submissionId = input.required<string>();
   readonly snapshot = input.required<AnnotationSnapshot>();
   readonly rows = input.required<CorrectionRow[]>();
@@ -55,10 +123,6 @@ export class ReviewWorkspace implements OnDestroy {
   /** The teacher moved to a correction or page on another uploaded file: the page loads it, once, for both views. */
   readonly fileRequested = output<string>();
   readonly drawnChange = output<{ key: string; ids: Set<string> }>();
-  /** Phase A: the menu shown for a mark the teacher clicked or tapped on the image or in the transcript. The editor runs the action. */
-  readonly readOnly = input(false);
-  readonly actionsLocked = input(false);
-  readonly menuAction = output<MarkMenuAction>();
 
   readonly selection = inject(CorrectionSelection);
   private readonly injector = inject(Injector);
@@ -75,12 +139,12 @@ export class ReviewWorkspace implements OnDestroy {
   readonly states = computed(() => syncStates(this.rows()));
   readonly views = computed(() => {
     const snapshot = this.snapshot();
-    return buildTranscriptPageViews({ submissionId: this.submissionId(), fileIds: [...new Set((snapshot.pages ?? []).map(p => String(p.fileId)))], ocrPages: snapshot.pages ?? [],
+    return buildTranscriptPageViews({ submissionId: this.submissionId(), fileIds: this.fileIds().length ? [...this.fileIds()] : [...new Set((snapshot.pages ?? []).map(p => String(p.fileId)))], ocrPages: snapshot.pages ?? [],
       corrections: workspaceCorrections(this.rows(), this.positions(), snapshot) });
   });
   readonly viewIndex = computed(() => {
     if (this.isPdf()) return Math.min(this.pdfIndex(), Math.max(0, this.views().length - 1));
-    return Math.max(0, this.views().findIndex(view => view.fileId === this.activeFileId()));
+    return this.activeFileId() ? this.views().findIndex(view => view.fileId === this.activeFileId()) : 0;
   });
   readonly view = computed<TranscriptPageView | undefined>(() => this.views()[this.viewIndex()]);
   readonly overlayAnnotations = computed<FeedbackAnnotation[]>(() => {
@@ -92,18 +156,6 @@ export class ReviewWorkspace implements OnDestroy {
   readonly displayFailed = computed(() => this.isPdf() ? this.pdfImage().failed : this.imageFailed());
   readonly noImage = computed(() => this.isPdf() && !this.view()?.imageUrl);
   readonly approximateShown = computed(() => { const positions = this.positions(); return this.overlayAnnotations().some(a => positions.get(a._id)?.image === 'approximate'); });
-  readonly activeRow = computed(() => { const id = this.selection.activeId(); return id ? this.rows().find(row => row.key === id) ?? null : null; });
-  readonly activeNote = computed(() => {
-    const row = this.activeRow(), image = row ? this.positions().get(row.key)?.image : undefined;
-    return image === 'none' ? NO_IMAGE_POSITION : image === 'approximate' ? APPROXIMATE_POSITION : image === 'line' ? LINE_IMAGE_POSITION : '';
-  });
-  /** Only for a mark chosen (clicked, tapped, Enter) on the image or in the transcript: the list already has its own buttons. */
-  readonly menuRow = computed(() => {
-    const id = this.selection.pinnedId(), source = this.selection.source();
-    if (this.readOnly() || !id || (source !== 'image' && source !== 'transcript')) return null;
-    return this.rows().find(row => row.key === id) ?? null;
-  });
-  readonly menuActions = computed(() => { const row = this.menuRow(); return row ? allowedActions(row, this.snapshot().transitions) : []; });
 
   /** Announced for what the teacher chose; hovering would flood a screen reader. */
   readonly announcement = computed(() => {
@@ -127,7 +179,7 @@ export class ReviewWorkspace implements OnDestroy {
       if (!id) return;
       const position = untracked(this.positions).get(id);
       untracked(() => {
-        if (position && position.image !== 'none') this.showPage(position.fileId, position.page);
+        if (position) this.showPage(position.fileId, position.page);
         afterNextRender(() => this.scrollViews(source), { injector: this.injector });
       });
     });
@@ -146,6 +198,19 @@ export class ReviewWorkspace implements OnDestroy {
     } catch { if (sequence === this.pdfSequence) { this.heldSource = ''; this.pdfImage.set({ source, url: null, failed: true }); } }
   }
 
+  imageTabKey(event: KeyboardEvent): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const count = this.views().length;
+    if (!count) return;
+    event.preventDefault();
+    const current = Number((event.target as HTMLElement).closest('[data-image-index]')?.getAttribute('data-image-index') ?? this.viewIndex());
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + count) % count;
+    this.goTo(index);
+    const tab = this.host.nativeElement.querySelector<HTMLElement>(`[data-image-index="${index}"]`);
+    tab?.focus({ preventScroll: true });
+    tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
   private showPage(fileId: string, page: number): void {
     const index = this.views().findIndex(view => view.fileId === fileId && view.pageNumber === page);
     if (index >= 0 && index !== this.viewIndex()) this.goTo(index);
@@ -156,6 +221,7 @@ export class ReviewWorkspace implements OnDestroy {
     if (this.isPdf()) { this.pdfIndex.set(index); return; }
     this.keepInView = true;
     this.fileRequested.emit(view.fileId);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[data-image-index="${index}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }), { injector: this.injector });
   }
 
   private scrollViews(source: SelectionSource | null): void {
@@ -173,7 +239,10 @@ export class ReviewWorkspace implements OnDestroy {
     if (view) this.drawnChange.emit({ key: `${view.fileId}:${view.pageNumber}`, ids });
     if (this.selection.source() !== 'image') afterNextRender(() => scrollPanelTo(this.imagePanel()?.nativeElement, this.imagePanel()?.nativeElement.querySelector('.correction-overlay__marker.is-sync-active')), { injector: this.injector });
   }
-  onPointer(event: SyncPointer, source: SelectionSource): void { applySyncPointer(this.selection, event, source); }
+  onPointer(event: SyncPointer, source: SelectionSource): void {
+    if (this.manualSelection() && source === 'transcript') return;
+    applySyncPointer(this.selection, event, source);
+  }
 
   ngOnDestroy(): void {
     this.pdfSequence++;

@@ -1,9 +1,13 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
+import { DeviceService } from '../../../services/device.service';
+import { DashboardSidebarState } from '../../../services/dashboard-sidebar-state.service';
+import type { TranscriptSourceSpan } from './transcript-source-selection';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import {
   AnnotationAction, AnnotationBody, AnnotationSnapshot, BulkAction, BulkScope, CorrectionRow, CorrectionValue, FormErrors, HistoryItem, MESSAGE_MAX, QUOTE_MAX, RowFilter, SUGGESTION_MAX,
@@ -37,7 +41,7 @@ interface BulkConfirm { action: BulkAction; scope: BulkScope; title: string; tex
 interface BulkUndo { action: BulkAction; ids: string[]; label: string; }
 /** Where the one form is shown: the panel (Add, Place again, Change the words), a list row, or a mark's popup on the page. */
 export type FormPlacement = 'panel' | 'row' | 'popup';
-interface FormState { placement?: FormPlacement; mode: 'add' | 'edit'; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
+interface FormState { placement?: FormPlacement; mode: 'add' | 'edit'; selectingSource?: boolean; rowKey: string | null; targetId: string | null; orphan: boolean; pageIndex: number; value: CorrectionValue; initial: string; spanNote: string; }
 interface PendingAction { body: AnnotationBody; rowKey: string | null; fromForm: boolean; }
 interface EditorDraft { submissionId: string; open: boolean; filter: RowFilter; limit: number; form: FormState | null; pending: PendingAction | null; conflict: boolean; showFormErrors: boolean; error: string; workspaceOpen: boolean; pinnedKey: string | null; }
 
@@ -54,7 +58,7 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
  */
 @Component({
   selector: 'app-annotation-controls',
-  imports: [AnnotationEditFields, ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
+  imports: [NgTemplateOutlet, AnnotationEditFields, ChangeHistoryDialog, ConfirmDialog, FormsModule, GradeCheck, ReviewWorkspace],
   providers: [CorrectionSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './annotation-controls.html',
@@ -62,6 +66,10 @@ export class AnnotationDraftStore { draft: EditorDraft | null = null; }
 })
 export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly submissionId = input.required<string>();
+  /** The submission card supplies the same toggle while this editor remains mounted. */
+  readonly externalToggle = input(false);
+  /** Pages can omit this presentation without changing the persisted grade review. */
+  readonly showGradeCheck = input(true);
   /** The class is archived: known from the page, and confirmed by the server on any write. */
   readonly classClosed = input(false);
   readonly saved = output<void>();
@@ -70,11 +78,14 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly imageLoading = input(false);
   readonly imageFailed = input(false);
   readonly activeFileId = input<string | null>(null);
+  readonly fileIds = input<readonly string[]>([]);
   readonly isPdf = input(false);
   readonly imageStore = input<SharedPageImages | null>(null);
   readonly fileRequested = output<string>();
 
   private readonly api = inject(TeacherAnnotationApiService);
+  private readonly sidebar = inject(DashboardSidebarState);
+  private readonly device = inject(DeviceService);
   private readonly unsaved = inject(UnsavedWorkRegistry);
   private readonly drafts = inject(AnnotationDraftStore);
   private readonly injector = inject(Injector);
@@ -84,6 +95,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   /** For templates that hand the editor to a child (AnnotationEditFields). */
   readonly self = this;
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly workspace = viewChild(ReviewWorkspace);
   private readonly listPanel = viewChild<ElementRef<HTMLElement>>('listPanel');
   private readonly historyButton = viewChild<ElementRef<HTMLElement>>('historyButton');
   private version = 0;
@@ -141,6 +153,15 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly formPage = computed(() => { const f = this.form(); return f ? this.snapshot()?.pages?.[f.pageIndex] : undefined; });
   readonly formErrors = computed<FormErrors>(() => { const f = this.form(); return f ? validateForm(f.value, this.formPage(), this.symbols()) : {}; });
   readonly formDirty = computed(() => { const f = this.form(); return Boolean(f && JSON.stringify(f.value) !== f.initial); });
+  readonly manualSelection = computed(() => (this.form()?.mode === 'add' || this.form()?.selectingSource === true) && !this.saving() && !this.pending() && !this.readOnly());
+  readonly manualPanelOpen = computed(() => this.form()?.mode === 'add' && !!this.form()?.value.quotedText && !this.formErrors().span);
+  readonly sideEditorOpen = computed(() => this.manualPanelOpen() || (this.form()?.mode === 'edit' && placementOf(this.form()) === 'panel'));
+  readonly selectedSource = computed<TranscriptSourceSpan | null>(() => {
+    const f = this.form(), page = this.formPage(), snapshot = this.snapshot();
+    if (!f || !page || !snapshot || this.formErrors().span) return null;
+    return { fileId: page.fileId, page: page.pageNumber, sourceHash: snapshot.sourceHash,
+      start: f.value.startChar - page.startChar, end: f.value.endChar - page.startChar, quotedText: f.value.quotedText };
+  }, { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
   readonly hasUnsaved = computed(() => this.formDirty() || this.pending() !== null);
   /** What is saved now for the row being edited, shown after a conflict so the teacher can compare before saving again. */
   readonly savedVersion = computed(() => { const f = this.form(); return f?.targetId && this.conflict() ? this.rows().find(r => r.targetId === f.targetId || r.key === f.rowKey) ?? null : null; });
@@ -162,6 +183,10 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     : this.hasUnsaved() ? 'Save or cancel your correction first: the scores should be checked against what the student will see.' : '');
 
   constructor() {
+    effect(onCleanup => {
+      this.sidebar.setCorrectionEditorOpen(this.sideEditorOpen() && this.open() && this.workspaceOpen() && this.device.isDesktop());
+      onCleanup(() => this.sidebar.setCorrectionEditorOpen(false));
+    });
     // untracked: the registry's own state must not re-run this, or agreeing to discard would register the work again.
     effect(() => { const unsaved = this.hasUnsaved(); untracked(() => { if (unsaved) this.unsaved.register(UNSAVED_KEY); else this.unsaved.clear(UNSAVED_KEY); }); });
     // One set of listeners on the list, however many rows it shows, and only while the workspace is open.
@@ -235,7 +260,10 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
 
   async toggle(): Promise<void> {
     this.open.update(open => !open);
-    if (this.open() && !this.snapshot()) await this.reload();
+    if (this.open()) {
+      this.workspaceOpen.set(true);
+      if (!this.snapshot() && !this.loading()) await this.reload();
+    }
   }
 
   /** Loads the latest snapshot. The old list stays on screen until the new one arrives, so nothing jumps. */
@@ -505,7 +533,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
 
   openForm(row: CorrectionRow | null, event: Event, placement: FormPlacement = 'panel'): void {
     const snapshot = this.snapshot();
-    if (this.locked() || this.form() || !snapshot?.pages?.length) return;
+    if (this.locked() || this.form() || !snapshot?.pages?.length || (row && !allowedActions(row, snapshot.transitions).includes('edit'))) return;
     this.trigger = event.currentTarget as HTMLElement;
     const foundPage = row ? snapshot.pages.findIndex(p => p.fileId === row.fileId && p.pageNumber === row.page) : 0;
     const pageIndex = Math.max(0, foundPage), page = snapshot.pages[pageIndex];
@@ -516,23 +544,29 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
       quotedText: spanValid ? row!.quotedText : '', symbol: row && this.symbols().get(row.symbol) ? row.symbol : '', category: row && this.symbols().get(row.symbol) ? this.symbols().get(row.symbol)! : '',
       message: row?.message ?? '', suggestedText: row?.suggestedText ?? '' };
     this.showFormErrors.set(false); this.conflict.set(false); this.error.set('');
-    // Inline only when the words still match: a correction to place again, or whose span no longer matches, needs the panel's word selection.
-    const where: FormPlacement = placement !== 'panel' && row && spanValid && !row.orphanReason ? placement : 'panel';
+    // External mark popups keep their existing contract; list edits reuse the workspace's one side editor.
+    const where: FormPlacement = placement === 'popup' && row && spanValid && !row.orphanReason ? 'popup' : 'panel';
+    if (where === 'panel') this.workspaceOpen.set(true);
+    if (where !== 'popup') this.workspace()?.revealText();
     if (where !== 'popup' && !this.open()) this.open.set(true);
-    this.form.set({ placement: where, mode: row ? 'edit' : 'add', rowKey: row?.key ?? null, targetId: row?.targetId ?? null, orphan: Boolean(row?.orphanReason), pageIndex, value, initial: JSON.stringify(value), spanNote: '' });
+    this.form.set({ placement: where, mode: row ? 'edit' : 'add', selectingSource: !!row && !spanValid, rowKey: row?.key ?? null, targetId: row?.targetId ?? null, orphan: Boolean(row?.orphanReason), pageIndex, value, initial: JSON.stringify(value), spanNote: '' });
+    if (row && where === 'panel') this.selection.pin(row.key, 'list');
     afterNextRender(() => {
       if (where !== 'panel') { this.focusInline('[data-edit-first]', where === 'popup'); return; }
-      this.focusPanelForm();
+      this.workspace()?.revealText();
+      if (!row) this.workspace()?.focusTranscript(); else this.focusPanelForm();
     }, { injector: this.injector });
   }
 
   /** "Change the words…": the same form, with what was typed, moves to the panel, which can select words in the transcript. */
   changeWords(): void {
     const f = this.form();
-    if (!f || this.saving()) return;
-    this.form.set({ ...f, placement: 'panel' });
+    if (!f || this.locked()) return;
+    this.workspace()?.revealText();
+    this.workspaceOpen.set(true);
+    this.form.set({ ...f, placement: 'panel', selectingSource: true });
     this.open.set(true);
-    afterNextRender(() => this.focusPanelForm(), { injector: this.injector });
+    afterNextRender(() => this.workspace()?.focusTranscript(), { injector: this.injector });
   }
   private focusPanelForm(): void {
     const f = this.form(), page = this.formPage();
@@ -564,14 +598,32 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
 
   /** Takes the transcript selection, grown to whole words. */
   useSelection(textarea: HTMLTextAreaElement): void {
-    const f = this.form(), page = this.formPage();
-    if (!f || !page) return;
+    this.applySourceSelection(this.form()?.pageIndex ?? -1, textarea.selectionStart, textarea.selectionEnd);
+  }
+
+  useTranscriptSelection(span: TranscriptSourceSpan | null): void {
+    const snapshot = this.snapshot();
+    if (!this.manualSelection() || !snapshot) return;
+    const index = span && span.sourceHash === snapshot.sourceHash ? snapshot.pages.findIndex(page => page.fileId === span.fileId && page.pageNumber === span.page) : -1;
+    const page = snapshot.pages[index];
+    if (!span || !page || page.text.slice(span.start, span.end) !== span.quotedText || span.start < 0 || span.end > page.text.length) {
+      this.error.set('Select words within one transcript page. The selected words must match the current transcript.'); return;
+    }
+    this.applySourceSelection(index, span.start, span.end);
+    if (span.focusEditor !== false && this.sideEditorOpen()) afterNextRender(() => this.focusPanelForm(), { injector: this.injector });
+  }
+
+  /** Both transcript presentations use the same canonical selection and whole-word rules. */
+  private applySourceSelection(pageIndex: number, start: number, end: number): void {
+    const f = this.form(), page = this.snapshot()?.pages[pageIndex];
+    if (!f || !page || this.saving()) return;
     const key = `${page.fileId}:${page.pageNumber}`;
     if (!this.spansByPage.has(key)) this.spansByPage.set(key, wordSpans(page.text, page.words));
-    const snapped = snapToWords(this.spansByPage.get(key)!, textarea.selectionStart, textarea.selectionEnd);
+    const snapped = snapToWords(this.spansByPage.get(key)!, start, end);
     if (!snapped) return;
-    const grown = snapped.start !== textarea.selectionStart || snapped.end !== textarea.selectionEnd;
-    this.form.set({ ...f, spanNote: grown ? 'Selection extended to whole words.' : '', value: { ...f.value, fileId: page.fileId, page: page.pageNumber,
+    const grown = snapped.start !== start || snapped.end !== end;
+    this.error.set('');
+    this.form.set({ ...f, pageIndex, spanNote: grown ? 'Selection extended to whole words.' : '', value: { ...f.value, fileId: page.fileId, page: page.pageNumber,
       startChar: page.startChar + snapped.start, endChar: page.startChar + snapped.end, quotedText: page.text.slice(snapped.start, snapped.end) } });
   }
 
@@ -581,7 +633,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     this.showFormErrors.set(true);
     if (Object.keys(this.formErrors()).length) {
       this.error.set('Please fix the highlighted fields.');
-      const inline = placementOf(f) !== 'panel';
+      const inline = placementOf(f) !== 'panel' || this.sideEditorOpen();
       afterNextRender(() => (inline ? this.inlineField('[aria-invalid="true"]') ?? this.inlineField('[data-edit-first]') : this.host.nativeElement.querySelector<HTMLElement>('[data-form-error]'))?.focus(),
         { injector: this.injector });
       return;
@@ -599,7 +651,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     afterNextRender(() => {
       // Back to where the edit started: the popup's Edit button, the row's Edit button, or the button that opened the panel form.
       const back = placement === 'popup' ? document.querySelector<HTMLElement>('[data-sync-menu-action="edit"]')
-        : placement === 'row' && key ? this.host.nativeElement.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"] [data-row-edit]`) : null;
+        : key ? this.host.nativeElement.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"] [data-row-edit]`) : null;
       (back ?? (trigger?.isConnected ? trigger : this.host.nativeElement.querySelector<HTMLElement>('[data-list-heading]')))?.focus({ preventScroll: placement === 'popup' });
     }, { injector: this.injector });
   }

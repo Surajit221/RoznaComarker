@@ -228,6 +228,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 export class StudentSubmissionPages {
   /** The teacher's correction editor (Phase A): the page's own image and transcript open its action menu for a chosen mark. */
   @ViewChild(AnnotationControls) annotationControls?: AnnotationControls;
+  @ViewChild(TeacherEvaluationEditor) evaluationEditor?: TeacherEvaluationEditor;
   onHumanSourceReviewed(source:SourceFidelity):void {
     if(!this.currentSubmission)return;
     this.currentSubmission.sourceFidelity=source;
@@ -1811,8 +1812,17 @@ export class StudentSubmissionPages {
   }
 
   get canGenerateAiFeedback(): boolean {
-    return !this.isLoading && !this.isRetryingAnalysis && !this.isCanonicalEvaluationPending
+    return !this.evaluationEditor?.open() && !this.isLoading && !this.isRetryingAnalysis && !this.isCanonicalEvaluationPending
       && !Boolean(this.currentFeedback?.overriddenByTeacher || this.canonicalResultState?.teacherOverride);
+  }
+
+  /** Use the saved editor response immediately while the existing page refresh completes. */
+  get displayedRubricFeedbackItems(): RubricFeedbackItem[] {
+    const snapshot = this.evaluationEditor?.snapshot();
+    if (!snapshot || this.isCustomRubricResult) return this.rubricFeedbackItems;
+    const items = rubricScoresToFeedbackItems(Object.fromEntries(snapshot.criteria.map(c => [c.key,
+      { score: c.final.score, maxScore: c.maxScore, comment: c.final.comment }])));
+    return items.length ? items : this.rubricFeedbackItems;
   }
 
   get evaluationStatusPresentation() {

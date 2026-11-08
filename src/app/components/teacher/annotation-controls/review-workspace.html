@@ -1,27 +1,48 @@
-<section class="workspace" aria-label="Image and transcript">
+<section class="workspace" aria-label="Image and transcript" (click)="clearEmpty($event)">
   <p class="sr-only" role="status" aria-live="polite" data-sync-live>{{ announcement() }}</p>
-  <div class="workspace__status" data-sync-status>
-    @if (activeRow(); as row) {
-      <p><strong>Selected:</strong>&ngsp;{{ row.symbol }}@if (row.quotedText) { <span>&ngsp;“{{ row.quotedText }}”</span> }@if (activeNote()) { <span class="workspace__note" data-sync-note>&ngsp;· {{ activeNote() }}</span> }</p>
-      @if (menuRow(); as menu) {
-        <app-annotation-mark-menu [entries]="[{ row: menu, actions: menuActions() }]" [locked]="actionsLocked()" [showTarget]="false" (act)="menuAction.emit($event)" />
-      }
-      <button type="button" class="btn-info" data-sync-clear (click)="selection.clear()">Clear selection</button>
-    } @else {
-      <p>Select a correction in the list, the transcript or on the image to see it in all three.</p>
-    }
+  <div class="workspace__toolbar">
+  @if (both()) {
+    <div class="workspace__desktop-switch" role="group" aria-label="Annotation layout">
+      <button type="button" [attr.aria-pressed]="layout.desktop() === 'split'" (click)="layout.desktop.set('split')">Split</button>
+      <button type="button" [attr.aria-pressed]="layout.desktop() === 'image'" (click)="layout.desktop.set('image')">Image only</button>
+      <button type="button" [attr.aria-pressed]="layout.desktop() === 'text'" (click)="layout.desktop.set('text')">Text only</button>
+    </div>
+    <div class="workspace__tabs" role="tablist" aria-label="Annotation view" (keydown)="tabKey($event)">
+      <button type="button" role="tab" id="annotation-image-tab" aria-controls="annotation-image-panel" data-tab="image" [attr.aria-selected]="narrowTab() === 'image'" [tabIndex]="narrowTab() === 'image' ? 0 : -1" (click)="switchTab('image')">Image</button>
+      <button type="button" role="tab" id="annotation-text-tab" aria-controls="annotation-text-panel" data-tab="text" [attr.aria-selected]="narrowTab() === 'text'" [tabIndex]="narrowTab() === 'text' ? 0 : -1" (click)="switchTab('text')">Text</button>
+    </div>
+  }
+  <div class="workspace__toolbar-actions"><ng-container *ngTemplateOutlet="toolbarActions()" /></div>
   </div>
-  <div class="workspace__panels">
-    <div class="workspace__column">
+  @if (manualSelection()) {
+    <div class="workspace__selection-help" role="status">Select words or a sentence in the transcript. Selections extend to whole words. With a keyboard, use Shift and the arrow keys.
+      <button type="button" (click)="cancelSelection.emit()">Cancel selection</button>
+    </div>
+  }
+  <div class="workspace__panels" [class.workspace__panels--corrections]="!!corrections() || !!editor()" [class.workspace__panels--editing]="!!editor()" [class.workspace__panels--both]="both()" [class.workspace__panels--image]="layout.desktop() === 'image'" [class.workspace__panels--text]="layout.desktop() === 'text'" [class.workspace__panels--tab-image]="narrowTab() === 'image'">
+    @if (hasImage()) {
+    <div id="annotation-image-panel" class="workspace__column workspace__column--image" role="group" aria-label="Submission image">
+      <header class="workspace__column-header">
       <h3>Image</h3>
-      @if (views().length > 1) {
+      @if (!isPdf() && views().length > 1) {
+        <div class="workspace__image-tabs" role="tablist" aria-label="Submission images">
+          @for (page of views(); track page.key) {
+            <button type="button" role="tab" [id]="'workspace-image-tab-' + $index" aria-controls="workspace-image-view"
+              [attr.data-image-index]="$index" [attr.aria-selected]="viewIndex() === $index" [tabIndex]="viewIndex() === $index ? 0 : -1" (click)="goTo($index)" (keydown)="imageTabKey($event)">
+              <i class="bx bx-image" aria-hidden="true"></i> Image {{ $index + 1 }}
+            </button>
+          }
+        </div>
+      } @else if (isPdf() && views().length > 1) {
         <nav class="workspace__pages" aria-label="Pages in the workspace">
           <button type="button" class="btn-info" [disabled]="viewIndex() === 0" (click)="goTo(viewIndex() - 1)">Previous page</button>
           <span data-sync-page>Page {{ viewIndex() + 1 }} of {{ views().length }}</span>
           <button type="button" class="btn-info" [disabled]="viewIndex() >= views().length - 1" (click)="goTo(viewIndex() + 1)">Next page</button>
         </nav>
       }
-      <div #imagePanel class="workspace__panel" tabindex="0" role="group" aria-label="Submitted image, scrollable" data-sync-image>
+      </header>
+      <div class="workspace__image-body">
+      <div #imagePanel id="workspace-image-view" class="workspace__panel" tabindex="0" [attr.role]="!isPdf() && views().length > 1 ? 'tabpanel' : 'group'" [attr.aria-labelledby]="!isPdf() && views().length > 1 ? 'workspace-image-tab-' + viewIndex() : null" aria-label="Submitted image, scrollable" data-sync-image>
         @if (noImage()) {
           <p>This page's image is not available here. The transcript and the list still work.</p>
         } @else {
@@ -31,18 +52,48 @@
             [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'image')" (syncDrawn)="onDrawn($event)" />
         }
       </div>
+      @if (!hasText() && view()) { <p class="workspace__legend" data-transcript-unavailable>Transcript is not available for this page.</p> }
       @if (approximateShown()) { <p class="workspace__legend" data-sync-legend>Dashed marks are hidden or removed corrections, shown at an approximate position. Students do not see them.</p> }
-    </div>
-    <div class="workspace__column">
-      <h3>Transcript</h3>
-      <div #transcriptPanel class="workspace__panel workspace__panel--text" tabindex="0" role="group" aria-label="Transcript, scrollable" data-sync-transcript>
-        @for (page of views(); track page.key) {
-          <section>
-            @if (views().length > 1) { <h4>Page {{ page.displayNumber }}</h4> }
-            <app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'transcript')" />
-          </section>
-        }
       </div>
     </div>
+    }
+    @if (hasText()) {
+    <div id="annotation-text-panel" class="workspace__column workspace__column--right" role="group" aria-label="Transcript and annotations" tabindex="0">
+      @if (hasText()) {
+        <header class="workspace__column-header workspace__transcript-header"><h3>Transcript</h3>
+          @if (views().length > 1 && view(); as page) { <p class="workspace__page-label" data-transcript-page>Page {{ page.displayNumber }}</p> }
+        </header>
+      }
+      <div #transcriptPanel class="workspace__column-body">
+      @if (hasText()) {
+      <div class="workspace__panel--text" tabindex="0" aria-label="Transcript" data-sync-transcript>
+        @if (view(); as page) {
+          <section>
+            <div data-source-content [attr.data-file-id]="page.fileId" [attr.data-page]="page.pageNumber"
+              [attr.contenteditable]="manualSelection() ? 'true' : null" [attr.tabindex]="manualSelection() ? 0 : null"
+              [attr.role]="manualSelection() ? 'textbox' : null" [attr.aria-label]="manualSelection() ? 'Select correction text, page ' + page.displayNumber : null"
+              [attr.aria-readonly]="manualSelection() ? 'true' : null" [attr.aria-multiline]="manualSelection() ? 'true' : null"
+              (beforeinput)="protectTranscript($event)" (paste)="protectTranscript($event)" (cut)="protectTranscript($event)" (drop)="protectTranscript($event)"
+              (mouseup)="captureTranscriptSelection($event)" (keyup)="captureTranscriptSelection($event)">
+            @if (page.words.length) {
+            <app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" [manualWordIds]="selectedSource()?.fileId === page.fileId && selectedSource()?.page === page.pageNumber ? manualWords() : null" [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'transcript')" />
+            } @else if (page.text.trim()) { <p>{{ page.text }}</p> } @else { <p data-transcript-unavailable>Transcript is not available for this page.</p> }
+            </div>
+          </section>
+        } @else { <p data-transcript-unavailable>Transcript is not available for this page.</p> }
+      </div>
+      }
+      </div>
+    </div>
+    }
+    @if (corrections() || editor()) {
+    <aside class="workspace__corrections-panel" [class.workspace__editor]="!!editor()" [attr.aria-label]="editor() ? 'Correction editor' : 'Corrections'">
+      @if (editor()) {
+        <ng-container *ngTemplateOutlet="editor()" />
+      } @else {
+        <ng-container *ngTemplateOutlet="corrections()" />
+      }
+    </aside>
+    }
   </div>
 </section>

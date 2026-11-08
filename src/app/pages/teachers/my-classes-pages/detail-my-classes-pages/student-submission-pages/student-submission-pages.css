@@ -234,7 +234,8 @@
 .comment-loading { margin-top: 0.5rem; color: #6b7280; font-size: 0.75rem; font-weight: 500; }
 .teacher-comments-editor { min-width: 0; max-width: 100%; box-sizing: border-box; overflow: visible; }
 .teacher-comments-editor__textarea { display: block; min-width: 0; max-width: 100%; min-height: 10rem; box-sizing: border-box; white-space: pre-wrap; overflow-wrap: anywhere; }
-.teacher-comments-editor__actions { min-width: 0; }
+.teacher-comments-editor__actions { min-width: 0; flex-wrap: wrap; }
+.teacher-comments-editor__actions button { max-width: 100%; white-space: normal; }
 
 @keyframes skeleton-pulse { to { opacity: 0.52; } }
 
@@ -272,6 +273,8 @@
 }
 
 .submission-review-page {
+  /* Keep hidden status text within the dashboard scroll root, including Evaluation. */
+  position: relative;
   display: block;
   width: 100%;
   min-width: 0;
@@ -360,3 +363,24 @@
 /* C.3b: one short neutral line under the score when the corrections arrived after it was calculated. */
 .score-before-corrections { margin: -0.5rem 0 0.75rem; color: #475569; font-size: 0.8rem; line-height: 1.35; }
 .correction-retry-notice { margin: .75rem 0; }
+
+/* Page actions share the header without competing with the title for narrow space. */
+.submission-page-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.submission-page-header h1 { flex: 1 1 16rem; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.submission-page-actions { display: flex; flex: 1 1 32rem; flex-wrap: wrap; align-items: flex-start; justify-content: flex-end; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.submission-page-actions > * { min-width: 0; max-width: 100%; }
+.submission-page-actions button { min-height: 44px; white-space: normal; }
+@media (max-width: 767px) { .submission-page-actions { justify-content: flex-start; } }
+
+.evaluation-action { min-height: 44px; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
+.submission-media-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.submission-media-header > p { flex: 1 1 16rem; min-width: 0; overflow-wrap: anywhere; }
+.submission-media-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; gap: 8px; min-width: 0; max-width: 100%; }
+.submission-media-actions button { min-height: 44px; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
+/* Preserve the mounted source viewer, while the existing open signal owns which view occupies space. */
+[data-standalone-viewer][hidden], [data-standalone-page-picker][hidden] { display: none; }
+[data-review-corrections] { display: inline-grid; place-items: center; }
+[data-review-corrections] > span { grid-area: 1 / 1; }
+.submission-review-label-spacer { visibility: hidden; }
