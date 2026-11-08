@@ -10,20 +10,7 @@
             @if (!open()) {
               <button type="button" class="btn-primary" data-te-edit [attr.aria-disabled]="!s.editable" (click)="startEdit()">Edit scores</button>
             }
-    @if (s.history.length) {
-      <details class="te__history" data-te-history>
-        <summary>Change history ({{ s.history.length }})</summary>
-        <ol>
-          @for (h of s.history; track h.newRevision) {
-            <li>
-              <p><strong>{{ h.actorName || 'Teacher' }}</strong>, <time [attr.datetime]="h.at">{{ h.at | date:'medium' }}</time></p>
-              <p>{{ summary(h) }}</p>
-              @if (h.reason) { <p class="te__muted">Reason: {{ h.reason }}</p> }
-            </li>
-          }
-        </ol>
-      </details>
-    }
+            <button type="button" class="ui-btn ui-btn--secondary te__history-button" data-te-history-open aria-haspopup="dialog" (click)="showHistory($event)">Change history ({{ s.history.length }})</button>
 
 
           }
@@ -56,6 +43,28 @@
     </header>
     @if (!open()) { <ng-content select="[evaluation-categories]" /> }
     @if (s) {
+    <dialog #historyDialog class="te__history-dialog" tabindex="-1" aria-modal="true" aria-labelledby="te-history-title"
+      (cancel)="cancelHistory($event)" (keydown)="historyKeydown($event)" (click)="historyBackdrop($event)">
+      <div class="te__history-surface">
+        <header class="te__history-header">
+          <h3 id="te-history-title">Score Change History</h3>
+          <button type="button" class="ui-btn ui-btn--secondary" data-te-history-close (click)="closeHistory()">Close</button>
+        </header>
+        <div class="te__history-body" tabindex="0" role="region" aria-label="Score changes" data-te-history>
+          @if (s.history.length) {
+            <ol>
+              @for (h of s.history; track h.newRevision) {
+                <li>
+                  <p><strong>{{ h.actorName || 'Teacher' }}</strong>, <time [attr.datetime]="h.at">{{ h.at | date:'medium' }}</time></p>
+                  <p>{{ summary(h) }}</p>
+                  @if (h.reason) { <p class="te__muted">Reason: {{ h.reason }}</p> }
+                </li>
+              }
+            </ol>
+          } @else { <p>No score changes yet.</p> }
+        </div>
+      </div>
+    </dialog>
     @if (open()) {
       <form class="te__form" (submit)="$event.preventDefault(); save()" (keydown)="onKeydown($event)" novalidate [attr.aria-busy]="saving()">
         <h3 class="te__title" data-te-heading tabindex="-1">Edit scores</h3>

@@ -325,6 +325,55 @@ describe('AnnotationControls', () => {
         component.cancelForm(); await settle(); expect(api.calls.length).toBe(1);
       });
     }
+    for (const pdf of [false, true]) {
+      it('touch handles retain canonical repeated words, punctuation and page identity until confirmation, PDF=' + pdf, async () => {
+        await create();
+        const canonical = 'Hello, Hello again.\nA second sentence ends here.';
+        const pages = [0, 1].map(i => ({ fileId: pdf ? 'pdf' : 'f' + (i + 1), pageNumber: pdf ? i + 1 : 1,
+          startChar: i * canonical.length, endChar: (i + 1) * canonical.length, text: canonical,
+          words: canonical.split(/\s+/).map((text, j) => ({ id: 'p' + i + 'w' + j, text })) }));
+        api.current = snapshot({ pages, corrections: [], effective: [] });
+        fixture.componentRef.setInput('isPdf', pdf); fixture.componentRef.setInput('fileIds', [...new Set(pages.map(p => p.fileId))]);
+        fixture.componentRef.setInput('activeFileId', pages[1].fileId);
+        await component.toggle(); await settle();
+        const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+        if (pdf) workspace.goTo(1);
+        await settle(); button('Add correction')!.click(); await settle();
+        const source = dom().querySelector<HTMLElement>('[data-source-content]')!;
+        source.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true })); await settle();
+        expect(dom().querySelector<HTMLButtonElement>('[data-use-touch-selection]')!.disabled).toBeTrue();
+        expect(component.manualPanelOpen()).toBeFalse();
+        for (const [start, end] of [[7, 12], [0, 18], [0, canonical.length], [20, canonical.length]]) {
+          setSelection(start, end, 1); document.dispatchEvent(new Event('selectionchange')); await settle();
+          expect(workspace.touchSpan()).toEqual(jasmine.objectContaining({ start, end, fileId: pages[1].fileId, page: pages[1].pageNumber, sourceHash: 'hash-3' }));
+          expect(workspace.touchSpan()?.quotedText).toBe(canonical.slice(start, end));
+          expect(component.manualPanelOpen()).toBeFalse(); expect(api.calls.length).toBe(0);
+        }
+        dom().querySelector<HTMLButtonElement>('[data-use-touch-selection]')!.click(); await settle();
+        expect(component.form()?.value).toEqual(jasmine.objectContaining({ fileId: pages[1].fileId, page: pages[1].pageNumber,
+          startChar: canonical.length + 20, endChar: 2 * canonical.length, quotedText: canonical.slice(20) }));
+        component.chooseSymbol('ART'); component.patch({ message: 'Touch note', suggestedText: 'A sentence.' });
+        api.respond = async () => { throw httpError(0); };
+        component.saveForm(); await settle(); expect(api.calls.length).toBe(1);
+        expect(component.form()?.value.quotedText).toBe(canonical.slice(20));
+        expect(component.form()?.value.message).toBe('Touch note');
+        const pending = api.calls[0]; api.respond = async () => ({ revision: 4, replay: true });
+        component.retry(); await settle(); expect(api.calls[1]).toEqual(pending);
+        expect(component.form()).toBeNull();
+      });
+    }
+    it('touch selection cancels safely and changing the active source discards the pending range', async () => {
+      await create(); await component.toggle(); await settle(); button('Add correction')!.click(); await settle();
+      const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      const source = dom().querySelector<HTMLElement>('[data-source-content]')!;
+      source.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true }));
+      setSelection(2, 6); document.dispatchEvent(new Event('selectionchange')); await settle();
+      expect(workspace.touchSpan()?.quotedText).toBe('goes');
+      document.getSelection()!.removeAllRanges(); document.dispatchEvent(new Event('selectionchange')); await settle();
+      expect(workspace.touchSpan()).toBeNull(); expect(component.manualPanelOpen()).toBeFalse();
+      component.cancelForm(); await settle(); expect(api.calls.length).toBe(0);
+      expect(dom().querySelector('[data-use-touch-selection]')).toBeNull();
+    });
     it('keeps the side editor, selected source, fields and retry identity after an unconfirmed save', async () => {
       await create({ desktop: true }); await component.toggle(); await settle(); button('Add correction')!.click(); await settle(); setSelection(2, 6); await settle();
       component.chooseSymbol('ART'); component.patch({ message: 'Keep explanation', suggestedText: 'go' }); api.respond = async () => { throw httpError(0); };

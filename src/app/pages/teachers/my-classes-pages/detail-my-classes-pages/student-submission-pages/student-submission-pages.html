@@ -36,7 +36,7 @@
 
     <div class="submission-navigation w-full bg-white mb-4 rounded-2xl p-4 flex flex-row justify-between items-center">
       <button class="btn-warning" [disabled]="!canGoPrev" (click)="onPrevSubmission()">Previous</button>
-      <div class="flex flex-col justify-center items-center">
+      <div class="submission-student-identity flex flex-col justify-center items-center">
         <p class="font-bold text-2xl">{{ studentName }}</p>
         @if (currentSubmission?.submissionMode === 'guest') {
           <p class="text-sm text-gray-500">{{ currentSubmission?.guest?.normalizedEmail }}</p>
@@ -404,7 +404,7 @@
               <p class="text-xl font-bold mb-1">Teacher Comments</p>
               <div class="flex flex-col gap-1">
                 <div class="w-full">
-                  <textarea formControlName="message" maxlength="5000" class="teacher-comments-editor__textarea input-text w-full h-40 resize-none bg-white"
+                  <textarea aria-label="Teacher comments to the student" formControlName="message" maxlength="5000" class="teacher-comments-editor__textarea input-text w-full h-40 resize-none bg-white"
                     [attr.aria-busy]="teacherCommentState === 'loading'"
                     placeholder="Type your message..."></textarea>
                   @if (teacherCommentState === 'loading') {
@@ -519,7 +519,7 @@
     <app-draft-comparison [submissionId]="currentSubmission?._id || null"
       [refreshKey]="(currentSubmission?.draftNumber || 1) + ':' + draftComparisonRefreshKey"></app-draft-comparison>
   }
-  <app-adaptive-practice-progress class="block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
+  <app-adaptive-practice-progress class="teacher-submission-practice block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
 
   <!-- Shared Modal Dialogs (outside desktop/mobile conditionals) -->
   <app-rubric-designer-modal [open]="showDialog" [rubricDesigner]="rubricDesignerForModal"

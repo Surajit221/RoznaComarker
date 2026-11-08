@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { HttpResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
+import { WritingModelApiService } from '../../../../../api/writing-model-api.service';
 
 import { MySubmissionPage } from './my-submission-page';
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
@@ -30,7 +31,8 @@ describe('MySubmissionPage', () => {
     await TestBed.configureTestingModule({
       imports: [MySubmissionPage], providers: [
         ...routedComponentProviders({ classId: 'class-1', assignmentId: 'assignment-1', submissionId: 'submission-1' }),
-        ...httpTestingProviders, ...authenticatedUserProviders('student')
+        ...httpTestingProviders, ...authenticatedUserProviders('student'),
+        { provide: WritingModelApiService, useValue: { forSubmission: async () => ({ available: false }) } }
       ]
     })
     .compileComponents();
@@ -42,6 +44,27 @@ describe('MySubmissionPage', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+  it('loads a manually released model on draft 1 and after recreating the student results view', async () => {
+    const api = spyOn(TestBed.inject(WritingModelApiService), 'forSubmission').and.resolveTo({ available: true, text: 'Released model.' });
+    component.submission = { _id: 'submission-1', draftNumber: 1 } as NonNullable<typeof component.submission>;
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-writing-model-card]')?.textContent).toContain('Released model.');
+    expect(fixture.nativeElement.querySelector('app-draft-comparison')).toBeNull();
+    expect(api).toHaveBeenCalledOnceWith('submission-1');
+    fixture.destroy();
+    fixture = TestBed.createComponent(MySubmissionPage); component = fixture.componentInstance;
+    component.submission = { _id: 'submission-1', draftNumber: 1 } as NonNullable<typeof component.submission>;
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-writing-model-card]')?.textContent).toContain('Released model.');
+    expect(api.calls.count()).toBe(2);
+  });
+  it('asks the API on draft 1 but renders no unreleased text', async () => {
+    const api = spyOn(TestBed.inject(WritingModelApiService), 'forSubmission').and.resolveTo({ available: false });
+    component.submission = { _id: 'submission-1', draftNumber: 1 } as NonNullable<typeof component.submission>;
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(api).toHaveBeenCalledOnceWith('submission-1');
+    expect(fixture.nativeElement.querySelector('[data-writing-model-card]')).toBeNull();
   });
   it('the By line shows the teacher\'s name, never an email', () => {
     const author = (assignment: unknown) => { (component as unknown as { submission: unknown }).submission = { assignment, student: { displayName: 'Student', email: 's@example.com' } }; return component.submissionAuthor; };

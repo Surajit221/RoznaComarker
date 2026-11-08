@@ -53,9 +53,26 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .workspace__toolbar-actions { display: flex; margin-left: auto; }
 .workspace__selection-help { margin-top: 8px; padding: 8px; border-radius: 8px; background: #e6f4f2; color: #134e4a; }
 .workspace__selection-help button { margin-left: 8px; }
+.workspace__touch-selection { display: none; }
+.workspace__touch-selection--active { display: inline; }
+/* Reserve the action before the first long press so the transcript does not move under the finger. */
+@media (any-pointer: coarse) { .workspace__touch-selection { display: inline; } }
 [data-source-content][contenteditable] { cursor: text; caret-color: #008081; }
+[data-source-content][contenteditable] { -webkit-user-select: text; user-select: text; touch-action: auto; }
 [data-source-content]:focus-visible { outline: 2px solid #008081; outline-offset: 2px; }
 .workspace__corrections-panel { min-width: 0; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: auto; }
 .workspace__corrections-panel:not(.workspace__editor) { display: flex; flex-direction: column; }
 
 .workspace__column-header > h3 { margin: 0 0 8px; }
+
+@media (max-width: 767px) {
+  .workspace { padding: 8px; border-radius: 12px; }
+  .workspace__toolbar { align-items: stretch; }
+  .workspace__tabs { flex: 1 1 auto; gap: 6px; }
+  .workspace__tabs button { flex: 1 1 0; }
+  .workspace__toolbar-actions { margin-left: 0; }
+  .workspace__column--image, .workspace__column--right, .workspace__corrections-panel { padding: 10px; max-height: 65dvh; }
+  .workspace__editor { max-height: none; }
+  .workspace__selection-help { font-size: .875rem; line-height: 1.5; }
+  .workspace__column-body { font-size: 1rem; }
+}

@@ -19,6 +19,9 @@ import type { FeedbackAnnotation } from '../../../../../models/feedback-annotati
 import { CorrectionOverlay } from '../../../../../components/correction-overlay/correction-overlay';
 import { TeacherEvaluationApiService } from '../../../../../api/teacher-evaluation-api.service';
 import { buildAnnotationVisuals } from '../../../../../components/correction-overlay/annotation-geometry';
+import { WritingModelApiService } from '../../../../../api/writing-model-api.service';
+import { AdaptivePracticeApiService } from '../../../../../api/adaptive-practice-api.service';
+import { of } from 'rxjs';
 
 function evaluationSnapshot(score = 18, comment = 'Original grammar.'): TeacherEvaluationSnapshot {
   return { enabled: true, editable: true, blockedReason: null, revision: score === 18 ? 3 : 4,
@@ -403,6 +406,79 @@ describe('StudentSubmissionPages', () => {
           expect(doc.documentElement.scrollHeight).toBeLessThanOrEqual(760);
         } finally { frame.remove(); }
       }
+    });
+    it('keeps the complete mobile workflow compact, readable and reachable without changing handlers', async () => {
+      spyOn(TestBed.inject(WritingModelApiService), 'snapshot').and.resolveTo({ enabled: true, text: 'A synthetic learning reference.', status: 'draft', source: 'teacher', releaseRule: 'afterRevision', released: false, releasedAt: null, revision: 2, updatedAt: null, readOnly: false, aiAvailable: true, generationsToday: 0, generationsPerDay: 3, textMax: 4000 });
+      const progress = spyOn(TestBed.inject(AdaptivePracticeApiService), 'getTeacherProgress').and.returnValue(of({ state: 'in-progress', sourceStatus: 'current', submissionId: 'submission-1', sessionId: 'session-1', summary: { totalActivities: 2, improvedActivities: 1, progressPercentage: 50, totalAttempts: 3, lastPracticedAt: null }, skills: [] }));
+      component.assignmentId = 'mobile-assignment';
+      await prepare();
+      TestBed.inject(HttpTestingController).match(req => req.url.includes('/mobile-assignment')).forEach(req => req.flush({ success: true, data: [] }));
+      component.currentSubmission = { ...component.currentSubmission!, student: { _id: 'student-synthetic-01', displayName: 'Sample Student', email: 'student@example.test', role: 'student' } };
+      component.isLoading = false; component.aiFeedbackState = 'loaded';
+      component.canonicalResultState = normalizeCanonicalResult({ evaluationStatus: 'completed', detailedFeedbackStatus: 'completed', processingActive: false });
+      component.feedbackForm.enable();
+      await settle();
+      const editor = component.annotationControls!;
+      const capture = async (state: string) => {
+        for (const width of [1440, 1280, 1024, 768, 430, 390, 375, 320]) {
+          const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;inset:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+          try {
+            const doc = frame.contentDocument!, win = frame.contentWindow!, css = doc.createElement('style');
+            css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+            doc.head.appendChild(css); doc.body.style.margin = '0';
+            const clone = dom().cloneNode(true) as HTMLElement;
+            const originals = dom().querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select');
+            clone.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select').forEach((field, index) => {
+              if (field instanceof HTMLTextAreaElement) field.textContent = originals[index].value;
+              else if (field instanceof HTMLInputElement) field.setAttribute('value', originals[index].value);
+              else for (const option of Array.from(field.options)) option.toggleAttribute('selected', option.value === originals[index].value);
+            });
+            doc.body.appendChild(clone);
+            expect(doc.documentElement.scrollWidth).withContext(state + ' at ' + width).toBeLessThanOrEqual(width);
+            expect(doc.querySelector('[data-writing-model-editor]')).not.toBeNull();
+            expect(doc.querySelector('.teacher-comments-editor textarea')?.getAttribute('aria-label')).toBe('Teacher comments to the student');
+            expect(doc.querySelector('app-adaptive-practice-progress')?.textContent).toContain('50%');
+            if (width < 768) {
+              const header = doc.querySelector('.submission-page-header')!.getBoundingClientRect();
+              expect(header.height).withContext('compact page header').toBeLessThan(260);
+              const identity = doc.querySelector('.submission-student-identity')!.getBoundingClientRect();
+              const previous = doc.querySelector('.submission-navigation button')!.getBoundingClientRect();
+              expect(identity.bottom).toBeLessThanOrEqual(previous.top);
+              expect(win.getComputedStyle(doc.querySelector('.submission-page-actions')!).display).toBe('grid');
+              const form = doc.querySelector<HTMLElement>('.workspace__editor');
+              if (form) expect(win.getComputedStyle(form).maxHeight).toBe('none');
+            }
+            if (state === 'expanded' || state === 'selecting') {
+              expect(doc.querySelectorAll('.workspace__corrections-panel ul.rows').length).toBe(1);
+              expect(doc.querySelector('#annotation-text-panel ul.rows')).toBeNull();
+            }
+            if (state === 'add' || state === 'edit') {
+              expect(doc.querySelector('ul.rows')).toBeNull();
+              expect(doc.querySelectorAll('.workspace__editor [data-edit-save]').length).toBe(1);
+            }
+            for (const button of Array.from(doc.querySelectorAll<HTMLButtonElement>('.submission-page-actions button, .submission-navigation button, .submission-media-actions button, .teacher-comments-editor button, .wm__actions button'))) {
+              if (button.closest('dialog')) continue;
+              expect(button.getBoundingClientRect().height).withContext(button.textContent ?? '').toBeGreaterThanOrEqual(44);
+              expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth + 1);
+            }
+            doc.documentElement.setAttribute('data-pdf-mobile-qa', state);
+            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          } finally { frame.remove(); }
+        }
+      };
+      await capture('collapsed'); toggle().click(); await settle(); await capture('expanded');
+      const add = [...dom().querySelectorAll<HTMLButtonElement>('app-annotation-controls button')].find(button => button.textContent?.trim() === 'Add correction')!;
+      add.click(); await settle(); await capture('selecting');
+      const word = dom().querySelector('[data-source-content] [data-word-id]')!, range = document.createRange(); range.selectNodeContents(word);
+      document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
+      dom().querySelector('[data-source-content]')!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await settle(); await capture('add');
+      editor.cancelForm(); await settle();
+      dom().querySelector<HTMLButtonElement>('[data-row-edit]')!.click(); await settle(); await capture('edit');
+      editor.cancelForm(); await settle();
+      toggle().nextElementSibling!.dispatchEvent(new MouseEvent('click', { bubbles: true })); await settle(); await capture('text');
+      spyOn(TestBed.inject(TeacherAnnotationApiService), 'history').and.resolveTo({ items: [], nextOffset: null });
+      editor.openHistory(); await settle(); await capture('history'); editor.closeHistory(); await settle();
+      expect(progress).toHaveBeenCalledTimes(1);
     });
     it('renders both button rows without collisions or horizontal overflow at the requested widths', async () => {
       await prepare();

@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, OnChanges, OnDestroy, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, OnChanges, OnDestroy, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { TeacherEvaluationApiService } from '../../../api/teacher-evaluation-api.service';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { newRequestId } from '../annotation-controls/annotation-editor.logic';
@@ -35,6 +35,45 @@ export class TeacherEvaluationEditor implements OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private version = 0;
+  private readonly historyDialog = viewChild<ElementRef<HTMLDialogElement>>('historyDialog');
+  private historyTrigger: HTMLElement | null = null;
+  private historyOverflow: string | null = null;
+
+  showHistory(event: Event): void {
+    const dialog = this.historyDialog()?.nativeElement;
+    if (!dialog || dialog.open) return;
+    this.historyTrigger = event.currentTarget as HTMLElement;
+    this.historyOverflow = dialog.ownerDocument.documentElement.style.overflow;
+    dialog.showModal();
+    dialog.ownerDocument.documentElement.style.overflow = 'hidden';
+    dialog.querySelector<HTMLElement>('[data-te-history-close]')?.focus({ preventScroll: true });
+  }
+
+  closeHistory(): void {
+    const dialog = this.historyDialog()?.nativeElement;
+    if (dialog?.open) dialog.close();
+    if (this.historyOverflow !== null) {
+      this.host.nativeElement.ownerDocument.documentElement.style.overflow = this.historyOverflow;
+      this.historyOverflow = null;
+    }
+    if (this.historyTrigger?.isConnected) this.historyTrigger.focus({ preventScroll: true });
+    this.historyTrigger = null;
+  }
+
+  cancelHistory(event: Event): void { event.preventDefault(); this.closeHistory(); }
+  historyKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') { event.stopPropagation(); this.cancelHistory(event); return; }
+    if (event.key !== 'Tab') return;
+    const dialog = this.historyDialog()?.nativeElement;
+    const first = dialog?.querySelector<HTMLElement>('[data-te-history-close]');
+    const last = dialog?.querySelector<HTMLElement>('[data-te-history]');
+    if (!first || !last) return;
+    if (event.shiftKey && dialog?.ownerDocument.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && dialog?.ownerDocument.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+  historyBackdrop(event: MouseEvent): void {
+    if (event.target === this.historyDialog()?.nativeElement) this.closeHistory();
+  }
   /** The request of a save whose answer never arrived: sent again unchanged (same request id) so the server replays it. */
   private pending: { body: TeacherEvaluationBody; form: string } | null = null;
 
@@ -67,12 +106,13 @@ export class TeacherEvaluationEditor implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['submissionId']) return;
+    this.closeHistory();
     this.version++;
     this.snapshot.set(null); this.open.set(false); this.draft.set([]); this.reason.set(''); this.initial.set('');
     this.saving.set(false); this.notice.set(''); this.error.set(''); this.showErrors.set(false); this.confirmReset.set(false); this.pending = null;
     if (this.submissionId()) void this.load();
   }
-  ngOnDestroy(): void { this.version++; this.unsaved.clear(UNSAVED_KEY); }
+  ngOnDestroy(): void { this.closeHistory(); this.version++; this.unsaved.clear(UNSAVED_KEY); }
 
   async load(): Promise<void> {
     const version = this.version;

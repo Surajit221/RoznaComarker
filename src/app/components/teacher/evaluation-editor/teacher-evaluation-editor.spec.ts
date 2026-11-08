@@ -91,6 +91,43 @@ describe('TeacherEvaluationEditor', () => {
     await click('[data-te-edit]');
     expect(dom().querySelector('form')).toBeNull();
   });
+  it('opens history in the top layer without changing scores or fetching again; closes and restores focus and scroll lock', async () => {
+    await create(edited());
+    const before = JSON.stringify(fixture.componentInstance.snapshot()), overflow = document.documentElement.style.overflow;
+    const totals = dom().querySelector('[data-te-totals]')!.getBoundingClientRect();
+    const trigger = dom().querySelector<HTMLButtonElement>('[data-te-history-open]')!;
+    trigger.focus(); await click('[data-te-history-open]');
+    const dialog = dom().querySelector<HTMLDialogElement>('dialog.te__history-dialog')!;
+    expect(dialog.open).toBeTrue(); expect(dialog.matches(':modal')).toBeTrue();
+    expect(dialog.getAttribute('aria-labelledby')).toBe('te-history-title');
+    expect(dialog.textContent).toContain('Ms Rivera'); expect(dialog.textContent).toContain('Grammar 18 → 20');
+    expect(dialog.textContent).toContain('Reason: Re-read');
+    expect(dom().querySelector('details')).toBeNull();
+    expect(document.activeElement).toBe(dialog.querySelector('[data-te-history-close]'));
+    expect(document.documentElement.style.overflow).toBe('hidden');
+    const body = dialog.querySelector<HTMLElement>('[data-te-history]')!;
+    dialog.querySelector<HTMLElement>('[data-te-history-close]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(body);
+    body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(dialog.querySelector('[data-te-history-close]'));
+    expect(dom().querySelector('[data-te-totals]')!.getBoundingClientRect().top).toBe(totals.top);
+    const cancel = new Event('cancel', { cancelable: true }); dialog.dispatchEvent(cancel); await settle();
+    expect(cancel.defaultPrevented).toBeTrue(); expect(dialog.open).toBeFalse();
+    expect(document.activeElement).toBe(trigger); expect(document.documentElement.style.overflow).toBe(overflow);
+    await click('[data-te-history-open]'); await click('[data-te-history-close]');
+    expect(dialog.open).toBeFalse(); expect(JSON.stringify(fixture.componentInstance.snapshot())).toBe(before);
+    expect(api.snapshotCalls).toBe(1); expect(api.calls).toEqual([]);
+  });
+  it('shows empty history, closes on backdrop and clears an open history on submission change', async () => {
+    await create(); await click('[data-te-history-open]');
+    const dialog = dom().querySelector<HTMLDialogElement>('.te__history-dialog')!;
+    expect(dialog.textContent).toContain('No score changes yet.');
+    dialog.click(); await settle(); expect(dialog.open).toBeFalse();
+    await click('[data-te-history-open]');
+    fixture.componentRef.setInput('submissionId', 's2'); await settle();
+    expect(dom().querySelector<HTMLDialogElement>('.te__history-dialog')?.open).toBeFalse();
+    expect(document.documentElement.style.overflow).not.toBe('hidden');
+  });
   it('edit: AI suggested shown, focus on the form heading, live overall and grade, dirty registered; Save sends only the change', async () => {
     await create();
     await click('[data-te-edit]');
