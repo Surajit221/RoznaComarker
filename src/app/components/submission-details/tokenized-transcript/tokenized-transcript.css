@@ -110,3 +110,5 @@
   .transcript-tooltip.transcript-tooltip--teacher { animation: none; }
   .tt-close { transition: none; }
 }
+
+.tokenized-transcript .is-manual-selected { outline: 2px solid #008081; outline-offset: 0; box-shadow: inset 0 -3px #008081; }

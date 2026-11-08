@@ -1,3 +1,5 @@
+import { TeacherAnnotationApiService } from '../../../../../api/teacher-annotation-api.service';
+import type { AnnotationSnapshot } from '../../../../../components/teacher/annotation-controls/annotation-editor.logic';
 import { HttpErrorResponse } from '@angular/common/http';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import type { TeacherEvaluationSnapshot } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation.logic';
@@ -60,33 +62,63 @@ describe('StudentSubmissionPages', () => {
   });
 
   it('puts recovery and student preview in the wrapping page header, leaving guest details in navigation', async () => {
-    spyOn(TestBed.inject(TeacherRecoveryLinkService), 'status').and.resolveTo({ available: true, reason: null, emailMasked: 'g***@example.com', lastSentAt: null });
+    const status = spyOn(TestBed.inject(TeacherRecoveryLinkService), 'status').and.resolveTo({ available: true, reason: null, emailMasked: 'g***@example.com', lastSentAt: null });
     component.currentSubmission = { _id: 'submission-1', submissionMode: 'guest', guest: { normalizedEmail: 'guest@example.com' } } as NonNullable<typeof component.currentSubmission>;
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     const dom = fixture.nativeElement as HTMLElement, header = dom.querySelector('.submission-page-header')!;
     expect(header.querySelector('[data-action="open"]')?.textContent).toContain('Send recovery link');
     expect(header.querySelector('[data-preview-open]')?.textContent).toContain('Student preview');
+    const actions = header.querySelector('.submission-page-actions')!;
+    expect(Array.from(actions.children).map(child => child.tagName.toLowerCase())).toEqual(['app-guest-recovery-link-action', 'app-student-preview', 'button', 'button']);
+    const navigation = Array.from(actions.children).filter(child => child.tagName === 'BUTTON') as HTMLButtonElement[];
+    expect(navigation[0].textContent?.trim()).toBe('View All Submission');
+    const back = spyOn(component, 'toBack'); navigation[1].click(); expect(back).toHaveBeenCalledTimes(1);
+    navigation[0].click(); expect(component.openSheetSubmission).toBeTrue(); component.openSheetSubmission = false;
     expect(dom.querySelector('.submission-navigation')?.textContent).toContain('guest@example.com');
     expect(dom.querySelector('.submission-navigation app-guest-recovery-link-action, app-annotation-controls app-student-preview')).toBeNull();
     expect(dom.querySelectorAll('app-student-preview').length).toBe(1);
-    for (const width of [360, 768, 1024, 1440]) {
+    for (const width of [320, 360, 768, 1024, 1440]) {
       const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
       try {
         const doc = frame.contentDocument!, win = frame.contentWindow!;
-        for (const style of Array.from(document.querySelectorAll('style'))) doc.head.appendChild(style.cloneNode(true));
+        const css = doc.createElement('style');
+        css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+        doc.head.appendChild(css);
         doc.body.style.margin = '0'; doc.body.appendChild(header.cloneNode(true));
+        doc.documentElement.setAttribute('data-button-labels-qa', 'header');
         const actions = doc.querySelector('.submission-page-actions')!;
         expect(win.getComputedStyle(actions).flexWrap).toBe('wrap');
         expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
         const title = doc.querySelector('h1')!.getBoundingClientRect(), group = actions.getBoundingClientRect();
         expect(title.bottom <= group.top || title.right <= group.left).toBeTrue();
         for (const button of Array.from(actions.querySelectorAll('button')).filter(button => !button.closest('dialog'))) expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+        if (width >= 1024) {
+          const buttons = Array.from(actions.querySelectorAll<HTMLButtonElement>('button')).filter(button => !button.closest('dialog')).slice(0, 3).map(button => button.getBoundingClientRect());
+          expect(buttons[0].left).toBeLessThan(buttons[1].left); expect(buttons[1].left).toBeLessThan(buttons[2].left);
+          expect(Math.abs(buttons[0].top - buttons[2].top)).toBeLessThan(1);
+        }
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       } finally { frame.remove(); }
     }
+    expect(status).toHaveBeenCalledOnceWith('submission-1');
     component.currentSubmission = { _id: 'submission-1', submissionMode: 'registered' } as NonNullable<typeof component.currentSubmission>;
     fixture.detectChanges();
     expect(dom.querySelector('.submission-page-header app-guest-recovery-link-action')).toBeNull();
     expect(dom.querySelector('.submission-page-header app-student-preview')).not.toBeNull();
+    TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
+  });
+  it('keeps recovery hidden for registered or missing-mode submissions without requesting eligibility', () => {
+    const status = spyOn(TestBed.inject(TeacherRecoveryLinkService), 'status');
+    const dom = fixture.nativeElement as HTMLElement;
+    for (const submissionMode of ['registered', undefined] as const) {
+      component.currentSubmission = { _id: 'submission-1', submissionMode } as NonNullable<typeof component.currentSubmission>;
+      fixture.detectChanges();
+      const header = dom.querySelector('.submission-page-header')!;
+      expect(header.querySelector('app-guest-recovery-link-action')).toBeNull();
+      expect(header.querySelector('app-student-preview')).not.toBeNull();
+      expect(header.textContent).toContain('Back To Student Profile');
+    }
+    expect(status).not.toHaveBeenCalled();
     TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
   });
   it('places Edit scores, totals and history in the evaluation header without the old bottom card', async () => {
@@ -99,6 +131,12 @@ describe('StudentSubmissionPages', () => {
     TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
     const dom = fixture.nativeElement as HTMLElement, header = dom.querySelector('[data-evaluation-header]')!;
     expect(header.querySelector('[data-te-edit]')).not.toBeNull();
+    const edit = header.querySelector<HTMLButtonElement>('[data-te-edit]')!;
+    expect(edit.classList.contains('btn-primary')).toBeTrue();
+    const download = [...header.querySelectorAll<HTMLButtonElement>('.evaluation-action')].find(b => b.textContent?.includes('Download PDF'))!;
+    const editStyle = getComputedStyle(edit), actionStyle = getComputedStyle(download);
+    for (const property of ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'borderRadius', 'fontFamily', 'fontSize', 'fontWeight', 'boxShadow', 'borderTopWidth'] as const) expect(editStyle[property]).withContext(property).toBe(actionStyle[property]);
+
     expect(header.textContent).toContain('Generate AI Feedback');
     expect(header.textContent).toContain('Download PDF');
     expect(header.textContent).toContain('Create Rubric');
@@ -187,6 +225,225 @@ describe('StudentSubmissionPages', () => {
       await click('[data-te-cancel]');
     });
   });
+  describe('relocated correction review', () => {
+    const dom = () => fixture.nativeElement as HTMLElement;
+    async function settle() { for (let i = 0; i < 4; i++) { await fixture.whenStable(); fixture.detectChanges(); await Promise.resolve(); } }
+    function snapshot(): AnnotationSnapshot {
+      return { revision: 1, sourceHash: 'source', scoringReviewRequired: false, scorePolicy: 'Unchanged',
+        pages: [{ fileId: 'f1', pageNumber: 1, startChar: 0, endChar: 19, text: 'The student writes.', words: [{ id: 'w1', text: 'The', bbox: { x: 4, y: 10, w: 8, h: 4 } }, { id: 'w2', text: 'student', bbox: { x: 14, y: 10, w: 20, h: 4 } }, { id: 'w3', text: 'writes.', bbox: { x: 36, y: 10, w: 20, h: 4 } }] }],
+        corrections: [{ id: 'c1', fileId: 'f1', page: 1, moderationStatus: 'visible', source: 'AI', startChar: 4, endChar: 11, quotedText: 'student', wordIds: ['w2'], symbol: 'SP', message: 'Check spelling.', suggestedText: 'student' }],
+        orphans: [], effective: [{ id: 'c1', wordIds: ['w2'], renderTarget: { version: 1, source: 'wordIds', wordIds: ['w2'], boxes: [{ x: 14, y: 10, w: 20, h: 4 }] } }],
+        transitions: { hide: { from: ['visible'], to: 'hidden' }, restore: { from: ['hidden', 'archived'], to: 'visible' }, archive: { from: ['visible', 'hidden'], to: 'archived' }, edit: { from: ['visible', 'hidden'], to: null }, add: { from: [], to: 'visible' } },
+        legend: { groups: [{ key: 'MECHANICS', label: 'Mechanics', symbols: [{ symbol: 'SP', label: 'Spelling' }] }] } };
+    }
+    async function prepare() {
+      const load = spyOn(TestBed.inject(TeacherAnnotationApiService), 'snapshot').and.resolveTo(snapshot());
+      spyOn(TestBed.inject(TeacherEvaluationApiService), 'snapshot').and.resolveTo(evaluationSnapshot());
+      component.currentSubmission = { _id: 'submission-1' } as NonNullable<typeof component.currentSubmission>;
+      component.isUploadedFile = true;
+      const image = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="600" height="800" fill="white"/><text x="24" y="105" font-size="28">The student writes.</text></svg>');
+      component.essayImageUrl = image; component.submissionFileIds = ['f1']; component.submissionFileUrls = [image];
+      const words = snapshot().pages[0].words.map(({ id, text, bbox }) => ({ id, text, bbox: bbox ?? null }));
+      component.annotations = [{ _id: 'c1', submissionId: 'submission-1', fileId: 'f1', page: 1, wordIds: ['w2'], symbol: 'SP', message: 'Check spelling.', color: '#c00', source: 'AI', editable: false }];
+      component.transcriptPageViews = [{ key: 'f1:1', fileId: 'f1', pageNumber: 1, displayNumber: 1, words, annotations: component.annotations, text: 'The student writes.', status: 'ready' }];
+      fixture.detectChanges(); await settle();
+      TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/adaptive-practice/teacher/submissions/submission-1/progress')).forEach(req => req.flush({ data: null }));
+      return load;
+    }
+    const toggle = () => dom().querySelector<HTMLButtonElement>('[data-review-corrections]')!;
+    it('places a single trigger before the unchanged transcript switch and keeps the original editor state across collapse and view changes', async () => {
+      const load = await prepare(), editor = component.annotationControls!, toggleHandler = spyOn(editor, 'toggle').and.callThrough();
+      expect(dom().querySelectorAll('[data-review-corrections]').length).toBe(1);
+      expect(toggle().querySelector('span:not([aria-hidden])')?.textContent?.trim()).toBe('Review corrections');
+      expect(toggle().nextElementSibling?.textContent).toContain('View Student Transcribed Text');
+      expect(dom().querySelector('app-annotation-controls .editor__head')).toBeNull();
+      expect(dom().querySelector('app-annotation-controls')!.getBoundingClientRect().height).toBe(0);
+      const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance;
+      const original = dom().querySelector<HTMLElement>('[data-standalone-viewer]')!;
+      expect(original.hidden).toBeFalse();
+      expect(original.getBoundingClientRect().height).toBeGreaterThan(0);
+      const buttonWidth = toggle().getBoundingClientRect().width;
+      toggle().click(); await settle();
+      expect(toggleHandler).toHaveBeenCalledTimes(1);
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(toggle().querySelector('span:not([aria-hidden])')?.textContent).toBe('Close');
+      expect(toggle().getBoundingClientRect().width).toBe(buttonWidth);
+      expect(original.hidden).toBeTrue();
+      expect(original.getBoundingClientRect().height).toBe(0);
+      expect(dom().querySelector('#annotation-editor-body')).not.toBeNull();
+      expect(dom().querySelector('[data-bulk]')).not.toBeNull();
+      expect(dom().querySelector('app-review-workspace [data-sync-image]')).not.toBeNull();
+      expect(dom().querySelector('app-review-workspace [data-sync-transcript]')).not.toBeNull();
+      expect(dom().querySelector('[data-row-edit]')).not.toBeNull();
+      expect(dom().textContent).toContain('Change history');
+      expect(load).toHaveBeenCalledTimes(1);
+      const add = [...dom().querySelectorAll<HTMLButtonElement>('app-annotation-controls button')].find(b => b.textContent?.trim() === 'Add correction')!;
+      add.click(); await settle();
+      const source = dom().querySelector<HTMLElement>('[data-source-content]')!;
+      const word = source.querySelector<HTMLElement>('[data-word-id]')!;
+      const range = document.createRange(); range.selectNodeContents(word);
+      document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
+      source.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); await settle();
+      const message = dom().querySelector<HTMLTextAreaElement>('#annotation-message')!;
+      message.value = 'Keep this unsaved explanation'; message.dispatchEvent(new Event('input')); await settle();
+      editor.selection.pin('c1', 'list'); await settle();
+      toggle().click(); await settle();
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(toggle().querySelector('span:not([aria-hidden])')?.textContent).toBe('Review corrections');
+      expect(toggle().getBoundingClientRect().width).toBe(buttonWidth);
+      expect(original.hidden).toBeFalse();
+      expect(original.getBoundingClientRect().height).toBeGreaterThan(0);
+      expect(dom().querySelector('#annotation-editor-body')).toBeNull();
+      expect(component.annotationControls).toBe(editor);
+      expect(TestBed.inject(UnsavedWorkRegistry).has('teacher-annotation-editor')).toBeTrue();
+      toggle().click(); await settle();
+      expect(dom().querySelector<HTMLTextAreaElement>('#annotation-message')?.value).toBe('Keep this unsaved explanation');
+      expect(editor.selection.pinnedId()).toBe('c1');
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance).toBe(overlay);
+      toggle().nextElementSibling!.dispatchEvent(new MouseEvent('click', { bubbles: true })); await settle();
+      expect(component.isUploadedFile).toBeFalse();
+      expect(dom().querySelector('.submission-media-header')?.textContent).toContain("Student's Transcribed Text");
+      expect(dom().querySelectorAll('[data-review-corrections]').length).toBe(1);
+      expect(component.annotationControls).toBe(editor);
+      expect(editor.form()?.value.message).toBe('Keep this unsaved explanation');
+      toggle().click(); await settle();
+      expect(editor.open()).toBeFalse();
+      editor.cancelForm(); await settle();
+    });
+    it('repeats open/close rapidly without remounting the source or fetching another snapshot', async () => {
+      const load = await prepare(), editor = component.annotationControls!;
+      const original = dom().querySelector<HTMLElement>('[data-standalone-viewer]')!;
+      const image = original.querySelector('img');
+      const overlay = fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance as CorrectionOverlay;
+      const source = overlay.imageUrl, annotations = overlay.annotations, fileId = component.activeFileId;
+      for (let i = 0; i < 3; i++) {
+        toggle().click(); await settle();
+        expect(original.hidden).toBeTrue();
+        expect(dom().querySelector('app-review-workspace [data-sync-image]')).not.toBeNull();
+        expect(dom().querySelectorAll('app-annotation-controls').length).toBe(1);
+        toggle().click(); await settle();
+        expect(original.hidden).toBeFalse();
+        expect(dom().querySelector('app-review-workspace')).toBeNull();
+        expect(component.annotationControls).toBe(editor);
+        expect(original.querySelector('img')).toBe(image);
+        expect(fixture.debugElement.query(By.directive(CorrectionOverlay)).componentInstance).toBe(overlay);
+        expect(overlay.imageUrl).toBe(source); expect(overlay.annotations).toBe(annotations);
+        expect(component.activeFileId).toBe(fileId);
+      }
+      toggle().click(); toggle().click(); await settle();
+      expect(editor.open()).toBeFalse(); expect(original.hidden).toBeFalse();
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+    it('reuses the in-flight initial snapshot across rapid open, close and reopen', async () => {
+      const load = await prepare();
+      let finish!: (data: AnnotationSnapshot) => void;
+      load.and.returnValue(new Promise<AnnotationSnapshot>(resolve => { finish = resolve; }));
+      toggle().click(); fixture.detectChanges();
+      expect(component.annotationControls?.loading()).toBeTrue();
+      toggle().click(); toggle().click(); fixture.detectChanges();
+      expect(component.annotationControls?.open()).toBeTrue();
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(dom().querySelector<HTMLElement>('[data-standalone-viewer]')?.hidden).toBeTrue();
+      finish(snapshot()); await settle();
+      expect(component.annotationControls?.loading()).toBeFalse();
+      expect(dom().querySelector('[data-row-edit]')).not.toBeNull();
+      expect(load).toHaveBeenCalledTimes(1);
+      toggle().click(); await settle();
+      expect(dom().querySelector<HTMLElement>('[data-standalone-viewer]')?.hidden).toBeFalse();
+    });
+    it('omits Grade check only on this page without changing its score-review data or correction controls', async () => {
+      const load = await prepare();
+      const scoreReview = { status: 'needed' as const, fingerprint: 'a'.repeat(64), decision: null, countsScored: { grammar: 3 }, countsVisible: { grammar: 2 },
+        scores: { overallScore: 82, grade: 'B', categories: { GRAMMAR: { score: 18, maxScore: 25 } }, customRubricOverallScore: null } };
+      load.and.resolveTo({ ...snapshot(), scoreReview });
+      const keep = spyOn(TestBed.inject(TeacherAnnotationApiService), 'scoreReview');
+      toggle().click(); await settle();
+      expect(component.annotationControls?.snapshot()?.scoreReview).toBe(scoreReview);
+      expect(dom().querySelector('app-grade-check, [data-grade-check]')).toBeNull();
+      expect(dom().querySelector('[data-bulk]')).not.toBeNull();
+      expect(dom().querySelector('[data-row-edit]')).not.toBeNull();
+      expect(dom().querySelector('app-review-workspace')).not.toBeNull();
+      expect(keep).not.toHaveBeenCalled();
+    });
+    it('keeps the existing loading and failure states behind the relocated toggle', async () => {
+      await prepare();
+      TestBed.inject(TeacherAnnotationApiService).snapshot = jasmine.createSpy('snapshot').and.rejectWith(new HttpErrorResponse({ status: 0 }));
+      toggle().click(); fixture.detectChanges();
+      expect(component.annotationControls?.loading()).toBeTrue();
+      await settle();
+      expect(dom().querySelector('[data-form-error]')?.textContent?.trim()).toBeTruthy();
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      toggle().click(); await settle();
+      expect(component.annotationControls?.open()).toBeFalse();
+    });
+    it('contains review and Evaluation live regions within the teacher page scroll root', async () => {
+      await prepare(); toggle().click(); await settle();
+      for (const width of [1440, 1280, 1024, 768, 375, 320]) {
+        const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;inset:0;height:760px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!;
+          const css = doc.createElement('style');
+          css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+          doc.head.appendChild(css); doc.body.style.cssText = 'margin:0;display:flex;flex-direction:column;height:760px';
+          const header = doc.createElement('header'); header.style.cssText = 'height:73px;flex-shrink:0'; doc.body.appendChild(header);
+          const main = doc.createElement('main'); main.style.cssText = 'flex:1;overflow:auto;min-height:0'; doc.body.appendChild(main);
+          const page = dom().querySelector('.submission-review-page')!.cloneNode(false) as HTMLElement; main.appendChild(page);
+          const top = doc.createElement('div'); top.style.height = '600px'; page.appendChild(top);
+          page.appendChild(dom().querySelector('app-annotation-controls')!.cloneNode(true));
+          page.appendChild(dom().querySelector('app-teacher-evaluation-editor')!.cloneNode(true));
+          const bottom = doc.createElement('div'); bottom.style.height = '1100px'; page.appendChild(bottom);
+          doc.documentElement.setAttribute('data-four-review-qa', 'teacher-contained');
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          expect(doc.querySelector<HTMLElement>('.te__header > .sr-only')!.offsetParent).toBe(page);
+          expect(doc.documentElement.scrollHeight).withContext('outer document at ' + width).toBeLessThanOrEqual(760);
+          expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+          expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
+          main.scrollTop = main.scrollHeight;
+          expect(doc.documentElement.scrollHeight).toBeLessThanOrEqual(760);
+        } finally { frame.remove(); }
+      }
+    });
+    it('renders both button rows without collisions or horizontal overflow at the requested widths', async () => {
+      await prepare();
+      for (const expanded of [false, true]) {
+        if (expanded) { toggle().click(); await settle(); }
+        for (const width of [1440, 1024, 768, 375, 320]) {
+        const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;top:0;left:0;height:900px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!, win = frame.contentWindow!;
+          const css = doc.createElement('style');
+          css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+          doc.head.appendChild(css); doc.body.style.margin = '0';
+          const card = dom().querySelector('.submission-media-header')!.parentElement!.cloneNode(true); doc.body.appendChild(card);
+          doc.body.appendChild(dom().querySelector('app-annotation-controls')!.cloneNode(true));
+          doc.body.appendChild(dom().querySelector('[data-evaluation-header]')!.cloneNode(true));
+          if (expanded) {
+            const workspace = doc.querySelector('app-review-workspace')!.getBoundingClientRect(), evaluation = doc.querySelector('[data-evaluation-header]')!.getBoundingClientRect();
+            expect(evaluation.top).toBeGreaterThanOrEqual(workspace.bottom);
+            expect(evaluation.top - workspace.bottom).withContext(width + ' evaluation gap').toBeLessThan(80);
+          }
+          const title = doc.querySelector('.submission-media-header > p')!.getBoundingClientRect(), actions = doc.querySelector('.submission-media-actions')!.getBoundingClientRect();
+          expect(title.bottom <= actions.top || title.right <= actions.left).withContext(width + ' title collision').toBeTrue();
+          const buttons = [...doc.querySelectorAll<HTMLButtonElement>('.submission-media-actions button')];
+          const review = buttons[0].getBoundingClientRect(), transcript = buttons[1].getBoundingClientRect();
+          expect(review.right <= transcript.left || review.bottom <= transcript.top).withContext(width + ' button collision').toBeTrue();
+          for (const button of buttons) expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+          expect(win.getComputedStyle(doc.querySelector('.submission-media-actions')!).flexWrap).toBe('wrap');
+          expect(doc.documentElement.scrollWidth).withContext(width + ' horizontal overflow').toBeLessThanOrEqual(width);
+          const standalone = doc.querySelector<HTMLElement>('[data-standalone-viewer]')!;
+          expect(standalone.getBoundingClientRect().height === 0).toBe(expanded);
+          expect(doc.querySelector('#annotation-editor-body') !== null).toBe(expanded);
+          expect(doc.querySelector('[data-review-corrections] span:not([aria-hidden])')?.textContent?.trim()).toBe(expanded ? 'Close' : 'Review corrections');
+          expect(doc.querySelectorAll('app-annotation-controls').length).toBe(1);
+
+          // Allow a browser render in both states, including stylesheet-driven wrapping.
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        } finally { frame.remove(); }
+        }
+      }
+    });
+  });
   it('should create', () => {
     expect(component).toBeTruthy();
   });
@@ -245,6 +502,25 @@ describe('StudentSubmissionPages', () => {
       fixture.detectChanges();
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('.teacher-comment-ai-draft');
       expect(button.textContent).toContain('Generate AI Comments');
+      for (const width of [320, 360, 768, 1024, 1440]) {
+        const frame = document.createElement('iframe'); frame.style.cssText = 'position:fixed;inset:0;height:700px;border:0;width:' + width + 'px'; document.body.appendChild(frame);
+        try {
+          const doc = frame.contentDocument!;
+          const css = doc.createElement('style');
+          css.textContent = Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules).filter(rule => rule.type !== CSSRule.IMPORT_RULE).map(rule => rule.cssText); } catch { return []; } }).join('\n');
+          doc.head.appendChild(css);
+          doc.body.style.margin = '0'; doc.body.appendChild(fixture.nativeElement.querySelector('.teacher-comments-editor').cloneNode(true));
+          doc.documentElement.setAttribute('data-button-labels-qa', 'comments');
+          expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+          const actions = doc.querySelector('.teacher-comments-editor__actions')!.getBoundingClientRect();
+          for (const action of Array.from(doc.querySelectorAll('button'))) {
+            const rect = action.getBoundingClientRect();
+            expect(rect.right).toBeLessThanOrEqual(actions.right + 1); expect(rect.left).toBeGreaterThanOrEqual(actions.left - 1);
+            expect(action.scrollWidth).toBeLessThanOrEqual(action.clientWidth + 1);
+          }
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        } finally { frame.remove(); }
+      }
       button.click();
       await component.generateTeacherCommentDraft();
       fixture.detectChanges();
@@ -317,7 +593,11 @@ describe('StudentSubmissionPages', () => {
       await component.generateTeacherCommentDraft();
       expect(save).not.toHaveBeenCalled();
       component.feedbackForm.patchValue({ message: 'Edited draft.' });
-      await component.submitFeedback();
+      const submit = spyOn(component, 'submitFeedback').and.callThrough(); fixture.detectChanges();
+      const action = fixture.nativeElement.querySelector('.teacher-comments-editor button') as HTMLButtonElement;
+      expect(action.textContent?.trim()).toBe('Submit Comment to Student'); action.click();
+      await submit.calls.mostRecent().returnValue;
+      TestBed.inject(HttpTestingController).match(req => req.url.endsWith('/progress')).forEach(req => req.flush({ success: true, data: {} }));
       expect(save).toHaveBeenCalledOnceWith('submission-1', 'Edited draft.');
     });
   });
@@ -604,7 +884,7 @@ describe('StudentSubmissionPages', () => {
 
     expect(fixture.nativeElement.querySelectorAll('.teacher-comments-editor').length).toBe(1);
     expect(fixture.nativeElement.querySelectorAll('.teacher-comments-editor textarea[formControlName="message"]').length).toBe(1);
-    expect(fixture.nativeElement.querySelector('.teacher-comments-editor button')?.textContent).toContain('Submit');
+    expect(fixture.nativeElement.querySelector('.teacher-comments-editor button')?.textContent?.trim()).toBe('Submit Comment to Student');
   });
 
   it('keeps the shared Teacher Comments editor available when evaluation fails', () => {
@@ -734,6 +1014,22 @@ describe('StudentSubmissionPages', () => {
     expect(refreshCorrections).not.toHaveBeenCalled();
     expect(reEvaluate).not.toHaveBeenCalled();
     expect(loadFeedback).not.toHaveBeenCalled();
+  });
+
+  it('keeps the last selected workspace image when earlier image loads resolve later', async () => {
+    component.currentSubmission = { _id: 'submission-1', fileUrl: 'image-1.jpg' } as NonNullable<typeof component.currentSubmission>;
+    component.submissionFileUrls = ['image-1.jpg', 'image-2.jpg'];
+    component.submissionFileIds = ['f1', 'f2']; component.activeFileIndex = 0;
+    const pending = new Map<string, (url: string) => void>();
+    const resources = component as unknown as { fetchAsObjectUrl: (url: string) => Promise<string> };
+    spyOn(resources, 'fetchAsObjectUrl').and.callFake(url => new Promise(resolve => pending.set(url, resolve)));
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    component.onWorkspaceFileRequested('f2'); component.onWorkspaceFileRequested('f1');
+    pending.get('image-1.jpg')!('blob:latest'); await Promise.resolve(); await Promise.resolve();
+    expect(component.essayImageUrl).toBe('blob:latest'); expect(component.activeFileId).toBe('f1');
+    pending.get('image-2.jpg')!('blob:stale'); await Promise.resolve(); await Promise.resolve();
+    expect(component.essayImageUrl).toBe('blob:latest'); expect(component.activeFileId).toBe('f1');
+    expect(revoke).toHaveBeenCalledWith('blob:stale');
   });
 
   it('preserves submission and evaluation state without requests across breakpoints', () => {

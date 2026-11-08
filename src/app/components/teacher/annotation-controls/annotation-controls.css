@@ -1,5 +1,6 @@
 :host { display: block; min-width: 0; }
-.editor { padding: 20px; margin: 0 0 16px; border-radius: 24px; background: #fff; color: #203864; overflow-wrap: anywhere; }
+/* Contain absolute live regions in the dashboard's scroll root, rather than extending the outer document. */
+.editor { position: relative; padding: 20px; margin: 0 0 16px; border-radius: 24px; background: #fff; color: #203864; overflow-wrap: anywhere; }
 .editor__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .editor__head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 h2 { font-size: 1.5rem; font-weight: 700; }
@@ -53,7 +54,7 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #008081; b
 @media (max-width: 820px) { .editor { padding: 14px; } .editor__toolbar { flex-direction: column; } }
 
 /* Task 6C: the list as the workspace's third panel. */
-.rows--panel { max-height: 32dvh; overflow: auto; overscroll-behavior: contain; padding: 4px; }
+.rows--panel { min-height: 0; overflow: auto; overscroll-behavior: auto; padding: 4px; }
 .row--active { outline: 3px solid #172033; outline-offset: -3px; background: #fef3c7; }
 .badge--selected { background: #172033; color: #fff; }
 .badge--position { border: 1px dashed #475569; background: #fff; color: #1e293b; }
@@ -96,3 +97,15 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #008081; b
 @media (prefers-reduced-motion: reduce) {
   .ui-btn, .ui-chip, .filter, .row { transition: none; }
 }
+
+/* No collapsed card when the submission header owns the trigger. The expanded editor keeps its existing surface. */
+.editor--embedded { padding: 0; margin: 0; border-radius: 0; background: transparent; }
+.editor--embedded.editor--expanded { padding: 20px; margin-bottom: 16px; border-radius: 24px; background: #fff; }
+@media (max-width: 820px) { .editor--embedded.editor--expanded { padding: 14px; } }
+
+.editor__actions .ui-btn--icon { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; padding: 0; font-size: 1.2rem; }
+
+.manual-editor { min-width: 0; }
+.manual-editor__header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.manual-editor__header h3 { margin: 0; }
+.manual-editor blockquote { white-space: normal; overflow-wrap: anywhere; max-height: 22vh; overflow: auto; }

@@ -26,6 +26,8 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
   @Input() annotations: FeedbackAnnotation[] | null = null;
   /** The teacher's review workspace (Task 6C). Off everywhere else: the same template, listeners and tooltip as before. */
   @Input() syncMode = false;
+  /** A verified manual span in the teacher workspace; absent for every other consumer. */
+  @Input() manualWordIds: ReadonlySet<string> | null = null;
   @Input() syncActiveId: string | null = null;
   /** Corrections that are not visible to the student, by id. */
   @Input() syncStates: ReadonlyMap<string, 'hidden' | 'archived'> | null = null;

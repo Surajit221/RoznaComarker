@@ -1,6 +1,7 @@
 import { CommonModule, Location } from '@angular/common';
 import { Component, computed, HostListener, inject, signal, ViewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
+import { DashboardSidebarState } from '../../services/dashboard-sidebar-state.service';
 import { DeviceService } from '../../services/device.service';
 import { AccountUsage } from '../../components/account-usage/account-usage';
 import { AuthService } from '../../auth/auth.service';
@@ -37,6 +38,9 @@ export class DashboardLayout {
   @ViewChild(CreditTopupComponent) private creditTopup?: CreditTopupComponent;
   role: string | null = null;
   isUserDropdownOpen = signal(false);
+  /** Desktop presentation only; retained while navigating within the dashboard. */
+  readonly sidebarState = inject(DashboardSidebarState);
+  readonly sidebarCollapsed = this.sidebarState.collapsed;
   isNotificationsDropdownOpen = false;
 
   unreadCount = 0;

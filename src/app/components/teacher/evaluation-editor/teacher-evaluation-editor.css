@@ -57,3 +57,7 @@ textarea.te__input { resize: vertical; line-height: 1.45; }
   .te__actions .ui-btn { flex: 1 1 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .ui-btn, .te__input { transition: none; } .te__spinner { animation: none; } }
+
+/* Use the shared raised action button; only constrain wrapping and the existing unavailable state locally. */
+[data-te-edit] { min-height: 44px; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+[data-te-edit][aria-disabled="true"] { opacity: .55; cursor: not-allowed; }

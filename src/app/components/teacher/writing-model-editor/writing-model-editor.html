@@ -33,7 +33,7 @@
 
     <div class="wm__actions">
       <button type="button" class="ui-btn ui-btn--secondary" data-wm-save-draft [attr.aria-disabled]="locked()" (click)="save('draft')">{{ busy() === 'saving' ? 'Saving…' : 'Save draft' }}</button>
-      <button type="button" class="ui-btn ui-btn--primary" data-wm-approve [attr.aria-disabled]="locked()" (click)="save('approved')">Approve</button>
+      <button type="button" class="ui-btn ui-btn--primary" data-wm-approve [attr.aria-disabled]="locked()" (click)="save('approved')">Submit Improved Writing to Student</button>
       <button type="button" class="ui-btn ui-btn--secondary" data-wm-generate [attr.aria-disabled]="locked() || !!aiBlockedReason()"
         [attr.aria-describedby]="aiBlockedReason() ? 'wm-ai-blocked' : null" (click)="askGenerate()">
         @if (busy() === 'generating') { <span class="wm__spinner" aria-hidden="true"></span> Generating… } @else { Generate draft with AI (1 credit) }

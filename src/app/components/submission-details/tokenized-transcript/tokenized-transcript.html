@@ -3,6 +3,7 @@
     @if (t.kind === 'word' && syncMode) {
       <span
         [attr.data-word-id]="t.word.id"
+        [class.is-manual-selected]="manualWordIds?.has(t.word.id)"
         [attr.data-sync-state]="syncWordState(t.word.id)"
         [ngClass]="getWordAnnotations(t.word.id).length ? 'correction-highlight' : null"
         [ngStyle]="syncStyle(t.word.id)"

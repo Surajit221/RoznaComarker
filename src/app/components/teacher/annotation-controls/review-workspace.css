@@ -1,11 +1,17 @@
 :host { display: block; min-width: 0; scroll-margin-top: 80px; }
 .workspace { margin-top: 12px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 16px; background: #f8fafc; min-width: 0; }
-.workspace__panels { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 8px; align-items: start; }
+.workspace__panels { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 8px; align-items: stretch; }
 .workspace__column { min-width: 0; }
 .workspace__column h3 { margin: 4px 0; font-size: 1rem; font-weight: 700; }
 .workspace__pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.workspace__panel, .workspace__column--right { box-sizing: border-box; max-height: calc(100dvh - 180px); overflow: auto; padding: 8px; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; overscroll-behavior: contain; position: relative; }
-.workspace__panel--text { max-height: 32dvh; overflow: auto; overscroll-behavior: contain; line-height: 1.7; white-space: pre-wrap; }
+.workspace__column--image, .workspace__column--right, .workspace__corrections-panel { box-sizing: border-box; min-height: 0; max-height: calc(100dvh - 180px); padding: 12px; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; }
+.workspace__column { display: flex; flex-direction: column; overflow: hidden; }
+.workspace__column-header { flex: 0 0 auto; min-width: 0; }
+.workspace__image-body { display: flex; flex-direction: column; min-height: 0; }
+.workspace__column-body { min-height: 0; overflow: auto; overscroll-behavior: auto; }
+.workspace__panel { min-height: 0; overflow: auto; overscroll-behavior: auto; position: relative; }
+.workspace__page-label { margin: 0; min-height: 44px; display: flex; align-items: center; font-size: .85rem; color: #475569; }
+.workspace__panel--text { min-width: 0; overflow-wrap: anywhere; line-height: 1.7; white-space: pre-wrap; }
 .workspace__panel:focus-visible, .workspace__column--right:focus-visible, button:focus-visible { outline: 3px solid #006b6c; outline-offset: 2px; }
 .workspace__panel h4 { margin: 8px 0 4px; font-weight: 700; }
 .workspace__legend { margin: 6px 0 0; font-size: .85rem; }
@@ -14,19 +20,42 @@
 button { min-height: 44px; padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 8px; background: #fff; cursor: pointer; }
 button[aria-pressed="true"], button[aria-selected="true"] { background: #0f766e; color: #fff; }
 button:disabled { opacity: .55; cursor: not-allowed; }
-/* Outside both scroll containers, so actions cannot be clipped. Dialogs retain their native top layer. */
-.workspace__mark-menu { position: fixed; right: 24px; bottom: 24px; z-index: 1000; width: min(360px, calc(100vw - 48px)); max-height: 45dvh; overflow: auto; padding: 12px; border: 1px solid #94a3b8; border-radius: 12px; background: #fff; box-shadow: 0 8px 30px #0003; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
 @media (min-width: 1024px) {
   .workspace__panels--both { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .workspace__column--image { position: sticky; top: 80px; }
+  .workspace__panels--corrections { grid-template-columns: minmax(0, 1fr) minmax(260px, .9fr); }
+  .workspace__panels--corrections.workspace__panels--both { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(260px, .9fr); }
+  .workspace__panels--both { grid-template-rows: auto minmax(0, 1fr); max-height: calc(100dvh - 180px); }
+  .workspace__panels--both > .workspace__column { display: grid; grid-template-rows: subgrid; grid-row: 1 / span 2; }
+  .workspace__panels--both > .workspace__column--image { position: sticky; top: 0; grid-column: 1; }
+  .workspace__panels--both > .workspace__column--right { grid-column: 2; }
+  .workspace__panels--both > .workspace__corrections-panel { grid-row: 1 / span 2; grid-column: 3; }
+  .workspace__panels--both.workspace__panels--text > .workspace__column--right { grid-column: 1; }
+  .workspace__panels--both.workspace__panels--text > .workspace__corrections-panel, .workspace__panels--both.workspace__panels--image > .workspace__corrections-panel { grid-column: 2; }
   .workspace__panels--both.workspace__panels--image, .workspace__panels--both.workspace__panels--text { grid-template-columns: minmax(0, 1fr); }
+  .workspace__panels--corrections.workspace__panels--image, .workspace__panels--corrections.workspace__panels--text { grid-template-columns: minmax(0, 1fr) minmax(260px, .9fr); }
   .workspace__panels--both.workspace__panels--image .workspace__column--right, .workspace__panels--both.workspace__panels--text .workspace__column--image { display: none; }
 }
 @media (max-width: 1023px) {
   .workspace__desktop-switch { display: none; }
   .workspace__tabs { display: flex; }
   .workspace__panels--both .workspace__column--image { display: none; }
-  .workspace__panels--both.workspace__panels--tab-image .workspace__column--image { display: block; }
+  .workspace__panels--both.workspace__panels--tab-image .workspace__column--image { display: flex; }
   .workspace__panels--both.workspace__panels--tab-image .workspace__column--right { display: none; }
 }
+
+.workspace__image-tabs { display: flex; flex-wrap: nowrap; gap: 6px; max-width: 100%; overflow-x: auto; padding: 4px; margin-bottom: 6px; }
+.workspace__image-tabs button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: #203864; }
+.workspace__image-tabs button[aria-selected="true"] { background: #0f766e; color: #fff; border-color: #0f766e; }
+.workspace__transcript-header { margin-bottom: 6px; }
+
+.workspace__toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.workspace__toolbar-actions { display: flex; margin-left: auto; }
+.workspace__selection-help { margin-top: 8px; padding: 8px; border-radius: 8px; background: #e6f4f2; color: #134e4a; }
+.workspace__selection-help button { margin-left: 8px; }
+[data-source-content][contenteditable] { cursor: text; caret-color: #008081; }
+[data-source-content]:focus-visible { outline: 2px solid #008081; outline-offset: 2px; }
+.workspace__corrections-panel { min-width: 0; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: auto; }
+.workspace__corrections-panel:not(.workspace__editor) { display: flex; flex-direction: column; }
+
+.workspace__column-header > h3 { margin: 0 0 8px; }

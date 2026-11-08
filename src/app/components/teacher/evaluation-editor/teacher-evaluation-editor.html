@@ -8,7 +8,7 @@
           <ng-content select="[evaluation-actions]" />
           @if (s) {
             @if (!open()) {
-              <button type="button" class="ui-btn ui-btn--primary" data-te-edit [attr.aria-disabled]="!s.editable" (click)="startEdit()">Edit scores</button>
+              <button type="button" class="btn-primary" data-te-edit [attr.aria-disabled]="!s.editable" (click)="startEdit()">Edit scores</button>
             }
     @if (s.history.length) {
       <details class="te__history" data-te-history>
