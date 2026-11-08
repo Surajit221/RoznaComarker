@@ -1,4 +1,5 @@
 :host { display: inline-block; }
+@media (max-width: 767px) { :host-context(.submission-page-actions) > button { width: 100%; height: 100%; padding: 10px 12px; font-size: .875rem; line-height: 1.4; white-space: normal; } }
 button { min-height: 44px; cursor: pointer; }
 button[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
 button:focus-visible, [data-preview-title]:focus-visible { outline: 3px solid #203864; outline-offset: 2px; }

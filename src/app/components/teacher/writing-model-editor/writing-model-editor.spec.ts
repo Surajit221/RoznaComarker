@@ -43,6 +43,19 @@ describe('WritingModelEditor', () => {
     expect(dom().querySelector('[data-wm-ai-badge]')!.textContent).toContain('AI draft - not visible to students until you approve');
     expect(dom().querySelector('[data-wm-visibility]')!.textContent).toContain('Not visible to students');
   });
+  for (const [rule, released, message] of [
+    ['manual', false, 'Approved, waiting for you to release it.'],
+    ['manual', true, 'Visible to students now.'],
+    ['afterRevision', false, 'Approved: each student sees it after submitting a second draft.'],
+  ] as const) {
+    it(`approval reports the persisted ${rule}, released=${released} state`, async () => {
+      await create(snap({ text: 'Teacher model.', releaseRule: rule, released }));
+      await click('[data-wm-approve]');
+      expect(dom().querySelector('[data-wm-notice]')?.textContent).toContain(message);
+      expect(api.saves[0].released).toBe(released);
+      expect(api.saves[0].releaseRule).toBe(rule);
+    });
+  }
   it('typing registers unsaved work; Save draft and Approve send the text, rule and release', async () => {
     await create();
     expect(dom().querySelector('[data-wm-approve]')?.textContent?.trim()).toBe('Submit Improved Writing to Student');

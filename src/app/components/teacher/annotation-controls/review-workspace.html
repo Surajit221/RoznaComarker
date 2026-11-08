@@ -16,6 +16,10 @@
   </div>
   @if (manualSelection()) {
     <div class="workspace__selection-help" role="status">Select words or a sentence in the transcript. Selections extend to whole words. With a keyboard, use Shift and the arrow keys.
+      <span class="workspace__touch-selection" [class.workspace__touch-selection--active]="touchSelecting()">
+        <span>On touchscreens, long-press a word, adjust the selection handles, then choose Use selected text.</span>
+        <button type="button" data-use-touch-selection [disabled]="!touchSpan()" (pointerdown)="$event.preventDefault()" (click)="useTouchSelection()">Use selected text</button>
+      </span>
       <button type="button" (click)="cancelSelection.emit()">Cancel selection</button>
     </div>
   }
@@ -70,11 +74,11 @@
         @if (view(); as page) {
           <section>
             <div data-source-content [attr.data-file-id]="page.fileId" [attr.data-page]="page.pageNumber"
-              [attr.contenteditable]="manualSelection() ? 'true' : null" [attr.tabindex]="manualSelection() ? 0 : null"
+              [attr.contenteditable]="manualSelection() ? 'true' : null" [attr.inputmode]="manualSelection() ? 'none' : null" [attr.tabindex]="manualSelection() ? 0 : null"
               [attr.role]="manualSelection() ? 'textbox' : null" [attr.aria-label]="manualSelection() ? 'Select correction text, page ' + page.displayNumber : null"
               [attr.aria-readonly]="manualSelection() ? 'true' : null" [attr.aria-multiline]="manualSelection() ? 'true' : null"
               (beforeinput)="protectTranscript($event)" (paste)="protectTranscript($event)" (cut)="protectTranscript($event)" (drop)="protectTranscript($event)"
-              (mouseup)="captureTranscriptSelection($event)" (keyup)="captureTranscriptSelection($event)">
+              (pointerdown)="beginTranscriptPointer($event)" (mouseup)="captureTranscriptSelection($event)" (keyup)="captureTranscriptSelection($event)">
             @if (page.words.length) {
             <app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" [manualWordIds]="selectedSource()?.fileId === page.fileId && selectedSource()?.page === page.pageNumber ? manualWords() : null" [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'transcript')" />
             } @else if (page.text.trim()) { <p>{{ page.text }}</p> } @else { <p data-transcript-unavailable>Transcript is not available for this page.</p> }

@@ -31,3 +31,10 @@
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 480px) { .wm { padding: 12px; } .wm__actions .ui-btn { flex: 1 1 100%; } }
 @media (prefers-reduced-motion: reduce) { .ui-btn { transition: none; } .wm__spinner { animation: none; } }
+
+@media (max-width: 767px) {
+  :host-context(.submission-review-page) .wm { margin: 12px 0; padding: 14px; overflow-wrap: anywhere; }
+  :host-context(.submission-review-page) .wm__actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  :host-context(.submission-review-page) .wm__actions .ui-btn { width: 100%; padding: 10px 12px; white-space: normal; line-height: 1.4; }
+  :host-context(.submission-review-page) textarea, :host-context(.submission-review-page) select { font-size: 16px; min-width: 0; max-width: 100%; }
+}

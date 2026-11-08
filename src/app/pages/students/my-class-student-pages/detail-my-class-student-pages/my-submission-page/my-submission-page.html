@@ -402,7 +402,9 @@
   @if (!preview && (submission?.draftNumber || 1) > 1) {
     <app-draft-comparison [submissionId]="submission?._id || null"
       [refreshKey]="submission?.draftNumber + ':' + (submission?.assessmentCompletedAt || submission?.evaluationSourceHash || submission?.evaluationStatus || '')"></app-draft-comparison>
-    <!-- Improved Writing Model: rendered only when the backend says the approved text is available for this submission. -->
+  }
+  @if (!preview) {
+    <!-- The API enforces the release rule, including manual release on the first draft. -->
     <app-writing-model-card [submissionId]="submission?._id || null" [refreshKey]="submission?.draftNumber ?? null"></app-writing-model-card>
   }
 

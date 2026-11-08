@@ -51,6 +51,7 @@ export type RecoveryActionState = 'loading' | 'ready' | 'confirming' | 'sending'
     .note.error { color: #b42318; }
     .confirm { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
     .buttons { display: flex; gap: 8px; }
+    @media (max-width: 767px) { :host-context(.submission-page-actions) .recovery-action > button { width: 100%; padding: 10px 12px; font-size: .875rem; line-height: 1.4; } }
   `],
 })
 export class GuestRecoveryLinkAction implements OnChanges, OnDestroy {

@@ -384,3 +384,29 @@
 [data-review-corrections] { display: inline-grid; place-items: center; }
 [data-review-corrections] > span { grid-area: 1 / 1; }
 .submission-review-label-spacer { visibility: hidden; }
+
+@media (max-width: 767px) {
+  .submission-review-page { padding-inline: 0; font-size: 1rem; }
+  .submission-page-header { gap: 12px; margin-bottom: 16px; }
+  .submission-page-header h1 { flex: none; margin: 0; font-size: 1.65rem; }
+  .submission-page-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: none; width: 100%; align-items: stretch; }
+  .submission-page-actions > * { width: 100%; }
+  .submission-page-actions > .btn-danger { grid-column: 1 / -1; }
+  .submission-page-actions:has(app-guest-recovery-link-action) > .btn-danger { grid-column: auto; }
+  .submission-page-actions button { padding: 10px 12px; font-size: .875rem; line-height: 1.4; }
+  .submission-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; }
+  .submission-student-identity { grid-column: 1 / -1; grid-row: 1; min-width: 0; align-items: flex-start; gap: 4px; }
+  .submission-student-identity p { margin: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .submission-navigation > button { width: 100%; min-height: 44px; }
+  .submission-media-header { gap: 12px; }
+  .submission-media-header > p { flex: none; margin: 0; width: 100%; }
+  .submission-media-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  .submission-media-actions button { width: 100%; padding: 10px 8px; font-size: .875rem; line-height: 1.4; }
+  .teacher-comments-editor__textarea { font-size: 16px; line-height: 1.6; min-height: 160px; }
+  .teacher-comments-editor__actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .teacher-comments-editor__actions button { width: 100%; min-height: 44px; padding: 10px 12px; }
+  .evaluation-categories > div { padding: 14px; }
+  .evaluation-action { width: 100%; padding: 10px 12px; font-size: .875rem; line-height: 1.4; }
+  .evaluation-action:first-child { grid-column: 1 / -1; }
+  .evaluation-categories p { line-height: 1.6; }
+}

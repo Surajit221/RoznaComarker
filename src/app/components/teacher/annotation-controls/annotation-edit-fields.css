@@ -39,3 +39,4 @@ textarea.edit-fields__control { resize: vertical; line-height: 1.45; }
 /* The bounded manual editor must not rely on page-level reset styles for field sizing. */
 :host-context(.manual-editor) { min-width: 0; }
 :host-context(.manual-editor) .edit-fields__control { box-sizing: border-box; min-width: 0; max-width: 100%; }
+@media (max-width: 767px) { :host-context(.manual-editor) .edit-fields__control { font-size: 16px; } }

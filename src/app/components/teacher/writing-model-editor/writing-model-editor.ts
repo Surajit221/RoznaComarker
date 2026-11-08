@@ -107,7 +107,7 @@ export class WritingModelEditor implements OnChanges, OnDestroy {
     if (status === 'approved' && !this.text().trim()) { this.error.set(MESSAGES['WRITING_MODEL_EMPTY']); return; }
     const body: WritingModelSaveBody = { requestId: newRequestId(), revision: s.revision, text: this.text(), status, releaseRule: this.releaseRule(),
       ...(this.releaseRule() === 'manual' ? { released: this.released() } : { released: false }) };
-    void this.run('saving', () => this.api.save(id, body), status === 'approved' ? 'Approved. Students see it as the release setting allows.' : 'Saved as a draft. Students do not see it.');
+    void this.run('saving', () => this.api.save(id, body), status === 'approved' ? '' : 'Saved as a draft. Students do not see it.');
   }
 
   askGenerate(): void { if (!this.locked() && !this.aiBlockedReason()) this.confirmGenerate.set(true); }
@@ -126,7 +126,7 @@ export class WritingModelEditor implements OnChanges, OnDestroy {
       const result = await call();
       if (version !== this.version) return;
       this.snapshot.set(result.snapshot); this.applyForm(result.snapshot);
-      this.notice.set(done);
+      this.notice.set(done || this.visibility());
     } catch (failure) {
       if (version !== this.version) return;
       const code = failure instanceof HttpErrorResponse ? failure.error?.code as string | undefined : undefined;

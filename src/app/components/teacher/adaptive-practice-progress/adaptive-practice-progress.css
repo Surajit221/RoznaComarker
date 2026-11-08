@@ -182,3 +182,14 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+@media (max-width: 767px) {
+  :host(.teacher-submission-practice) .panel { padding: 16px; border-radius: 16px; }
+  :host(.teacher-submission-practice) .panel__header { gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  :host(.teacher-submission-practice) .panel__header h2 { font-size: 1.25rem; }
+  :host(.teacher-submission-practice) .summary { gap: 16px; padding: 12px; }
+  :host(.teacher-submission-practice) .summary dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  :host(.teacher-submission-practice) .summary dl > :last-child { grid-column: 1 / -1; }
+  :host(.teacher-submission-practice) .skill-card { padding: 14px; }
+  :host(.teacher-submission-practice) .history-toggle, :host(.teacher-submission-practice) .load-more { min-height: 44px; }
+}

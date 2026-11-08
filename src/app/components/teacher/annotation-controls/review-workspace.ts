@@ -46,6 +46,31 @@ export function applySyncPointer(selection: CorrectionSelection, event: SyncPoin
   styleUrl: './review-workspace.css',
 })
 export class ReviewWorkspace implements OnDestroy {
+  readonly touchSelecting = signal(false);
+  readonly touchSpan = signal<TranscriptSourceSpan | null>(null);
+
+  beginTranscriptPointer(event: PointerEvent): void {
+    if (!this.manualSelection()) return;
+    this.touchSelecting.set(event.pointerType === 'touch' || event.pointerType === 'pen');
+    if (!this.touchSelecting()) this.touchSpan.set(null);
+  }
+
+  /** Native mobile handles have no reliable final mouseup. Keep their range until the teacher confirms it. */
+  private readTouchSelection(): void {
+    if (!this.touchSelecting()) return;
+    const selection = this.host.nativeElement.ownerDocument.getSelection();
+    const node = selection?.anchorNode;
+    const element = node?.nodeType === Node.ELEMENT_NODE ? node as Element : node?.parentElement;
+    const root = element?.closest<HTMLElement>('[data-source-content]');
+    this.touchSpan.set(root && this.host.nativeElement.contains(root) ? this.transcriptSpan(root, false) : null);
+  }
+
+  useTouchSelection(): void {
+    const span = this.touchSpan();
+    if (!this.manualSelection() || !span || span.sourceHash !== this.snapshot().sourceHash) return;
+    this.sourceSelected.emit({ ...span, focusEditor: true });
+    this.touchSpan.set(null);
+  }
   readonly corrections = input<TemplateRef<unknown> | null>(null);
   readonly toolbarActions = input<TemplateRef<unknown> | null>(null);
   readonly editor = input<TemplateRef<unknown> | null>(null);
@@ -83,14 +108,19 @@ export class ReviewWorkspace implements OnDestroy {
     }, { injector: this.injector });
   }
   captureTranscriptSelection(event: Event): void {
-    if (!this.manualSelection()) return;
+    if (!this.manualSelection() || (this.touchSelecting() && !(event instanceof KeyboardEvent))) return;
     if (event instanceof KeyboardEvent && !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Shift'].includes(event.key)) return;
     const root = event.currentTarget as HTMLElement, selection = root.ownerDocument.getSelection();
     if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return;
+    this.sourceSelected.emit(this.transcriptSpan(root, !(event instanceof KeyboardEvent && event.shiftKey)));
+  }
+  private transcriptSpan(root: HTMLElement, focusEditor: boolean): TranscriptSourceSpan | null {
+    const selection = root.ownerDocument.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return null;
     const page = this.snapshot().pages.find(page => page.fileId === root.dataset['fileId'] && page.pageNumber === Number(root.dataset['page']));
     const span = page ? transcriptSourceRange(root, selection.getRangeAt(0), page) : null;
-    this.sourceSelected.emit(span && page ? { fileId: page.fileId, page: page.pageNumber, sourceHash: this.snapshot().sourceHash,
-      ...span, quotedText: page.text.slice(span.start, span.end), focusEditor: !(event instanceof KeyboardEvent && event.shiftKey) } : null);
+    return span && page ? { fileId: page.fileId, page: page.pageNumber, sourceHash: this.snapshot().sourceHash,
+      ...span, quotedText: page.text.slice(span.start, span.end), focusEditor } : null;
   }
   protectTranscript(event: Event): void { if (this.manualSelection()) event.preventDefault(); }
 
@@ -167,6 +197,17 @@ export class ReviewWorkspace implements OnDestroy {
   });
 
   constructor() {
+    effect(onCleanup => {
+      const selecting = this.manualSelection();
+      // Changing source/page invalidates a pending native range.
+      this.snapshot(); this.view();
+      untracked(() => { this.touchSpan.set(null); this.touchSelecting.set(false); });
+      if (!selecting) return;
+      const doc = this.host.nativeElement.ownerDocument;
+      const changed = () => this.readTouchSelection();
+      doc.addEventListener('selectionchange', changed);
+      onCleanup(() => doc.removeEventListener('selectionchange', changed));
+    });
     // The page image for a PDF submission: shared with the page's own view, held only while it is the one on screen.
     effect(() => {
       if (!this.isPdf()) return;
