@@ -69,14 +69,14 @@ describe('AdminLayout', () => {
     }
   });
 
-  it('shows a real Logout button and keeps Back to RoznaHub as navigation', () => {
+  it('shows a real Logout button and keeps Back to Rubrilo as navigation', () => {
     const fixture = TestBed.createComponent(AdminLayout); fixture.detectChanges();
     const footer = fixture.nativeElement.querySelector('.sidebar-footer') as HTMLElement;
     const button = footer.querySelector('button') as HTMLButtonElement;
     expect(button.type).toBe('button');
     expect(button.textContent?.trim()).toBe('Logout');
     expect(button.querySelector('[aria-hidden="true"]')).not.toBeNull();
-    expect(footer.querySelector('a')?.textContent).toContain('Back to RoznaHub');
+    expect(footer.querySelector('a')?.textContent).toContain('Back to Rubrilo');
     (footer.querySelector('a') as HTMLAnchorElement).click();
     expect(logout).not.toHaveBeenCalled();
   });

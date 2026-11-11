@@ -63,7 +63,7 @@
             @if (categoryOptions().length) {
               <div class="editor__bulk-cats" role="group" aria-label="Hide every correction of one category">
                 @for (option of categoryOptions(); track option.key) {
-                  <button type="button" class="ui-chip" [attr.data-bulk-category]="option.key" [attr.aria-disabled]="locked() || !!form()" (click)="askHideCategory(option, $event)">Hide all {{ option.label }} <span class="ui-chip__count">({{ option.count }})</span></button>
+                  <button type="button" class="ui-chip" [attr.data-bulk-category]="option.key" [attr.aria-disabled]="locked() || !!form()" (click)="askHideCategory(option, $event)">@if (categoryFill(option.key); as fill) {<span class="ui-chip__swatch" aria-hidden="true" [style.background]="fill" [style.border-color]="categoryEdge(option.key)"></span>}Hide all {{ option.label }} <span class="ui-chip__count">({{ option.count }})</span></button>
                 }
               </div>
             }
@@ -76,7 +76,7 @@
           </div>
         }
 
-        <ng-template #addCorrection>@if (!readOnly()) { <button type="button" class="ui-btn ui-btn--primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }</ng-template>
+        <ng-template #addCorrection>@if (!readOnly()) { <button type="button" class="ui-btn ui-btn--primary" data-add-correction [attr.aria-pressed]="addMode()" [attr.aria-disabled]="locked() || (!!form() && !addMode())" (click)="toggleAddCorrection($event)">Add correction</button> }</ng-template>
         @if (workspaceOpen()) {
           <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
             [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [fileIds]="fileIds()" [isPdf]="isPdf()" [imageStore]="imageStore()"
@@ -109,7 +109,7 @@
         <ul #listPanel class="rows" [class.rows--panel]="workspaceOpen()">
           @for (row of shownRows(); track row.key) {
             <li>
-              <article class="row" [class.row--dimmed]="row.status !== 'visible'" [class.row--active]="selection.activeId() === row.key" [attr.aria-current]="selection.activeId() === row.key ? 'true' : null" [attr.data-row-key]="row.key" [attr.tabindex]="workspaceOpen() ? 0 : -1" [attr.aria-label]="(row.symbol || 'Correction') + ', ' + rowBadges(row)[0].label">
+              <article class="row" [class.row--toned]="!!categoryEdge(row.category)" [style.border-left-color]="categoryEdge(row.category)" [class.row--dimmed]="row.status !== 'visible'" [class.row--active]="selection.activeId() === row.key" [attr.aria-current]="selection.activeId() === row.key ? 'true' : null" [attr.data-row-key]="row.key" [attr.tabindex]="workspaceOpen() ? 0 : -1" [attr.aria-label]="(row.symbol || 'Correction') + ', ' + rowBadges(row)[0].label">
                 @if (selectMode() && !readOnly() && hideable().has(row.key)) {
                   <label class="row__select"><input type="checkbox" data-row-select [checked]="selected().has(row.key)" (change)="toggleSelected(row.key)" /> Select<span class="sr-only"> {{ row.symbol }} {{ row.quotedText }}</span></label>
                 }

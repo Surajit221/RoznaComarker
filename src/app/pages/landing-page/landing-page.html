@@ -8,19 +8,24 @@
       </h1>
 
       <p class="max-w-5xl text-lg md:text-xl text-gray-500">
-        Rozna Co-Marker helps teachers save time, provide consistent feedback, and assess student
+        Rubrilo helps teachers save time, provide consistent feedback, and assess student
         performance with AI-powered analysis of writing and speaking tasks.
       </p>
 
       <figure class="relative w-full">
-        <img
-          src="img/hero-banner.png"
-          alt="Rozna Co-Marker dashboard showing AI-powered feedback interface for English language assessment"
-          class="mx-auto w-full max-w-5xl relative z-30"
-          loading="lazy"
-          width="1200"
-          height="675"
-        />
+        <picture>
+          <source type="image/webp" srcset="img/landing/rubrilo-dashboard-hero.webp" />
+          <img
+            src="img/landing/rubrilo-dashboard-hero.png"
+            alt="Rubrilo teacher dashboard showing the My Classes page"
+            class="mx-auto w-full max-w-5xl h-auto relative z-30"
+            width="1637"
+            height="961"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+          />
+        </picture>
       </figure>
     </div>
   </div>
@@ -29,7 +34,7 @@
 <section class="relative bg-[#377E80] pt-20 pb-28 z-40 -mt-20 md:-mt-72" id="about-us">
   <div class="max-w-7xl mx-auto px-4">
     <header class="text-center flex flex-col gap-4 mt-10 md:mt-20">
-      <h2 class="text-3xl md:text-4xl font-bold text-white">What is Rozna Co-Marker?</h2>
+      <h2 class="text-3xl md:text-4xl font-bold text-white">What is Rubrilo?</h2>
       <p class="max-w-3xl mx-auto text-lg md:text-xl text-white/90">
         An innovative AI-powered web app built for English language teachers to simplify evaluation
         of student writing and speaking tasks.
@@ -104,7 +109,7 @@
         Key Features
       </h2>
       <p class="max-w-3xl mx-auto text-lg md:text-xl text-gray-500">
-        Discover the powerful features that make Rozna Co-Marker the ultimate AI tool for English
+        Discover the powerful features that make Rubrilo the ultimate AI tool for English
         language teachers.
       </p>
     </header>
@@ -213,7 +218,7 @@
           <figure>
             <img
               src="img/students.png"
-              alt="Students using Rozna Co-Marker application on their devices"
+              alt="Students using Rubrilo application on their devices"
               class="w-full h-auto object-cover rounded-3xl"
               loading="lazy"
               width="335"
@@ -236,8 +241,8 @@
     </header>
 
     <div class="flex flex-col gap-24">
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="lg:w-1/2 order-2 lg:order-1">
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5 order-2 xl:order-1">
           <div class="flex flex-col gap-4">
             <span class="text-[#EB614C] font-bold text-xl">Step 01</span>
             <h3 class="text-3xl font-bold text-gray-800">Set Up Your Class</h3>
@@ -248,28 +253,44 @@
             </p>
           </div>
         </div>
-        <div class="lg:w-1/2 order-1 lg:order-2">
-          <figure class="rounded-3xl overflow-hidden">
-            <img
-              src="img/steps/create-new-class-screen.png"
-              alt="Rozna Co-Marker Teacher Dashboard Interface"
-              class="w-full h-auto"
-            />
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5 order-1 xl:order-2">
+          <figure class="landing-step-shot">
+            <picture>
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-01-create-class-phone.webp 720w, img/landing/step-01-create-class-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-01-create-class-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-01-create-class.webp 1500w, img/landing/step-01-create-class@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
+              <img
+                src="img/landing/step-01-create-class.png"
+                alt="The Rubrilo Create New Class form, with fields for class name, subject or level, start and end dates and a description"
+                width="1500"
+                height="1000"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
           </figure>
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="lg:w-1/2">
-          <figure class="rounded-3xl overflow-hidden">
-            <img
-              src="img/steps/upload-essay-screen.png"
-              alt="Student uploading essay or audio task"
-              class="w-full h-auto"
-            />
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5">
+          <figure class="landing-step-shot">
+            <picture>
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-02-upload-essay-phone.webp 720w, img/landing/step-02-upload-essay-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-02-upload-essay-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-02-upload-essay.webp 1500w, img/landing/step-02-upload-essay@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
+              <img
+                src="img/landing/step-02-upload-essay.png"
+                alt="The Rubrilo Upload Essay form showing the assignment title, description and deadline above the area for uploading an image or PDF"
+                width="1500"
+                height="1000"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
           </figure>
         </div>
-        <div class="lg:w-1/2">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5">
           <div class="flex flex-col gap-4">
             <span class="text-[#253761] font-bold text-xl">Step 02</span>
             <h3 class="text-3xl font-bold text-gray-800">Students Submit Tasks</h3>
@@ -282,8 +303,8 @@
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="lg:w-1/2 order-2 lg:order-1">
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5 order-2 xl:order-1">
           <div class="flex flex-col gap-4">
             <span class="text-[#F6C543] font-bold text-xl">Step 03</span>
             <h3 class="text-3xl font-bold text-gray-800">Instant AI Analysis</h3>
@@ -294,28 +315,44 @@
             </p>
           </div>
         </div>
-        <div class="lg:w-1/2 order-1 lg:order-2">
-          <figure class="rounded-3xl overflow-hidden">
-            <img
-              src="img/steps/ai-analyze.png"
-              alt="AI-powered analysis interface"
-              class="w-full h-auto"
-            />
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5 order-1 xl:order-2">
+          <figure class="landing-step-shot">
+            <picture>
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-03-ai-analysis-phone.webp 720w, img/landing/step-03-ai-analysis-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-03-ai-analysis-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-03-ai-analysis.webp 1500w, img/landing/step-03-ai-analysis@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
+              <img
+                src="img/landing/step-03-ai-analysis.png"
+                alt="Rubrilo AI analysis: an overall score of 74.5 out of 100 with grade C next to a student essay whose errors are highlighted by category"
+                width="1500"
+                height="1000"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
           </figure>
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="lg:w-1/2">
-          <figure class="rounded-3xl overflow-hidden">
-            <img
-              src="img/steps/feedback.png"
-              alt="Teacher reviewing and adding personalized comments"
-              class="w-full h-auto"
-            />
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5">
+          <figure class="landing-step-shot">
+            <picture>
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-04-review-phone.webp 720w, img/landing/step-04-review-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-04-review-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-04-review.webp 1500w, img/landing/step-04-review@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
+              <img
+                src="img/landing/step-04-review.png"
+                alt="Rubrilo review screen: the highlighted transcript next to a correction card with edit, hide and delete buttons, and the Add correction button"
+                width="1500"
+                height="1000"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
           </figure>
         </div>
-        <div class="lg:w-1/2">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5">
           <div class="flex flex-col gap-4">
             <span class="text-[#377E80] font-bold text-xl">Step 04</span>
             <h3 class="text-3xl font-bold text-gray-800">Review & Personalize</h3>
@@ -335,7 +372,7 @@
   <div class="max-w-7xl mx-auto px-4">
     <header class="text-center flex flex-col gap-4">
       <h2 id="why-teachers-heading" class="text-3xl md:text-4xl font-bold text-white">
-        Why Teachers Love Rozna Co-Marker?
+        Why Teachers Love Rubrilo?
       </h2>
     </header>
 
@@ -465,7 +502,7 @@
       </h2>
 
       <p class="text-lg md:text-xl text-gray-500 leading-relaxed max-w-2xl">
-        Join a new era of smart English language assessment. With Rozna Co-Marker, you can mark
+        Join a new era of smart English language assessment. With Rubrilo, you can mark
         faster, teach smarter, and help your students grow — one essay or speech at a time.
       </p>
 
@@ -473,7 +510,7 @@
         <button
           type="button"
           class="bg-[#377E80] hover:bg-[#2c6566] text-white text-lg font-bold px-10 py-3 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-[#377E80] focus:ring-offset-2"
-          aria-label="Get started with Rozna Co-Marker"
+          aria-label="Get started with Rubrilo"
         >
           Get Started
         </button>

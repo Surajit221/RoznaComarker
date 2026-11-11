@@ -6,9 +6,9 @@
     [class.is-open]="drawerOpen()"
     aria-label="Admin sidebar"
     tabindex="-1">
-    <a class="admin-brand" routerLink="/admin/credits" (click)="closeDrawer(false)" aria-label="RoznaHub Admin home">
-      <img src="img/logo.png" alt="" aria-hidden="true" />
-      <span><strong>RoznaHub</strong><small>Admin portal</small></span>
+    <a class="admin-brand" routerLink="/admin/credits" (click)="closeDrawer(false)" aria-label="Rubrilo Admin home">
+      <img src="logo_and_icon/rubrilo-symbol-full.svg" width="40" height="40" alt="" aria-hidden="true" />
+      <span><strong>Rubrilo</strong><small>Admin portal</small></span>
     </a>
 
     <nav class="admin-navigation" aria-label="Admin navigation">
@@ -30,7 +30,7 @@
     <div class="sidebar-footer">
       <a routerLink="/" (click)="closeDrawer(false)">
         <i class="bx bx-left-arrow-alt" aria-hidden="true"></i>
-        <span>Back to RoznaHub</span>
+        <span>Back to Rubrilo</span>
       </a>
       <button type="button" (click)="logout()" [disabled]="loggingOut()">
         <i class="bx bx-log-out" aria-hidden="true"></i>

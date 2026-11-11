@@ -1,7 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
-  ChangeDetectionStrategy, Component, ElementRef, Injectable, Injector, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
+  ChangeDetectionStrategy, Component, ElementRef, HostListener, Injectable, Injector, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TeacherAnnotationApiService } from '../../../api/teacher-annotation-api.service';
@@ -23,6 +23,7 @@ import { CorrectionSelection, SelectionSource } from './correction-selection';
 import type { MarkMenuAction, MarkMenuEntry } from './annotation-mark-menu';
 import { ReviewWorkspace, SyncPointer, applySyncPointer, scrollPanelTo } from './review-workspace';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
+import { categoryTone } from '../../../constants/category-palette';
 
 const UNSAVED_KEY = 'teacher-annotation-editor';
 const PAGE_SIZE = 50;
@@ -152,6 +153,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   private readonly symbols = computed(() => new Map(this.groups().flatMap(g => g.symbols.map(s => [s.symbol, g.key] as [string, string]))));
   readonly formPage = computed(() => { const f = this.form(); return f ? this.snapshot()?.pages?.[f.pageIndex] : undefined; });
   readonly formErrors = computed<FormErrors>(() => { const f = this.form(); return f ? validateForm(f.value, this.formPage(), this.symbols()) : {}; });
+  /** Add correction mode: the add form is open and transcript text can be selected. */
+  readonly addMode = computed(() => this.form()?.mode === 'add');
   readonly formDirty = computed(() => { const f = this.form(); return Boolean(f && JSON.stringify(f.value) !== f.initial); });
   readonly manualSelection = computed(() => (this.form()?.mode === 'add' || this.form()?.selectingSource === true) && !this.saving() && !this.pending() && !this.readOnly());
   readonly manualPanelOpen = computed(() => this.form()?.mode === 'add' && !!this.form()?.value.quotedText && !this.formErrors().span);
@@ -178,6 +181,9 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly selectedCount = computed(() => [...this.selected()].filter(key => this.hideable().has(key)).length);
   readonly categoryOptions = computed(() => this.groups().map(group => ({ key: group.key, label: group.label, count: bulkTargets(this.rows(), 'hide', { category: group.key }).length }))
     .filter(option => option.count > 0));
+  /** Display palette (shared with the transcript highlights); null for an unknown category. */
+  categoryEdge(category: string | null | undefined): string | null { return categoryTone(category)?.edge ?? null; }
+  categoryFill(category: string | null | undefined): string | null { return categoryTone(category)?.fill ?? null; }
   readonly hiddenCount = computed(() => bulkTargets(this.rows(), 'restore', { all: true }).length);
   readonly gradeCheckBlock = computed(() => this.saving() ? 'A correction is being saved. Wait for it to finish.'
     : this.hasUnsaved() ? 'Save or cancel your correction first: the scores should be checked against what the student will see.' : '');
@@ -641,6 +647,22 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     const body: AnnotationBody = { action: f.mode, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId(), value: { ...f.value },
       ...(f.mode === 'edit' && f.targetId ? { id: f.targetId } : {}) };
     void this.send(body, f.rowKey, true);
+  }
+
+  /** The Add correction button is a toggle: a second press leaves the mode, like the form's Close. Never while a save is in flight. */
+  toggleAddCorrection(event: Event): void {
+    if (!this.addMode()) { this.openForm(null, event); return; }
+    if (this.locked()) return;
+    this.cancelForm();
+  }
+
+  /** Esc leaves Add correction mode anywhere in the editor, as Esc in a form field already does (AnnotationEditFields). Dialogs handle their own Esc. */
+  @HostListener('keydown', ['$event'])
+  onEditorKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.defaultPrevented || !this.addMode() || this.locked() || this.confirmRow() || this.historyOpen()) return;
+    if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"], dialog')) return;
+    event.preventDefault();
+    this.cancelForm();
   }
 
   cancelForm(): void {

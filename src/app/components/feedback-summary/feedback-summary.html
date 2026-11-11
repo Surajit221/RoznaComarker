@@ -28,8 +28,8 @@
         <span class="flex items-center gap-2">
           <span
             class="color-swatch"
-            [style.background]="toRgba(g.color, 0.45)"
-            [style.border-color]="g.color || null"
+            [style.background]="toneFill(g.key, g.color, 0.45)"
+            [style.border-color]="toneEdge(g.key, g.color)"
           ></span>
           <span class="text-sm font-medium text-gray-700">{{ g.label }}</span>
         </span>
@@ -48,8 +48,8 @@
           <span class="flex items-center gap-2 min-w-0">
             <span
               class="symbol-pill"
-              [style.border-color]="s.groupColor || null"
-              [style.background]="toRgba(s.groupColor, 0.18)"
+              [style.border-color]="toneEdge(s.groupKey, s.groupColor)"
+              [style.background]="toneFill(s.groupKey, s.groupColor, 0.18)"
             >
               {{ s.symbol }}
             </span>

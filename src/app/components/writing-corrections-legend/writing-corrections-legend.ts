@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, Output, inject } from '@angular/core';
 
 import type { CorrectionLegend } from '../../models/correction-legend.model';
+import { categoryTone } from '../../constants/category-palette';
 
 @Component({
   selector: 'app-writing-corrections-legend',
@@ -34,6 +35,10 @@ export class WritingCorrectionsLegendComponent implements AfterViewInit {
   private isDialog(): boolean {
     return this.host.nativeElement.classList.contains('mobile-bottom-sheet');
   }
+
+  /** Category display palette (shared with transcript highlights); falls back to the stored colour for an unknown category. */
+  toneFill(key: string | null | undefined, color: string | null | undefined, alpha: number): string { return categoryTone(key, color)?.fill ?? this.toRgba(color ?? null, alpha); }
+  toneEdge(key: string | null | undefined, color: string | null | undefined): string | null { return categoryTone(key, color)?.edge ?? (color || null); }
 
   toRgba(color: string | null | undefined, alpha: number): string {
     const c = typeof color === 'string' ? color.trim() : '';

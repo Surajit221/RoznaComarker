@@ -154,6 +154,7 @@ import { buildEvaluationStatusPresentation } from '../../../../../utils/evaluati
 import { hasMeaningfulAssignmentRubric } from '../../../../../utils/assignment-rubric-presence.util';
 import { CanonicalSubmissionResultCoordinator, shouldPollCanonicalResult, type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
+import { categoryTone } from '../../../../../constants/category-palette';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
@@ -775,6 +776,11 @@ export class StudentSubmissionPages {
   }
 
 
+
+  /** Legend badges use the shared category display palette; unknown colours keep the previous rendering. */
+  legendBadgeFill(color: string | null | undefined): string { return categoryTone(null, color)?.fill ?? this.toRgba(color, 0.28); }
+  legendBadgeText(color: string | null | undefined): string { return categoryTone(null, color)?.text ?? this.badgeTextColor(color); }
+  legendBadgeBorder(color: string | null | undefined): string { return categoryTone(null, color)?.edge ?? this.badgeBorderColor(color); }
 
   badgeTextColor(color: string | null | undefined): string {
 

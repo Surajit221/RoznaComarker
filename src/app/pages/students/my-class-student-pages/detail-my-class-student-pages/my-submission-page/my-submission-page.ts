@@ -54,6 +54,7 @@ import { CanonicalSubmissionResultCoordinator,
   type ResultRefreshSnapshot } from '../../../../../services/canonical-submission-result-coordinator.service';
 import { buildTranscriptPageViews, type TranscriptPageView } from '../../../../../utils/transcript-page-views.util';
 import { annotationsForFileId, correctionGeometryTargets, normalizeCorrectionBboxList } from '../../../../../utils/correction-bbox.util';
+import { categoryTone } from '../../../../../constants/category-palette';
 
 type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded' | 'empty' | 'stale' | 'error';
 
@@ -245,6 +246,11 @@ export class MySubmissionPage {
     const lin = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
     return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
   }
+
+  /** Legend badges use the shared category display palette; unknown colours keep the previous rendering. */
+  legendBadgeFill(color: string | null | undefined): string { return categoryTone(null, color)?.fill ?? this.toRgba(color, 0.28); }
+  legendBadgeText(color: string | null | undefined): string { return categoryTone(null, color)?.text ?? this.badgeTextColor(color); }
+  legendBadgeBorder(color: string | null | undefined): string { return categoryTone(null, color)?.edge ?? this.badgeBorderColor(color); }
 
   badgeTextColor(color: string | null | undefined): string {
     const lum = this.relativeLuminance(color);
