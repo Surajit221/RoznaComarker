@@ -241,8 +241,8 @@
     </header>
 
     <div class="flex flex-col gap-24">
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="lg:w-1/2 order-2 lg:order-1">
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5 order-2 xl:order-1">
           <div class="flex flex-col gap-4">
             <span class="text-[#EB614C] font-bold text-xl">Step 01</span>
             <h3 class="text-3xl font-bold text-gray-800">Set Up Your Class</h3>
@@ -253,13 +253,15 @@
             </p>
           </div>
         </div>
-        <div class="w-full lg:w-1/2 order-1 lg:order-2">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5 order-1 xl:order-2">
           <figure class="landing-step-shot">
             <picture>
-              <source type="image/webp" srcset="img/landing/step-01-create-class.webp 1500w, img/landing/step-01-create-class@2x.webp 3000w" sizes="(min-width: 1024px) 600px, 100vw" />
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-01-create-class-phone.webp 720w, img/landing/step-01-create-class-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-01-create-class-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-01-create-class.webp 1500w, img/landing/step-01-create-class@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
               <img
                 src="img/landing/step-01-create-class.png"
-                alt="Rubrilo teacher dashboard with the Create New Class form open on the My Classes page"
+                alt="The Rubrilo Create New Class form, with fields for class name, subject or level, start and end dates and a description"
                 width="1500"
                 height="1000"
                 loading="lazy"
@@ -270,14 +272,16 @@
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="w-full lg:w-1/2">
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5">
           <figure class="landing-step-shot">
             <picture>
-              <source type="image/webp" srcset="img/landing/step-02-upload-essay.webp 1500w, img/landing/step-02-upload-essay@2x.webp 3000w" sizes="(min-width: 1024px) 600px, 100vw" />
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-02-upload-essay-phone.webp 720w, img/landing/step-02-upload-essay-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-02-upload-essay-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-02-upload-essay.webp 1500w, img/landing/step-02-upload-essay@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
               <img
                 src="img/landing/step-02-upload-essay.png"
-                alt="Rubrilo student class page with the Upload Essay form open for a writing assignment"
+                alt="The Rubrilo Upload Essay form showing the assignment title, description and deadline above the area for uploading an image or PDF"
                 width="1500"
                 height="1000"
                 loading="lazy"
@@ -286,7 +290,7 @@
             </picture>
           </figure>
         </div>
-        <div class="lg:w-1/2">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5">
           <div class="flex flex-col gap-4">
             <span class="text-[#253761] font-bold text-xl">Step 02</span>
             <h3 class="text-3xl font-bold text-gray-800">Students Submit Tasks</h3>
@@ -299,8 +303,8 @@
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="lg:w-1/2 order-2 lg:order-1">
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5 order-2 xl:order-1">
           <div class="flex flex-col gap-4">
             <span class="text-[#F6C543] font-bold text-xl">Step 03</span>
             <h3 class="text-3xl font-bold text-gray-800">Instant AI Analysis</h3>
@@ -311,13 +315,15 @@
             </p>
           </div>
         </div>
-        <div class="w-full lg:w-1/2 order-1 lg:order-2">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5 order-1 xl:order-2">
           <figure class="landing-step-shot">
             <picture>
-              <source type="image/webp" srcset="img/landing/step-03-ai-analysis.webp 1500w, img/landing/step-03-ai-analysis@2x.webp 3000w" sizes="(min-width: 1024px) 600px, 100vw" />
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-03-ai-analysis-phone.webp 720w, img/landing/step-03-ai-analysis-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-03-ai-analysis-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-03-ai-analysis.webp 1500w, img/landing/step-03-ai-analysis@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
               <img
                 src="img/landing/step-03-ai-analysis.png"
-                alt="Rubrilo AI analysis: a student essay with colour-coded corrections for content, organization, grammar, vocabulary and mechanics, next to the overall score and correction statistics"
+                alt="Rubrilo AI analysis: an overall score of 74.5 out of 100 with grade C next to a student essay whose errors are highlighted by category"
                 width="1500"
                 height="1000"
                 loading="lazy"
@@ -328,14 +334,16 @@
         </div>
       </div>
 
-      <div class="flex flex-col lg:flex-row items-center gap-12">
-        <div class="w-full lg:w-1/2">
+      <div class="flex flex-col xl:flex-row items-center gap-12">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-3/5">
           <figure class="landing-step-shot">
             <picture>
-              <source type="image/webp" srcset="img/landing/step-04-review.webp 1500w, img/landing/step-04-review@2x.webp 3000w" sizes="(min-width: 1024px) 600px, 100vw" />
+              <source media="(max-width: 767px)" type="image/webp" srcset="img/landing/step-04-review-phone.webp 720w, img/landing/step-04-review-phone@2x.webp 1200w" sizes="calc(100vw - 32px)" />
+              <source media="(max-width: 767px)" srcset="img/landing/step-04-review-phone.png" />
+              <source type="image/webp" srcset="img/landing/step-04-review.webp 1500w, img/landing/step-04-review@2x.webp 3000w" sizes="(min-width: 1280px) 720px, 760px" />
               <img
                 src="img/landing/step-04-review.png"
-                alt="Rubrilo review screen where the teacher checks, edits or hides each correction before the student sees it"
+                alt="Rubrilo review screen: the highlighted transcript next to a correction card with edit, hide and delete buttons, and the Add correction button"
                 width="1500"
                 height="1000"
                 loading="lazy"
@@ -344,7 +352,7 @@
             </picture>
           </figure>
         </div>
-        <div class="lg:w-1/2">
+        <div class="w-full max-w-[760px] xl:max-w-none xl:w-2/5">
           <div class="flex flex-col gap-4">
             <span class="text-[#377E80] font-bold text-xl">Step 04</span>
             <h3 class="text-3xl font-bold text-gray-800">Review & Personalize</h3>

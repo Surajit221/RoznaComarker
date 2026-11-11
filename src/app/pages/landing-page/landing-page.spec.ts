@@ -45,8 +45,15 @@ describe('LandingPage', () => {
       expect(img.getAttribute('height')).toBe('1000');
       expect(img.getAttribute('loading')).toBe('lazy');
       expect(img.alt.length).toBeGreaterThan(20);
-      expect(frame.querySelector('source')?.getAttribute('srcset'))
-        .toBe(`img/landing/${names[i]}.webp 1500w, img/landing/${names[i]}@2x.webp 3000w`);
+      // Phones get their own tighter crop, so the text stays legible at a phone's image width.
+      const [phone, phonePng, wide] = [...frame.querySelectorAll('source')];
+      expect(phone.getAttribute('media')).toBe('(max-width: 767px)');
+      expect(phone.getAttribute('srcset')).toBe(`img/landing/${names[i]}-phone.webp 720w, img/landing/${names[i]}-phone@2x.webp 1200w`);
+      expect(phonePng.getAttribute('media')).toBe('(max-width: 767px)');
+      expect(phonePng.getAttribute('srcset')).toBe(`img/landing/${names[i]}-phone.png`);
+      expect(wide.getAttribute('media')).toBeNull();
+      expect(wide.getAttribute('srcset')).toBe(`img/landing/${names[i]}.webp 1500w, img/landing/${names[i]}@2x.webp 3000w`);
+      expect(wide.getAttribute('sizes')).toBe('(min-width: 1280px) 720px, 760px');
       const style = getComputedStyle(frame);
       expect(style.aspectRatio).toBe('3 / 2');
       expect(getComputedStyle(img).objectFit).toBe('cover');
