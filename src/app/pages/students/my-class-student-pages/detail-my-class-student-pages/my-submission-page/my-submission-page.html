@@ -157,9 +157,9 @@
                 <div class="space-y-3">
                   @for (item of correctionLegendItems; track item.symbol) {
                   <div class="flex items-center">
-                    <span class="correction-badge" [style.background]="toRgba(item.color, 0.28)"
-                      [style.color]="badgeTextColor(item.color)"
-                      [style.border]="'1px solid ' + badgeBorderColor(item.color)">{{ item.symbol }}</span>
+                    <span class="correction-badge" [style.background]="legendBadgeFill(item.color)"
+                      [style.color]="legendBadgeText(item.color)"
+                      [style.border]="'1px solid ' + legendBadgeBorder(item.color)">{{ item.symbol }}</span>
                     <span class="text-sm text-gray-600 ml-2">{{ item.label }}</span>
                   </div>
                   }

@@ -23,6 +23,7 @@ import { CorrectionSelection, SelectionSource } from './correction-selection';
 import type { MarkMenuAction, MarkMenuEntry } from './annotation-mark-menu';
 import { ReviewWorkspace, SyncPointer, applySyncPointer, scrollPanelTo } from './review-workspace';
 import type { SharedPageImages } from '../../submission-page-review/shared-page-images';
+import { categoryTone } from '../../../constants/category-palette';
 
 const UNSAVED_KEY = 'teacher-annotation-editor';
 const PAGE_SIZE = 50;
@@ -178,6 +179,9 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
   readonly selectedCount = computed(() => [...this.selected()].filter(key => this.hideable().has(key)).length);
   readonly categoryOptions = computed(() => this.groups().map(group => ({ key: group.key, label: group.label, count: bulkTargets(this.rows(), 'hide', { category: group.key }).length }))
     .filter(option => option.count > 0));
+  /** Display palette (shared with the transcript highlights); null for an unknown category. */
+  categoryEdge(category: string | null | undefined): string | null { return categoryTone(category)?.edge ?? null; }
+  categoryFill(category: string | null | undefined): string | null { return categoryTone(category)?.fill ?? null; }
   readonly hiddenCount = computed(() => bulkTargets(this.rows(), 'restore', { all: true }).length);
   readonly gradeCheckBlock = computed(() => this.saving() ? 'A correction is being saved. Wait for it to finish.'
     : this.hasUnsaved() ? 'Save or cancel your correction first: the scores should be checked against what the student will see.' : '');

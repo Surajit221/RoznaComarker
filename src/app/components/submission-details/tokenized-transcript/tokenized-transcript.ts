@@ -3,6 +3,7 @@ import { type AfterViewChecked, type AfterViewInit, Component, ElementRef, Event
 
 import type { FeedbackAnnotation } from '../../../models/feedback-annotation.model';
 import type { OcrWord } from '../../../models/ocr-token.model';
+import { categoryTone } from '../../../constants/category-palette';
 
 /** Teacher card: at most this wide, and at most 70% of the viewport high (the content scrolls inside it, the actions do not). */
 export const TEACHER_CARD_MAX_WIDTH = 380;
@@ -433,38 +434,48 @@ export class TokenizedTranscript implements OnChanges, OnDestroy, AfterViewInit,
     const anns = this.getWordAnnotations(wordId);
     if (!anns.length) return null;
 
-    const colors = anns
-      .map((a) => (typeof a.color === 'string' ? a.color.trim() : ''))
-      .filter(Boolean);
+    // Known categories use the shared display palette (solid tint, dark edge); anything else keeps its own colour, stronger than before.
+    const tones = anns
+      .map((a) => {
+        const color = typeof a.color === 'string' ? a.color.trim() : '';
+        const tone = categoryTone(a.category || a.group, color);
+        return tone ? { fill: tone.fill, edge: tone.edge } : color ? { fill: this.toRgba(color, 0.45), edge: color } : null;
+      })
+      .filter((t): t is { fill: string; edge: string } => t !== null);
 
-    if (!colors.length) {
+    if (!tones.length) {
       return {
-        'border-bottom-color': '#FFC107',
-        background: 'rgba(255, 193, 7, 0.15)'
+        'border-bottom-color': '#B45309',
+        background: 'rgba(255, 193, 7, 0.45)'
       };
     }
 
-    if (colors.length === 1) {
+    if (tones.length === 1) {
       return {
-        'border-bottom-color': colors[0],
-        background: this.toRgba(colors[0], 0.18)
+        'border-bottom-color': tones[0].edge,
+        background: tones[0].fill
       };
     }
 
-    const stops = colors
+    const stops = tones
       .slice(0, 4)
-      .map((c, idx, arr) => {
+      .map((t, idx, arr) => {
         const start = Math.round((idx * 100) / arr.length);
         const end = Math.round(((idx + 1) * 100) / arr.length);
-        const rgba = this.toRgba(c, 0.18);
-        return `${rgba} ${start}% ${end}%`;
+        return `${t.fill} ${start}% ${end}%`;
       })
       .join(', ');
 
     return {
-      'border-bottom-color': colors[0],
+      'border-bottom-color': tones[0].edge,
       background: `linear-gradient(90deg, ${stops})`
     };
+  }
+
+  /** The popover chip: the same category tint as the highlight. */
+  chipTone(a: FeedbackAnnotation): { fill: string | null; edge: string | null } {
+    const tone = categoryTone(a.category || a.group, a.color);
+    return tone ? { fill: tone.fill, edge: tone.edge } : { fill: null, edge: a.color || null };
   }
 
   getTooltipText(wordId: string): string {

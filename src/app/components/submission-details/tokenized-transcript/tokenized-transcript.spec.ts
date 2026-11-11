@@ -201,3 +201,61 @@ describe('TokenizedTranscript tooltip stability', () => {
     expect(component.activeWordId).toBeNull();
   }));
 });
+
+describe('TokenizedTranscript category highlight colours', () => {
+  const build = (annotations: object[]) => {
+    const component = new TokenizedTranscript();
+    component.ocrWords = [{ id: 'w1', text: 'Their', bbox: null, separatorBefore: '' }];
+    component.annotations = annotations as never;
+    component.ngOnChanges({ ocrWords: new SimpleChange(null, component.ocrWords, true), annotations: new SimpleChange(null, component.annotations, true) });
+    return component;
+  };
+
+  it('draws a known category with the solid display tint and its dark edge, not the stored pastel at 18%', () => {
+    const style = build([{ _id: 'a', submissionId: 's', wordIds: ['w1'], category: 'GRAMMAR', color: '#B7E4C7' }]).getHighlightStyle('w1');
+    expect(style).toEqual({ 'border-bottom-color': '#15803D', background: '#97DDB0' });
+  });
+
+  it('resolves the category from the stored legend colour when the category is missing', () => {
+    const style = build([{ _id: 'a', submissionId: 's', wordIds: ['w1'], color: '#FFF3BF' }]).getHighlightStyle('w1');
+    expect(style).toEqual({ 'border-bottom-color': '#A16207', background: '#FFE066' });
+  });
+
+  it('keeps an unknown colour, at a stronger tint than before', () => {
+    const style = build([{ _id: 'a', submissionId: 's', wordIds: ['w1'], category: 'STYLE', color: '#336699' }]).getHighlightStyle('w1');
+    expect(style).toEqual({ 'border-bottom-color': '#336699', background: 'rgba(51, 102, 153, 0.45)' });
+  });
+
+  it('splits overlapping categories into solid stops', () => {
+    const style = build([
+      { _id: 'a', submissionId: 's', wordIds: ['w1'], category: 'CONTENT', color: '#FFD6A5' },
+      { _id: 'b', submissionId: 's', wordIds: ['w1'], category: 'MECHANICS', color: '#FFF3BF' },
+    ]).getHighlightStyle('w1');
+    expect(style).toEqual({ 'border-bottom-color': '#B45309', background: 'linear-gradient(90deg, #FFC285 0% 50%, #FFE066 50% 100%)' });
+  });
+
+  it('gives the popover chip the same tint as the highlight', () => {
+    const component = build([]);
+    expect(component.chipTone({ _id: 'a', submissionId: 's', category: 'Vocabulary' } as never)).toEqual({ fill: '#D6AEF7', edge: '#7E22CE' });
+    expect(component.chipTone({ _id: 'a', submissionId: 's', color: '#123456' } as never)).toEqual({ fill: null, edge: '#123456' });
+  });
+
+  it('marks the active highlight with an outline, not a yellow background that would match Mechanics', async () => {
+    await TestBed.configureTestingModule({ imports: [TokenizedTranscript] }).compileComponents();
+    const fixture = TestBed.createComponent(TokenizedTranscript), component = fixture.componentInstance;
+    component.ocrWords = [{ id: 'w1', text: 'Their', bbox: null, separatorBefore: '' }];
+    component.annotations = [{ _id: 'a', submissionId: 's', wordIds: ['w1'], category: 'MECHANICS', color: '#FFF3BF' }] as never;
+    component.syncMode = true; component.syncActiveId = 'a';
+    component.ngOnChanges({ ocrWords: new SimpleChange(null, component.ocrWords, true), annotations: new SimpleChange(null, component.annotations, true),
+      syncActiveId: new SimpleChange(null, 'a', true) });
+    fixture.detectChanges();
+    const word = fixture.nativeElement.querySelector('.correction-highlight') as HTMLElement;
+    expect(word).withContext('highlight rendered').not.toBeNull();
+    expect(getComputedStyle(word).backgroundColor).toBe('rgb(255, 224, 102)');
+    expect(getComputedStyle(word).color).toBe('rgb(17, 24, 39)');
+    expect(word.classList).toContain('is-sync-active');
+    expect(getComputedStyle(word).outlineStyle).toBe('solid');
+    expect(getComputedStyle(word).borderBottomWidth).toBe('3px');
+    fixture.destroy();
+  });
+});

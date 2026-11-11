@@ -48,7 +48,7 @@
       <div class="tt-body" data-transcript-card-body>
         @for (a of cardAnnotations(); track a._id) {
           <section class="tt-item">
-            <p class="tt-item__head"><span class="tt-chip" [style.border-color]="a.color || null">{{ a.symbol || 'Correction' }}</span>@if (a.category || a.group) {<span class="tt-cat">{{ a.category || a.group }}</span>}</p>
+            <p class="tt-item__head"><span class="tt-chip" [style.border-color]="chipTone(a).edge" [style.background]="chipTone(a).fill">{{ a.symbol || 'Correction' }}</span>@if (a.category || a.group) {<span class="tt-cat">{{ a.category || a.group }}</span>}</p>
             @if (a.message) {<p class="tt-label">What to improve</p><p class="tt-text">{{ a.message }}</p>}
             @if (a.quotedText) {<p class="tt-label">Original</p><p class="tt-text">{{ a.quotedText }}</p>}
             @if (a.suggestedText) {<p class="tt-label">Suggested</p><p class="tt-text tt-text--suggested">{{ a.suggestedText }}</p>}
