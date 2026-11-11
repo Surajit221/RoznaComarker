@@ -176,7 +176,7 @@ export class WorksheetReportPdfService {
         {
           columns: [
             {
-              text: 'RoznaHub',
+              text: 'Rubrilo',
               style: 'brandTitle',
               width: 120,
             },
