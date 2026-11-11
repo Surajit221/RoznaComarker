@@ -76,7 +76,7 @@
           </div>
         }
 
-        <ng-template #addCorrection>@if (!readOnly()) { <button type="button" class="ui-btn ui-btn--primary" [attr.aria-disabled]="locked() || !!form()" (click)="openForm(null, $event)">Add correction</button> }</ng-template>
+        <ng-template #addCorrection>@if (!readOnly()) { <button type="button" class="ui-btn ui-btn--primary" data-add-correction [attr.aria-pressed]="addMode()" [attr.aria-disabled]="locked() || (!!form() && !addMode())" (click)="toggleAddCorrection($event)">Add correction</button> }</ng-template>
         @if (workspaceOpen()) {
           <app-review-workspace [submissionId]="submissionId()" [snapshot]="data" [rows]="rows()" [positions]="positions()"
             [imageUrl]="imageUrl()" [imageLoading]="imageLoading()" [imageFailed]="imageFailed()" [activeFileId]="activeFileId()" [fileIds]="fileIds()" [isPdf]="isPdf()" [imageStore]="imageStore()"

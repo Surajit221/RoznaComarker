@@ -59,6 +59,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 @media (any-pointer: coarse) { .workspace__touch-selection { display: inline; } }
 [data-source-content][contenteditable] { cursor: text; caret-color: #008081; }
 [data-source-content][contenteditable] { -webkit-user-select: text; user-select: text; touch-action: auto; }
+/* Outside Add correction a selection can do nothing, so none is offered. Hover, focus and click on highlights still work. */
+[data-source-content]:not([contenteditable]) { -webkit-user-select: none; user-select: none; }
 [data-source-content]:focus-visible { outline: 2px solid #008081; outline-offset: 2px; }
 .workspace__corrections-panel { min-width: 0; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: auto; }
 .workspace__corrections-panel:not(.workspace__editor) { display: flex; flex-direction: column; }

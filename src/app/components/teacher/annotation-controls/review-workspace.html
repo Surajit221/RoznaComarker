@@ -78,7 +78,7 @@
               [attr.role]="manualSelection() ? 'textbox' : null" [attr.aria-label]="manualSelection() ? 'Select correction text, page ' + page.displayNumber : null"
               [attr.aria-readonly]="manualSelection() ? 'true' : null" [attr.aria-multiline]="manualSelection() ? 'true' : null"
               (beforeinput)="protectTranscript($event)" (paste)="protectTranscript($event)" (cut)="protectTranscript($event)" (drop)="protectTranscript($event)"
-              (pointerdown)="beginTranscriptPointer($event)" (mouseup)="captureTranscriptSelection($event)" (keyup)="captureTranscriptSelection($event)">
+              (selectstart)="blockSelection($event)" (pointerdown)="beginTranscriptPointer($event)" (mouseup)="captureTranscriptSelection($event)" (keyup)="captureTranscriptSelection($event)">
             @if (page.words.length) {
             <app-tokenized-transcript [ocrWords]="page.words" [annotations]="page.annotations" [manualWordIds]="selectedSource()?.fileId === page.fileId && selectedSource()?.page === page.pageNumber ? manualWords() : null" [syncMode]="true" [syncActiveId]="selection.activeId()" [syncStates]="states()" (syncPointer)="onPointer($event, 'transcript')" />
             } @else if (page.text.trim()) { <p>{{ page.text }}</p> } @else { <p data-transcript-unavailable>Transcript is not available for this page.</p> }

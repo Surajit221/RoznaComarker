@@ -123,6 +123,13 @@ export class ReviewWorkspace implements OnDestroy {
       ...span, quotedText: page.text.slice(span.start, span.end), focusEditor } : null;
   }
   protectTranscript(event: Event): void { if (this.manualSelection()) event.preventDefault(); }
+  /** Outside Add correction a transcript selection has no use: none is started (CSS alone does not cover every browser or script). */
+  blockSelection(event: Event): void { if (!this.manualSelection()) event.preventDefault(); }
+  /** A range left in the transcript after the mode ends would look selectable and could be read later. */
+  private clearTranscriptSelection(): void {
+    const selection = this.host.nativeElement.ownerDocument.getSelection();
+    if (selection?.rangeCount && selection.anchorNode && this.host.nativeElement.contains(selection.anchorNode)) selection.removeAllRanges();
+  }
 
   revealText(): void {
     this.narrowTab.set('text');
@@ -202,7 +209,7 @@ export class ReviewWorkspace implements OnDestroy {
       // Changing source/page invalidates a pending native range.
       this.snapshot(); this.view();
       untracked(() => { this.touchSpan.set(null); this.touchSelecting.set(false); });
-      if (!selecting) return;
+      if (!selecting) { untracked(() => this.clearTranscriptSelection()); return; }
       const doc = this.host.nativeElement.ownerDocument;
       const changed = () => this.readTouchSelection();
       doc.addEventListener('selectionchange', changed);

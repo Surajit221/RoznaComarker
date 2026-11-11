@@ -176,6 +176,100 @@ describe('AnnotationControls', () => {
     });
   });
 
+  describe('Add correction mode (transcript selection only while adding)', () => {
+    const transcript = () => dom().querySelector<HTMLElement>('[data-source-content]')!;
+    const addButton = () => dom().querySelector<HTMLButtonElement>('[data-add-correction]')!;
+    const selectStartBlocked = () => { const event = new Event('selectstart', { bubbles: true, cancelable: true }); transcript().querySelector('[data-word-id]')!.dispatchEvent(event); return event.defaultPrevented; };
+    const escape = async (target: Element = transcript()) => { target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); await settle(); };
+    const selectionInTranscript = () => { const s = document.getSelection(); return !!s?.rangeCount && transcript().contains(s.anchorNode); };
+    beforeEach(async () => { await create({ desktop: true }); await component.toggle(); await settle(); });
+    afterEach(() => document.getSelection()?.removeAllRanges());
+
+    it('by default the transcript is not selectable, a selection does nothing, and highlights still work', async () => {
+      expect(addButton().getAttribute('aria-pressed')).toBe('false');
+      expect(transcript().hasAttribute('contenteditable')).toBeFalse();
+      expect(getComputedStyle(transcript()).userSelect).toBe('none');
+      expect(selectStartBlocked()).toBeTrue();
+      setSelection(2, 6); await settle();
+      expect(component.form()).toBeNull();
+      expect(dom().querySelector('.workspace__selection-help')).toBeNull();
+      const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      workspace.onPointer({ ids: ['ai_1'], kind: 'activate' }, 'transcript'); await settle();
+      expect(component.selection.pinnedId()).toBe('ai_1');
+      expect(row().classList).toContain('row--active');
+    });
+
+    it('Add correction turns the mode on: pressed, hint, selectable, and a selection fills the form', async () => {
+      addButton().click(); await settle();
+      expect(addButton().getAttribute('aria-pressed')).toBe('true');
+      expect(addButton().getAttribute('aria-disabled')).toBe('false');
+      expect(dom().querySelector('.workspace__selection-help')?.textContent).toContain('Select words or a sentence in the transcript');
+      expect(transcript().getAttribute('contenteditable')).toBe('true');
+      expect(getComputedStyle(transcript()).userSelect).toBe('text');
+      expect(selectStartBlocked()).toBeFalse();
+      setSelection(2, 6); await settle();
+      expect(component.form()?.value).toEqual(jasmine.objectContaining({ startChar: 2, endChar: 6, quotedText: 'goes' }));
+    });
+
+    it('pressing Add correction again leaves the mode and clears the browser selection', async () => {
+      addButton().click(); await settle(); setSelection(2, 6); await settle();
+      expect(selectionInTranscript()).toBeTrue();
+      addButton().click(); await settle();
+      expect(component.form()).toBeNull();
+      expect(addButton().getAttribute('aria-pressed')).toBe('false');
+      expect(transcript().hasAttribute('contenteditable')).toBeFalse();
+      expect(selectionInTranscript()).toBeFalse();
+      expect(selectStartBlocked()).toBeTrue();
+    });
+
+    it('Esc leaves the mode from the transcript and, as before, from a form field', async () => {
+      addButton().click(); await settle(); setSelection(2, 6); await settle();
+      await escape();
+      expect(component.form()).toBeNull();
+      expect(selectionInTranscript()).toBeFalse();
+      addButton().click(); await settle(); setSelection(2, 6); await settle();
+      fill('annotation-message', 'Draft explanation'); await settle();
+      await escape(dom().querySelector('#annotation-message')!);
+      expect(component.form()).toBeNull();
+      expect(addButton().getAttribute('aria-pressed')).toBe('false');
+      expect(selectionInTranscript()).toBeFalse();
+    });
+
+    it('saving leaves the mode and clears the selection; Esc in an open dialog is left to the dialog', async () => {
+      addButton().click(); await settle(); setSelection(2, 6); await settle();
+      component.chooseSymbol('ART'); fill('annotation-message', 'Note'); fill('annotation-suggestion', 'Fix'); await settle();
+      component.saveForm(); await settle();
+      expect(api.calls[0]?.action).toBe('add');
+      expect(component.form()).toBeNull();
+      expect(addButton().getAttribute('aria-pressed')).toBe('false');
+      expect(selectionInTranscript()).toBeFalse();
+      addButton().click(); await settle();
+      const dialog = document.createElement('div'); dialog.setAttribute('role', 'dialog'); dom().appendChild(dialog);
+      await escape(dialog);
+      expect(component.form()?.mode).toBe('add');
+      dialog.remove();
+    });
+
+    it('an edit form keeps Add correction disabled and not pressed; the mode is the same in every layout and page', async () => {
+      button('Edit', row())!.click(); await settle();
+      expect(addButton().getAttribute('aria-pressed')).toBe('false');
+      expect(addButton().getAttribute('aria-disabled')).toBe('true');
+      addButton().click(); await settle();
+      expect(component.form()?.mode).toBe('edit');
+      button('Close Edit correction')!.click(); await settle();
+      const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      for (const layout of ['image', 'text', 'split'] as const) {
+        workspace.layout.desktop.set(layout); await settle();
+        addButton().click(); await settle();
+        expect(workspace.layout.desktop()).withContext(layout).not.toBe('image');
+        expect(transcript().getAttribute('contenteditable')).withContext(layout).toBe('true');
+        await escape();
+        expect(component.form()).withContext(layout).toBeNull();
+        expect(getComputedStyle(transcript()).userSelect).withContext(layout).toBe('none');
+      }
+    });
+  });
+
   describe('workspace action presentation', () => {
     it('projects one original Add correction trigger to the workspace toolbar, with no Transcript-header trigger', async () => {
       await create(); await component.toggle(); await settle();
