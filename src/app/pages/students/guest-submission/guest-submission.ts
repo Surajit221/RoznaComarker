@@ -13,7 +13,7 @@ import { MySubmissionPage } from '../my-class-student-pages/detail-my-class-stud
 import { GUEST_STUDENT_PROVIDERS, GuestStudentAccess } from '../../../services/guest-student-access.service';
 import { ImagePreflightService } from '../../../services/image-preflight.service';
 import { CanonicalSubmissionResultCoordinator } from '../../../services/canonical-submission-result-coordinator.service';
-import { RecoveryCooldown, recoveryRequestError } from '../../../services/recovery-cooldown';
+import { RECOVERY_EMAIL_PROMPT, RecoveryCooldown, recoveryRequestError } from '../../../services/recovery-cooldown';
 
 interface GuestAssignment { title: string; instructions?: string; deadline?: string; [key: string]: unknown; }
 interface GuestConfirmation { received: boolean; duplicate?: boolean; message?: string; returnUrl?: string; emailSent?: boolean; }
@@ -234,7 +234,7 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
   get linkText(): string {
     return this.linkProblem === 'missing' ? 'This page opens with the private link we emailed you. If you no longer have that email, enter your submission email below and we will send a new link.'
       : this.linkProblem === 'closed' ? 'Your teacher has closed this assignment or class, so its results can no longer be opened here. Please contact your teacher.'
-        : 'Enter the email address you used when submitting, and we will send you a new link.';
+        : `${RECOVERY_EMAIL_PROMPT} We will send you a new link.`;
   }
   async recover(): Promise<void> {
     if (this.recovering || this.recoveryCooldown.active) return;

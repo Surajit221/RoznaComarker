@@ -41,6 +41,9 @@ export class RecoveryCooldown {
   }
 }
 
+/** Shared wording: a guest's email may have been entered by their teacher (uploaded work) or by themselves (QR submission). */
+export const RECOVERY_EMAIL_PROMPT = 'Enter the email address your teacher used or you used when submitting.';
+
 /** The honest message for a failed recovery request. Rate limits also start the countdown (Retry-After, else 5 minutes). */
 export function recoveryRequestError(error: unknown, cooldown: RecoveryCooldown): string {
   const response = error as HttpErrorResponse;
@@ -49,6 +52,6 @@ export function recoveryRequestError(error: unknown, cooldown: RecoveryCooldown)
     cooldown.start(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 300);
     return 'Too many requests. Please wait before asking for another link.';
   }
-  if (response?.status === 400) return 'Enter the email address you used when submitting.';
+  if (response?.status === 400) return RECOVERY_EMAIL_PROMPT;
   return 'We could not send your request. Please check your connection and try again.';
 }

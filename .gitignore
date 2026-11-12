@@ -48,3 +48,7 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Local screenshots that contain real personal data (a student's email and essay, a real name). Never commit.
+/public/img/steps/ai-analyze.png
+/public/img/steps/feedback.png

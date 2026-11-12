@@ -11,13 +11,16 @@ import type { CanDeactivateFn } from '@angular/router';
 export class UnsavedWorkRegistry {
   private readonly document = inject(DOCUMENT);
   private readonly keys = signal<ReadonlySet<string>>(new Set());
+  /** What a registered key would lose, in words, when it is not the default (unsaved corrections). */
+  private readonly messages = new Map<string, string>();
   readonly hasWork = computed(() => this.keys().size > 0);
 
   private readonly beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
 
   has(key: string): boolean { return this.keys().has(key); }
 
-  register(key: string): void {
+  register(key: string, message?: string): void {
+    if (message) this.messages.set(key, message); else this.messages.delete(key);
     if (this.keys().has(key)) return;
     if (!this.hasWork()) this.document.defaultView?.addEventListener('beforeunload', this.beforeUnload);
     this.keys.update(keys => new Set(keys).add(key));
@@ -25,6 +28,7 @@ export class UnsavedWorkRegistry {
 
   clear(key: string): void {
     if (!this.keys().has(key)) return;
+    this.messages.delete(key);
     const next = new Set(this.keys()); next.delete(key);
     this.keys.set(next);
     if (!next.size) this.document.defaultView?.removeEventListener('beforeunload', this.beforeUnload);
@@ -33,7 +37,9 @@ export class UnsavedWorkRegistry {
   /** The user is about to leave (route change, another submission): true when nothing is unsaved or they agreed to discard it. */
   confirmLeave(): boolean {
     if (!this.hasWork()) return true;
-    if (!this.document.defaultView?.confirm('You have unsaved changes to corrections. Leave and discard them?')) return false;
+    const message = [...this.keys()].map(key => this.messages.get(key)).find(Boolean)
+      || 'You have unsaved changes to corrections. Leave and discard them?';
+    if (!this.document.defaultView?.confirm(message)) return false;
     for (const key of [...this.keys()]) this.clear(key);
     return true;
   }

@@ -192,9 +192,9 @@ function solveCrop({ subject, atoms, bounds, wMax, margin = MARGIN }) {
   const MARGIN = margin;
   subject = { x: Math.floor(subject.x), y: Math.floor(subject.y), right: Math.ceil(subject.right), bottom: Math.ceil(subject.bottom) };
   const need = { w: subject.right - subject.x + 2 * MARGIN, h: subject.bottom - subject.y + 2 * MARGIN };
-  // An edge must clear every atom by at least 1px (an underline or border touching the edge reads as cut).
-  const crossY = (y, left, right) => atoms.some(a => a.right > left && a.x < right && a.y - 1 < y && y < a.bottom + 1);
-  const crossX = (x, top, bottom) => atoms.some(a => a.bottom > top && a.y < bottom && a.x - 1 < x && x < a.right + 1);
+  // An edge may touch an atom but never cut into it (an underline or border is part of its atom's box).
+  const crossY = (y, left, right) => atoms.some(a => a.right > left && a.x < right && a.y < y && y < a.bottom);
+  const crossX = (x, top, bottom) => atoms.some(a => a.bottom > top && a.y < bottom && a.x < x && x < a.right);
   const startW = Math.ceil(Math.max(need.w, need.h * 1.5));
   if (process.env.CAPTURE_DEBUG) console.log('solve', JSON.stringify({ subject, need, startW, wMax, bounds }));
   for (let w = startW; w <= wMax; w++) {
@@ -367,9 +367,9 @@ function solveCrop({ subject, atoms, bounds, wMax, margin = MARGIN }) {
       const left = Math.min(p.x, ...panes.map(b => b.x)), right = Math.max(k.right, a.right, ...panes.map(b => b.right));
       // 4px margin: the frame must end above the second card and start below a whole row of the "Hide all" chips.
       return { subject: { x: left, y: a.y, right, bottom: k.bottom }, margin: 4 }; } };
-  const reviewPhone = { scroll: () => [...document.querySelectorAll('[data-row-key]')].find(window.__cap.visible).scrollIntoView({ block: 'center' }),
-    find: () => { const c = window.__cap; const card = [...document.querySelectorAll('[data-row-key]')].find(c.visible); if (!card) return null; const k = c.box(card);
-      // A whole card is taller than a legible phone frame: show it from the category line down to its edit, hide and delete buttons.
+  const reviewPhone = { scroll: () => [...document.querySelectorAll('[data-row-key]')].filter(window.__cap.visible).find(k => !/Selected/.test(k.textContent)).scrollIntoView({ block: 'center' }),
+    find: () => { const c = window.__cap; const card = [...document.querySelectorAll('[data-row-key]')].filter(c.visible).find(k => !/Selected/.test(k.textContent)); if (!card) return null; const k = c.box(card);
+      // The first card not in the app's "Selected" state (that state reads as hover or focus). A whole card is taller than a legible phone frame: show it from the category line down to its edit, hide and delete buttons.
       const category = c.byText('*', 'GRAMMAR$', card); const top = category ? c.box(category).y : k.y;
       return { subject: { x: k.x, y: top, right: k.right, bottom: k.bottom }, margin: 4 }; } };
 

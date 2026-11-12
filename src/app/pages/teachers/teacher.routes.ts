@@ -26,7 +26,7 @@ export const TEACHER_ROUTE: Routes = [
       { path: 'institution', loadComponent: () => import('./institution/institution').then((m) => m.InstitutionPage) },
       { path: 'my-classes/detail/student-profile/:studentId', component: StudentProfilePages },
       { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages, canDeactivate: [unsavedWorkGuard] },
-      { path: 'my-classes/detail/:slug', component: DetailMyClassesPages },
+      { path: 'my-classes/detail/:slug', component: DetailMyClassesPages, canDeactivate: [unsavedWorkGuard] },
     ],
   },
 ];

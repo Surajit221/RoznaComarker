@@ -7,6 +7,8 @@ import { DialogViewSubmissions } from './dialog-view-submissions';
 import { AssignmentApiService } from '../../../../../api/assignment-api.service';
 import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
 import { Subject } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { TeacherUploadApiService, type TeacherUploadItem } from '../../../../../api/teacher-upload-api.service';
 
 describe('DialogViewSubmissions loading states', () => {
   let component: DialogViewSubmissions;
@@ -27,7 +29,13 @@ describe('DialogViewSubmissions loading states', () => {
     }),
     retryStaleEvaluations: jasmine.createSpy()
   };
+  const teacherUploadApi = {
+    list: jasmine.createSpy().and.resolveTo({ items: [], credits: { available: 0 } }),
+    send: jasmine.createSpy(),
+    retry: jasmine.createSpy()
+  };
   const alert = {
+    showSuccess: jasmine.createSpy(),
     showError: jasmine.createSpy(),
     showConfirm: jasmine.createSpy().and.resolveTo(true),
     showToast: jasmine.createSpy()
@@ -55,6 +63,9 @@ describe('DialogViewSubmissions loading states', () => {
     alert.showConfirm.calls.reset();
     alert.showConfirm.and.resolveTo(true);
     alert.showToast.calls.reset();
+    alert.showError.calls.reset(); alert.showSuccess.calls.reset();
+    teacherUploadApi.list.calls.reset(); teacherUploadApi.list.and.resolveTo({ items: [], credits: { available: 0 } });
+    teacherUploadApi.send.calls.reset(); teacherUploadApi.retry.calls.reset();
     await TestBed.configureTestingModule({
       imports: [DialogViewSubmissions],
       providers: [
@@ -64,6 +75,7 @@ describe('DialogViewSubmissions loading states', () => {
         { provide: AlertService, useValue: alert },
         { provide: Router, useValue: { navigate: jasmine.createSpy() } },
         { provide: TeacherDashboardStateService, useValue: dashboardState },
+        { provide: TeacherUploadApiService, useValue: teacherUploadApi },
       ],
     }).compileComponents();
 
@@ -71,6 +83,109 @@ describe('DialogViewSubmissions loading states', () => {
     component = fixture.componentInstance;
     fixture.componentRef.setInput('assignmentId', 'assignment-a');
     fixture.detectChanges();
+  });
+
+  describe('work uploaded by the teacher', () => {
+    const item = (over: Partial<TeacherUploadItem> = {}): TeacherUploadItem => ({ submissionId: 'submission-1', name: 'Sam Lee', email: 'sam@example.com',
+      account: 'guest', uploadedByTeacher: true, pages: 2, status: 'marked', emailStatus: 'none', emailSentAt: null, emailFailedAt: null,
+      uploadedAt: '2026-11-11T10:00:00.000Z', ...over });
+    async function show(upload: TeacherUploadItem) {
+      teacherUploadApi.list.and.resolveTo({ items: [upload], credits: { available: 3 } });
+      const loading = component.load(true);
+      resolveRequest([{ _id: 'submission-1', guest: { displayName: 'Sam Lee' } } as unknown as BackendSubmission,
+        { _id: 'submission-2', student: { displayName: 'Mia' } } as BackendSubmission]);
+      await loading; await fixture.whenStable(); fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('marks teacher uploads with their marking and email status; other rows are unchanged', async () => {
+      const root = await show(item({ status: 'processing', emailStatus: 'queued' }));
+      const badges = root.querySelectorAll('[data-teacher-upload]');
+      expect(badges.length).toBe(1);
+      expect(badges[0].textContent).toContain('Uploaded by teacher');
+      expect(badges[0].textContent).toContain('Marking…');
+      expect(badges[0].textContent).toContain('Email queued');
+      expect(badges[0].querySelector('button')).toBeNull();
+    });
+
+    it('sends the feedback email, and offers Resend after a failure', async () => {
+      const root = await show(item({ emailStatus: 'failed' }));
+      const resend = root.querySelector('[data-teacher-upload] button') as HTMLButtonElement;
+      expect(resend.textContent).toContain('Resend');
+      teacherUploadApi.send.and.resolveTo({ alreadyRequested: false, item: item({ emailStatus: 'queued' }) });
+      resend.click(); await fixture.whenStable(); fixture.detectChanges();
+      expect(teacherUploadApi.send).toHaveBeenCalledOnceWith('assignment-a', 'submission-1');
+      expect(root.querySelector('[data-teacher-upload]')!.textContent).toContain('Email queued');
+      expect(alert.showSuccess).toHaveBeenCalledWith('Email queued', 'The feedback link will be emailed shortly.');
+    });
+
+    it('labels an uncertain delivery next to Resend and explains the risk of a second copy', async () => {
+      const root = await show(item({ emailStatus: 'failed', emailDeliveryUncertain: true }));
+      const info = root.querySelector('[data-teacher-upload]')!;
+      expect(info.textContent).toContain('Delivery uncertain');
+      expect(info.textContent).not.toContain('Email failed');
+      const note = info.querySelector('[data-delivery-uncertain]') as HTMLElement;
+      expect(note.textContent).toContain('Resend could send a second copy.');
+      const resend = info.querySelector('button') as HTMLButtonElement;
+      expect(resend.textContent).toContain('Resend');
+      expect(resend.getAttribute('aria-describedby')).toBe(note.id);
+    });
+
+    it('an ordinary failure keeps the plain label and no uncertainty note', async () => {
+      const info = (await show(item({ emailStatus: 'failed', emailDeliveryUncertain: false }))).querySelector('[data-teacher-upload]')!;
+      expect(info.textContent).toContain('Email failed');
+      expect(info.querySelector('[data-delivery-uncertain]')).toBeNull();
+      expect(info.querySelector('button')!.getAttribute('aria-describedby')).toBeNull();
+    });
+
+    it('marking failed: says the email was not sent, keeps Send disabled, and offers Retry marking', async () => {
+      for (const emailStatus of ['none', 'queued', 'held'] as const) {
+        const info = (await show(item({ status: 'failed', emailStatus }))).querySelector('[data-teacher-upload]')!;
+        expect(info.textContent).toContain('Marking failed');
+        expect(info.textContent).toContain('Marking failed, email not sent');
+        const buttons = [...info.querySelectorAll('button')];
+        const send = buttons.find(b => b.textContent!.trim().startsWith('Send'))!;
+        expect(send.disabled).withContext(emailStatus).toBeTrue();
+        expect(document.getElementById(send.getAttribute('aria-describedby')!)?.textContent).toContain('Available after marking succeeds.');
+        expect(buttons.some(b => b.hasAttribute('data-retry-marking') && !b.disabled)).toBeTrue();
+      }
+    });
+
+    it('Retry marking restarts marking once and shows the new status', async () => {
+      const root = await show(item({ status: 'failed', emailStatus: 'held' }));
+      teacherUploadApi.retry.and.resolveTo({ alreadyRequested: false, item: item({ status: 'uploaded', emailStatus: 'queued' }) });
+      (root.querySelector('[data-retry-marking]') as HTMLButtonElement).click(); await fixture.whenStable(); fixture.detectChanges();
+      expect(teacherUploadApi.retry).toHaveBeenCalledOnceWith('assignment-a', 'submission-1');
+      const info = root.querySelector('[data-teacher-upload]')!;
+      expect(info.textContent).toContain('Uploaded');
+      expect(info.textContent).toContain('Email queued');
+      expect(info.querySelector('[data-retry-marking]')).toBeNull();
+      expect(alert.showSuccess).toHaveBeenCalledWith('Marking restarted', 'This work is being marked again. Check back in a few minutes.');
+    });
+
+    it('Retry marking explains a refusal in plain words (for example no credits left)', async () => {
+      const root = await show(item({ status: 'failed' }));
+      teacherUploadApi.retry.and.rejectWith(new HttpErrorResponse({ status: 402,
+        error: { code: 'INSUFFICIENT_CREDITS', message: 'You have no assessment credits left. Add credits to retry marking.' } }));
+      (root.querySelector('[data-retry-marking]') as HTMLButtonElement).click(); await fixture.whenStable();
+      expect(alert.showError).toHaveBeenCalledWith('Marking not restarted', 'You have no assessment credits left. Add credits to retry marking.');
+    });
+
+    it('shows a plain message when sending fails', async () => {
+      const root = await show(item());
+      teacherUploadApi.send.and.rejectWith(new HttpErrorResponse({ status: 429, error: { message: 'Too many' } }));
+      (root.querySelector('[data-teacher-upload] button') as HTMLButtonElement).click(); await fixture.whenStable();
+      expect(alert.showError).toHaveBeenCalledWith('Email not queued', 'Too many requests. Please wait a minute and try again.');
+    });
+
+    it('still lists submissions when the upload statuses cannot be loaded', async () => {
+      teacherUploadApi.list.and.rejectWith(new Error('offline'));
+      const loading = component.load(true);
+      resolveRequest([{ _id: 'submission-2', student: { displayName: 'Mia' } } as BackendSubmission]);
+      await loading; await fixture.whenStable(); fixture.detectChanges();
+      expect(component.modalState).toBe('loaded');
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-teacher-upload]')).toBeNull();
+    });
   });
 
   it('opens in loading state with three skeleton rows', () => {

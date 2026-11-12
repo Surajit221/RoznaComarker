@@ -172,6 +172,10 @@
                         >
                           <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
                         </button>
+                        <button type="button" class="assignment-utility assignment-utility--upload" (click)="openUploadWork(item.id)"
+                          [attr.aria-label]="'Upload student work for ' + item.title">
+                          <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload work
+                        </button>
                       }
                       <button
                         type="button"
@@ -526,6 +530,10 @@
                 >
                   <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
                 </button>
+                <button type="button" class="assignment-utility assignment-utility--upload" (click)="openUploadWork(item.id)"
+                  [attr.aria-label]="'Upload student work for ' + item.title">
+                  <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload work
+                </button>
               }
               @if (item.resourceType === 'worksheet' && item.resourceId) {
                 <button
@@ -728,3 +736,11 @@
   [message]="errorModal.message"
   (closed)="errorModal = { open: false, title: '', message: '' }"
 ></app-error-modal>
+
+<app-upload-student-work-dialog
+  [open]="!!uploadWorkAssignmentId"
+  [assignmentId]="uploadWorkAssignmentId"
+  [assignmentTitle]="uploadWorkAssignmentTitle"
+  [classId]="classId"
+  (closed)="onUploadWorkClosed($event)"
+></app-upload-student-work-dialog>
