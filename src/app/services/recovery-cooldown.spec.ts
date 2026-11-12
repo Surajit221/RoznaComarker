@@ -33,7 +33,7 @@ describe('recoveryRequestError', () => {
     recoveryRequestError(error(429), cooldown);
     expect(cooldown.remaining()).toBe(300);
     cooldown.stop();
-    expect(recoveryRequestError(error(400), cooldown)).toContain('email address');
+    expect(recoveryRequestError(error(400), cooldown)).toBe('Enter the email address your teacher used or you used when submitting.');
     expect(recoveryRequestError(error(0), cooldown)).toContain('could not send');
     expect(cooldown.active).toBeFalse();
   });

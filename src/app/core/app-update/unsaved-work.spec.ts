@@ -58,6 +58,19 @@ describe('UnsavedWorkRegistry', () => {
     expect(registry.hasWork()).toBeFalse();
     expect(attached.size).toBe(0);
   });
+
+  it('confirmLeave: says what would be lost when a registrant described it; the default is unsaved corrections', () => {
+    const confirm = spyOn(window, 'confirm').and.returnValue(false);
+    registry.register('corrections');
+    registry.confirmLeave();
+    expect(confirm).toHaveBeenCalledWith('You have unsaved changes to corrections. Leave and discard them?');
+    registry.register('student-uploads', 'You have student work that is not saved yet. Leave and discard it?');
+    registry.confirmLeave();
+    expect(confirm.calls.mostRecent().args[0]).toBe('You have student work that is not saved yet. Leave and discard it?');
+    registry.clear('student-uploads');
+    registry.confirmLeave();
+    expect(confirm.calls.mostRecent().args[0]).toBe('You have unsaved changes to corrections. Leave and discard them?');
+  });
 });
 
 describe('unsavedWorkGuard', () => {

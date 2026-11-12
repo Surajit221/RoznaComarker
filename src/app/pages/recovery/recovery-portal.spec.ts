@@ -147,9 +147,11 @@ describe('RecoveryPortalPage', () => {
     const { fixture, page, http } = setup('request', null);
     fixture.detectChanges();
     expect(page.state).toBe('request');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.intro')?.textContent)
+      .toContain('Enter the email address your teacher used or you used when submitting.');
     page.email = 'nope';
     await page.requestLink();
-    expect(page.requestError).toContain('email address');
+    expect(page.requestError).toBe('Enter the email address your teacher used or you used when submitting.');
     page.email = ' student@example.com ';
     const pending = page.requestLink();
     const req = http.expectOne(`${API}/request`);

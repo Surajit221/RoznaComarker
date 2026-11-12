@@ -53,7 +53,7 @@
       @case ('request') {
         <section class="card content-card">
           <h1 id="portal-title">See all your submissions</h1>
-          <p class="muted intro">Enter the email address you used when submitting. We will email you one private link to all of your assignments.</p>
+          <p class="muted intro">{{ emailPrompt }} We will email you one private link to all of your assignments.</p>
           <form (ngSubmit)="requestLink()" class="recovery-form" novalidate>
             <label for="portal-email">Submission email</label>
             <input class="input-text" id="portal-email" name="email" type="email" [(ngModel)]="email" required maxlength="254" autocomplete="email"

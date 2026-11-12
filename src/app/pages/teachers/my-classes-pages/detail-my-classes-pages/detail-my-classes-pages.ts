@@ -37,6 +37,7 @@ import { getAssignmentCapabilities } from '../../../../utils/assignment-capabili
 import { RubricLibrarySelector } from '../../../../components/teacher/rubric-library-selector/rubric-library-selector';
 import { RubricLibraryStateService } from '../../../../services/rubric-library-state.service';
 import { designerToRubricData, rubricDataToDesigner } from '../../../../utils/rubric-library.util';
+import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-student-work/upload-student-work-dialog';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -58,6 +59,7 @@ import { designerToRubricData, rubricDataToDesigner } from '../../../../utils/ru
     ErrorModal,
     DuplicateAssignmentForm,
     RubricLibrarySelector,
+    UploadStudentWorkDialog,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
@@ -445,6 +447,18 @@ export class DetailMyClassesPages {
       resourceId: a.resourceId,
       instructions: a.instructions?.trim() || undefined,
     };
+  }
+
+  /** "Upload student work" dialog: the assignment it is open for (null when closed). */
+  uploadWorkAssignmentId: string | null = null;
+  get uploadWorkAssignmentTitle(): string {
+    return this.uploadWorkAssignmentId ? this.assignmentsById[this.uploadWorkAssignmentId]?.title || '' : '';
+  }
+  openUploadWork(assignmentId: string): void { this.uploadWorkAssignmentId = assignmentId; }
+  onUploadWorkClosed(event: { saved: number }): void {
+    const assignmentId = this.uploadWorkAssignmentId;
+    this.uploadWorkAssignmentId = null;
+    if (event.saved > 0 && assignmentId) void this.refreshAssignmentSubmissionCount(assignmentId);
   }
 
   openAssignmentQr(assignmentId: string): void {

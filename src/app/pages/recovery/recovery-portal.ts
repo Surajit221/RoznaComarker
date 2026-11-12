@@ -3,7 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { RecoveryCooldown, recoveryRequestError } from '../../services/recovery-cooldown';
+import { RECOVERY_EMAIL_PROMPT, RecoveryCooldown, recoveryRequestError } from '../../services/recovery-cooldown';
 import { RecoveredAssignment, RecoveryPortalService } from '../../services/recovery-portal.service';
 
 export type PortalState = 'request' | 'loading' | 'invalid' | 'empty' | 'list' | 'error';
@@ -34,6 +34,7 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
   requestMessage = '';
   requestError = '';
   readonly cooldown = new RecoveryCooldown();
+  readonly emailPrompt = RECOVERY_EMAIL_PROMPT;
 
   async ngOnInit(): Promise<void> {
     this.setNoReferrer();
@@ -75,7 +76,7 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
   async requestLink(): Promise<void> {
     const email = this.email.trim();
     this.requestError = ''; this.requestMessage = '';
-    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.requestError = 'Enter the email address you used when submitting.'; return; }
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.requestError = RECOVERY_EMAIL_PROMPT; return; }
     if (this.requesting || this.cooldown.active) return;
     this.requesting = true;
     try {

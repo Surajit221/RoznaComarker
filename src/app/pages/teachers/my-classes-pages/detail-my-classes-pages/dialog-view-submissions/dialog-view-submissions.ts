@@ -8,6 +8,7 @@ import { AssignmentApiService, type BulkEvaluationStartResult,
   type StaleEvaluationSummary } from '../../../../../api/assignment-api.service';
 import { environment } from '../../../../../../environments/environment';
 import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
+import { TeacherUploadApiService, friendlyError, type TeacherUploadItem } from '../../../../../api/teacher-upload-api.service';
 
 export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
@@ -29,6 +30,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   private submissionApi = inject(SubmissionApiService);
   private alert = inject(AlertService);
   private assignmentApi = inject(AssignmentApiService);
+  private teacherUploadApi = inject(TeacherUploadApiService);
   private router = inject(Router);
   private teacherDashboardState = inject(TeacherDashboardStateService);
   private freshnessInvalidationSub = this.teacherDashboardState.evaluationFreshnessInvalidated$
@@ -59,7 +61,11 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     name: string;
     image: string;
     lastActivity: string;
+    /** Set when the teacher uploaded this work: marking and email status. */
+    upload?: TeacherUploadItem;
   }[] = [];
+  sendingSubmissionId: string | null = null;
+  retryingSubmissionId: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['assignmentId'] || (changes['open'] && this.open)) void this.load(Boolean(changes['open']));
@@ -97,6 +103,48 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     };
   }
 
+  uploadStatusLabel(item: TeacherUploadItem): string {
+    return ({ uploaded: 'Uploaded', processing: 'Marking…', marked: 'Marked', failed: 'Marking failed' } as const)[item.status];
+  }
+  /** Marking failed and the email has not gone out: there is no feedback to send yet. */
+  markingFailedNoEmail(item: TeacherUploadItem): boolean { return item.status === 'failed' && item.emailStatus !== 'sent'; }
+  emailStatusLabel(item: TeacherUploadItem): string {
+    if (this.markingFailedNoEmail(item) || item.emailStatus === 'held') return 'Marking failed, email not sent';
+    if (item.emailStatus === 'failed' && item.emailDeliveryUncertain) return 'Delivery uncertain';
+    return ({ none: 'Not emailed', queued: 'Email queued', sending: 'Email sending', sent: 'Email sent', failed: 'Email failed' } as const)[item.emailStatus];
+  }
+
+  /** Marks the work again (one credit, charged only if marking succeeds). A held email is then sent once, after marking. */
+  async retryMarking(row: { submissionId: string; upload?: TeacherUploadItem }): Promise<void> {
+    if (!this.assignmentId || !row.upload || this.retryingSubmissionId) return;
+    this.retryingSubmissionId = row.submissionId;
+    try {
+      const result = await this.teacherUploadApi.retry(this.assignmentId, row.submissionId);
+      row.upload = result.item;
+      this.alert.showSuccess('Marking restarted', 'This work is being marked again. Check back in a few minutes.');
+    } catch (error) {
+      this.alert.showError('Marking not restarted', friendlyError(error).message);
+    } finally {
+      this.retryingSubmissionId = null;
+    }
+  }
+
+  /** Send (or resend after a failure) the student's feedback email; the server queues it once, however often this is clicked. */
+  async sendFeedbackEmail(row: { submissionId: string; upload?: TeacherUploadItem }): Promise<void> {
+    if (!this.assignmentId || !row.upload || this.sendingSubmissionId) return;
+    this.sendingSubmissionId = row.submissionId;
+    try {
+      const result = await this.teacherUploadApi.send(this.assignmentId, row.submissionId);
+      row.upload = result.item;
+      this.alert.showSuccess('Email queued', result.item.status === 'marked'
+        ? 'The feedback link will be emailed shortly.' : 'The feedback link will be emailed when marking is finished.');
+    } catch (error) {
+      this.alert.showError('Email not queued', friendlyError(error).message);
+    } finally {
+      this.sendingSubmissionId = null;
+    }
+  }
+
   async load(force = false): Promise<void> {
     const assignmentId = this.assignmentId;
     if (!assignmentId) {
@@ -111,14 +159,17 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     this.students = [];
 
     try {
-      const [submissions, staleSummary] = await Promise.all([
+      const [submissions, staleSummary, uploads] = await Promise.all([
         this.submissionApi.getSubmissionsByAssignment(assignmentId, null, 'cards'),
-        this.assignmentApi.getStaleEvaluationSummary(assignmentId).catch(() => null)
+        this.assignmentApi.getStaleEvaluationSummary(assignmentId).catch(() => null),
+        // Statuses of work the teacher uploaded; the list still loads without them.
+        this.teacherUploadApi.list(assignmentId).catch(() => null)
       ]);
       if (this.destroyed || requestSequence !== this.requestSequence || assignmentId !== this.assignmentId) return;
       this.submissions = submissions || [];
       this.staleEvaluationSummary = staleSummary;
-      this.students = this.submissions.map((s) => this.mapSubmissionToRow(s));
+      const uploadById = new Map((uploads?.items || []).map((item) => [item.submissionId, item]));
+      this.students = this.submissions.map((s) => ({ ...this.mapSubmissionToRow(s), upload: uploadById.get(s._id) }));
       this.modalState = this.students.length ? 'loaded' : 'empty';
       this.loadingAssignmentId = null;
     } catch {

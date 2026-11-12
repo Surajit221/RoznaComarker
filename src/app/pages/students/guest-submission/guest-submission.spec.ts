@@ -144,6 +144,7 @@ describe('guest assignment entry', () => {
     const pending = page.ngOnInit(); await new Promise<void>(resolve => setTimeout(resolve, 0));
     http.expectOne(`${environment.apiUrl}/guest/submissions/submission-a/presentation`).flush({ message: 'This link has expired. Request a new link.' }, { status: 410, statusText: 'Expired' });
     await pending; expect(page.linkProblem).toBe('expired'); expect(page.linkHeading).toContain('expired');
+    expect(page.linkText).toBe('Enter the email address your teacher used or you used when submitting. We will send you a new link.');
     expect(page.linkHeading).not.toContain('unavailable'); expect(router.navigate).not.toHaveBeenCalled();
   });
   it('parses the server URL fragment and retains the token for subsequent requests after scrubbing history', async () => {
