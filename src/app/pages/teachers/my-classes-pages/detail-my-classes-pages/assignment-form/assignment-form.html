@@ -157,7 +157,7 @@
 
   @if(device.isDesktop()) {
   <div class="flex justify-center items-center gap-3">
-    <button type="button" class="btn-danger" (click)="closeDialog()">Cancel</button>
+    <button type="button" class="btn-danger" [disabled]="isSubmitting" (click)="closeDialog()">Cancel</button>
     <button type="submit" class="btn-primary" [disabled]="classForm.invalid || isSubmitting">
       {{ assignment?._id ? 'Update' : 'Submit' }}
     </button>
@@ -167,7 +167,7 @@
     <button type="submit" class="btn-primary-sm w-full" [disabled]="classForm.invalid || isSubmitting">
       {{ assignment?._id ? 'Update' : 'Submit' }}
     </button>
-    <button type="button" class="btn-danger-sm w-full" (click)="closeDialog()">Cancel</button>
+    <button type="button" class="btn-danger-sm w-full" [disabled]="isSubmitting" (click)="closeDialog()">Cancel</button>
   </div>
   }
 </form>
