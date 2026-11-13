@@ -1,5 +1,8 @@
+import { Component, ViewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MyClassesForm } from './my-classes-form';
+import { ModalDialog } from '../../../../shared/modal-dialog/modal-dialog';
+import type { PendingReferenceFile } from '../../../../components/teacher/reference-files-field/reference-files-field';
 import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
 import { ClassApiService, type BackendClass } from '../../../../api/class-api.service';
 import { AlertService } from '../../../../services/alert.service';
@@ -82,5 +85,48 @@ describe('MyClassesForm reference files', () => {
     const upload = spyOn(field(), 'uploadStaged');
     component.onSubmit(); await fixture.whenStable(); await settle();
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('is busy while saving or while files upload', async () => {
+    await setup();
+    expect(component.busy()).toBeFalse();
+    component.isSubmitting = true;
+    expect(component.busy()).toBeTrue();
+    component.isSubmitting = false;
+    field().pending.set([uploadingEntry()]);
+    expect(component.busy()).toBeTrue();
+    field().pending.set([]);
+    expect(component.busy()).toBeFalse();
+  });
+});
+
+const uploadingEntry = (): PendingReferenceFile => ({ key: 'k1', file: new File(['x'], 'notes.pdf'), name: 'notes.pdf', sizeBytes: 1, markedAsRubric: false,
+  state: 'uploading', progress: 40, error: null, requestId: 'request-0001' });
+
+// The Update Class dialog as my-classes-pages hosts it: a backdrop click while files upload must not close the dialog (and lose the upload).
+@Component({ imports: [ModalDialog, MyClassesForm], template: `<app-modal-dialog [open]="true" [dismissible]="!editClassForm.busy()" (closed)="closedCount = closedCount + 1">
+  <app-my-classes-form #editClassForm mode="edit" classId="class-1"></app-my-classes-form></app-modal-dialog>` })
+class EditClassDialogHost { closedCount = 0; @ViewChild(MyClassesForm) form!: MyClassesForm; }
+
+describe('Update Class dialog while reference files upload', () => {
+  it('ignores backdrop clicks while files upload, and closes again once they are done', async () => {
+    const refApi = jasmine.createSpyObj<ReferenceFilesApiService>('ReferenceFilesApiService', ['config', 'list']);
+    refApi.config.and.resolveTo({ enabled: true, maxFiles: 5, maxFileBytes: 10 * 1024 * 1024 });
+    refApi.list.and.resolveTo({ files: [], limits: { maxFiles: 5, maxFileBytes: 1 } });
+    await TestBed.configureTestingModule({ imports: [EditClassDialogHost], providers: [...routedHttpTestProviders(),
+      { provide: ClassApiService, useValue: jasmine.createSpyObj<ClassApiService>('ClassApiService', ['createClass', 'updateClass']) },
+      { provide: AlertService, useValue: jasmine.createSpyObj<AlertService>('AlertService', ['showError', 'showSuccess', 'showWarning']) },
+      { provide: ReferenceFilesApiService, useValue: refApi }] }).compileComponents();
+    const host = TestBed.createComponent(EditClassDialogHost);
+    host.detectChanges(); for (let i = 0; i < 10; i += 1) await Promise.resolve(); host.detectChanges();
+    const backdrop = () => host.nativeElement.querySelector('app-modal-dialog > div') as HTMLElement;
+    (host.componentInstance.form.referenceFiles as ReferenceFilesField).pending.set([uploadingEntry()]);
+    host.detectChanges();
+    backdrop().click();
+    expect(host.componentInstance.closedCount).toBe(0);
+    (host.componentInstance.form.referenceFiles as ReferenceFilesField).pending.set([]);
+    host.detectChanges();
+    backdrop().click();
+    expect(host.componentInstance.closedCount).toBe(1);
   });
 });

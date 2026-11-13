@@ -81,9 +81,9 @@
     <div class="flex justify-center gap-3"><button type="button" class="btn-primary" (click)="confirmArchiveClass()">Archive Class</button><button type="button" class="btn-warning" (click)="closeArchiveDialog()">Cancel</button></div>
   </app-modal-dialog>
 
-  <app-modal-dialog [open]="showEditDialog" (closed)="closeEditDialog()">
+  <app-modal-dialog [open]="showEditDialog" [dismissible]="!editClassForm.busy()" (closed)="closeEditDialog()">
     <h2 class="text-3xl font-bold text-center mb-8">Update Class</h2>
-    <app-my-classes-form
+    <app-my-classes-form #editClassForm
       mode="edit"
       [classId]="selectedClass?._id || null"
       [classData]="selectedClass"
@@ -181,14 +181,14 @@
     Create A New Class
   </button>}
 
-  <app-bottomsheet-dialog [open]="openSheet" (closed)="onCloseCreateClass()">
+  <app-bottomsheet-dialog [open]="openSheet" [dismissible]="!createClassSheetForm.busy()" (closed)="onCloseCreateClass()">
     <h2 class="text-2xl font-bold mb-3">Create A New Class</h2>
-    <app-my-classes-form (created)="onClassCreated($event)" (closed)="onCloseCreateClass()"></app-my-classes-form>
+    <app-my-classes-form #createClassSheetForm (created)="onClassCreated($event)" (closed)="onCloseCreateClass()"></app-my-classes-form>
   </app-bottomsheet-dialog>
 
-  <app-modal-dialog [open]="showEditDialog" (closed)="closeEditDialog()">
+  <app-modal-dialog [open]="showEditDialog" [dismissible]="!editClassSheetForm.busy()" (closed)="closeEditDialog()">
     <h2 class="text-2xl font-bold text-center mb-3">Update Class</h2>
-    <app-my-classes-form
+    <app-my-classes-form #editClassSheetForm
       mode="edit"
       [classId]="selectedClass?._id || null"
       [classData]="selectedClass"

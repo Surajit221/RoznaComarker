@@ -36,6 +36,8 @@ export class AssignmentForm {
   @ViewChild(ReferenceFilesField) referenceFiles?: ReferenceFilesField;
   /** A rubric from a reference file was applied on the server while this form was open. */
   private rubricAppliedFromFile = false;
+  /** Saving or files uploading: the dialog around this form ignores backdrop clicks (bound by the hosting page). */
+  busy(): boolean { return this.isSubmitting || Boolean(this.referenceFiles?.busy()); }
   classForm: FormGroup;
   @Input() classId: string | null = null;
   @Input() assignment: BackendAssignment | null = null;

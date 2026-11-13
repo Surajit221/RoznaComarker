@@ -26,6 +26,8 @@ export class MyClassesForm implements OnChanges {
   isSubmitting = false;
   /** Reference files for AI marking (shown only when the backend has the feature on). */
   @ViewChild(ReferenceFilesField) referenceFiles?: ReferenceFilesField;
+  /** Saving or files uploading: the dialog around this form ignores backdrop clicks (bound by the hosting page). */
+  busy(): boolean { return this.isSubmitting || Boolean(this.referenceFiles?.busy()); }
 
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() classId: string | null = null;

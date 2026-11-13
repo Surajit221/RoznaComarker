@@ -80,6 +80,8 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
   readonly atLimit = computed(() => this.count() >= this.config().maxFiles);
   readonly staged = computed(() => this.pending().filter(entry => entry.state === 'staged'));
   readonly uploading = computed(() => this.pending().some(entry => entry.state === 'uploading'));
+  /** Uploading, waiting for files to be read, or saving a reviewed rubric: the dialog around the form must not close from its backdrop. */
+  readonly busy = computed(() => this.uploading() || this.waiting() || this.reviewSaving());
   readonly isAssignment = computed(() => this.scope === 'assignment');
 
   private uploads = new Map<string, Subscription>();

@@ -45,6 +45,17 @@ describe('AssignmentForm reference files', () => {
     component.classForm.patchValue({ className: 'River essay', writingType: 'Argumentative', startDate: '2099-08-11', message: 'Argue for or against the bridge.' });
   }
 
+  it('is busy (the hosting dialog ignores its backdrop) while saving, uploading, waiting for files to be read, or saving a reviewed rubric', () => {
+    expect(component.busy()).toBeFalse();
+    component.isSubmitting = true; expect(component.busy()).toBeTrue(); component.isSubmitting = false;
+    field().pending.set([{ key: 'k', file: new File(['x'], 'a.pdf'), name: 'a.pdf', sizeBytes: 1, markedAsRubric: false, state: 'uploading', progress: 1,
+      error: null, requestId: 'request-0001' }]);
+    expect(component.busy()).toBeTrue(); field().pending.set([]);
+    field().waiting.set(true); expect(component.busy()).toBeTrue(); field().waiting.set(false);
+    field().reviewSaving.set(true); expect(component.busy()).toBeTrue(); field().reviewSaving.set(false);
+    expect(component.busy()).toBeFalse();
+  });
+
   it('shows the field for writing assignments (create), scoped to the assignment, before the rubric section', () => {
     const element = fixture.nativeElement.querySelector('app-reference-files-field');
     expect(element).not.toBeNull();
