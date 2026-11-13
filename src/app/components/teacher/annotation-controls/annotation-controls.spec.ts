@@ -286,7 +286,8 @@ describe('AnnotationControls', () => {
     });
     it('uses labelled, titled icons with unchanged permissions and a 44px target', async () => {
       await create(); await openEditor();
-      const icons = [['Edit', 'bx-pencil'], ['Hide', 'bx-hide'], ['Remove', 'bx-trash']];
+      // FIX 1 (intentional): the show/hide icon shows the state, so a visible correction's Hide button has the plain eye.
+      const icons = [['Edit', 'bx-pencil'], ['Hide', 'bx-show'], ['Remove', 'bx-trash']];
       for (const [label, icon] of icons) {
         const action = button(label, row())!;
         expect(action.getAttribute('aria-label')).toBe(label + ' correction AGR');
@@ -301,7 +302,7 @@ describe('AnnotationControls', () => {
       expect(component.form()?.mode).toBe('edit');
       component.cancelForm(); await settle();
       api.current = snapshot({ corrections: [correction({ moderationStatus: 'hidden' })] }); await component.reload(); await settle();
-      expect(button('Restore', row())!.querySelector('i')?.classList).toContain('bx-show');
+      expect(button('Show', row())!.querySelector('i')?.classList).toContain('bx-hide');   // hidden: crossed eye, action "Show"
       expect(button('Hide', row())).toBeUndefined();
     });
     it('preserves a manual draft and its canonical offsets while changing source images', async () => {
@@ -1158,7 +1159,7 @@ describe('AnnotationControls', () => {
     it('offers only the legal actions per state', () => {
       const labels = (key: string) => [...row(key).querySelectorAll('button')].map(b => (b.getAttribute('aria-label') ?? b.textContent)?.trim().split(/\s/)[0]);
       expect(labels('ai_1')).toEqual(['Edit', 'Hide', 'Remove']);
-      expect(labels('ai_2')).toEqual(['Edit', 'Restore', 'Remove']);
+      expect(labels('ai_2')).toEqual(['Edit', 'Show', 'Remove']);   // hidden: the eye toggle says Show; Restore is only for removed ones
       expect(labels('ai_3')).toEqual(['Restore']);
       expect(labels('orphan:teacher_6')).toEqual(['Place', 'Remove']);
       expect(labels('orphan:teacher_7')).toEqual(['Restore']);
@@ -1177,6 +1178,124 @@ describe('AnnotationControls', () => {
       const archived = component.rows().find(r => r.key === 'ai_3')!;
       component.run('hide', archived);
       expect(api.calls).toEqual([]);
+    });
+  });
+
+  // FIX 1: one show/hide toggle. The icon shows the STATE (eye = visible to the student, crossed eye = hidden); the label, tooltip and aria-pressed say the ACTION.
+  describe('show/hide toggle', () => {
+    const eye = (key = 'ai_1') => row(key).querySelector<HTMLButtonElement>('[data-row-visibility]')!;
+    const hiddenSnapshot = (revision = 4) => snapshot({ revision, corrections: [correction({ moderationStatus: 'hidden' })] });
+    const deferred = () => {
+      let resolve!: (v: { revision: number }) => void, reject!: (e: unknown) => void;
+      const promise = new Promise<{ revision: number }>((ok, fail) => { resolve = ok; reject = fail; });
+      return { promise, resolve, reject };
+    };
+    beforeEach(async () => { await create(); await openEditor(); });
+
+    it('visible: eye, "Hide correction", not pressed, "Visible to student", not dimmed; hidden: crossed eye, "Show correction", pressed, "Hidden from student", dimmed', async () => {
+      expect(eye().tagName).toBe('BUTTON'); expect(eye().type).toBe('button');
+      expect(eye().dataset['rowVisibility']).toBe('visible');
+      expect(eye().querySelector('i')!.classList).toContain('bx-show');
+      expect(eye().querySelector('i')!.classList).not.toContain('bx-hide');
+      expect(eye().getAttribute('aria-label')).toBe('Hide correction AGR');
+      expect(eye().title).toBe('Hide correction');
+      expect(eye().getAttribute('aria-pressed')).toBe('false');
+      expect(row().textContent).toContain('Visible to student');
+      expect(row().classList).not.toContain('row--dimmed');
+      api.current = hiddenSnapshot(); await component.reload(); await settle();
+      expect(eye().dataset['rowVisibility']).toBe('hidden');
+      expect(eye().querySelector('i')!.classList).toContain('bx-hide');
+      expect(eye().querySelector('i')!.classList).not.toContain('bx-show');
+      expect(eye().getAttribute('aria-label')).toBe('Show correction AGR');
+      expect(eye().title).toBe('Show correction');
+      expect(eye().getAttribute('aria-pressed')).toBe('true');
+      expect(row().textContent).toContain('Hidden from student');
+      expect(row().classList).toContain('row--dimmed');   // still listed for the teacher
+    });
+
+    it('a removed (archived) correction keeps a separate Restore (undo icon), not the eye toggle', async () => {
+      api.current = snapshot({ corrections: [correction({ moderationStatus: 'archived' })] }); await component.reload(); await settle();
+      expect(row().querySelector('[data-row-visibility]')).toBeNull();
+      const restore = row().querySelector<HTMLButtonElement>('[data-row-restore]')!;
+      expect(restore.getAttribute('aria-label')).toBe('Restore correction AGR');
+      expect(restore.querySelector('i')!.classList).toContain('bx-undo');
+      expect(restore.hasAttribute('aria-pressed')).toBeFalse();
+    });
+
+    it('toggles optimistically (before the server answers), then keeps the server state; clicking again shows it', async () => {
+      const first = deferred(); api.respond = () => first.promise;
+      eye().click(); fixture.detectChanges();
+      expect(api.calls).toEqual([jasmine.objectContaining({ action: 'hide', id: 'ai_1', revision: 3, sourceHash: 'hash-3' })]);
+      expect(eye().dataset['rowVisibility']).toBe('hidden');               // already flipped
+      expect(eye().getAttribute('aria-pressed')).toBe('true');
+      expect(eye().getAttribute('aria-disabled')).toBe('true');            // no double send while saving
+      eye().click(); fixture.detectChanges();
+      expect(api.calls.length).toBe(1);
+      api.current = hiddenSnapshot(4); first.resolve({ revision: 4 }); await settle();
+      expect(eye().dataset['rowVisibility']).toBe('hidden');
+      expect(text()).toContain('Hidden from the student.');
+      api.respond = async () => { api.current = snapshot({ revision: 5 }); return { revision: 5 }; };
+      eye().click(); await settle();
+      expect(api.calls[1]).toEqual(jasmine.objectContaining({ action: 'restore', id: 'ai_1', revision: 4 }));
+      expect(eye().dataset['rowVisibility']).toBe('visible');
+      expect(eye().getAttribute('aria-pressed')).toBe('false');
+    });
+
+    const failures: readonly (readonly [number, string | undefined, string])[] = [
+      [0, undefined, ''], [500, undefined, ''], [429, 'ANNOTATION_RATE_LIMITED', 'Wait a few minutes'], [409, 'ANNOTATION_STATE_CONFLICT', 'no longer possible']];
+    for (const [status, code, wording] of failures) {
+      it('rolls back and shows an error when the save fails (' + status + (code ? ' ' + code : '') + ')', async () => {
+        const answer = deferred(); api.respond = () => answer.promise;
+        eye().click(); fixture.detectChanges();
+        expect(eye().dataset['rowVisibility']).toBe('hidden');
+        answer.reject(httpError(status, code)); await settle();
+        expect(eye().dataset['rowVisibility']).toBe('visible');               // back to what the server still has
+        expect(eye().querySelector('i')!.classList).toContain('bx-show');
+        expect(row().textContent).toContain('Visible to student');
+        expect(component.error()).not.toBe('');
+        expect(dom().querySelector('[role="alert"]')?.textContent ?? '').not.toBe('');
+        if (wording) expect(text()).toContain(wording);
+        expect(text()).not.toContain('Hidden from the student.');
+      });
+    }
+
+    it('persists: a fresh load of the page shows what the server saved', async () => {
+      api.respond = async () => { api.current = hiddenSnapshot(4); return { revision: 4 }; };
+      eye().click(); await settle();
+      fixture.destroy();
+      fixture = TestBed.createComponent(AnnotationControls);
+      fixture.componentRef.setInput('submissionId', 's1');
+      component = fixture.componentInstance; fixture.detectChanges();
+      const loads = api.snapshotCalls;
+      component.open.set(true); component.workspaceOpen.set(false); await component.reload(); await settle();
+      expect(api.snapshotCalls).toBe(loads + 1);                              // read back from the server, not from memory
+      expect(eye().dataset['rowVisibility']).toBe('hidden');
+      expect(eye().getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('the image marker / transcript highlight menu uses the same toggle: list, markers and highlights flip and roll back together', async () => {
+      dom().querySelector<HTMLButtonElement>('[data-sync-toggle]')!.click(); await settle();
+      const workspace = fixture.debugElement.query(By.directive(ReviewWorkspace)).componentInstance as ReviewWorkspace;
+      const answer = deferred(); api.respond = () => answer.promise;
+      component.onMenuAction({ action: 'hide', key: 'ai_1', event: new MouseEvent('click') }, 'popup'); fixture.detectChanges();
+      expect(api.calls).toEqual([jasmine.objectContaining({ action: 'hide', id: 'ai_1' })]);
+      expect(workspace.rows().find(r => r.key === 'ai_1')!.status).toBe('hidden');
+      expect(eye().dataset['rowVisibility']).toBe('hidden');
+      answer.reject(httpError(409, 'ANNOTATION_STATE_CONFLICT')); await settle();   // (a 5xx keeps the request for Retry and locks the editor until then)
+      expect(workspace.rows().find(r => r.key === 'ai_1')!.status).toBe('visible');
+      expect(eye().dataset['rowVisibility']).toBe('visible');
+      api.current = hiddenSnapshot(); await component.reload(); await settle();
+      api.respond = async () => { api.current = snapshot({ revision: 5 }); return { revision: 5 }; };
+      component.onMenuAction({ action: 'restore', key: 'ai_1', event: new MouseEvent('click') }, 'popup'); await settle();
+      expect(api.calls[1]).toEqual(jasmine.objectContaining({ action: 'restore', id: 'ai_1' }));
+      expect(workspace.rows().find(r => r.key === 'ai_1')!.status).toBe('visible');
+    });
+
+    it('keyboard: the toggle is a native, focusable button (Enter/Space are proven with a real key press in the browser QA)', () => {
+      eye().focus();
+      expect(document.activeElement).toBe(eye());
+      expect(eye().tabIndex).toBe(0);
+      expect(eye().disabled).toBeFalse();
     });
   });
 
