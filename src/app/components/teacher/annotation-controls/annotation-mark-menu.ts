@@ -34,7 +34,12 @@ export class AnnotationMarkMenu {
   choose(key: string): void { this.chosenKey.set(key); }
   back(): void { this.chosenKey.set(null); }
   label(action: AnnotationAction, row: CorrectionRow): string {
-    return action === 'edit' ? (row.orphanReason ? 'Place again' : 'Edit') : action === 'hide' ? 'Hide' : action === 'restore' ? 'Restore' : 'Remove';
+    return action === 'edit' ? (row.orphanReason ? 'Place again' : 'Edit') : action === 'hide' ? 'Hide'
+      : action === 'restore' ? (row.status === 'hidden' ? 'Show' : 'Restore') : 'Remove';
+  }
+  /** Hide (from visible) and Show (from hidden) are one show/hide toggle: the icon shows the state, the text says the action. */
+  isToggle(action: AnnotationAction, row: CorrectionRow): boolean {
+    return (action === 'hide' && row.status === 'visible') || (action === 'restore' && row.status === 'hidden');
   }
   run(action: AnnotationAction, row: CorrectionRow, event: Event): void {
     event.stopPropagation();

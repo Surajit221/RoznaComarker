@@ -12,7 +12,7 @@ import { WritingModelApiService } from '../../../api/writing-model-api.service';
     @if (text(); as model) {
       <section class="wm-card" aria-labelledby="wm-card-title" data-writing-model-card>
         <h2 id="wm-card-title" class="wm-card__title">Improved Writing Model</h2>
-        <p class="wm-card__note">A learning reference from your teacher. It shows one way to write this assignment well. It does not change your writing or your assessment.</p>
+        <p class="wm-card__note">An improved version of your own writing, from your teacher, for you only. Compare it with your draft to see what to improve. It does not change your writing or your assessment.</p>
         <div class="wm-card__text">{{ model }}</div>
       </section>
     }`,

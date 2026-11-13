@@ -315,6 +315,23 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     void this.send({ action, id: row.targetId, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId() }, row.key, false);
   }
 
+  /**
+   * The show/hide toggle (visible <-> hidden). The list, the image markers and the transcript highlights change at once (optimistic, from the
+   * same snapshot); if the server refuses, everything goes back as it was and the reason is shown. Removed rows keep their own Restore.
+   */
+  toggleVisibility(row: CorrectionRow): void {
+    const snapshot = this.snapshot();
+    if (this.locked() || !snapshot || this.form()) return;
+    const action: AnnotationAction | null = row.status === 'visible' ? 'hide' : row.status === 'hidden' ? 'restore' : null;
+    if (!action || !allowedActions(row, snapshot.transitions).includes(action)) return;
+    const next = action === 'hide' ? 'hidden' : 'visible';
+    const optimistic = (snapshot.corrections || []).some(c => c.id === row.targetId)
+      ? { ...snapshot, corrections: snapshot.corrections.map(c => (c.id === row.targetId ? { ...c, moderationStatus: next } : c)) } : null;
+    if (optimistic) this.snapshot.set(optimistic as AnnotationSnapshot);
+    void this.send({ action, id: row.targetId, revision: snapshot.revision, sourceHash: snapshot.sourceHash, requestId: newRequestId() }, row.key, false,
+      optimistic ? snapshot : null);
+  }
+
   askRemove(row: CorrectionRow, event: Event): void {
     if (this.locked() || this.form()) return;
     this.trigger = event.currentTarget as HTMLElement;
@@ -353,6 +370,8 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     // Edit happens where the teacher is: in the popup, or in the row (the workspace's menu sits beside the list).
     if (event.action === 'edit') this.openForm(row, event.event, placement);
     else if (event.action === 'archive') this.askRemove(row, event.event);
+    // Show/hide is the same optimistic toggle as the list's eye button (removed rows keep their own Restore).
+    else if (event.action === 'hide' || (event.action === 'restore' && row.status === 'hidden')) this.toggleVisibility(row);
     else this.run(event.action, row);
   }
 
@@ -434,7 +453,7 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  private async send(body: AnnotationBody, rowKey: string | null, fromForm: boolean): Promise<void> {
+  private async send(body: AnnotationBody, rowKey: string | null, fromForm: boolean, rollback: AnnotationSnapshot | null = null): Promise<void> {
     const version = this.version;
     this.pending.set({ body, rowKey, fromForm });
     this.saving.set(true); this.error.set(''); this.notice.set('Saving…');
@@ -453,7 +472,10 @@ export class AnnotationControls implements OnInit, OnChanges, OnDestroy {
       // A popup save keeps the teacher on the image or transcript: the list row is not focused (that would scroll the page).
       if (savedFrom !== 'popup') this.focusAfterSave(rowKey, body);
     } catch (failure) {
-      if (version === this.version) await this.handleSaveFailure(failure);
+      if (version !== this.version) return;
+      // An optimistic show/hide goes back to what the server still has before the failure is described.
+      if (rollback) this.snapshot.set(rollback);
+      await this.handleSaveFailure(failure);
     } finally {
       if (version === this.version) this.saving.set(false);
     }

@@ -1,0 +1,47 @@
+/* Matches the assignment form's settings panel (assignment-form.css: .assignment-settings) and the site's teal primary. */
+.reference-files { border: 1px solid #dbe5e7; border-radius: 1rem; padding: 1rem; display: grid; gap: .75rem; min-width: 0; }
+.reference-files__head h3 { margin: 0; color: #1f2937; font-size: .95rem; font-weight: 700; }
+.reference-files__optional { color: #6b7280; font-weight: 500; }
+.reference-files__help, .reference-files__note { margin: .2rem 0 0; color: #6b7280; font-size: .8rem; line-height: 1.45; }
+.reference-files__inherited { display: grid; gap: .4rem; padding: .75rem; border-radius: .75rem; background: #f7faf9; }
+.reference-files__inherited h4 { margin: 0; color: #374151; font-size: .85rem; font-weight: 700; }
+.reference-files__inherited ul, .reference-files__list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.reference-files__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .65rem; padding: .65rem .75rem;
+  border: 1px solid #e5ecee; border-radius: .75rem; background: #fff; }
+.reference-files__row--readonly { grid-template-columns: auto minmax(0, 1fr) auto; background: transparent; }
+.reference-files__kind { min-width: 4.6rem; padding: .15rem .45rem; border-radius: .4rem; background: #e6f4f4; color: #136c6d; font-size: .72rem; font-weight: 700; text-align: center; }
+.reference-files__main { display: grid; gap: .2rem; min-width: 0; }
+.reference-files__name { color: #1f2937; font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.reference-files__meta { color: #6b7280; font-size: .75rem; }
+.reference-files__reason { color: #b91c1c; font-size: .78rem; font-weight: 600; }
+.reference-files__status { font-size: .75rem; font-weight: 700; white-space: nowrap; color: #374151; }
+.reference-files__status[data-status="ready"] { color: #136c6d; }
+.reference-files__status[data-status="failed"] { color: #b91c1c; }
+.reference-files__status[data-status="processing"], .reference-files__status[data-status="uploading"] { color: #92400e; }
+.reference-files__actions { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+.reference-files__action { min-height: 2.25rem; padding: .35rem .7rem; border: 1px solid #008081; border-radius: .6rem; background: #fff; color: #006d6e;
+  font-size: .8rem; font-weight: 650; }
+.reference-files__action--danger { border-color: #e5a3a3; color: #b91c1c; }
+.reference-files__action:disabled, .reference-files__button:disabled { opacity: .55; cursor: not-allowed; }
+.reference-files__tick { display: inline-flex; align-items: center; gap: .4rem; color: #374151; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.reference-files__tick input { width: 1.1rem; height: 1.1rem; accent-color: #008081; }
+.reference-files__progress { width: 100%; height: .45rem; accent-color: #008081; }
+.reference-files__add { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.reference-files__input { display: none; }
+.reference-files__button { min-height: 2.65rem; border: 1px solid #008081; color: #006d6e; background: #fff; border-radius: .7rem; padding: .55rem .9rem; font-weight: 650; }
+.reference-files__button--primary { background: #008081; color: #fff; }
+.reference-files__link { border: 0; background: none; padding: 0; color: #006d6e; font-weight: 700; text-decoration: underline; }
+.reference-files__error { margin: 0; color: #b91c1c; font-size: .82rem; font-weight: 600; }
+.reference-files__waiting { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; padding: .6rem .75rem; border-radius: .75rem; background: #fff8e6;
+  color: #78350f; font-size: .82rem; font-weight: 600; }
+.reference-files__sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.reference-files button:focus-visible, .reference-files input:focus-visible { outline: 3px solid #136c6d; outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .reference-files { padding: .8rem; }
+  .reference-files__row { grid-template-columns: auto minmax(0, 1fr); }
+  .reference-files__status { grid-column: 2; }
+  .reference-files__actions { grid-column: 1 / -1; justify-content: stretch; }
+  .reference-files__action { flex: 1 1 auto; }
+  .reference-files__add > .reference-files__button { flex: 1 1 100%; }
+}

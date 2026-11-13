@@ -22,12 +22,14 @@ describe('NavbarLp', () => {
     expect(component).toBeTruthy();
   });
 
-  it('shows the Rubrilo symbol next to the Rubrilo name, with no old brand', () => {
+  it('shows the Rubrilo logo (icon + name) as ONE image, with no old brand', () => {
     const el = fixture.nativeElement as HTMLElement;
-    const logo = el.querySelector<HTMLImageElement>('img[src="logo_and_icon/rubrilo-symbol-full.svg"]');
-    expect(logo).withContext('symbol rendered').not.toBeNull();
-    expect(logo!.getAttribute('alt')).withContext('decorative next to the visible name').toBe('');
-    expect(logo!.closest('a, h2')?.textContent?.trim()).toContain('Rubrilo');
+    const logo = el.querySelector<HTMLImageElement>('img[src="logo_and_icon/logo/rubrilo-logo-horizontal-fullcolor@512w.png"]');
+    expect(logo).withContext('logo rendered').not.toBeNull();
+    expect(logo!.getAttribute('alt')).toBe('Rubrilo');
+    expect([logo!.getAttribute('width'), logo!.getAttribute('height')]).toEqual(['512', '164']);
+    expect(logo!.closest('a, h2')?.textContent?.trim()).withContext('no separate name text beside the logo').toBe('');
+    expect(el.innerHTML).not.toContain('rubrilo-symbol');
     expect(el.textContent).not.toMatch(/Rozna|Co-Marker/i);
   });
 });

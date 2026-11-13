@@ -1,3 +1,4 @@
+import { PublicBrand } from '../../shared/public-brand/public-brand';
 import { Component, DOCUMENT, OnDestroy, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -16,7 +17,7 @@ export type PortalState = 'request' | 'loading' | 'invalid' | 'empty' | 'list' |
  */
 @Component({
   selector: 'app-recovery-portal',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, PublicBrand],
   templateUrl: './recovery-portal.html',
   styleUrls: ['../students/guest-submission/guest-submission.css', './recovery-portal.css'],
 })

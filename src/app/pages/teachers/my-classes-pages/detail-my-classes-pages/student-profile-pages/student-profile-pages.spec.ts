@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { StudentProfilePages } from './student-profile-pages';
-import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
+import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach, referenceFilesOffProviders } from '../../../../../../testing/standalone-test-providers';
 
 describe('StudentProfilePages', () => {
   afterEach(verifyHttpRequestsAfterEach);
@@ -10,7 +10,7 @@ describe('StudentProfilePages', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [StudentProfilePages], providers: [...routedComponentProviders(), ...httpTestingProviders,
+      imports: [StudentProfilePages], providers: [...routedComponentProviders(), ...httpTestingProviders, ...referenceFilesOffProviders,
         ...authenticatedUserProviders('teacher')]
     })
     .compileComponents();

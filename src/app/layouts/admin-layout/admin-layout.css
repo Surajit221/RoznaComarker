@@ -31,8 +31,10 @@
 
 .admin-brand {
   display: flex;
-  align-items: center;
-  gap: .75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: .25rem;
   min-height: 5.25rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid #eef2f3;
@@ -40,10 +42,8 @@
   text-decoration: none;
 }
 
-.admin-brand img { width: 2.5rem; height: 2.5rem; object-fit: contain; }
-.admin-brand span { display: grid; min-width: 0; line-height: 1.15; }
-.admin-brand strong { font-size: 1.15rem; font-weight: 800; }
-.admin-brand small { margin-top: .22rem; color: #718096; font-size: .72rem; font-weight: 600; }
+.admin-brand img { display: block; height: 2.5rem; width: auto; max-width: 100%; }
+.admin-brand small { line-height: 1.15; color: #718096; font-size: .72rem; font-weight: 600; }
 
 .admin-navigation {
   flex: 1 1 auto;

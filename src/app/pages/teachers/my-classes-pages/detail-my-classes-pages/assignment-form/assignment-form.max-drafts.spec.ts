@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AssignmentForm } from './assignment-form';
 import { GuestSubmissionFeature } from '../../../../../services/guest-submission-feature.service';
 import { DraftLimitConfig, DraftLimitFeature } from '../../../../../services/draft-limit-feature.service';
-import { httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
+import { httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach, referenceFilesOffProviders } from '../../../../../../testing/standalone-test-providers';
 import type { BackendAssignment } from '../../../../../api/assignment-api.service';
 
 /** The form's private collaborators, as these tests drive them. */
@@ -22,7 +22,7 @@ describe('AssignmentForm: Maximum drafts (draft limit)', () => {
     await TestBed.configureTestingModule({ imports: [AssignmentForm], providers: [
       { provide: GuestSubmissionFeature, useValue: { enabled: () => false, state: () => 'disabled', load: () => Promise.resolve(false), settled: () => Promise.resolve('disabled') } },
       { provide: DraftLimitFeature, useValue: { config: signal(config), load: () => Promise.resolve(config) } },
-      ...routedComponentProviders(), ...httpTestingProviders] }).compileComponents();
+      ...routedComponentProviders(), ...httpTestingProviders, ...referenceFilesOffProviders] }).compileComponents();
     fixture = TestBed.createComponent(AssignmentForm); component = fixture.componentInstance;
     if (assignment) component.assignment = assignment as BackendAssignment;
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();

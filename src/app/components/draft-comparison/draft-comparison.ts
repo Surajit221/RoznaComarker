@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges, inject } from '@angular/core';
-import { DraftChoice, DraftComparison, DraftIssueItem, SubmissionApiService } from '../../api/submission-api.service';
+import { DraftChoice, DraftComparison, DraftComparisonCategory, DraftIssueItem, SubmissionApiService } from '../../api/submission-api.service';
+import { sortByAssessmentCategory } from '../../constants/assessment-categories';
 import { DiffResult, diffTexts } from '../../utils/text-diff.util';
 import { DraftInsights, categoryName, describeDelta, draftInsights } from './draft-insights.logic';
 
@@ -164,6 +165,8 @@ export class DraftComparisonComponent implements OnChanges, OnDestroy {
   issueCount(status: IssueStatus): number { return this.comparison?.issueDetails?.[status]?.total ?? 0; }
   issueItems(status: IssueStatus): DraftIssueItem[] { return this.comparison?.issueDetails?.[status]?.items ?? []; }
   issueOmitted(status: IssueStatus): number { return this.comparison?.issueDetails?.[status]?.omitted ?? 0; }
+  /** Rubric category rows: the built-in categories in the shared display order; custom rubric criteria keep their order. */
+  rubricRows(): DraftComparisonCategory[] { return sortByAssessmentCategory(this.comparison?.rubricCategories || [], item => item.categoryId); }
   categoryLabel(category: string): string { return CATEGORY_LABELS[category] ?? (category ? category.charAt(0) + category.slice(1).toLowerCase() : 'Writing'); }
   /** Arrow keys move between the per-error tabs (WAI-ARIA tabs pattern). */
   onIssueTabKey(event: KeyboardEvent, index: number): void {

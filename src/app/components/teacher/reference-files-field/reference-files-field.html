@@ -1,0 +1,132 @@
+@if (visible()) {
+<section class="reference-files" [attr.aria-labelledby]="ids.heading" data-reference-files>
+  <div class="reference-files__head">
+    <h3 [id]="ids.heading">Reference files for AI marking <span class="reference-files__optional">(optional)</span></h3>
+    <p [id]="ids.help" class="reference-files__help">
+      Add course or {{ scope }} material: PDF, Word (.doc, .docx) or PowerPoint (.pptx), up to {{ sizeLabel(config().maxFileBytes) }} each and
+      {{ config().maxFiles }} files. The AI uses them as background when marking.
+      @if (scope === 'class') { They apply to every assignment in this class. }
+      Students never see these files.
+    </p>
+  </div>
+
+  @if (isAssignment() && classFiles().length) {
+  <div class="reference-files__inherited" data-class-files>
+    <h4>Applies from your class</h4>
+    <ul>
+      @for (file of classFiles(); track file.id) {
+      <li class="reference-files__row reference-files__row--readonly">
+        <span class="reference-files__kind">{{ kindLabel(file) }}</span>
+        <span class="reference-files__name">{{ file.name }}</span>
+        <span class="reference-files__status" [attr.data-status]="file.status">{{ statusLabel(file) }}</span>
+      </li>
+      }
+    </ul>
+    <p class="reference-files__note">Change these in the class settings.</p>
+  </div>
+  }
+
+  @if (loadState() === 'loading') {
+  <p class="reference-files__note" role="status">Loading files…</p>
+  } @else if (loadState() === 'error') {
+  <p class="reference-files__error" role="alert" data-load-error>
+    {{ loadError() }} <button type="button" class="reference-files__link" (click)="reload()">Try again</button>
+  </p>
+  }
+
+  @if (files().length || pending().length) {
+  <ul class="reference-files__list" [attr.aria-label]="'Reference files for this ' + scope">
+    @for (file of files(); track file.id) {
+    <li class="reference-files__row" [attr.data-file]="file.id">
+      <span class="reference-files__kind">{{ kindLabel(file) }}</span>
+      <span class="reference-files__main">
+        <span class="reference-files__name">{{ file.name }}</span>
+        <span class="reference-files__meta">
+          {{ sizeLabel(file.sizeBytes) }}
+          @if (file.markedAsRubric) { · Marked as a rubric }
+          @if (file.rubricAppliedAt) { · Used as the rubric }
+        </span>
+        @if (file.status === 'failed' && file.failureMessage) {
+        <span class="reference-files__reason" data-failure>{{ file.failureMessage }}</span>
+        } @else if (file.status === 'ready' && file.textTrimmed) {
+        <span class="reference-files__meta">Long file: only the first part is used.</span>
+        }
+      </span>
+      <span class="reference-files__status" [attr.data-status]="file.status">{{ statusLabel(file) }}</span>
+      <span class="reference-files__actions">
+        @if (isAssignment() && file.status === 'ready') {
+        <button type="button" class="reference-files__action" data-use-rubric [disabled]="!!drafting() || !!review()"
+          [attr.aria-label]="'Use ' + file.name + ' as the rubric'" (click)="startReview(file)">
+          {{ drafting() === file.id ? 'Preparing…' : 'Use as rubric' }}
+        </button>
+        }
+        <button type="button" class="reference-files__action reference-files__action--danger" data-remove [disabled]="removing() === file.id"
+          [attr.aria-label]="'Remove ' + file.name" (click)="removeFile(file)">{{ removing() === file.id ? 'Removing…' : 'Remove' }}</button>
+      </span>
+    </li>
+    }
+    @for (entry of pending(); track entry.key) {
+    <li class="reference-files__row" [attr.data-pending]="entry.state">
+      <span class="reference-files__kind">{{ kindLabel(entry) }}</span>
+      <span class="reference-files__main">
+        <span class="reference-files__name">{{ entry.name }}</span>
+        <span class="reference-files__meta">{{ sizeLabel(entry.sizeBytes) }}</span>
+        @if (entry.state === 'uploading') {
+        <progress class="reference-files__progress" max="100" [value]="entry.progress" [attr.aria-label]="'Uploading ' + entry.name"></progress>
+        }
+        @if (entry.state === 'failed') {
+        <span class="reference-files__reason" data-failure>{{ entry.error }}</span>
+        }
+        @if (isAssignment() && entry.state === 'staged') {
+        <label class="reference-files__tick">
+          <input type="checkbox" [checked]="entry.markedAsRubric" (change)="setRubricTick(entry.key, $any($event.target).checked)" data-rubric-tick />
+          This file is a rubric
+        </label>
+        }
+      </span>
+      <span class="reference-files__status" [attr.data-status]="entry.state">
+        {{ entry.state === 'staged' ? 'Not uploaded yet' : entry.state === 'uploading' ? 'Uploading ' + entry.progress + '%' : 'Not added' }}
+      </span>
+      <span class="reference-files__actions">
+        <button type="button" class="reference-files__action reference-files__action--danger" [attr.aria-label]="'Remove ' + entry.name"
+          (click)="discardPending(entry.key)">{{ entry.state === 'uploading' ? 'Cancel' : 'Remove' }}</button>
+      </span>
+    </li>
+    }
+  </ul>
+  } @else if (loadState() !== 'loading' && loadState() !== 'error') {
+  <p class="reference-files__note" data-empty>No reference files yet.</p>
+  }
+
+  <div class="reference-files__add">
+    <input #picker type="file" class="reference-files__input" multiple tabindex="-1" aria-hidden="true" [accept]="accept" (change)="onChoose($event)" data-file-input />
+    <button type="button" class="reference-files__button" [disabled]="atLimit()" [attr.aria-describedby]="ids.help" (click)="picker.click()" data-add>
+      Add files
+    </button>
+    @if (target() && staged().length) {
+    <button type="button" class="reference-files__button reference-files__button--primary" [disabled]="uploading()" (click)="uploadNow()" data-upload-now>
+      Upload now
+    </button>
+    }
+    @if (atLimit()) { <span class="reference-files__note" data-limit>{{ limitMessage() }}</span> }
+  </div>
+  @if (chooseError()) { <p class="reference-files__error" role="alert" data-choose-error>{{ chooseError() }}</p> }
+
+  @if (waiting()) {
+  <div class="reference-files__waiting" role="status" data-waiting>
+    <span>Reading your files… This usually takes a few seconds.</span>
+    <button type="button" class="reference-files__link" (click)="stopWaiting()">Continue without waiting</button>
+  </div>
+  }
+  <p class="reference-files__sr" aria-live="polite">{{ announcement() }}</p>
+</section>
+
+}
+
+<!-- Rendered at the end of <body> (see reviewPortal): inside the form's dialog, whose panel is transformed, a fixed overlay would be boxed in. -->
+<ng-container #reviewAnchor></ng-container>
+<ng-template #reviewTemplate>
+<app-rubric-designer-modal [open]="!!review()" [rubricDesigner]="review()?.draft ?? null" [showTools]="false"
+  [defaultTitle]="'Rubric from ' + (review()?.file?.name ?? 'file')" [isSaving]="reviewSaving()"
+  (closed)="closeReview()" (save)="applyReviewed($event)"></app-rubric-designer-modal>
+</ng-template>

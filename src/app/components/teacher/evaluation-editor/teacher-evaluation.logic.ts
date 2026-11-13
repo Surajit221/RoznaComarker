@@ -1,5 +1,6 @@
 // Teacher evaluation edits (Phase B3): pure helpers for the edit panel. The server is the authority; these mirror its rules so the panel
 // can say what is wrong before saving and show the overall score and grade live.
+import { assessmentCategoryLabel, sortByAssessmentCategory } from '../../../constants/assessment-categories';
 
 export interface CriterionValues { score: number | null; comment: string | null; }
 export interface SnapshotCriterion { key: string; maxScore: number | null; ai: { score: number | null; comment: string }; teacher: CriterionValues; final: { score: number | null; comment: string }; }
@@ -16,8 +17,8 @@ export interface DraftRow { key: string; score: string; comment: string; }
 
 export const COMMENT_MAX = 1000;
 export const REASON_MAX = 300;
-const LABELS: Record<string, string> = { CONTENT: 'Content', ORGANIZATION: 'Organization', GRAMMAR: 'Grammar', VOCABULARY: 'Vocabulary', MECHANICS: 'Mechanics', PRESENTATION: 'Presentation' };
-export const criterionLabel = (key: string): string => LABELS[key] ?? key;
+/** The same labels and order as the AI-assisted Evaluation (constants/assessment-categories.ts). */
+export const criterionLabel = (key: string): string => assessmentCategoryLabel(key);
 const HTML_TAG = /<\s*\/?\s*[a-z!?]/i;
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
@@ -30,7 +31,7 @@ export function gradeFor(score: number): string {
 
 /** The form's starting values: the current final values. */
 export function draftFromSnapshot(snapshot: TeacherEvaluationSnapshot): DraftRow[] {
-  return snapshot.criteria.map(c => ({ key: c.key, score: c.final.score == null ? '' : String(c.final.score), comment: c.final.comment ?? '' }));
+  return sortByAssessmentCategory(snapshot.criteria, c => c.key).map(c => ({ key: c.key, score: c.final.score == null ? '' : String(c.final.score), comment: c.final.comment ?? '' }));
 }
 
 /** A typed score: the number, or an error. Empty means "no score typed" (an error: every criterion keeps a score). */
@@ -98,7 +99,7 @@ export function changedCriteria(snapshot: TeacherEvaluationSnapshot, draft: Draf
 /** One line per history row: what changed, in words. */
 export function historySummary(row: TeacherEvaluationHistoryRow): string {
   if (row.reset) return `Reset to AI suggested. Overall ${row.before.overallScore ?? '—'} → ${row.after.overallScore ?? '—'}.`;
-  const parts = Object.keys(row.after.criteria).map(key => {
+  const parts = sortByAssessmentCategory(Object.keys(row.after.criteria), key => key).map(key => {
     const before = row.before.criteria[key], after = row.after.criteria[key];
     const bits: string[] = [];
     if (before?.score !== after?.score) bits.push(`${before?.score ?? '—'} → ${after?.score ?? '—'}`);

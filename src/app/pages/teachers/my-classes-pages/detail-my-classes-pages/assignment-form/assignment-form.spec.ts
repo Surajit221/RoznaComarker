@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 
 import { AssignmentForm } from './assignment-form';
-import { httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../../testing/standalone-test-providers';
+import { httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach, referenceFilesOffProviders } from '../../../../../../testing/standalone-test-providers';
 import { environment } from '../../../../../../environments/environment';
 import { AssignmentApiService, type BackendAssignment } from '../../../../../api/assignment-api.service';
 import { AlertService } from '../../../../../services/alert.service';
@@ -21,7 +21,7 @@ describe('AssignmentForm', () => {
         load: () => Promise.resolve(true), settled: () => Promise.resolve('enabled') } },
         // Draft limit off (as with the backend flag off): the form must stay exactly as before.
         { provide: DraftLimitFeature, useValue: { config: signal({ enabled: false, min: 2, max: 10, default: 3 }), load: () => Promise.resolve({ enabled: false, min: 2, max: 10, default: 3 }) } },
-        ...routedComponentProviders(), ...httpTestingProviders]
+        ...routedComponentProviders(), ...httpTestingProviders, ...referenceFilesOffProviders]
     })
     .compileComponents();
 
@@ -348,7 +348,7 @@ describe('AssignmentForm guest flag with the real availability service', () => {
   let create: jasmine.Spy, update: jasmine.Spy, alerts: { toast: jasmine.Spy; error: jasmine.Spy; warning: jasmine.Spy };
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [AssignmentForm], providers: [...routedComponentProviders(), ...httpTestingProviders,
+    await TestBed.configureTestingModule({ imports: [AssignmentForm], providers: [...routedComponentProviders(), ...httpTestingProviders, ...referenceFilesOffProviders,
       // These tests drive the guest availability request by hand; the draft limit is off here (no request of its own).
       { provide: DraftLimitFeature, useValue: { config: signal({ enabled: false, min: 2, max: 10, default: 3 }), load: () => Promise.resolve({ enabled: false, min: 2, max: 10, default: 3 }) } }] }).compileComponents();
     http = TestBed.inject(HttpTestingController);

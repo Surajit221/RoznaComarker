@@ -1,10 +1,9 @@
 <main class="login-page">
-  <div class="login-container">
-    <div class="login-brand">
-      <span class="login-brand__badge"><img src="logo_and_icon/rubrilo-symbol-full.svg" width="28" height="28" alt="" /></span>
-      <span class="login-brand__name">Rubrilo</span>
-    </div>
+  <header class="login-brand">
+    <img class="login-brand__logo" src="logo_and_icon/logo/rubrilo-logo-horizontal-fullcolor@512w.png" width="512" height="164" alt="Rubrilo" />
+  </header>
 
+  <div class="login-container">
     <div class="login-layout">
       <section class="login-column" aria-labelledby="login-title">
         <h1 id="login-title" class="login-title">
@@ -12,7 +11,7 @@
         </h1>
 
         <!-- The login card: the original design (markup and classes as before the redesign). -->
-        <div class="login-card bg-white rounded-[30px] border-4 border-[#E2E2E2] shadow-[0px_10px_0_#E2E2E2] p-8">
+        <div class="login-card bg-white rounded-[30px] border-4 border-[#E2E2E2] shadow-[0px_10px_0_#E2E2E2] p-6">
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-3">
             <button type="button" class="google-button" (click)="onGoogleLogin()"
               [disabled]="isLoading" [attr.aria-busy]="activeOperation === 'google'">

@@ -6,6 +6,8 @@
 .wm__badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
 .wm__badge--ai { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; }
 .wm__badge--ok { background: #dcfce7; color: #14532d; border: 1px solid #16a34a; }
+.wm__badge:not(.wm__badge--ok):not(.wm__badge--wait):not(.wm__badge--ai) { background: #f1f5f9; color: #334155; border: 1px solid #94a3b8; }
+.wm__badge--wait { background: #e0f2fe; color: #0c4a6e; border: 1px solid #0284c7; }
 .wm__visibility { font-size: .85rem; color: #334155; }
 .wm__notice { margin: 10px 0 0; color: #14532d; font-size: .9rem; }
 .wm__error { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: #fef2f2; color: #991b1b; font-size: .9rem; }
@@ -15,8 +17,10 @@
 .wm__textarea { resize: vertical; line-height: 1.55; min-height: 12rem; }
 .wm__select { min-height: 44px; max-width: 22rem; }
 .wm__textarea:focus-visible, .wm__select:focus-visible { outline: none; border-color: #0f766e; box-shadow: 0 0 0 3px rgb(15 118 110 / 25%); }
-.wm__check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 6px; font-size: .9rem; }
-.wm__check input { width: 20px; height: 20px; }
+.wm__warning { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; font-size: .9rem; font-weight: 600; }
+.wm__legacy { margin: 12px 0 0; padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px dashed #94a3b8; font-size: .85rem; color: #334155; }
+.wm__legacy summary { cursor: pointer; font-weight: 600; }
+.wm__legacy-text { white-space: pre-line; margin: 8px 0; max-height: 12rem; overflow: auto; }
 .wm__help { margin: 4px 0 0; color: #64748b; font-size: .78rem; }
 .wm__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border: 1px solid transparent; border-radius: 10px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }

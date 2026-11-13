@@ -4,6 +4,7 @@ import { ClassApiService, type BackendClass } from '../../../api/class-api.servi
 import { AlertService } from '../../../services/alert.service';
 import { DeviceService } from '../../../services/device.service';
 import { routedHttpTestProviders } from '../../../testing/routed-http-test.providers';
+import { referenceFilesOffProviders } from '../../../../testing/standalone-test-providers';
 import { MyClassesPages } from './my-classes-pages';
 
 const klass = (id: string, name: string, status: 'active' | 'archived' = 'active'): BackendClass => ({
@@ -37,7 +38,7 @@ describe('MyClassesPages reactive class list', () => {
     await TestBed.configureTestingModule({
       imports: [MyClassesPages],
       providers: [
-        ...routedHttpTestProviders(),
+        ...routedHttpTestProviders(), ...referenceFilesOffProviders,
         { provide: ClassApiService, useValue: api },
         { provide: AlertService, useValue: jasmine.createSpyObj('AlertService', ['showError', 'showSuccess']) },
         { provide: DeviceService, useValue: {

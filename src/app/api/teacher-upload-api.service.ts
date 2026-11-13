@@ -11,7 +11,8 @@ interface BackendResponse<T> { success: boolean; data: T; message?: string; code
 
 export type TeacherUploadAccount = 'member' | 'guest';
 export type TeacherUploadMode = 'new' | 'replace' | 'add_pages';
-export type TeacherUploadStatus = 'uploaded' | 'processing' | 'marked' | 'failed';
+/** uploaded, reading (OCR), processing (marking), waiting_credits (stopped: no credits), marked, failed (stopped, with failureCode). */
+export type TeacherUploadStatus = 'uploaded' | 'reading' | 'processing' | 'waiting_credits' | 'marked' | 'failed';
 /** held = the teacher asked for the email but marking failed: not sent; "Retry marking" queues it again. */
 export type TeacherUploadEmailStatus = 'none' | 'queued' | 'sending' | 'sent' | 'failed' | 'held';
 

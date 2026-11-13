@@ -44,7 +44,8 @@ describe('StudentSubmissionPages', () => {
     expect(fixture.nativeElement.textContent).toContain('Open Original PDF');
     TestBed.inject(HttpTestingController).expectOne(req => req.url.endsWith(imageUrl)).flush(new Blob(['page']));
   });
-  afterEach(verifyHttpRequestsAfterEach);
+  // The Improved Writing Model panel loads for the current submission; here the feature is off (404), as for most teachers.
+  afterEach(() => { TestBed.inject(HttpTestingController).match(req => req.url.includes('/writing-model/teacher')).forEach(req => req.flush({}, { status: 404, statusText: 'Not Found' })); verifyHttpRequestsAfterEach(); });
   let component: StudentSubmissionPages;
   let fixture: ComponentFixture<StudentSubmissionPages>;
 
@@ -408,7 +409,7 @@ describe('StudentSubmissionPages', () => {
       }
     });
     it('keeps the complete mobile workflow compact, readable and reachable without changing handlers', async () => {
-      spyOn(TestBed.inject(WritingModelApiService), 'snapshot').and.resolveTo({ enabled: true, text: 'A synthetic learning reference.', status: 'draft', source: 'teacher', releaseRule: 'afterRevision', released: false, releasedAt: null, revision: 2, updatedAt: null, readOnly: false, aiAvailable: true, generationsToday: 0, generationsPerDay: 3, textMax: 4000 });
+      spyOn(TestBed.inject(WritingModelApiService), 'snapshot').and.resolveTo({ enabled: true, text: 'A synthetic learning reference.', source: 'teacher', releaseRule: 'manual', visibility: 'draft', published: null, writingChanged: false, hasTranscript: true, draftNumber: 1, revision: 2, updatedAt: null, readOnly: false, aiAvailable: true, generationsToday: 0, generationsPerDay: 3, textMax: 4000, legacyAssignmentModel: null });
       const progress = spyOn(TestBed.inject(AdaptivePracticeApiService), 'getTeacherProgress').and.returnValue(of({ state: 'in-progress', sourceStatus: 'current', submissionId: 'submission-1', sessionId: 'session-1', summary: { totalActivities: 2, improvedActivities: 1, progressPercentage: 50, totalAttempts: 3, lastPracticedAt: null }, skills: [] }));
       component.assignmentId = 'mobile-assignment';
       await prepare();

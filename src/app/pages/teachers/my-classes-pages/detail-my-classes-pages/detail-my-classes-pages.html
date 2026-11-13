@@ -626,9 +626,9 @@
       </div>
     </div>
   </div>
-  <app-bottomsheet-dialog [open]="openSheetAssignment" (closed)="onCloseCreateAssignment()">
+  <app-bottomsheet-dialog [open]="openSheetAssignment" [dismissible]="!assignmentSheetForm.busy()" (closed)="onCloseCreateAssignment()">
     <h2 class="text-2xl font-bold mb-5">{{ assignmentDialogTitle }}</h2>
-    <app-assignment-form
+    <app-assignment-form #assignmentSheetForm
       [classId]="classId"
       [assignment]="selectedAssignmentForEdit"
       (created)="onAssignmentCreated($event)"

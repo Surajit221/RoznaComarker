@@ -9,6 +9,8 @@ import { Component, EventEmitter, HostListener, Input, Output } from '@angular/c
 })
 export class BottomsheetDialog {
   @Input() open = false;
+  /** false: the backdrop and Escape do not close the sheet (e.g. while files are uploading). Its own buttons still can. */
+  @Input() dismissible = true;
   @Output() closed = new EventEmitter<void>();
 
   visible = false;
@@ -32,6 +34,6 @@ export class BottomsheetDialog {
   }
 
   close() {
-    this.closed.emit();
+    if (this.dismissible) this.closed.emit();
   }
 }
