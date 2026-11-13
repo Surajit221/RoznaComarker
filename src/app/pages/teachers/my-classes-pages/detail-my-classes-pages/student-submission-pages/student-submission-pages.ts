@@ -98,6 +98,7 @@ import { CorrectionOverlay, type MediaLoadState } from '../../../../../component
 import { WritingCorrectionsLegendComponent } from '../../../../../components/writing-corrections-legend/writing-corrections-legend';
 import { CanonicalDetailedFeedbackComponent } from '../../../../../components/canonical-detailed-feedback/canonical-detailed-feedback';
 import { AnalysisProgress } from '../../../../../components/analysis-progress/analysis-progress';
+import { TeacherUploadStatusBanner } from '../../../../../components/teacher/upload-student-work/teacher-upload-status-banner';
 
 
 
@@ -194,7 +195,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
     TokenizedTranscript,
     CorrectionOverlay,
     WritingCorrectionsLegendComponent,
-    CanonicalDetailedFeedbackComponent, AnalysisProgress,
+    CanonicalDetailedFeedbackComponent, AnalysisProgress, TeacherUploadStatusBanner,
 
 
 

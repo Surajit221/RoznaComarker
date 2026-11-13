@@ -4,6 +4,8 @@
       <button type="button" class="btn-danger" (click)="toBack()">Back to class</button></header>
   }
   <app-source-fidelity [source]="currentSubmission?.sourceFidelity" [submissionId]="currentSubmission?._id" (sourceChanged)="onHumanSourceReviewed($event)" />
+  <!-- Work the teacher uploaded: its status (Uploaded, Reading, Marking, Waiting for credits, Marking failed) and Retry marking. -->
+  <app-teacher-upload-status [assignmentId]="assignmentId" [submissionId]="currentSubmission?._id" />
   @if (!currentSubmission?.sourceFidelity || currentSubmission?.sourceFidelity?.assessmentAllowed) {
 
   <!-- ✅ DESKTOP -->

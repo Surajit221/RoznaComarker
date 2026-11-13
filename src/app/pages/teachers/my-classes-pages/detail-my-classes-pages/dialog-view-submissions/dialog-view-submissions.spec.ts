@@ -103,9 +103,10 @@ describe('DialogViewSubmissions loading states', () => {
       const badges = root.querySelectorAll('[data-teacher-upload]');
       expect(badges.length).toBe(1);
       expect(badges[0].textContent).toContain('Uploaded by teacher');
-      expect(badges[0].textContent).toContain('Marking…');
+      expect(badges[0].textContent).toContain('Marking');
       expect(badges[0].textContent).toContain('Email queued');
-      expect(badges[0].querySelector('button')).toBeNull();
+      // FIX 3 (intentional): every unfinished state offers Retry marking (the server ignores it while a run is live); no Send yet.
+      expect([...badges[0].querySelectorAll('button')].map(b => b.hasAttribute('data-retry-marking'))).toEqual([true]);
     });
 
     it('sends the feedback email, and offers Resend after a failure', async () => {
@@ -159,7 +160,7 @@ describe('DialogViewSubmissions loading states', () => {
       const info = root.querySelector('[data-teacher-upload]')!;
       expect(info.textContent).toContain('Uploaded');
       expect(info.textContent).toContain('Email queued');
-      expect(info.querySelector('[data-retry-marking]')).toBeNull();
+      expect(info.querySelector('[data-upload-status]')!.getAttribute('data-status')).toBe('uploaded');   // the new status, still retryable (FIX 3)
       expect(alert.showSuccess).toHaveBeenCalledWith('Marking restarted', 'This work is being marked again. Check back in a few minutes.');
     });
 
@@ -176,6 +177,48 @@ describe('DialogViewSubmissions loading states', () => {
       teacherUploadApi.send.and.rejectWith(new HttpErrorResponse({ status: 429, error: { message: 'Too many' } }));
       (root.querySelector('[data-teacher-upload] button') as HTMLButtonElement).click(); await fixture.whenStable();
       expect(alert.showError).toHaveBeenCalledWith('Email not queued', 'Too many requests. Please wait a minute and try again.');
+    });
+
+    it('FIX 3: every status has a clear chip; stopped ones say why; every unfinished one offers Retry marking', async () => {
+      const cases: [TeacherUploadItem['status'], string, string | null, boolean][] = [
+        ['uploaded', 'Uploaded', null, true], ['reading', 'Reading', null, true], ['processing', 'Marking', null, true],
+        ['waiting_credits', 'Waiting for credits', 'no assessment credits left', true], ['failed', 'Marking failed', 'took too long to answer', true],
+        ['marked', 'Marked', null, false]];
+      for (const [status, label, reason, retry] of cases) {
+        const info = (await show(item({ status, failureCode: status === 'failed' ? 'AI_PROVIDER_TIMEOUT' : status === 'waiting_credits' ? 'INSUFFICIENT_ASSESSMENT_CREDITS' : undefined })))
+          .querySelector('[data-teacher-upload]')!;
+        const chip = info.querySelector('[data-upload-status]')!;
+        expect(chip.textContent!.trim()).withContext(status).toBe(label);
+        expect(chip.getAttribute('data-status')).toBe(status);
+        expect(chip.classList.contains('upload-info__chip--bad')).withContext(status).toBe(status === 'failed' || status === 'waiting_credits');
+        const note = info.querySelector('[data-upload-reason]');
+        if (reason) expect(note?.textContent).withContext(status).toContain(reason); else expect(note).withContext(status).toBeNull();
+        expect(info.querySelectorAll('[data-retry-marking]').length).withContext(status).toBe(retry ? 1 : 0);
+      }
+    });
+
+    it('FIX 3: Retry marking during a live run says it is already running', async () => {
+      const root = await show(item({ status: 'reading' }));
+      teacherUploadApi.retry.and.resolveTo({ alreadyRequested: true, item: item({ status: 'reading' }) });
+      (root.querySelector('[data-retry-marking]') as HTMLButtonElement).click(); await fixture.whenStable();
+      expect(alert.showSuccess).toHaveBeenCalledWith('Marking is already running', 'This work is being marked now. Check back in a few minutes.');
+    });
+
+    it('FIX 2: shows the name and email the teacher typed; a student-submitted row is unchanged', async () => {
+      const root = await show(item({ name: 'Typed Name', email: 'typed@example.com', account: 'guest' }));
+      const rows = [...root.querySelectorAll('.bg-\\[\\#F3F3F3\\]')];
+      expect(rows[0].textContent).toContain('Typed Name (Guest)');
+      expect(rows[0].querySelector('[data-upload-email]')!.textContent).toBe('typed@example.com');
+      expect(rows[1].textContent).toContain('Mia');
+      expect(rows[1].querySelector('[data-upload-email]')).toBeNull();
+    });
+
+    it('FIX 2: the status chips stay after a bulk re-evaluation refresh (they were dropped)', async () => {
+      const root = await show(item({ status: 'processing' }));
+      api.getSubmissionsByAssignment.and.resolveTo([{ _id: 'submission-1', guest: { displayName: 'Sam Lee' } } as unknown as BackendSubmission]);
+      await (component as unknown as { refreshBulkProgress(): Promise<void> }).refreshBulkProgress();
+      fixture.detectChanges();
+      expect(root.querySelector('[data-upload-status]')?.textContent?.trim()).toBe('Marking');
     });
 
     it('still lists submissions when the upload statuses cannot be loaded', async () => {
