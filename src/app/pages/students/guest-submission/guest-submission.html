@@ -1,6 +1,6 @@
 @if (registered) { <app-assignment-qr-redirect /> }
 @else if (!viewingResults && authResolution !== 'ANONYMOUS') {
-  <main class="guest-page"><section class="card guest-shell" role="status">
+  <main class="guest-page"><app-public-brand class="guest-brand" /><section class="card guest-shell" role="status">
     @if (authResolution === 'RECOVERY_FAILED') {
       <h1>We could not restore your sign-in session</h1>
       <p>Please check your connection and retry opening the assignment.</p>
@@ -9,15 +9,15 @@
   </section></main>
 }
 @else if (showGuestUnavailable) {
-  <main class="guest-page"><section class="card guest-shell" role="status">
+  <main class="guest-page"><app-public-brand class="guest-brand" /><section class="card guest-shell" role="status">
     <h1>Guest submission is temporarily unavailable</h1><p>Please contact your teacher.</p>
   </section></main>
 }
-@else if (result) { <main class="guest-result"><app-my-submission-page /></main> }
+@else if (result) { <main class="guest-result"><app-public-brand class="guest-brand" /><app-my-submission-page /></main> }
 @else {
   <main class="guest-page" aria-labelledby="assignment-title">
     <div class="guest-shell">
-      <div class="brand"><img src="logo_and_icon/rubrilo-symbol-full.svg" alt="" width="36" height="36" /><span>Rubrilo</span></div>
+      <app-public-brand />
 
       <header class="assignment-card card">
         <span class="guest-badge">Guest Submission</span>

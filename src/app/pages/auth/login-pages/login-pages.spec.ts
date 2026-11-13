@@ -45,7 +45,15 @@ describe('LoginPages', () => {
 
   it('shows the Rubrilo brand and heading, and no old brand anywhere on the page', () => {
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.login-brand')?.textContent).toContain('Rubrilo');
+    // The brand is ONE image: the supplied horizontal logo (icon + name), alt "Rubrilo", at its own 512x164 ratio.
+    const logo = root.querySelector('header.login-brand img') as HTMLImageElement;
+    expect(logo.getAttribute('src')).toBe('logo_and_icon/logo/rubrilo-logo-horizontal-fullcolor@512w.png');
+    expect(logo.alt).toBe('Rubrilo');
+    expect([logo.getAttribute('width'), logo.getAttribute('height')]).toEqual(['512', '164']);
+    expect(root.querySelector('.login-brand__name')).toBeNull();
+    expect(root.innerHTML).not.toContain('rubrilo-symbol');
+    // The header sits outside the content container, so the logo aligns with the page edge, not the container.
+    expect(logo.closest('.login-container')).toBeNull();
     const title = root.querySelector('h1') as HTMLElement;
     expect(title.textContent?.replace(/\s+/g, ' ')).toContain('Supercharged Marking! Just a Few Clicks Away!');
     expect(title.querySelector('.login-title__accent')?.textContent).toBe('Marking!');
@@ -90,7 +98,7 @@ describe('LoginPages', () => {
   it('keeps the original login card design inside the new layout', () => {
     const root = fixture.nativeElement as HTMLElement;
     const card = root.querySelector('.login-card') as HTMLElement;
-    for (const cls of ['bg-white', 'rounded-[30px]', 'border-4', 'border-[#E2E2E2]', 'shadow-[0px_10px_0_#E2E2E2]', 'p-8']) expect(card.classList).withContext(cls).toContain(cls);
+    for (const cls of ['bg-white', 'rounded-[30px]', 'border-4', 'border-[#E2E2E2]', 'shadow-[0px_10px_0_#E2E2E2]', 'p-6']) expect(card.classList).withContext(cls).toContain(cls);
     expect(card.querySelectorAll('input.input-text').length).toBe(2);
     const login = card.querySelector('button[type="submit"]') as HTMLButtonElement;
     expect(login.classList).toContain('btn-primary');

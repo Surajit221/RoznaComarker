@@ -106,5 +106,9 @@
 .desktop-sidebar-toggle:focus-visible, .desktop-sidebar .nav-link:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
 .desktop-sidebar-toggle .is-collapsed { transform: rotate(180deg); }
 .dashboard-shell--collapsed .desktop-sidebar-label { display: none; }
+/* Sidebar brand: the full horizontal logo when expanded; only the app icon when collapsed. Never stretched. */
+.desktop-sidebar-logo { display: block; height: 3rem; width: auto; max-width: 100%; }
+.desktop-sidebar-icon { display: none; width: 2.75rem; height: 2.75rem; }
+.dashboard-shell--collapsed .desktop-sidebar-icon { display: block; }
 .dashboard-shell--collapsed .desktop-sidebar nav { padding-inline: .5rem; }
 .dashboard-shell--collapsed .desktop-sidebar .nav-link { justify-content: center; min-height: 2.75rem; padding-inline: .75rem; }
