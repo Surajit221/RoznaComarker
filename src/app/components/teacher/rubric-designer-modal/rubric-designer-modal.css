@@ -38,3 +38,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   .rubric-editor__actions button { width: 100%; }
   .rubric-matrix { grid-template-columns: 170px repeat(var(--level-count), 180px) 84px; min-width: calc(254px + (var(--level-count) * 180px)); }
 }
+
+/* Review-only mode (showTools=false): a rubric drafted from a reference file. */
+.rubric-editor__review-note { margin: 0 0 .75rem; padding: .65rem .8rem; border-radius: .7rem; background: #e6f4f4; color: #136c6d; font-size: .85rem; font-weight: 600; }

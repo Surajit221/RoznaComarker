@@ -21,16 +21,21 @@ import { RubricLibraryStateService } from '../../../../../services/rubric-librar
 import { designerToRubricData, rubricDataToDesigner } from '../../../../../utils/rubric-library.util';
 import { getAssignmentCapabilities } from '../../../../../utils/assignment-capabilities';
 import { DraftLimitFeature } from '../../../../../services/draft-limit-feature.service';
+import { ReferenceFilesField } from '../../../../../components/teacher/reference-files-field/reference-files-field';
 
 @Component({
   selector: 'app-assignment-form',
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RubricDesignerModal, RubricLibrarySelector, ModalDialog],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RubricDesignerModal, RubricLibrarySelector, ModalDialog, ReferenceFilesField],
   templateUrl: './assignment-form.html',
   styleUrl: './assignment-form.css',
 })
 export class AssignmentForm {
   guestFeature = inject(GuestSubmissionFeature);
   @ViewChild(RubricDesignerModal) rubricEditor?: RubricDesignerModal;
+  /** Reference files for AI marking (writing assignments; shown only when the backend has the feature on). */
+  @ViewChild(ReferenceFilesField) referenceFiles?: ReferenceFilesField;
+  /** A rubric from a reference file was applied on the server while this form was open. */
+  private rubricAppliedFromFile = false;
   classForm: FormGroup;
   @Input() classId: string | null = null;
   @Input() assignment: BackendAssignment | null = null;
@@ -255,9 +260,13 @@ export class AssignmentForm {
       }
 
       if (this.assignment?._id) {
-        const updated = await this.assignmentApi.updateAssignment(this.assignment._id, payload);
-        // SweetAlert shows one popup at a time; the warning replaces the success toast.
-        if (guestWarning) this.showGuestOffWarning(); else this.alert.showToast('Assignment updated successfully', 'success');
+        let updated = await this.assignmentApi.updateAssignment(this.assignment._id, payload);
+        const files = await this.finishReferenceFiles(this.assignment._id);
+        if (files.applied) updated = await this.assignmentApi.getAssignmentByIdForTeacher(this.assignment._id).catch(() => updated);
+        // SweetAlert shows one popup at a time: a warning replaces the success toast (a rubric applied from a file had its own).
+        if (guestWarning) this.showGuestOffWarning();
+        else if (files.notAdded) this.alert.showWarning('Assignment updated, but some files were not added', files.notAdded);
+        else if (!files.applied) this.alert.showToast('Assignment updated successfully', 'success');
         this.updated.emit(updated);
         this.closeDialog();
         return;
@@ -270,9 +279,15 @@ export class AssignmentForm {
       }
 
       payload.classId = classId;
-      const created = await this.assignmentApi.createAssignment(payload);
+      let created = await this.assignmentApi.createAssignment(payload);
 
-      if (guestWarning) this.showGuestOffWarning(); else this.alert.showToast('Assignment created successfully', 'success');
+      // Reference files need the new assignment's id: they upload (and, for a rubric file, are reviewed) before the dialog closes.
+      // With a rubric applied, the parent receives the assignment with it, so it does not open an empty rubric editor.
+      const files = created?._id ? await this.finishReferenceFiles(created._id) : { applied: false, notAdded: '' };
+      if (files.applied) created = await this.assignmentApi.getAssignmentByIdForTeacher(created._id).catch(() => created);
+      if (guestWarning) this.showGuestOffWarning();
+      else if (files.notAdded) this.alert.showWarning('Assignment created, but some files were not added', files.notAdded);
+      else if (!files.applied) this.alert.showToast('Assignment created successfully', 'success');
       this.created.emit(created);
       this.closeDialog();
     } catch (err: any) {
@@ -301,8 +316,38 @@ export class AssignmentForm {
       "Saved without 'submission without login': it's currently turned off.");
   }
 
+  /**
+   * After the assignment is saved: uploads the reference files waiting in the form, waits briefly for them to be read (the teacher can
+   * continue) and offers the rubric step for a rubric file. Returns whether a rubric was applied and, for files the server refused, the
+   * note to show (the caller shows one popup at a time).
+   */
+  private async finishReferenceFiles(assignmentId: string): Promise<{ applied: boolean; notAdded: string }> {
+    const field = this.referenceFiles;
+    if (!field?.hasStaged()) return { applied: this.rubricAppliedFromFile, notAdded: '' };
+    const { uploaded, failed } = await field.uploadStaged(assignmentId);
+    if (uploaded.length) {
+      await field.waitUntilRead();
+      await field.runRubricStep();
+    }
+    const notAdded = failed.length ? `${failed.map(item => `${item.name}: ${item.message}`).join(' ')} You can add files again from Edit assignment.` : '';
+    return { applied: this.rubricAppliedFromFile, notAdded };
+  }
+
+  /**
+   * A rubric from a reference file was saved on the server. The form's own copy is reloaded so "Update" never sends the old rubric back;
+   * if that reload fails, the form stops sending a rubric at all (the server keeps the applied one).
+   */
+  async onReferenceRubricApplied(): Promise<void> {
+    this.rubricAppliedFromFile = true;
+    const id = this.assignment?._id;
+    if (!id) return;
+    try { this.loadRubricFromAssignment(await this.assignmentApi.getAssignmentByIdForTeacher(id)); }
+    catch { this.rubricDesignerForModal = null; }
+  }
+
   onReset(): void {
     this.classForm.reset();
+    this.rubricAppliedFromFile = false;
     this.ngOnInit();
   }
 

@@ -567,7 +567,9 @@ export class DetailMyClassesPages {
     await this.loadAssignments();
 
     const assignmentId = created?._id ? String(created._id) : '';
-    if (assignmentId && getAssignmentCapabilities(created).writingControls) {
+    // A rubric applied from a reference file while creating is already reviewed: no editor to open.
+    const hasRubric = Array.isArray(created?.rubrics?.criteria) && created.rubrics.criteria.length > 0;
+    if (assignmentId && getAssignmentCapabilities(created).writingControls && !hasRubric) {
       await this.openRubricForAssignment(assignmentId);
     }
   }

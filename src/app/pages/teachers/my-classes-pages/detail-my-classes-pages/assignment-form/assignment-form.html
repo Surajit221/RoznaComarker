@@ -138,6 +138,11 @@
     </div>
   </div>
 
+  <!-- Reference files for AI marking: writing assignments only; shown only when the backend has the feature on. -->
+  @if (!isResourceAssignment) {
+  <app-reference-files-field scope="assignment" [targetId]="assignment?._id || null" (rubricApplied)="onReferenceRubricApplied()"></app-reference-files-field>
+  }
+
   @if (!isResourceAssignment && assignment?._id) {
   <div class="grid grid-cols-1 gap-4 w-full">
     <div class="w-full">

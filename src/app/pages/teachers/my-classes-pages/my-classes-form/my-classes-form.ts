@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -10,10 +10,11 @@ import {
 import { DeviceService } from '../../../../services/device.service';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClass } from '../../../../api/class-api.service';
+import { ReferenceFilesField } from '../../../../components/teacher/reference-files-field/reference-files-field';
 
 @Component({
   selector: 'app-my-classes-form',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ReferenceFilesField],
   templateUrl: './my-classes-form.html',
   styleUrl: './my-classes-form.css',
 })
@@ -23,6 +24,8 @@ export class MyClassesForm implements OnChanges {
   private classApi = inject(ClassApiService);
   private alert = inject(AlertService);
   isSubmitting = false;
+  /** Reference files for AI marking (shown only when the backend has the feature on). */
+  @ViewChild(ReferenceFilesField) referenceFiles?: ReferenceFilesField;
 
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() classId: string | null = null;
@@ -153,6 +156,7 @@ export class MyClassesForm implements OnChanges {
         }
 
         const updated = await this.classApi.updateClass(this.classId, payload);
+        await this.uploadReferenceFiles(this.classId, 'Class updated');
 
         this.updated.emit(updated);
         this.closeDialog();
@@ -160,6 +164,8 @@ export class MyClassesForm implements OnChanges {
       }
 
       const created = await this.classApi.createClass(payload);
+      // The files need the new class's id, so they upload now, before the dialog closes.
+      if (created?._id) await this.uploadReferenceFiles(created._id, 'Class created');
 
       this.created.emit(created);
       this.closeDialog();
@@ -169,6 +175,17 @@ export class MyClassesForm implements OnChanges {
       this.alert.showError(title, err?.message || 'Please try again');
     } finally {
       this.isSubmitting = false;
+    }
+  }
+
+  /** Uploads the reference files waiting in the form; files the server refused are reported (the class itself is saved). */
+  private async uploadReferenceFiles(classId: string, savedTitle: string): Promise<void> {
+    const field = this.referenceFiles;
+    if (!field?.hasStaged()) return;
+    const { failed } = await field.uploadStaged(classId);
+    if (failed.length) {
+      this.alert.showWarning(`${savedTitle}, but some files were not added`,
+        `${failed.map(item => `${item.name}: ${item.message}`).join(' ')} You can add files again from Edit class.`);
     }
   }
 

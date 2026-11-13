@@ -97,6 +97,8 @@
       </div>
     </div>
 
+    <app-reference-files-field scope="class" [targetId]="mode === 'edit' ? classId : null"></app-reference-files-field>
+
     <div class="flex justify-center items-center gap-3">
       <button type="button" class="btn-danger" [disabled]="isSubmitting" (click)="closeDialog()">Cancel</button>
       <button type="submit" class="btn-primary" [disabled]="classForm.invalid || isSubmitting">
@@ -199,6 +201,8 @@
         </div>
       </div>
     </div>
+
+    <app-reference-files-field scope="class" [targetId]="mode === 'edit' ? classId : null"></app-reference-files-field>
 
     <div class="grid grid-cols-1 justify-center items-center gap-3 mb-3">
       <button type="submit" class="btn-primary-sm" [disabled]="classForm.invalid || isSubmitting">

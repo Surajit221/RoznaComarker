@@ -22,6 +22,8 @@ export class RubricDesignerModal implements OnDestroy {
   @Input() isGenerating = false;
   @Input() isSaving = false;
   @Input() isAttaching = false;
+  /** false: review only (no Use Existing, Save to Library, Import file or AI prompt), e.g. a rubric drafted from a reference file. */
+  @Input() showTools = true;
 
   @Output() closed = new EventEmitter<void>();
 

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MyClassesForm } from './my-classes-form';
 import { routedHttpTestProviders } from '../../../../testing/routed-http-test.providers';
+import { referenceFilesOffProviders } from '../../../../../testing/standalone-test-providers';
 import { ClassApiService, type BackendClass } from '../../../../api/class-api.service';
 import { AlertService } from '../../../../services/alert.service';
 
@@ -16,7 +17,7 @@ describe('MyClassesForm', () => {
     alert = jasmine.createSpyObj<AlertService>('AlertService', ['showError', 'showSuccess']);
     await TestBed.configureTestingModule({
       imports: [MyClassesForm],
-      providers: [...routedHttpTestProviders(),
+      providers: [...routedHttpTestProviders(), ...referenceFilesOffProviders,
         { provide: ClassApiService, useValue: classApi }, { provide: AlertService, useValue: alert }]
     })
     .compileComponents();
