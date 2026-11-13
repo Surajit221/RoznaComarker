@@ -398,9 +398,9 @@
         </app-teacher-evaluation-editor>
         <div>
           <div class="flex flex-col gap-3">
-            @if (assignmentId) {
-            <!-- Improved Writing Model: per assignment; shown only when the backend has it on and this teacher owns the assignment. -->
-            <app-writing-model-editor [assignmentId]="assignmentId" />
+            @if (currentSubmission?._id) {
+            <!-- Improved Writing Model: one per submission (this student only); shown only when the backend has it on and this teacher owns it. -->
+            <app-writing-model-editor [submissionId]="currentSubmission!._id" />
             }
             <div class="teacher-comments-editor w-full items-center py-4 px-6 bg-[#F3F3F3] rounded-xl" [formGroup]="feedbackForm">
               <p class="text-xl font-bold mb-1">Teacher Comments</p>

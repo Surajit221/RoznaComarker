@@ -111,7 +111,7 @@
       <table>
         <thead><tr><th scope="col">Category</th><th scope="col">Previous</th><th scope="col">Current</th><th scope="col">Change</th></tr></thead>
         <tbody>
-          @for (item of comparison?.rubricCategories || []; track item.categoryId || item.name) {
+          @for (item of rubricRows(); track item.categoryId || item.name) {
             <tr>
               <th scope="row">{{ item.name }}</th>
               <td>{{ item.previousScore == null ? '—' : item.previousScore }}</td>

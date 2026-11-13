@@ -25,7 +25,7 @@ describe('WritingModelCard', () => {
     await render({ available: true, text: 'Paragraph one.\n\nParagraph <b>two</b>.' });
     const card = dom().querySelector('[data-writing-model-card]')!;
     expect(card.querySelector('h2')!.textContent).toBe('Improved Writing Model');
-    expect(card.textContent).toContain('A learning reference from your teacher');
+    expect(card.textContent).toContain('An improved version of your own writing, from your teacher, for you only.');
     expect(card.querySelector('b')).toBeNull();
     expect(card.querySelector('.wm-card__text')!.textContent).toBe('Paragraph one.\n\nParagraph <b>two</b>.');
   });

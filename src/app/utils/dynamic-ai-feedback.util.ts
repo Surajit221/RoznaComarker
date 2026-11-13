@@ -1,4 +1,5 @@
 import type { WritingCorrectionIssue } from '../api/writing-corrections-api.service';
+import { ASSESSMENT_CATEGORY_LABELS, ASSESSMENT_CATEGORY_ORDER } from '../constants/assessment-categories';
 
 export type RubricFeedbackItem = {
   category: string;
@@ -165,50 +166,19 @@ export function rubricScoresToFeedbackItems(rubricScores: PersistedRubricScores 
     return Math.min(Math.max(score, 0), max);
   };
 
-  const requiredKeys = ['GRAMMAR', 'VOCABULARY', 'ORGANIZATION', 'CONTENT', 'MECHANICS', 'PRESENTATION'];
+  const requiredKeys: readonly string[] = ASSESSMENT_CATEGORY_ORDER;
   const scores = Object.fromEntries(requiredKeys.map((key) => [key, getSafeScore(key)]));
   // Canonical fixed-category results are all-or-nothing. Rendering a partially
   // persisted record would turn missing values into convincing 0.0 scores.
   if (requiredKeys.some((key) => scores[key] === null)) return [];
 
-  return [
-    {
-      category: 'Grammar',
-      score: clampToMax(scores['GRAMMAR']!, getSafeMaxScore('GRAMMAR')),
-      maxScore: getSafeMaxScore('GRAMMAR'),
-      description: typeof rs?.GRAMMAR?.comment === 'string' ? rs.GRAMMAR.comment : ''
-    },
-    {
-      category: 'Vocabulary',
-      score: clampToMax(scores['VOCABULARY']!, getSafeMaxScore('VOCABULARY')),
-      maxScore: getSafeMaxScore('VOCABULARY'),
-      description: typeof rs?.VOCABULARY?.comment === 'string' ? rs.VOCABULARY.comment : ''
-    },
-    {
-      category: 'Organization & Structure',
-      score: clampToMax(scores['ORGANIZATION']!, getSafeMaxScore('ORGANIZATION')),
-      maxScore: getSafeMaxScore('ORGANIZATION'),
-      description: typeof rs?.ORGANIZATION?.comment === 'string' ? rs.ORGANIZATION.comment : ''
-    },
-    {
-      category: 'Content & Task Achievement',
-      score: clampToMax(scores['CONTENT']!, getSafeMaxScore('CONTENT')),
-      maxScore: getSafeMaxScore('CONTENT'),
-      description: typeof rs?.CONTENT?.comment === 'string' ? rs.CONTENT.comment : ''
-    },
-    {
-      category: 'Spelling & Punctuation',
-      score: clampToMax(scores['MECHANICS']!, getSafeMaxScore('MECHANICS')),
-      maxScore: getSafeMaxScore('MECHANICS'),
-      description: typeof rs?.MECHANICS?.comment === 'string' ? rs.MECHANICS.comment : ''
-    },
-    {
-      category: 'Presentation & Handwriting',
-      score: clampToMax(scores['PRESENTATION']!, getSafeMaxScore('PRESENTATION')),
-      maxScore: getSafeMaxScore('PRESENTATION'),
-      description: typeof rs?.PRESENTATION?.comment === 'string' ? rs.PRESENTATION.comment : ''
-    }
-  ];
+  // The shared display order and labels (constants/assessment-categories.ts).
+  return ASSESSMENT_CATEGORY_ORDER.map((key) => ({
+    category: ASSESSMENT_CATEGORY_LABELS[key],
+    score: clampToMax(scores[key]!, getSafeMaxScore(key)),
+    maxScore: getSafeMaxScore(key),
+    description: typeof rs?.[key]?.comment === 'string' ? rs[key].comment : ''
+  }));
 }
 
 export interface CustomRubricFeedbackItem extends RubricFeedbackItem {

@@ -4,6 +4,7 @@ import { AnnotationControls } from '../../../../../components/teacher/annotation
 import { AnnotationMarkMenu } from '../../../../../components/teacher/annotation-controls/annotation-mark-menu';
 import { AnnotationEditFields } from '../../../../../components/teacher/annotation-controls/annotation-edit-fields';
 import { TeacherEvaluationEditor } from '../../../../../components/teacher/evaluation-editor/teacher-evaluation-editor';
+import { ASSESSMENT_CATEGORY_LABELS } from '../../../../../constants/assessment-categories';
 import { WritingModelEditor } from '../../../../../components/teacher/writing-model-editor/writing-model-editor';
 import { StudentPreview } from '../../../../../components/teacher/student-preview/student-preview';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
@@ -2079,30 +2080,7 @@ export class StudentSubmissionPages {
 
 
 
-    const labelMap: Record<string, string> = {
-
-
-
-      CONTENT: 'Content & Task Achievement',
-
-
-
-      ORGANIZATION: 'Organization & Structure',
-
-
-
-      GRAMMAR: 'Grammar',
-
-
-
-      VOCABULARY: 'Vocabulary',
-
-      MECHANICS: 'Spelling & Punctuation',
-      PRESENTATION: 'Presentation & Handwriting'
-
-
-
-    };
+    const labelMap: Record<string, string> = ASSESSMENT_CATEGORY_LABELS;
 
 
 
