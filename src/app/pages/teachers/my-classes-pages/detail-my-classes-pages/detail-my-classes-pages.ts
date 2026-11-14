@@ -1113,6 +1113,11 @@ export class DetailMyClassesPages {
     this.showDialogSubmission = true;
   }
 
+  /** The whole-assignment report (essay assignments only; the button is not shown for worksheets or flashcards). */
+  openAssignmentReport(assignmentId: string) {
+    void this.router.navigate(['/teacher/assignment-report', assignmentId]);
+  }
+
   onOpenQRClasses() {
     this.showDialogQRClasses = true;
   }

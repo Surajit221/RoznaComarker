@@ -32,6 +32,12 @@
 .teacher-assignment-primary { min-height: 2.4rem; width: 100%; display: inline-flex; justify-content: center; align-items: center; gap: .4rem; padding: .55rem .8rem; border-radius: .75rem; background: #008081; color: white; font-size: .8rem; font-weight: 700; transition: background .2s ease, transform .2s ease; }
 .teacher-assignment-primary:hover { background: #136c6d; transform: translateY(-1px); }
 .teacher-assignment-primary:focus-visible, .assignment-utility:focus-visible { outline: 3px solid rgba(0,128,129,.22); outline-offset: 2px; }
+/* View Submissions takes the free width; Report (navy, same size, radius and font) sits beside it at its own width. */
+.teacher-assignment-primary-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem; }
+.teacher-assignment-primary-row .teacher-assignment-primary { white-space: nowrap; }
+.teacher-assignment-report { min-height: 2.4rem; display: inline-flex; justify-content: center; align-items: center; gap: .35rem; padding: .55rem .8rem; border-radius: .75rem; background: #14264d; color: white; font-size: .8rem; font-weight: 700; white-space: nowrap; transition: background .2s ease, transform .2s ease; }
+.teacher-assignment-report:hover { background: #0d1a36; transform: translateY(-1px); }
+.teacher-assignment-report:focus-visible { outline: 3px solid rgba(20,38,77,.28); outline-offset: 2px; }
 .teacher-assignment-actions__grid { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .45rem; }
 .assignment-utility { min-width: 0; min-height: 2.35rem; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; padding: .5rem .55rem; border: 1px solid; border-radius: .7rem; font-size: .75rem; line-height: 1.1; font-weight: 700; white-space: nowrap; transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; }
 .assignment-utility:hover { transform: translateY(-1px); }
@@ -62,20 +68,22 @@
 @media (max-width: 1180px) and (min-width: 1025px) {
   .teacher-assignment-card { grid-template-columns: minmax(0,1fr) 220px; gap: .9rem; padding: 1rem; }
   .assignment-utility { font-size: .7rem; padding-inline: .4rem; }
+  /* The 220px column is too narrow for both labels side by side: stack them so View Submissions keeps its full width. */
+  .teacher-assignment-primary-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
   .teacher-assignment-card--mobile { padding: .85rem; }
   .teacher-assignment-actions__grid { gap: .4rem; }
-  .assignment-utility, .teacher-assignment-primary { min-height: 2.65rem; font-size: .78rem; }
+  .assignment-utility, .teacher-assignment-primary, .teacher-assignment-report { min-height: 2.65rem; font-size: .78rem; }
 }
 
 @media (max-width: 340px) {
-  .teacher-assignment-actions__grid { grid-template-columns: 1fr; }
+  .teacher-assignment-actions__grid, .teacher-assignment-primary-row { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .teacher-assignment-card, .teacher-assignment-primary, .assignment-utility { transition: none; }
+  .teacher-assignment-card, .teacher-assignment-primary, .teacher-assignment-report, .assignment-utility { transition: none; }
 }
 
 .wv-teacher-overlay {

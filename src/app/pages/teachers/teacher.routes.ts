@@ -24,6 +24,7 @@ export const TEACHER_ROUTE: Routes = [
       { path: 'reports', component: ReportPages },
       { path: 'rubrics', component: RubricLibraryPage },
       { path: 'institution', loadComponent: () => import('./institution/institution').then((m) => m.InstitutionPage) },
+      { path: 'assignment-report/:assignmentId', loadComponent: () => import('./assignment-report/assignment-report').then((m) => m.AssignmentReportPage) },
       { path: 'my-classes/detail/student-profile/:studentId', component: StudentProfilePages },
       { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages, canDeactivate: [unsavedWorkGuard] },
       { path: 'my-classes/detail/:slug', component: DetailMyClassesPages, canDeactivate: [unsavedWorkGuard] },

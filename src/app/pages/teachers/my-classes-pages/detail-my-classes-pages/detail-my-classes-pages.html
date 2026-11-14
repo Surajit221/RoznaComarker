@@ -143,9 +143,17 @@
                   <ng-container *ngTemplateOutlet="assignmentStats; context: { $implicit: item }" />
                 </div>
                 <div class="teacher-assignment-actions" (click)="$event.stopPropagation()">
-                    <button type="button" class="teacher-assignment-primary" (click)="onOpenSubmission(item.id)">
-                      <i class="bx bx-show" aria-hidden="true"></i> View Submissions
-                    </button>
+                    <div class="teacher-assignment-primary-row">
+                      <button type="button" class="teacher-assignment-primary" (click)="onOpenSubmission(item.id)">
+                        <i class="bx bx-show" aria-hidden="true"></i> View Submissions
+                      </button>
+                      @if (!item.resourceType || item.resourceType === 'essay') {
+                        <button type="button" class="teacher-assignment-report" (click)="openAssignmentReport(item.id)"
+                          [attr.aria-label]="'Open the report for ' + item.title">
+                          <i class="bx bx-bar-chart-alt-2" aria-hidden="true"></i> Report
+                        </button>
+                      }
+                    </div>
                     <div class="teacher-assignment-actions__grid">
                       <button
                         type="button"
@@ -503,7 +511,15 @@
               </div>
             }
             <div class="teacher-assignment-actions teacher-assignment-actions--mobile" (click)="$event.stopPropagation()">
-              <button type="button" class="teacher-assignment-primary" (click)="onOpenSheetSubmission(item.id)"><i class="bx bx-show" aria-hidden="true"></i> View Submissions</button>
+              <div class="teacher-assignment-primary-row">
+                <button type="button" class="teacher-assignment-primary" (click)="onOpenSheetSubmission(item.id)"><i class="bx bx-show" aria-hidden="true"></i> View Submissions</button>
+                @if (!item.resourceType || item.resourceType === 'essay') {
+                  <button type="button" class="teacher-assignment-report" (click)="openAssignmentReport(item.id)"
+                    [attr.aria-label]="'Open the report for ' + item.title">
+                    <i class="bx bx-bar-chart-alt-2" aria-hidden="true"></i> Report
+                  </button>
+                }
+              </div>
               <div class="teacher-assignment-actions__grid">
               <button
                 type="button"
