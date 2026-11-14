@@ -99,8 +99,10 @@ export class TeacherUploadApiService {
       `${this.base(assignmentId)}/${encodeURIComponent(submissionId)}/retry`, {}))).data;
   }
 
-  async send(assignmentId: string, submissionId: string): Promise<{ item: TeacherUploadItem; alreadyRequested: boolean }> {
+  /** Send, or Resend after a failure. `resend` sends an email that was already sent once more ("Resend email"): the server allows
+   *  it once a minute per student and treats the same request id as one request. */
+  async send(assignmentId: string, submissionId: string, resend?: { requestId: string }): Promise<{ item: TeacherUploadItem; alreadyRequested: boolean }> {
     return (await firstValueFrom(this.http.post<BackendResponse<{ item: TeacherUploadItem; alreadyRequested: boolean }>>(
-      `${this.base(assignmentId)}/${encodeURIComponent(submissionId)}/send`, {}))).data;
+      `${this.base(assignmentId)}/${encodeURIComponent(submissionId)}/send`, resend ? { resend: true, requestId: resend.requestId } : {}))).data;
   }
 }

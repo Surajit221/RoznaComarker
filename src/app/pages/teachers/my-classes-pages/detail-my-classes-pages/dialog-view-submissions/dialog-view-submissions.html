@@ -122,6 +122,11 @@
         <button type="button" class="upload-info__send" [disabled]="sendingSubmissionId !== null" [attr.aria-busy]="sendingSubmissionId === student.submissionId"
           [attr.aria-describedby]="upload.emailStatus === 'failed' && upload.emailDeliveryUncertain ? 'uncertain-' + student.submissionId : null"
           (click)="sendFeedbackEmail(student)">{{ upload.emailStatus === 'failed' ? 'Resend' : 'Send' }} <span class="sr-only">feedback email to {{ student.name }}</span></button>
+      } @else if (upload.emailStatus === 'sent') {
+        <button type="button" class="upload-info__send" [disabled]="sendingSubmissionId !== null" [attr.aria-busy]="sendingSubmissionId === student.submissionId"
+          [attr.aria-describedby]="'sent-help-' + student.submissionId" (click)="resendFeedbackEmail(student)" data-resend-email>Resend email
+          <span class="sr-only">to {{ student.name }}</span></button>
+        <span class="upload-info__help" [id]="'sent-help-' + student.submissionId" data-sent-help>Sent means the mail server accepted it; delivery to the inbox can take a few minutes or land in spam.</span>
       }
     </div>
   }
