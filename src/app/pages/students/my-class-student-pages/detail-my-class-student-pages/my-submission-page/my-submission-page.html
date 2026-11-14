@@ -39,6 +39,17 @@
       </div>
     </div>
 
+    <!-- The assignment as the teacher set it for students: title, class and the description (Assignment.instructions). Plain text. -->
+    <section class="assignment-brief" aria-labelledby="assignment-brief-title" data-assignment-brief>
+      <h2 id="assignment-brief-title" class="assignment-brief__label">Assignment</h2>
+      <p class="assignment-brief__title">{{ assignmentBriefTitle }}</p>
+      @if (classTitle) { <p class="assignment-brief__class">Class: {{ classTitle }}</p> }
+      @if (assignmentDescription) {
+        <h3 class="assignment-brief__label">Description</h3>
+        <p class="assignment-brief__text" data-assignment-description>{{ assignmentDescription }}</p>
+      }
+    </section>
+
     @if(isUploadedFile) {
     <div class="w-full mb-4">
       <div class="w-full bg-white p-6 rounded-3xl flex flex-col gap-4">

@@ -32,6 +32,7 @@
 .upload-info__chip--bad { background: #fee2e2; color: #991b1b; }
 .upload-info__chip--warn { background: #fef3c7; color: #92400e; }
 .upload-info__note { color: #92400e; font-size: .75rem; }
+.upload-info__help { flex-basis: 100%; color: #475569; font-size: .75rem; }
 .upload-info__send { padding: .125rem .5rem; border-radius: .375rem; color: #006d6e; font-size: .8125rem; font-weight: 700; text-decoration: underline; }
 .upload-info__send:disabled { opacity: .5; cursor: not-allowed; }
 .upload-info__send:focus-visible { outline: 3px solid #008081; outline-offset: 2px; }

@@ -17,17 +17,32 @@
           <ul class="portal-list" aria-label="Your submitted assignments">
             @for (item of assignments; track item.id) {
               <li>
-                <button type="button" class="portal-item" (click)="open(item)">
-                  <span class="portal-title">{{ item.assignmentTitle }}</span>
-                  <span class="portal-meta">
-                    @if (item.className) { <span>{{ item.className }}</span> }
-                    @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'medium' }}</span> }
-                  </span>
-                  <span class="portal-status" [class.ready]="item.status === 'ready'">{{ statusLabel(item.status) }}</span>
-                </button>
+                @if (item.access === 'signIn') {
+                  <!-- Work saved on the student's account: only they, signed in, can open it. Title, class and date only. -->
+                  <a class="portal-item" routerLink="/login" data-sign-in>
+                    <span class="portal-title">{{ item.assignmentTitle }}</span>
+                    <span class="portal-meta">
+                      @if (item.className) { <span>{{ item.className }}</span> }
+                      @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'medium' }}</span> }
+                    </span>
+                    <span class="portal-status sign-in">Sign in to view</span>
+                  </a>
+                } @else {
+                  <button type="button" class="portal-item" (click)="open(item)">
+                    <span class="portal-title">{{ item.assignmentTitle }}</span>
+                    <span class="portal-meta">
+                      @if (item.className) { <span>{{ item.className }}</span> }
+                      @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'medium' }}</span> }
+                    </span>
+                    <span class="portal-status" [class.ready]="item.status === 'ready'">{{ statusLabel(item.status) }}</span>
+                  </button>
+                }
               </li>
             }
           </ul>
+          @if (hasAccountWork()) {
+            <p class="muted portal-note" data-sign-in-note>"Sign in to view" work is saved on your Rubrilo account: sign in with this email address to open it.</p>
+          }
         </section>
       }
       @case ('empty') {

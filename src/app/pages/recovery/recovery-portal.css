@@ -8,3 +8,6 @@
 .portal-status{grid-column:2;grid-row:1 / span 2;font-size:12px;font-weight:600;padding:6px 10px;border-radius:99px;background:#f3f4f6;color:#52616b;white-space:nowrap}
 .portal-status.ready{background:var(--color-primary-bg);color:var(--color-primary-dark)}
 @media(max-width:600px){.portal-item{grid-template-columns:1fr}.portal-status{grid-column:1;grid-row:auto;justify-self:start}}
+a.portal-item{text-decoration:none}
+.portal-status.sign-in{background:#fff7df;color:#8a5300}
+.portal-note{margin-top:12px;font-size:13px}

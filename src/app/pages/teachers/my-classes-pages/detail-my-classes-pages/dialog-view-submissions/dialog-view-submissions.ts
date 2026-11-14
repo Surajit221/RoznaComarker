@@ -117,7 +117,15 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   emailStatusLabel(item: TeacherUploadItem): string {
     if (this.markingFailedNoEmail(item) || item.emailStatus === 'held') return 'Marking failed, email not sent';
     if (item.emailStatus === 'failed' && item.emailDeliveryUncertain) return 'Delivery uncertain';
+    if (item.emailStatus === 'sent') { const at = this.emailSentTime(item); return at ? `Email sent ${at}` : 'Email sent'; }
     return ({ none: 'Not emailed', queued: 'Email queued', sending: 'Email sending', sent: 'Email sent', failed: 'Email failed' } as const)[item.emailStatus];
+  }
+  /** When the mail server accepted it, in the teacher's local time: "09:22" today, "12 Nov 09:22" on another day. */
+  emailSentTime(item: TeacherUploadItem, now = new Date()): string {
+    const at = item.emailSentAt ? new Date(item.emailSentAt) : null;
+    if (!at || Number.isNaN(at.getTime())) return '';
+    const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(at);
+    return at.toDateString() === now.toDateString() ? time : `${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(at)} ${time}`;
   }
 
   /** Marks the work again (one credit, charged only if marking succeeds). A held email is then sent once, after marking. */
@@ -145,6 +153,23 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
       row.upload = result.item;
       this.alert.showSuccess('Email queued', result.item.status === 'marked'
         ? 'The feedback link will be emailed shortly.' : 'The feedback link will be emailed when marking is finished.');
+    } catch (error) {
+      this.alert.showError('Email not queued', friendlyError(error).message);
+    } finally {
+      this.sendingSubmissionId = null;
+    }
+  }
+
+  /** "Resend email" for an email that was already sent (a student says it never arrived): asks first, then queues it once. */
+  async resendFeedbackEmail(row: { submissionId: string; upload?: TeacherUploadItem }): Promise<void> {
+    if (!this.assignmentId || !row.upload || this.sendingSubmissionId) return;
+    const confirmed = await this.alert.showConfirm('Resend email?', 'This will send the link again.', 'Resend email', 'Cancel');
+    if (!confirmed || this.destroyed || !this.assignmentId) return;
+    this.sendingSubmissionId = row.submissionId;
+    try {
+      const result = await this.teacherUploadApi.send(this.assignmentId, row.submissionId, { requestId: crypto.randomUUID() });
+      row.upload = result.item;
+      this.alert.showSuccess('Email queued', 'The feedback link will be emailed again shortly.');
     } catch (error) {
       this.alert.showError('Email not queued', friendlyError(error).message);
     } finally {

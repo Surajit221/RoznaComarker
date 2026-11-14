@@ -120,6 +120,45 @@ describe('DialogViewSubmissions loading states', () => {
       expect(alert.showSuccess).toHaveBeenCalledWith('Email queued', 'The feedback link will be emailed shortly.');
     });
 
+    describe('an email already sent', () => {
+      const sentAt = new Date(); sentAt.setHours(9, 22, 0, 0);
+      it('shows the time the mail server accepted it, the helper text, and a Resend email action', async () => {
+        const info = (await show(item({ emailStatus: 'sent', emailSentAt: sentAt.toISOString() }))).querySelector('[data-teacher-upload]')!;
+        expect(info.textContent).toContain('Email sent 09:22');
+        const help = info.querySelector('[data-sent-help]')!;
+        expect(help.textContent!.trim()).toBe('Sent means the mail server accepted it; delivery to the inbox can take a few minutes or land in spam.');
+        const button = info.querySelector('[data-resend-email]') as HTMLButtonElement;
+        expect(button.textContent).toContain('Resend email');
+        expect(button.getAttribute('aria-describedby')).toBe(help.id);
+      });
+      it('another day shows the date too; no time stored shows the plain label', () => {
+        const now = new Date('2026-11-14T12:00:00'), other = new Date('2026-11-12T09:22:00');
+        expect(component.emailSentTime(item({ emailStatus: 'sent', emailSentAt: other.toISOString() }), now)).toBe('12 Nov 09:22');
+        expect(component.emailStatusLabel(item({ emailStatus: 'sent', emailSentAt: null }))).toBe('Email sent');
+      });
+      it('Resend email asks first ("This will send the link again"), then queues it once with a request id', async () => {
+        const root = await show(item({ emailStatus: 'sent', emailSentAt: sentAt.toISOString() }));
+        teacherUploadApi.send.and.resolveTo({ alreadyRequested: false, item: item({ emailStatus: 'queued' }) });
+        (root.querySelector('[data-resend-email]') as HTMLButtonElement).click(); await fixture.whenStable(); fixture.detectChanges();
+        expect(alert.showConfirm).toHaveBeenCalledOnceWith('Resend email?', 'This will send the link again.', 'Resend email', 'Cancel');
+        expect(teacherUploadApi.send).toHaveBeenCalledOnceWith('assignment-a', 'submission-1', { requestId: jasmine.stringMatching(/^[0-9a-f-]{36}$/) });
+        expect(root.querySelector('[data-teacher-upload]')!.textContent).toContain('Email queued');
+        expect(alert.showSuccess).toHaveBeenCalledWith('Email queued', 'The feedback link will be emailed again shortly.');
+      });
+      it('cancelling the confirmation sends nothing', async () => {
+        const root = await show(item({ emailStatus: 'sent', emailSentAt: sentAt.toISOString() }));
+        alert.showConfirm.and.resolveTo(false);
+        (root.querySelector('[data-resend-email]') as HTMLButtonElement).click(); await fixture.whenStable();
+        expect(teacherUploadApi.send).not.toHaveBeenCalled();
+      });
+      it('a refusal (for example within a minute of sending) is shown in plain words', async () => {
+        const root = await show(item({ emailStatus: 'sent', emailSentAt: sentAt.toISOString() }));
+        teacherUploadApi.send.and.rejectWith(new HttpErrorResponse({ status: 429, error: { code: 'TEACHER_UPLOAD_RESEND_COOLDOWN', details: { retryAfterSeconds: 40 } } }));
+        (root.querySelector('[data-resend-email]') as HTMLButtonElement).click(); await fixture.whenStable();
+        expect(alert.showError).toHaveBeenCalledWith('Email not queued', 'Too many requests. Please wait a minute and try again.');
+      });
+    });
+
     it('labels an uncertain delivery next to Resend and explains the risk of a second copy', async () => {
       const root = await show(item({ emailStatus: 'failed', emailDeliveryUncertain: true }));
       const info = root.querySelector('[data-teacher-upload]')!;

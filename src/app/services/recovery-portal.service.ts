@@ -8,7 +8,10 @@ export interface RecoveredAssignment {
   assignmentTitle: string;
   className: string;
   submittedAt: string | null;
-  status: 'ready' | 'processing' | 'failed';
+  /** Guest work only (it opens from the list). */
+  status?: 'ready' | 'processing' | 'failed';
+  /** 'signIn': work saved on the student account with this address; it opens only after signing in (no status, no results). */
+  access?: 'signIn';
 }
 
 const SESSION_KEY = 'comarker:recovery-session';

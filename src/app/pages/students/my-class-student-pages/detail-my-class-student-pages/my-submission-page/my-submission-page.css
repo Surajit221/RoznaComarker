@@ -467,3 +467,10 @@
 /* C.3b: one short neutral line under the score when the corrections arrived after it was calculated. */
 .score-before-corrections { margin: -0.5rem 0 0.75rem; color: #475569; font-size: 0.8rem; line-height: 1.35; }
 .correction-retry-notice { margin: .75rem 0; }
+/* Assignment block (title, class, description) at the top of the result page. */
+.assignment-brief { margin: 0 0 1.5rem; padding: 1rem 1.25rem; border: 1px solid #dbe3e9; border-radius: 1rem; background: #fff; color: #14264d; }
+.assignment-brief__label { margin: 0 0 .25rem; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #52616b; }
+.assignment-brief__title { margin: 0; font-size: 1.125rem; font-weight: 700; overflow-wrap: anywhere; }
+.assignment-brief__class { margin: .125rem 0 0; color: #52616b; }
+.assignment-brief h3.assignment-brief__label { margin-top: .875rem; }
+.assignment-brief__text { margin: 0; white-space: pre-line; line-height: 1.6; overflow-wrap: anywhere; word-break: break-word; }

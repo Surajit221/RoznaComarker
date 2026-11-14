@@ -400,6 +400,20 @@ export class MySubmissionPage {
     });
   }
 
+  /** The description the teacher wrote for students (Assignment.instructions, the form's "Description"); '' when there is none. */
+  get assignmentDescription(): string {
+    const own = (this.assignment as { instructions?: unknown } | null)?.instructions;
+    const nested = ((this.submission as { assignment?: { instructions?: unknown } } | null)?.assignment)?.instructions;
+    const text = typeof own === 'string' ? own : typeof nested === 'string' ? nested : '';
+    return text.replace(/\r\n?/g, '\n').trim();
+  }
+
+  /** The assignment's own title (guest pages carry the assignment as an id on the submission), else the submission title. */
+  get assignmentBriefTitle(): string {
+    const own = (this.assignment as { title?: unknown } | null)?.title;
+    return typeof own === 'string' && own.trim() ? own : this.submissionTitle;
+  }
+
   get submissionTitle(): string {
     const a: any = this.submission && (this.submission as any).assignment;
     const title = a && typeof a === 'object' ? (a.title || a.name) : '';

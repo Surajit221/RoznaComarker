@@ -59,6 +59,44 @@ describe('MySubmissionPage', () => {
     expect(fixture.nativeElement.querySelector('[data-writing-model-card]')?.textContent).toContain('Released model.');
     expect(api.calls.count()).toBe(2);
   });
+  describe('Assignment block', () => {
+    const brief = () => fixture.nativeElement.querySelector('[data-assignment-brief]') as HTMLElement;
+    function show(instructions: unknown, title = 'Weekend essay') {
+      component.submission = { _id: 'submission-1', draftNumber: 1, assignment: { _id: 'assignment-1', title } } as unknown as NonNullable<typeof component.submission>;
+      component.assignment = { _id: 'assignment-1', title, instructions } as unknown as typeof component.assignment;
+      component.classTitle = 'Writing 7B';
+      fixture.detectChanges();
+    }
+    it('shows the title, the class and the description, as plain text with its line breaks', () => {
+      show('Write about your weekend.\nUse the past tense <b>and</b> 150 words.');
+      expect(brief().querySelector('h2')!.textContent).toBe('Assignment');
+      expect(brief().textContent).toContain('Weekend essay');
+      expect(brief().textContent).toContain('Class: Writing 7B');
+      const text = brief().querySelector('[data-assignment-description]') as HTMLElement;
+      expect(text.textContent).toBe('Write about your weekend.\nUse the past tense <b>and</b> 150 words.');
+      expect(text.querySelector('b')).toBeNull();
+      expect(['pre-line', 'pre-wrap']).toContain(getComputedStyle(text).whiteSpace);   // line breaks kept, long lines wrap
+    });
+    it('no description (missing, empty or spaces): no Description heading and no empty text', () => {
+      for (const value of [undefined, '', '  \n ']) {
+        show(value);
+        expect(brief().querySelector('[data-assignment-description]')).toBeNull();
+        expect(brief().textContent).not.toContain('Description');
+      }
+    });
+    it('guest page (the submission carries the assignment as an id): the title comes from the loaded assignment', () => {
+      component.submission = { _id: 'submission-1', draftNumber: 1, assignment: 'assignment-1' } as unknown as NonNullable<typeof component.submission>;
+      component.assignment = { _id: 'assignment-1', title: 'Guest Essay', instructions: 'Describe your town.' } as unknown as typeof component.assignment;
+      fixture.detectChanges();
+      expect(brief().querySelector('.assignment-brief__title')!.textContent).toBe('Guest Essay');
+    });
+    it('long text wraps inside the block (no horizontal overflow)', () => {
+      show('word'.repeat(600));
+      const text = brief().querySelector('[data-assignment-description]') as HTMLElement;
+      expect(getComputedStyle(text).overflowWrap).toBe('anywhere');
+      expect(brief().scrollWidth).toBeLessThanOrEqual(brief().clientWidth + 1);
+    });
+  });
   it('asks the API on draft 1 but renders no unreleased text', async () => {
     const api = spyOn(TestBed.inject(WritingModelApiService), 'forSubmission').and.resolveTo({ available: false });
     component.submission = { _id: 'submission-1', draftNumber: 1 } as NonNullable<typeof component.submission>;
