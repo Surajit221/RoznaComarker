@@ -6,6 +6,7 @@ import { AssignmentApiService } from '../../../api/assignment-api.service';
 import { ClassApiService, type BackendClass } from '../../../api/class-api.service';
 import { FeedbackApiService } from '../../../api/feedback-api.service';
 import { SubmissionApiService, type BackendSubmission } from '../../../api/submission-api.service';
+import { EssayAnalysisOverview } from './essay-analysis-overview/essay-analysis-overview';
 
 export function essayReportStatusFromScore(
   score: number
@@ -17,7 +18,7 @@ export function essayReportStatusFromScore(
 
 @Component({
   selector: 'app-report-pages',
-  imports: [CommonModule],
+  imports: [CommonModule, EssayAnalysisOverview],
   templateUrl: './report-pages.html',
   styleUrl: './report-pages.css',
 })

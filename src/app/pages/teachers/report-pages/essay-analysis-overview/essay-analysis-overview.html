@@ -1,0 +1,65 @@
+<div class="overview-grid">
+  <section class="overview-card" data-card="issues" aria-labelledby="overview-issues-title">
+    <h3 id="overview-issues-title" class="overview-card__title">
+      <i class="bx bx-error-circle" aria-hidden="true"></i> Common Issues Detected
+    </h3>
+    @if (bars().length) {
+      <div class="overview-bars" role="list" aria-label="Common issues detected">
+        @for (bar of bars(); track $index) {
+          <div class="overview-bar" role="listitem">
+            <div class="overview-bar__head">
+              <span class="overview-bar__label">{{ bar.label }}</span>
+              <span class="overview-bar__value">{{ bar.pctText }}</span>
+            </div>
+            <div class="overview-bar__track" aria-hidden="true">
+              <div class="overview-bar__fill" aria-hidden="true" [style.width.%]="bar.percent" [style.background]="bar.color"></div>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="overview-empty">No issues to show yet.</p>
+    }
+  </section>
+
+  <section class="overview-card" data-card="trends" aria-labelledby="overview-trends-title">
+    <h3 id="overview-trends-title" class="overview-card__title">
+      <i class="bx bx-line-chart" aria-hidden="true"></i> Performance Trends
+    </h3>
+    <div class="overview-tiles">
+      @for (tile of tiles(); track tile.key) {
+        <div class="overview-tile" [attr.data-tile]="tile.key" [class.overview-tile--wide]="tile.kind === 'text' || tile.kind === 'pill'">
+          <span class="overview-tile__label">{{ tile.label }}</span>
+          @switch (tile.kind) {
+            @case ('metric') {
+              @if (tile.kind === 'metric') {
+                <strong class="overview-tile__big">{{ tile.valueText }}</strong>
+                <div class="overview-tile__track" aria-hidden="true">
+                  <div class="overview-tile__fill" aria-hidden="true" [style.width.%]="tile.percent"></div>
+                </div>
+              }
+            }
+            @case ('change') {
+              @if (tile.kind === 'change') {
+                <span class="overview-chip overview-chip--{{ tile.tone }}">
+                  <i class="bx" [class.bx-up-arrow-alt]="tile.direction === 'up'" [class.bx-down-arrow-alt]="tile.direction === 'down'"
+                    [class.bx-minus]="tile.direction === 'none'" aria-hidden="true"></i>
+                  {{ tile.directionText }} {{ tile.valueText }}
+                </span>
+                <span class="overview-tile__caption">{{ tile.text }}</span>
+              }
+            }
+            @case ('pill') {
+              @if (tile.kind === 'pill') {
+                <span class="overview-pill" [class.overview-pill--muted]="tile.muted">{{ tile.valueText }}</span>
+              }
+            }
+            @default {
+              @if (tile.valueText) { <strong class="overview-tile__value">{{ tile.valueText }}</strong> }
+            }
+          }
+        </div>
+      }
+    </div>
+  </section>
+</div>
