@@ -2,7 +2,7 @@ import { PublicBrand } from '../../shared/public-brand/public-brand';
 import { Component, DOCUMENT, OnDestroy, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RECOVERY_EMAIL_PROMPT, RecoveryCooldown, recoveryRequestError } from '../../services/recovery-cooldown';
 import { RecoveredAssignment, RecoveryPortalService } from '../../services/recovery-portal.service';
@@ -17,7 +17,7 @@ export type PortalState = 'request' | 'loading' | 'invalid' | 'empty' | 'list' |
  */
 @Component({
   selector: 'app-recovery-portal',
-  imports: [FormsModule, DatePipe, PublicBrand],
+  imports: [FormsModule, DatePipe, PublicBrand, RouterLink],
   templateUrl: './recovery-portal.html',
   styleUrls: ['../students/guest-submission/guest-submission.css', './recovery-portal.css'],
 })
@@ -93,6 +93,9 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
     this.portal.forget();
     this.state = 'request';
   }
+
+  /** Some of the work is on the student's account ("Sign in to view"). */
+  hasAccountWork(): boolean { return this.assignments.some(item => item.access === 'signIn'); }
 
   statusLabel(status: RecoveredAssignment['status']): string {
     return status === 'ready' ? 'Feedback ready' : status === 'failed' ? 'Needs attention' : 'Being marked';

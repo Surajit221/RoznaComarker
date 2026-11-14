@@ -69,6 +69,36 @@ describe('RecoveryPortalPage', () => {
     expect(navigate).toHaveBeenCalledWith(['/guest/results', 'b'.repeat(24)]);
   });
 
+  it('account work is listed as "Sign in to view" (title, class, date; no status), links to sign-in, and never opens a guest result', async () => {
+    const { fixture, http, navigate } = setup('portal', TOKEN);
+    fixture.detectChanges();
+    http.expectOne(`${API}/exchange`).flush({ success: true, data: { session: SESSION, expiresAt: new Date(Date.now() + 1800000).toISOString() } });
+    await settle();
+    http.expectOne(`${API}/assignments`).flush({ success: true, data: { assignments: [...ITEMS,
+      { id: 'account-1', access: 'signIn', assignmentTitle: 'Member Essay', className: 'Member Class', submittedAt: '2026-10-03T10:00:00.000Z' }] } });
+    await settle(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('button.portal-item').length).toBe(2);
+    const row = fixture.nativeElement.querySelector('a[data-sign-in]') as HTMLAnchorElement;
+    expect(row.textContent).toContain('Member Essay');
+    expect(row.textContent).toContain('Member Class');
+    expect(row.textContent).toContain('Sign in to view');
+    expect(row.textContent).not.toMatch(/Feedback ready|Being marked|Needs attention/);
+    expect(row.getAttribute('href')).toBe('/login');
+    expect(fixture.nativeElement.querySelector('[data-sign-in-note]')!.textContent).toContain('sign in with this email address');
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('without account work there is no sign-in note', async () => {
+    const { fixture, http } = setup('portal', TOKEN);
+    fixture.detectChanges();
+    http.expectOne(`${API}/exchange`).flush({ success: true, data: { session: SESSION, expiresAt: new Date(Date.now() + 1800000).toISOString() } });
+    await settle();
+    http.expectOne(`${API}/assignments`).flush({ success: true, data: { assignments: ITEMS } });
+    await settle(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-sign-in-note]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[data-sign-in]')).toBeNull();
+  });
+
   it('shows the invalid state (with a way to get a new link) for an expired or revoked link', async () => {
     const { fixture, page, http } = setup('portal', TOKEN);
     fixture.detectChanges();
