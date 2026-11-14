@@ -1,0 +1,28 @@
+@if (rows().length) {
+  <div class="report-bar-list" role="list" [attr.aria-label]="ariaLabel()">
+    @for (row of rows(); track row.key) {
+      <div class="report-bar-list__row" role="listitem" [class.report-bar-list__row--marked]="row.marker">
+        <div class="report-bar-list__head">
+          <span class="report-bar-list__label">
+            {{ row.label }}
+            @if (row.marker === 'strongest') {
+              <span class="report-bar-list__marker report-bar-list__marker--strongest"><i class="bx bx-trending-up" aria-hidden="true"></i> Strongest</span>
+            }
+            @if (row.marker === 'weakest') {
+              <span class="report-bar-list__marker report-bar-list__marker--weakest"><i class="bx bx-trending-down" aria-hidden="true"></i> Weakest</span>
+            }
+          </span>
+          <span class="report-bar-list__value">{{ row.valueText }}</span>
+        </div>
+        @if (row.detail) {
+          <span class="report-bar-list__detail">{{ row.detail }}</span>
+        }
+        <div class="report-bar-list__track" aria-hidden="true">
+          <div class="report-bar-list__fill" aria-hidden="true" [style.width.%]="row.width" [style.background]="row.fill"></div>
+        </div>
+      </div>
+    }
+  </div>
+} @else {
+  <p class="report-bar-list__empty">{{ emptyText() }}</p>
+}

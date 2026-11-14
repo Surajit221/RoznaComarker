@@ -1,0 +1,274 @@
+<div class="assignment-report" [attr.aria-busy]="state() === 'loading'">
+  <div class="assignment-report__topbar">
+    <button type="button" class="assignment-report__back" (click)="back()">
+      <i class="bx bx-arrow-back" aria-hidden="true"></i> Back
+    </button>
+    @if (state() === 'ready' && report()) {
+      <div class="assignment-report__export-wrap">
+        <button type="button" class="assignment-report__export" (click)="exportPdf()" [disabled]="pdfState() === 'generating'"
+          [attr.aria-busy]="pdfState() === 'generating'">
+          @if (pdfState() === 'generating') {
+            <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i> Preparing PDF…
+          } @else {
+            <i class="bx bx-download" aria-hidden="true"></i> Export PDF
+          }
+        </button>
+        @if (pdfMessage()) {
+          @if (pdfState() === 'error') {
+            <p class="assignment-report__pdf-status assignment-report__pdf-status--error" role="alert">{{ pdfMessage() }}</p>
+          } @else {
+            <p class="assignment-report__pdf-status" role="status">{{ pdfMessage() }}</p>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  @switch (state()) {
+    @case ('loading') {
+      <div class="assignment-report__skeleton" aria-label="Loading the report">
+        <span class="skeleton-line skeleton-line--title"></span>
+        <span class="skeleton-line skeleton-line--sub"></span>
+        <div class="assignment-report__kpis">
+          @for (i of [1, 2, 3, 4, 5, 6]; track i) { <span class="skeleton-card"></span> }
+        </div>
+        <div class="assignment-report__grid">
+          <span class="skeleton-panel"></span>
+          <span class="skeleton-panel"></span>
+        </div>
+      </div>
+    }
+    @case ('ready') {
+      @if (report(); as r) {
+        <header class="assignment-report__header">
+          <p class="assignment-report__eyebrow">Assignment report</p>
+          <h1 class="assignment-report__title">{{ r.assignment.title }}</h1>
+          <dl class="assignment-report__meta">
+            <div><dt>Class</dt><dd>{{ r.assignment.className || 'Not set' }}</dd></div>
+            <div><dt>Due date</dt><dd>{{ dueDate() }}</dd></div>
+            <div><dt>Submissions</dt><dd>{{ sourceSummary() }}</dd></div>
+          </dl>
+        </header>
+
+        @if (r.counts.capped) {
+          <p class="assignment-report__notice" role="status">
+            <i class="bx bx-info-circle" aria-hidden="true"></i>
+            Only the first part of the submissions is included in this report, because this assignment has a very large number of submissions.
+          </p>
+        }
+        @if (r.counts.skippedRows > 0) {
+          <p class="assignment-report__notice assignment-report__notice--muted" role="status">
+            <i class="bx bx-info-circle" aria-hidden="true"></i>
+            {{ r.counts.skippedRows }} {{ r.counts.skippedRows === 1 ? 'record could' : 'records could' }} not be read and {{ r.counts.skippedRows === 1 ? 'is' : 'are' }} not included.
+          </p>
+        }
+
+        @if (r.counts.total === 0) {
+          <section class="assignment-report__empty" aria-labelledby="report-empty-title">
+            <i class="bx bx-file-blank" aria-hidden="true"></i>
+            <h2 id="report-empty-title">No submissions yet</h2>
+            <p>The report fills in as students submit their work.</p>
+          </section>
+        } @else {
+          <section aria-label="Key numbers">
+            <div class="assignment-report__kpis">
+              @for (kpi of kpis(); track kpi.key) {
+                <div class="assignment-report__kpi">
+                  <span class="assignment-report__kpi-label"><i class="bx {{ kpi.icon }}" aria-hidden="true"></i> {{ kpi.label }}</span>
+                  <strong class="assignment-report__kpi-value">{{ kpi.value }}</strong>
+                  @if (kpi.hint) { <span class="assignment-report__kpi-hint">{{ kpi.hint }}</span> }
+                </div>
+              }
+            </div>
+          </section>
+
+          @if (r.counts.scored === 0) {
+            <p class="assignment-report__notice assignment-report__notice--muted" role="status">
+              <i class="bx bx-time-five" aria-hidden="true"></i>
+              No scored submissions yet. Scores, the score distribution and rubric averages appear once assessments finish.
+            </p>
+          }
+
+          @if (summary(); as s) {
+            <section class="assignment-report__panel assignment-report__summary" data-section="summary" aria-labelledby="report-summary-title">
+              <div class="assignment-report__summary-head">
+                <h2 id="report-summary-title" class="assignment-report__panel-title">AI summary</h2>
+                @if (summaryButtonLabel(); as label) {
+                  <button type="button" class="assignment-report__summary-button" (click)="generateSummary()"
+                    [disabled]="summaryRunning() || summaryLimitReached()" [attr.aria-busy]="summaryRunning()">
+                    @if (summaryRunning()) {
+                      <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                    } @else {
+                      <i class="bx bx-bulb" aria-hidden="true"></i>
+                    }
+                    {{ label }}
+                  </button>
+                }
+              </div>
+              @switch (s.state) {
+                @case ('not_enough_data') {
+                  <p class="assignment-report__muted">A summary needs at least 3 scored submissions.</p>
+                }
+                @case ('none') {
+                  <p class="assignment-report__muted">Get a short written overview of these results with suggested next teaching steps. It is written by AI from the numbers on this page only.</p>
+                }
+                @default {
+                  @if (s.current; as c) {
+                    @if (s.state === 'stale') {
+                      <p class="assignment-report__summary-stale"><i class="bx bx-time-five" aria-hidden="true"></i> Out of date: the results changed after this summary was written. It is not included in the PDF.</p>
+                    }
+                    <p class="assignment-report__summary-label">{{ c.label }}</p>
+                    <p class="assignment-report__summary-headline">{{ c.headline }}</p>
+                    <h3 class="assignment-report__subtitle">Key findings</h3>
+                    <ul class="assignment-report__summary-list">
+                      @for (finding of c.findings; track $index) { <li>{{ finding }}</li> }
+                    </ul>
+                    <h3 class="assignment-report__subtitle">Suggested next steps</h3>
+                    <ul class="assignment-report__summary-list">
+                      @for (step of c.nextSteps; track $index) { <li>{{ step }}</li> }
+                    </ul>
+                    <p class="assignment-report__summary-caution">{{ c.caution }}</p>
+                    @if (formatSummaryDate(c.generatedAt)) { <p class="assignment-report__muted">Written {{ formatSummaryDate(c.generatedAt) }}</p> }
+                  }
+                }
+              }
+              @if (summaryNotice(); as notice) {
+                @if (notice.kind === 'error') {
+                  <p class="assignment-report__summary-notice assignment-report__summary-notice--error" role="alert">{{ notice.message }}</p>
+                } @else {
+                  <p class="assignment-report__summary-notice" role="status">{{ notice.message }}</p>
+                }
+              }
+            </section>
+          }
+
+          @if (r.insights.length) {
+            <section class="assignment-report__panel" aria-labelledby="report-insights-title">
+              <h2 id="report-insights-title" class="assignment-report__panel-title">Insights</h2>
+              <ul class="assignment-report__insights">
+                @for (insight of r.insights; track insight.code) {
+                  <li><i class="bx bx-bulb" aria-hidden="true"></i><span>{{ insight.text }}</span></li>
+                }
+              </ul>
+            </section>
+          }
+
+          <div class="assignment-report__grid">
+            @if (r.counts.scored > 0) {
+              <section class="assignment-report__panel" aria-labelledby="report-distribution-title">
+                <h2 id="report-distribution-title" class="assignment-report__panel-title">Score distribution</h2>
+                <p class="assignment-report__panel-sub">Scored submissions per score band (%)</p>
+                <app-report-column-chart data-chart="distribution" ariaLabel="Score distribution" valueName="submissions" categoryName="Score band"
+                  [points]="distribution()" [showValues]="true"
+                  [hiddenReason]="r.smallData.distributionHidden ? 'Not enough scored submissions to show a fair distribution (at least 3 are needed).' : null" />
+              </section>
+            }
+            <section class="assignment-report__panel" aria-labelledby="report-timeline-title">
+              <h2 id="report-timeline-title" class="assignment-report__panel-title">Submissions over time</h2>
+              <p class="assignment-report__panel-sub">{{ weekly() ? 'Per week (week starting)' : 'Per day' }}, in your time zone</p>
+              <app-report-column-chart data-chart="timeline" [ariaLabel]="weekly() ? 'Submissions per week' : 'Submissions per day'" valueName="submissions"
+                [categoryName]="weekly() ? 'Week starting' : 'Day'" color="var(--color-navy)" [points]="timeline()"
+                [hiddenReason]="r.smallData.timelineHidden ? 'Not enough submissions to show a trend (at least 3 are needed).' : null" />
+            </section>
+            @if (r.counts.scored > 0) {
+              <section class="assignment-report__panel" data-section="rubric" aria-labelledby="report-rubric-title">
+                <h2 id="report-rubric-title" class="assignment-report__panel-title">{{ r.rubric.kind === 'custom' ? 'Rubric criteria' : 'Rubric categories' }}</h2>
+                <p class="assignment-report__panel-sub">Average across scored submissions</p>
+                <app-report-bar-list ariaLabel="Rubric averages" [items]="rubricItems()" emptyText="No rubric scores yet." />
+              </section>
+            }
+            <section class="assignment-report__panel" data-section="errors" aria-labelledby="report-errors-title">
+              <h2 id="report-errors-title" class="assignment-report__panel-title">Most common errors</h2>
+              <p class="assignment-report__note"><i class="bx bx-info-circle" aria-hidden="true"></i> {{ errorsNote }}</p>
+              <h3 class="assignment-report__subtitle">By category</h3>
+              <app-report-bar-list ariaLabel="Errors by category" [items]="r.errors.total > 0 ? categoryItems() : []" emptyText="No corrections recorded yet." />
+              @if (symbolItems().length) {
+                <h3 class="assignment-report__subtitle">Top correction types</h3>
+                <app-report-bar-list ariaLabel="Top correction types" [items]="symbolItems()" />
+              }
+            </section>
+          </div>
+
+          <section class="assignment-report__panel" aria-labelledby="report-students-title">
+            <div class="assignment-report__table-head">
+              <h2 id="report-students-title" class="assignment-report__panel-title">Students</h2>
+              <label class="assignment-report__search">
+                <span class="sr-only">Search students</span>
+                <i class="bx bx-search" aria-hidden="true"></i>
+                <input type="search" placeholder="Search by name" [value]="search()" (input)="onSearch($any($event.target).value)" />
+              </label>
+            </div>
+            <p class="assignment-report__result" aria-live="polite">{{ resultText() }}</p>
+            <div class="assignment-report__table-wrap">
+              <table class="assignment-report__table">
+                <thead>
+                  <tr>
+                    @for (col of [['name', 'Name'], ['status', 'Status'], ['score', 'Score'], ['late', 'Late'], ['reviewed', 'Reviewed']]; track col[0]) {
+                      <th scope="col" [attr.aria-sort]="ariaSort($any(col[0]))">
+                        <button type="button" (click)="sortBy($any(col[0]))">
+                          {{ col[1] }}
+                          <i class="bx" [class.bx-sort-alt-2]="!ariaSort($any(col[0]))" [class.bx-sort-up]="ariaSort($any(col[0])) === 'ascending'"
+                            [class.bx-sort-down]="ariaSort($any(col[0])) === 'descending'" aria-hidden="true"></i>
+                        </button>
+                      </th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (entry of tableEntries(); track $index) {
+                    @if (entry.kind === 'group') {
+                      <tr class="assignment-report__group"><th colspan="5" scope="colgroup">{{ entry.label }}</th></tr>
+                    } @else {
+                      <tr [class.assignment-report__row--attention]="entry.row.needsAttention">
+                        <td>
+                          <span class="assignment-report__name">{{ entry.row.name }}</span>
+                          <span class="assignment-report__source">{{ entry.row.sourceLabel }}</span>
+                        </td>
+                        <td>
+                          <span class="assignment-report__status assignment-report__status--{{ entry.row.statusTone }}">
+                            <i class="bx {{ entry.row.statusIcon }}" aria-hidden="true"></i> {{ entry.row.statusLabel }}
+                          </span>
+                          @if (entry.row.statusDetail) { <span class="assignment-report__status-detail">{{ entry.row.statusDetail }}</span> }
+                        </td>
+                        <td class="assignment-report__score">
+                          @if (entry.row.score !== null) { {{ entry.row.score }}% }
+                          @else { <span aria-hidden="true">—</span><span class="sr-only">No score</span> }
+                        </td>
+                        <td>
+                          @if (entry.row.isLate) { <span class="assignment-report__flag assignment-report__flag--late"><i class="bx bx-time" aria-hidden="true"></i> Late</span> }
+                          @else { <span class="assignment-report__muted">On time</span> }
+                        </td>
+                        <td>
+                          @if (entry.row.reviewed) { <span class="assignment-report__flag assignment-report__flag--done"><i class="bx bx-check" aria-hidden="true"></i> Reviewed</span> }
+                          @else { <span class="assignment-report__muted">Not reviewed</span> }
+                        </td>
+                      </tr>
+                    }
+                  } @empty {
+                    <tr><td colspan="5" class="assignment-report__muted">No students match your search.</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            @if (pageCount() > 1) {
+              <nav class="assignment-report__pager" aria-label="Student table pages">
+                <button type="button" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1">Previous</button>
+                <span aria-live="polite">Page {{ currentPage() }} of {{ pageCount() }}</span>
+                <button type="button" (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === pageCount()">Next</button>
+              </nav>
+            }
+          </section>
+        }
+      }
+    }
+    @default {
+      <section class="assignment-report__error" role="alert">
+        <i class="bx bx-error-circle" aria-hidden="true"></i>
+        <p>{{ errorMessage() }}</p>
+        @if (canRetry(state())) {
+          <button type="button" class="assignment-report__retry" (click)="load()">Try again</button>
+        }
+      </section>
+    }
+  }
+</div>

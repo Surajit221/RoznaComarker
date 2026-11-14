@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
+import { filenameFromContentDisposition } from '../utils/assignment-report-pdf.util';
 
 @Injectable({ providedIn: 'root' })
 export class PdfApiService {
@@ -59,5 +60,14 @@ export class PdfApiService {
         responseType: 'blob'
       })
     );
+  }
+
+  /** The whole-assignment report PDF (teacher only). filename: the server's name when the header is readable and safe, else null. */
+  async downloadAssignmentReportPdf(assignmentId: string, timeZone: string): Promise<{ blob: Blob; filename: string | null }> {
+    const response = await firstValueFrom(this.http.get(`${this.getApiBaseUrl()}/pdf/assignment-report/${encodeURIComponent(assignmentId)}`, {
+      responseType: 'blob', observe: 'response', params: new HttpParams().set('tz', timeZone)
+    }));
+    return { blob: response.body ?? new Blob([], { type: 'application/pdf' }),
+      filename: filenameFromContentDisposition(response.headers.get('Content-Disposition')) };
   }
 }

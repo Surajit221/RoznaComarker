@@ -1,0 +1,15 @@
+:host { display: block; min-width: 0; }
+.report-bar-list { display: flex; flex-direction: column; gap: .8rem; }
+.report-bar-list__row { min-width: 0; }
+.report-bar-list__head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .3rem; }
+.report-bar-list__label { min-width: 0; color: var(--color-text); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.report-bar-list__value { flex: 0 0 auto; color: var(--color-navy); font-size: .875rem; font-weight: 700; }
+.report-bar-list__detail { display: block; margin: -.15rem 0 .3rem; color: var(--color-text-muted); font-size: .75rem; }
+.report-bar-list__track { height: .55rem; border-radius: 999px; background: #e8eef2; overflow: hidden; }
+.report-bar-list__fill { height: 100%; border-radius: 0 4px 4px 0; transition: width .3s ease; }
+.report-bar-list__marker { display: inline-flex; align-items: center; gap: .2rem; margin-left: .4rem; padding: .05rem .45rem; border-radius: 999px;
+  font-size: .7rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+.report-bar-list__marker--strongest { background: #e6f4f4; color: #0f5f60; }
+.report-bar-list__marker--weakest { background: #fff4e5; color: #8a4b00; }
+.report-bar-list__empty { margin: 0; color: var(--color-text-muted); font-size: .875rem; }
+@media (prefers-reduced-motion: reduce) { .report-bar-list__fill { transition: none; } }
