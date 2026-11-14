@@ -2,48 +2,58 @@
   <section class="wm" aria-labelledby="wm-title" data-writing-model-editor>
     <div class="wm__head">
       <h3 id="wm-title" class="wm__title">Improved Writing Model</h3>
-      <p class="wm__sub">One model answer for every student of this assignment. A learning reference: it never replaces their writing or the assessment.</p>
+      <p class="wm__sub">An improved version of this student's own writing. Only this student will see it, once you submit it. A learning reference: it never replaces their writing or the assessment.</p>
     </div>
     <div class="wm__badges">
-      @if (s.source === 'ai' && s.status === 'draft') { <span class="wm__badge wm__badge--ai" data-wm-ai-badge><span aria-hidden="true">✦</span> AI draft - not visible to students until you approve</span> }
-      @if (s.status === 'approved') { <span class="wm__badge wm__badge--ok" data-wm-approved><span aria-hidden="true">✓</span> Approved</span> }
-      <span class="wm__visibility" data-wm-visibility>{{ visibility() }}</span>
+      <span class="wm__badge" [class.wm__badge--ok]="status().kind === 'released'" [class.wm__badge--wait]="status().kind === 'waiting'" data-wm-status [attr.data-wm-state]="status().kind">
+        @if (status().kind === 'released') { <span aria-hidden="true">✓</span> }
+        {{ status().label }}@if (status().kind !== 'draft' && s.published) { · <time [attr.datetime]="s.published.at">{{ s.published.at | date:'medium' }}</time> }
+      </span>
+      @if (s.source === 'ai' && (!s.published || !s.published.sameAsDraft)) { <span class="wm__badge wm__badge--ai" data-wm-ai-badge><span aria-hidden="true">✦</span> AI draft: this student does not see it until you submit it</span> }
+      <span class="wm__visibility" data-wm-visibility>{{ statusHelp() }}</span>
     </div>
 
+    @if (s.writingChanged) { <p class="wm__warning" role="status" data-wm-writing-changed>This student's writing changed since this draft was made. Check the text before you submit it.</p> }
     <p class="sr-only" role="status" aria-live="polite">{{ notice() }}</p>
     @if (notice() && !busy()) { <p class="wm__notice" aria-hidden="true" data-wm-notice>✓ {{ notice() }}</p> }
     @if (error()) { <p class="wm__error" role="alert" tabindex="-1" data-wm-error>{{ error() }}</p> }
-    @if (s.readOnly) { <p class="wm__readonly">This class is closed, so the model answer is read-only.</p> }
+    @if (s.readOnly) { <p class="wm__readonly">This class is closed, so the improved writing is read-only.</p> }
 
-    <label class="wm__label" for="wm-text">Model answer</label>
+    @if (s.legacyAssignmentModel; as legacy) {
+      <details class="wm__legacy" data-wm-legacy>
+        <summary>An earlier model for the whole assignment exists. It is no longer shown to any student.</summary>
+        <p class="wm__legacy-text">{{ legacy.text }}</p>
+        @if (!s.readOnly) { <button type="button" class="ui-btn ui-btn--secondary" data-wm-use-legacy [attr.aria-disabled]="locked()" (click)="useLegacy()">Use it as a starting point</button> }
+      </details>
+    }
+
+    <label class="wm__label" for="wm-text">Improved writing for this student</label>
     <textarea id="wm-text" class="wm__textarea" rows="10" [maxLength]="s.textMax" [value]="text()" (input)="setText($event)" [readOnly]="s.readOnly"
       [attr.aria-busy]="busy() === 'generating'" aria-describedby="wm-count"></textarea>
     <p class="wm__help" id="wm-count">{{ text().length }} / {{ s.textMax }}</p>
 
     <div class="wm__release">
-      <label class="wm__label" for="wm-rule">When students see it</label>
-      <select id="wm-rule" class="wm__select" [value]="releaseRule()" (change)="setRule($event)" [disabled]="s.readOnly">
-        <option value="afterRevision" [selected]="releaseRule() === 'afterRevision'">After the student's second draft</option>
+      <label class="wm__label" for="wm-rule">When the student sees it</label>
+      <select id="wm-rule" class="wm__select" [value]="releaseRule()" (change)="setRule($event)" [disabled]="s.readOnly" aria-describedby="wm-rule-help">
         <option value="manual" [selected]="releaseRule() === 'manual'">Release manually</option>
+        <option value="afterRevision" [selected]="releaseRule() === 'afterRevision'">After the student's second draft</option>
       </select>
-      @if (releaseRule() === 'manual') {
-        <label class="wm__check"><input type="checkbox" data-wm-released [checked]="released()" (change)="setReleased($event)" [disabled]="s.readOnly" /> Released to students (once approved)</label>
-      }
+      <p class="wm__help" id="wm-rule-help" data-wm-rule-help>{{ ruleHelp() }}</p>
     </div>
 
     <div class="wm__actions">
-      <button type="button" class="ui-btn ui-btn--secondary" data-wm-save-draft [attr.aria-disabled]="locked()" (click)="save('draft')">{{ busy() === 'saving' ? 'Saving…' : 'Save draft' }}</button>
-      <button type="button" class="ui-btn ui-btn--primary" data-wm-approve [attr.aria-disabled]="locked()" (click)="save('approved')">Submit Improved Writing to Student</button>
+      <button type="button" class="ui-btn ui-btn--secondary" data-wm-save-draft [attr.aria-disabled]="locked()" (click)="save('save')">{{ busy() === 'saving' ? 'Saving…' : 'Save draft' }}</button>
+      <button type="button" class="ui-btn ui-btn--primary" data-wm-submit [attr.aria-disabled]="locked()" (click)="save('submit')">{{ busy() === 'submitting' ? 'Submitting…' : 'Submit Improved Writing to Student' }}</button>
       <button type="button" class="ui-btn ui-btn--secondary" data-wm-generate [attr.aria-disabled]="locked() || !!aiBlockedReason()"
         [attr.aria-describedby]="aiBlockedReason() ? 'wm-ai-blocked' : null" (click)="askGenerate()">
         @if (busy() === 'generating') { <span class="wm__spinner" aria-hidden="true"></span> Generating… } @else { Generate draft with AI (1 credit) }
       </button>
     </div>
     @if (aiBlockedReason()) { <p class="wm__help" id="wm-ai-blocked" data-wm-ai-blocked>{{ aiBlockedReason() }}</p> }
-    @else { <p class="wm__help">AI drafts today: {{ s.generationsToday }} of {{ s.generationsPerDay }}. The AI sees only the assignment, never student writing.</p> }
+    @else { <p class="wm__help" data-wm-ai-help>AI drafts today for this student: {{ s.generationsToday }} of {{ s.generationsPerDay }}. The AI reads this student's writing, plus the assignment, its rubric and this student's feedback.</p> }
 
     <app-confirm-dialog [open]="confirmGenerate()" heading="Generate a draft with AI?"
-      text="This uses 1 credit. The AI draft replaces the text in the box and is not visible to students until you approve it. It uses only the assignment title, instructions and rubric."
+      text="This uses 1 credit. The AI reads this student's writing (plus the assignment, its rubric and their feedback) and writes an improved version of it, keeping their ideas. It replaces the text in the box; this student does not see it until you submit it."
       confirmLabel="Generate (1 credit)" cancelLabel="Cancel" (confirmed)="generate()" (cancelled)="confirmGenerate.set(false)" />
   </section>
 }

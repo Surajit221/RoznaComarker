@@ -2,7 +2,7 @@ import { GuestSubmissionFeature } from '../../../../services/guest-submission-fe
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 
 import { DetailMyClassesPages } from './detail-my-classes-pages';
-import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach } from '../../../../../testing/standalone-test-providers';
+import { authenticatedUserProviders, httpTestingProviders, routedComponentProviders, verifyHttpRequestsAfterEach, referenceFilesOffProviders } from '../../../../../testing/standalone-test-providers';
 import { Router } from '@angular/router';
 import { AlertService } from '../../../../services/alert.service';
 import { ClassApiService } from '../../../../api/class-api.service';
@@ -14,7 +14,7 @@ describe('DetailMyClassesPages', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DetailMyClassesPages], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => false, state: () => 'disabled', load: () => Promise.resolve(false), settled: () => Promise.resolve('disabled') } }, ...routedComponentProviders(), ...httpTestingProviders,
+      imports: [DetailMyClassesPages], providers: [{ provide: GuestSubmissionFeature, useValue: { enabled: () => false, state: () => 'disabled', load: () => Promise.resolve(false), settled: () => Promise.resolve('disabled') } }, ...routedComponentProviders(), ...httpTestingProviders, ...referenceFilesOffProviders,
         ...authenticatedUserProviders('teacher')]
     })
     .compileComponents();

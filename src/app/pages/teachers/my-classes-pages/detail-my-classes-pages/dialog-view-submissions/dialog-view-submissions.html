@@ -49,6 +49,7 @@
               <div class="flex shrink-0 justify-start"><img [src]="student.image" [alt]="student.name" class="w-18 h-18 rounded-xl object-cover" /></div>
               <div class="flex min-w-0 flex-1 flex-col justify-center">
                 <p class="text-lg font-semibold text-gray-900 mb-0 break-words">{{ student.name }}</p>
+                @if (student.email) { <p class="text-gray-600 text-sm mb-0 break-words" data-upload-email>{{ student.email }}</p> }
                 <p class="text-gray-500 text-sm mt-1 break-words">Submission Date: {{ student.lastActivity }}</p>
                 <ng-container *ngTemplateOutlet="uploadInfo; context: { $implicit: student }" />
               </div>
@@ -65,7 +66,7 @@
             <div class="w-full flex flex-row justify-between items-center gap-2 p-2 bg-[#F3F3F3] rounded-xl">
               <div class="flex flex-1 flex-row gap-2 items-center min-w-0">
                 <img [src]="student.image" [alt]="student.name" class="w-18 h-18 shrink-0 rounded-xl object-cover" />
-                <div class="flex flex-col min-w-0"><p class="text-lg font-semibold text-gray-900 mb-0 break-words">{{ student.name }}</p><p class="text-gray-500 text-sm break-words">Date: {{ student.lastActivity }}</p>
+                <div class="flex flex-col min-w-0"><p class="text-lg font-semibold text-gray-900 mb-0 break-words">{{ student.name }}</p>@if (student.email) { <p class="text-gray-600 text-sm mb-0 break-words" data-upload-email>{{ student.email }}</p> }<p class="text-gray-500 text-sm break-words">Date: {{ student.lastActivity }}</p>
                   <ng-container *ngTemplateOutlet="uploadInfo; context: { $implicit: student }" /></div>
               </div>
               <div class="submission-actions">
@@ -96,10 +97,15 @@
   @if (student.upload; as upload) {
     <div class="upload-info" data-teacher-upload>
       <span class="upload-info__chip">Uploaded by teacher</span>
-      <span class="upload-info__chip" [class.upload-info__chip--bad]="upload.status === 'failed'">{{ uploadStatusLabel(upload) }}</span>
+      <span class="upload-info__chip" [class.upload-info__chip--bad]="uploadIsStopped(upload)" data-upload-status [attr.data-status]="upload.status">{{ uploadStatusLabel(upload) }}</span>
       <span class="upload-info__chip" [class.upload-info__chip--ok]="upload.emailStatus === 'sent'"
         [class.upload-info__chip--bad]="(upload.emailStatus === 'failed' && !upload.emailDeliveryUncertain) || markingFailedNoEmail(upload)"
         [class.upload-info__chip--warn]="upload.emailStatus === 'failed' && upload.emailDeliveryUncertain && !markingFailedNoEmail(upload)">{{ emailStatusLabel(upload) }}</span>
+      @if (uploadStatusReason(upload)) { <span class="upload-info__note" data-upload-reason>{{ uploadStatusReason(upload) }}</span> }
+      @if (uploadCanRetry(upload) && upload.status !== 'failed') {
+        <button type="button" class="upload-info__send" [disabled]="retryingSubmissionId !== null" [attr.aria-busy]="retryingSubmissionId === student.submissionId"
+          (click)="retryMarking(student)" data-retry-marking>Retry marking <span class="sr-only">for {{ student.name }}</span></button>
+      }
       @if (upload.status === 'failed') {
         <!-- No feedback exists until marking succeeds: Send stays disabled; a held email is sent once, after a successful retry. -->
         <button type="button" class="upload-info__send" [disabled]="retryingSubmissionId !== null" [attr.aria-busy]="retryingSubmissionId === student.submissionId"

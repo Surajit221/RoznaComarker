@@ -4,9 +4,9 @@
     @if(device.isDesktop() && !isFullScreen()) {
     <aside class="desktop-sidebar hidden md:flex w-60 flex-col" aria-label="Main navigation">
       <div class="flex items-center justify-center h-16 px-4 mt-10">
-        <div class="flex items-center gap-2">
-          <img src="logo_and_icon/rubrilo-symbol-full.svg" class="w-10 h-10 shrink-0" width="40" height="40" alt="" />
-          <p class="desktop-sidebar-label text-3xl font-bold text-primary-text-color">Rubrilo</p>
+        <div class="flex items-center">
+          <img src="logo_and_icon/logo/rubrilo-logo-horizontal-fullcolor@512w.png" class="desktop-sidebar-label desktop-sidebar-logo shrink-0" width="512" height="164" alt="Rubrilo" />
+          <img src="logo_and_icon/app-icon/rubrilo-app-icon-light-48.png" class="desktop-sidebar-icon shrink-0" width="48" height="48" alt="Rubrilo" />
         </div>
       </div>
       <nav id="desktop-sidebar-navigation" class="flex-1 mt-4 px-4 py-4 space-y-2 overflow-y-auto">
@@ -140,9 +140,8 @@
     @if (!device.isDesktop() && showBottomNav() && !isFullScreen()) {
     <header class="mobile-dashboard-header fixed bg-[#F3F3F3] top-0 left-0 right-0 z-40">
       <div class="w-full py-4 flex flex-row justify-between items-center px-4">
-        <div class="flex items-center gap-2">
-          <img src="logo_and_icon/rubrilo-symbol-full.svg" class="w-8 h-8 shrink-0" width="32" height="32" alt="" />
-          <h1 class="font-bold text-xl text-gray-800">Rubrilo</h1>
+        <div class="flex items-center">
+          <h1 class="m-0"><img src="logo_and_icon/logo/rubrilo-logo-horizontal-fullcolor@512w.png" class="block h-8 w-auto shrink-0" width="512" height="164" alt="Rubrilo" /></h1>
         </div>
 
         <div class="mobile-header-actions">

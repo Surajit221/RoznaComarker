@@ -5,6 +5,7 @@
       <div><span class="rubric-editor__eyebrow">Rubric Editor</span><h2 id="rubric-editor-title">{{ rubricDesignerTitle }}</h2></div>
       <button type="button" class="rubric-editor__close" aria-label="Close rubric editor" (click)="closeDialog()">×</button>
     </header>
+    @if (showTools) {
     <div class="rubric-editor__toolbar">
       <button type="button" class="rubric-tool" (click)="onUseExisting()">Use Existing</button>
       <button type="button" class="rubric-tool" [disabled]="isSaving" (click)="onSaveToLibrary()">{{ isSaving ? 'Saving…' : 'Save to Library' }}</button>
@@ -12,12 +13,17 @@
         accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
         (change)="onRubricFileSelected($event)" /></label>
     </div>
+    }
     <div class="rubric-editor__body">
+      @if (showTools) {
       <div class="rubric-ai">
         <textarea rows="3" aria-label="Rubric generation prompt" [formControl]="rubricPromptControl"
           placeholder="Describe the rubric you want to generate…" [disabled]="isGenerating"></textarea>
         <button type="button" class="btn-info" (click)="onGenerateRubricAi()" [disabled]="isGenerating">{{ isGenerating ? 'Generating rubric…' : 'Generate with AI' }}</button>
       </div>
+      } @else {
+      <p class="rubric-editor__review-note" role="note">Review this rubric. Change anything you need, then apply it. The rubric needs at least three criteria, with weights that add up to 100.</p>
+      }
       @if (validationMessage) { <p class="rubric-editor__error" role="alert">{{ validationMessage }}</p> }
       <div class="rubric-matrix-scroll" data-testid="rubric-matrix-scroll">
         <div class="rubric-matrix" [style.--level-count]="rubricLevels.length">

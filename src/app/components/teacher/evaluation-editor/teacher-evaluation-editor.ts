@@ -5,6 +5,7 @@ import { TeacherEvaluationApiService } from '../../../api/teacher-evaluation-api
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { newRequestId } from '../annotation-controls/annotation-editor.logic';
 import { ConfirmDialog } from '../annotation-controls/confirm-dialog';
+import { sortByAssessmentCategory } from '../../../constants/assessment-categories';
 import {
   BLOCKED_TEXT, COMMENT_MAX, DraftRow, REASON_MAX, TeacherEvaluationBody, TeacherEvaluationHistoryRow, TeacherEvaluationSnapshot,
   changedCriteria, criterionLabel, describeFailure, draftFromSnapshot, hasErrors, historySummary, liveTotals, validate,
@@ -98,7 +99,7 @@ export class TeacherEvaluationEditor implements OnChanges, OnDestroy {
     return this.open() ? liveTotals(s, this.draft()) : { overall: s.overall?.final ?? null, grade: s.grade?.final ?? null };
   });
   /** The criteria the teacher changed (shown when the form is closed, next to the AI suggested value). */
-  readonly editedRows = computed(() => (this.snapshot()?.criteria ?? []).filter(c => c.teacher.score != null || c.teacher.comment != null));
+  readonly editedRows = computed(() => sortByAssessmentCategory(this.snapshot()?.criteria ?? [], c => c.key).filter(c => c.teacher.score != null || c.teacher.comment != null));
 
   constructor() {
     effect(() => { const dirty = this.dirty(); untracked(() => { if (dirty) this.unsaved.register(UNSAVED_KEY); else this.unsaved.clear(UNSAVED_KEY); }); });

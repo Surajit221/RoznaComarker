@@ -33,8 +33,8 @@ export function statusCopy(review: ScoreReview): StatusCopy {
   }
 }
 
-const CATEGORIES: [string, keyof CorrectionCounts | null, string][] = [['CONTENT', 'content', 'Content'], ['ORGANIZATION', 'organization', 'Organization'], ['GRAMMAR', 'grammar', 'Grammar'],
-  ['VOCABULARY', 'vocabulary', 'Vocabulary'], ['MECHANICS', 'mechanics', 'Mechanics'], ['PRESENTATION', null, 'Presentation']];
+const CATEGORIES: [string, keyof CorrectionCounts | null, string][] = sortByAssessmentCategory<[string, keyof CorrectionCounts | null, string]>([['CONTENT', 'content', 'Content'], ['ORGANIZATION', 'organization', 'Organization'], ['GRAMMAR', 'grammar', 'Grammar'],
+  ['VOCABULARY', 'vocabulary', 'Vocabulary'], ['MECHANICS', 'mechanics', 'Mechanics'], ['PRESENTATION', null, 'Presentation']], ([key]) => key);
 
 /** "Grammar 18/25". A custom rubric's total does not come from these categories, so they are not shown as its score. */
 export function scoreLines(review: ScoreReview): string[] {
@@ -76,4 +76,5 @@ export function describeReviewFailure(status: number, code: string | undefined):
   if (status === 429) return { kind: 'retry', message: 'You are making changes faster than we can save them. Wait a few minutes, then press Retry. Your reason was not lost.' };
   if (status >= 400 && status < 500) return { kind: 'invalid', message: 'This could not be recorded. Check the reason and try again.' };
   return { kind: 'retry', message: 'We could not confirm this (connection problem). The scores did not change. Press Retry; it is safe and cannot record twice.' };
-}
+}import { sortByAssessmentCategory } from '../../../constants/assessment-categories';
+

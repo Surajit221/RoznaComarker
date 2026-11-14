@@ -158,6 +158,13 @@ describe('DashboardLayout across the 1024px layout switch', () => {
             expect(content.getBoundingClientRect().left).toBe(sidebar.getBoundingClientRect().right);
             expect(Math.round(content.getBoundingClientRect().width)).toBe(width - (collapsed ? 80 : 240));
             for (const label of Array.from(sidebar.querySelectorAll('.desktop-sidebar-label'))) expect(win.getComputedStyle(label).display === 'none').toBe(collapsed);
+            // Brand: the full horizontal logo when expanded, only the app icon when collapsed; never both, never stretched.
+            const logo = sidebar.querySelector<HTMLImageElement>('img.desktop-sidebar-logo')!, icon = sidebar.querySelector<HTMLImageElement>('img.desktop-sidebar-icon')!;
+            expect(logo.getAttribute('src')).toBe('logo_and_icon/logo/rubrilo-logo-horizontal-fullcolor@512w.png');
+            expect(icon.getAttribute('src')).toBe('logo_and_icon/app-icon/rubrilo-app-icon-light-48.png');
+            expect(win.getComputedStyle(logo).display === 'none').toBe(collapsed);
+            expect(win.getComputedStyle(icon).display === 'none').toBe(!collapsed);
+            if (!collapsed) expect(Math.abs(logo.getBoundingClientRect().width / logo.getBoundingClientRect().height - 512 / 164)).toBeLessThan(0.05);
             expect(doc.querySelector('.mobile-dashboard-header, nav.fixed.bottom-0')).toBeNull();
           } else {
             expect(doc.querySelector('.desktop-sidebar, [data-sidebar-toggle], .desktop-dashboard-header')).toBeNull();

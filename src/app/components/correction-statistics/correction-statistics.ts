@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { CanonicalCategory, CanonicalResultViewState, CodedCorrection, categoryCodeCounts, categoryStatistic } from '../../utils/canonical-result-state.util';
+import { sortByAssessmentCategory } from '../../constants/assessment-categories';
 
-const ROWS: { category: CanonicalCategory; title: string; bar: string }[] = [
+export const ROWS: { category: CanonicalCategory; title: string; bar: string }[] = sortByAssessmentCategory([
   { category: 'content', title: 'Content', bar: 'bg-red-400' }, { category: 'grammar', title: 'Grammar', bar: 'bg-green-400' },
   { category: 'organization', title: 'Organization', bar: 'bg-blue-400' }, { category: 'vocabulary', title: 'Vocabulary', bar: 'bg-purple-400' },
   { category: 'mechanics', title: 'Mechanics', bar: 'bg-yellow-400' },
-];
+], row => row.category);
 
 /** The rows of the Correction Statistics card: the same on the teacher, registered student and guest pages. */
 @Component({

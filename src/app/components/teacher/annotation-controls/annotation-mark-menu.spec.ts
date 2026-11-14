@@ -54,6 +54,28 @@ describe('AnnotationMarkMenu', () => {
     dom().querySelector<HTMLButtonElement>('[data-mark-menu-back]')!.click(); fixture.detectChanges();
     expect(dom().querySelectorAll('[data-mark-menu-choice]').length).toBe(2);
   });
+  it('show/hide on a marker or highlight: the icon shows the state, the text says the action; Restore stays for removed ones', async () => {
+    const btn = (a: string) => dom().querySelector<HTMLButtonElement>('[data-sync-menu-action="' + a + '"]')!;
+    await create([{ row: row({}), actions: ['edit', 'hide', 'archive'] }]);
+    expect(btn('hide').textContent).toContain('Hide');
+    expect(btn('hide').querySelector('i')!.classList).toContain('bx-show');
+    expect(btn('hide').getAttribute('aria-pressed')).toBe('false');
+    expect(btn('hide').title).toBe('Hide correction');
+    expect(btn('edit').hasAttribute('aria-pressed')).toBeFalse();
+    TestBed.resetTestingModule();
+    await create([{ row: row({ status: 'hidden' }), actions: ['edit', 'restore', 'archive'] }]);
+    expect(btn('restore').textContent).toContain('Show');
+    expect(btn('restore').querySelector('i')!.classList).toContain('bx-hide');
+    expect(btn('restore').getAttribute('aria-pressed')).toBe('true');
+    expect(btn('restore').title).toBe('Show correction');
+    btn('restore').click();
+    expect(acted.map(a => [a.action, a.key])).toEqual([['restore', 'ai_1']]);
+    TestBed.resetTestingModule();
+    await create([{ row: row({ status: 'archived' }), actions: ['restore'] }]);
+    expect(btn('restore').textContent).toContain('Restore');
+    expect(btn('restore').querySelector('i')).toBeNull();
+    expect(btn('restore').hasAttribute('aria-pressed')).toBeFalse();
+  });
   it('locked: the buttons say so and do nothing', async () => {
     await create([{ row: row({}), actions: ['hide'] }], true);
     const hide = dom().querySelector<HTMLButtonElement>('[data-sync-menu-action="hide"]')!;

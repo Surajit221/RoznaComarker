@@ -1,3 +1,4 @@
+import { PublicBrand } from '../../../shared/public-brand/public-brand';
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, inject, OnDestroy, OnInit } from '@angular/core';
@@ -21,7 +22,7 @@ interface Response<T> { data: T; }
 
 @Component({
   selector: 'app-guest-submission',
-  imports: [CommonModule, FormsModule, RouterLink, AssignmentQrRedirect, UploadEssayForm, MySubmissionPage],
+  imports: [CommonModule, FormsModule, RouterLink, AssignmentQrRedirect, UploadEssayForm, MySubmissionPage, PublicBrand],
   providers: [...GUEST_STUDENT_PROVIDERS, ImagePreflightService, CanonicalSubmissionResultCoordinator],
   templateUrl: './guest-submission.html',
   styleUrl: './guest-submission.css',

@@ -1,4 +1,5 @@
 import type { RubricFeedbackItem } from './dynamic-ai-feedback.util';
+import { ASSESSMENT_CATEGORY_LABELS, ASSESSMENT_CATEGORY_ORDER } from '../constants/assessment-categories';
 
 export type EvaluationCommentItem = Pick<RubricFeedbackItem, 'category' | 'description'>
   & Partial<Pick<RubricFeedbackItem, 'score' | 'maxScore' | 'selectedLevel'>>;
@@ -18,9 +19,7 @@ export function evaluationFeedbackComments(value: unknown): EvaluationCommentIte
     }
   }
   const rubric = record(feedback['rubricScores']);
-  return [['GRAMMAR', 'Grammar'], ['VOCABULARY', 'Vocabulary'], ['ORGANIZATION', 'Organization & Structure'],
-    ['CONTENT', 'Content & Task Achievement'], ['MECHANICS', 'Spelling & Punctuation'],
-    ['PRESENTATION', 'Presentation & Handwriting']].flatMap(([key, category]) => {
+  return ASSESSMENT_CATEGORY_ORDER.map(key => [key, ASSESSMENT_CATEGORY_LABELS[key]] as const).flatMap(([key, category]) => {
     const comment = record(rubric[key])['comment'];
     return typeof comment === 'string' && comment.trim() ? [{ category, description: comment }] : [];
   });

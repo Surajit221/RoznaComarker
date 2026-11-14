@@ -9,6 +9,7 @@ import { AssignmentApiService, type BulkEvaluationStartResult,
 import { environment } from '../../../../../../environments/environment';
 import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
 import { TeacherUploadApiService, friendlyError, type TeacherUploadItem } from '../../../../../api/teacher-upload-api.service';
+import { uploadCanRetry, uploadIsStopped, uploadStatusDescription, uploadStatusLabel } from '../../../../../components/teacher/upload-student-work/teacher-upload-status';
 
 export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
@@ -63,6 +64,8 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     lastActivity: string;
     /** Set when the teacher uploaded this work: marking and email status. */
     upload?: TeacherUploadItem;
+    /** The email the teacher typed (work the teacher uploaded only). */
+    email?: string;
   }[] = [];
   sendingSubmissionId: string | null = null;
   retryingSubmissionId: string | null = null;
@@ -103,9 +106,12 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     };
   }
 
-  uploadStatusLabel(item: TeacherUploadItem): string {
-    return ({ uploaded: 'Uploaded', processing: 'Marking…', marked: 'Marked', failed: 'Marking failed' } as const)[item.status];
-  }
+  uploadStatusLabel(item: TeacherUploadItem): string { return uploadStatusLabel(item); }
+  /** The reason shown under a stopped upload (failed or waiting for credits). */
+  uploadStatusReason(item: TeacherUploadItem): string { return uploadIsStopped(item) ? uploadStatusDescription(item) : ''; }
+  uploadIsStopped(item: TeacherUploadItem): boolean { return uploadIsStopped(item); }
+  /** Retry marking is offered for every state that is not finished; the server ignores it while a run is live. */
+  uploadCanRetry(item: TeacherUploadItem): boolean { return uploadCanRetry(item); }
   /** Marking failed and the email has not gone out: there is no feedback to send yet. */
   markingFailedNoEmail(item: TeacherUploadItem): boolean { return item.status === 'failed' && item.emailStatus !== 'sent'; }
   emailStatusLabel(item: TeacherUploadItem): string {
@@ -121,7 +127,8 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     try {
       const result = await this.teacherUploadApi.retry(this.assignmentId, row.submissionId);
       row.upload = result.item;
-      this.alert.showSuccess('Marking restarted', 'This work is being marked again. Check back in a few minutes.');
+      if (result.alreadyRequested) this.alert.showSuccess('Marking is already running', 'This work is being marked now. Check back in a few minutes.');
+      else this.alert.showSuccess('Marking restarted', 'This work is being marked again. Check back in a few minutes.');
     } catch (error) {
       this.alert.showError('Marking not restarted', friendlyError(error).message);
     } finally {
@@ -169,7 +176,7 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
       this.submissions = submissions || [];
       this.staleEvaluationSummary = staleSummary;
       const uploadById = new Map((uploads?.items || []).map((item) => [item.submissionId, item]));
-      this.students = this.submissions.map((s) => ({ ...this.mapSubmissionToRow(s), upload: uploadById.get(s._id) }));
+      this.students = this.submissions.map((s) => this.withUpload(this.mapSubmissionToRow(s), uploadById.get(s._id)));
       this.modalState = this.students.length ? 'loaded' : 'empty';
       this.loadingAssignmentId = null;
     } catch {
@@ -262,7 +269,9 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
       ]);
       if (this.destroyed || assignmentId !== this.assignmentId) return;
       this.submissions = submissions || [];
-      this.students = this.submissions.map((submission) => this.mapSubmissionToRow(submission));
+      // Keep each row's upload status (it was dropped here, so the status chips vanished after a bulk refresh).
+      const uploadById = new Map(this.students.filter(row => row.upload).map(row => [row.submissionId, row.upload!]));
+      this.students = this.submissions.map((submission) => this.withUpload(this.mapSubmissionToRow(submission), uploadById.get(submission._id)));
       this.staleEvaluationSummary = summary;
       this.bulkFailedCount = this.submissions.filter((submission) =>
         submission.evaluationStatus === 'failed').length;
@@ -274,6 +283,12 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     } catch {
       // The queued jobs continue even if a status refresh fails.
     }
+  }
+
+  /** Work the teacher uploaded shows the name and email the teacher typed. */
+  private withUpload(row: { submissionId: string; name: string; image: string; lastActivity: string }, upload?: TeacherUploadItem) {
+    if (!upload) return { ...row, upload };
+    return { ...row, name: upload.account === 'guest' ? `${upload.name} (Guest)` : upload.name || row.name, email: upload.email, upload };
   }
 
   private relatedId(value: unknown): string | undefined {

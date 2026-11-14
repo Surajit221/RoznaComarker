@@ -6,12 +6,18 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '../app/auth/auth.service';
 import { Auth } from '@angular/fire/auth';
+import { REFERENCE_FILES_OFF, ReferenceFilesApiService } from '../app/api/reference-files-api.service';
 
 type TestProvider = Provider | EnvironmentProviders;
 
 export const httpTestingProviders: TestProvider[] = [
   provideHttpClient(),
   provideHttpClientTesting()
+];
+
+/** Reference files for AI marking switched off (as with the backend flag off): forms that contain the field render exactly as before. */
+export const referenceFilesOffProviders: Provider[] = [
+  { provide: ReferenceFilesApiService, useValue: { config: () => Promise.resolve(REFERENCE_FILES_OFF) } }
 ];
 
 export function verifyHttpRequestsAfterEach(): void {
