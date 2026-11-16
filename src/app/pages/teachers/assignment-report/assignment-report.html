@@ -189,6 +189,53 @@
             </section>
           </div>
 
+          @if (commonMistakes(); as common) {
+            <section class="assignment-report__panel" data-section="common-mistakes" aria-labelledby="report-common-title">
+              <h2 id="report-common-title" class="assignment-report__panel-title">Common mistakes</h2>
+              <p class="assignment-report__note"><i class="bx bx-info-circle" aria-hidden="true"></i> {{ commonMistakesNote }}</p>
+              @if (common.partial) {
+                <p class="assignment-report__note" data-common-partial><i class="bx bx-error-circle" aria-hidden="true"></i> {{ commonMistakesPartialNote }}</p>
+              }
+              @if (commonEmptyText(); as empty) {
+                <p class="assignment-report__common-empty" data-common-empty>{{ empty }}</p>
+              } @else {
+                <ul class="assignment-report__common" aria-label="Mistakes made by 2 or more students">
+                  @for (row of commonRows(); track row.typeCode) {
+                    <li class="assignment-report__common-row" data-common-type>
+                      <div class="assignment-report__common-head">
+                        <span class="assignment-report__common-label" data-common-label>{{ row.title }}</span>
+                        <span class="assignment-report__common-value" data-common-count>{{ row.studentText }}</span>
+                      </div>
+                      <div class="assignment-report__common-track" aria-hidden="true">
+                        <div class="assignment-report__common-fill" data-common-fill [style.width.%]="row.percent" [style.background]="row.color"></div>
+                      </div>
+                      @if (row.examples.length) {
+                        <button type="button" class="assignment-report__common-toggle" [attr.aria-expanded]="examplesOpen(row.typeCode)"
+                          [attr.aria-controls]="row.examplesId" (click)="toggleExamples(row.typeCode)">
+                          <i class="bx" [class.bx-chevron-down]="!examplesOpen(row.typeCode)" [class.bx-chevron-up]="examplesOpen(row.typeCode)" aria-hidden="true"></i>
+                          {{ examplesOpen(row.typeCode) ? 'Hide examples' : 'Show examples' }}<span class="sr-only"> for {{ row.title }}</span>
+                        </button>
+                        <ul class="assignment-report__common-examples" [id]="row.examplesId" [hidden]="!examplesOpen(row.typeCode)">
+                          @for (example of row.examples; track $index) {
+                            <li class="assignment-report__common-example">
+                              <p class="assignment-report__common-change">
+                                <span class="sr-only">Original: </span><del>{{ example.original }}</del>
+                                @if (example.corrected) {
+                                  <span class="assignment-report__common-arrow" aria-hidden="true"> → </span><span class="sr-only">Correction: </span><ins>{{ example.corrected }}</ins>
+                                }
+                              </p>
+                              @if (example.explanation) { <p class="assignment-report__common-why">{{ example.explanation }}</p> }
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+          }
+
           <section class="assignment-report__panel" aria-labelledby="report-students-title">
             <div class="assignment-report__table-head">
               <h2 id="report-students-title" class="assignment-report__panel-title">Students</h2>

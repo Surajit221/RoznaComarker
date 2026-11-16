@@ -40,6 +40,28 @@
 .assignment-report__grid > .assignment-report__panel { margin-bottom: 0; }
 .assignment-report__panel-title { margin: 0 0 .2rem; color: #14264d; font-size: 1.05rem; font-weight: 700; }
 .assignment-report__panel-sub { margin: 0 0 .8rem; color: var(--color-text-muted); font-size: .78rem; }
+
+/* Common mistakes: the bar rows use the report bar list's values (report-bar-list.css); examples sit under a quiet left rule. */
+.assignment-report__common { display: flex; flex-direction: column; gap: 1rem; margin: .6rem 0 0; padding: 0; list-style: none; }
+.assignment-report__common-row { min-width: 0; }
+.assignment-report__common-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .3rem; }
+.assignment-report__common-label { min-width: 0; color: var(--color-text); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.assignment-report__common-value { flex: 0 0 auto; color: var(--color-navy); font-size: .875rem; font-weight: 700; }
+.assignment-report__common-track { height: .55rem; border-radius: 999px; background: #e8eef2; overflow: hidden; }
+.assignment-report__common-fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--color-primary); transition: width .3s ease; }
+.assignment-report__common-toggle { display: inline-flex; align-items: center; gap: .3rem; min-height: 2.3rem; margin-top: .35rem; padding: .3rem .1rem; border: 0;
+  background: transparent; color: var(--color-primary-dark); font-size: .82rem; font-weight: 700; cursor: pointer; }
+.assignment-report__common-toggle:hover { text-decoration: underline; }
+.assignment-report__common-examples { display: grid; gap: .5rem; margin: .3rem 0 0; padding: 0; list-style: none; }
+.assignment-report__common-examples[hidden] { display: none; }
+.assignment-report__common-example { min-width: 0; padding: .35rem 0 .35rem .7rem; border-left: 3px solid #e5e7eb; }
+.assignment-report__common-change { margin: 0; font-size: .875rem; line-height: 1.45; overflow-wrap: anywhere; }
+.assignment-report__common-change del { color: var(--color-text-muted); }
+.assignment-report__common-change ins { color: #14264d; font-weight: 700; text-decoration: none; }
+.assignment-report__common-arrow { color: var(--color-text-muted); }
+.assignment-report__common-why { margin: .15rem 0 0; color: var(--color-text-muted); font-size: .8rem; line-height: 1.45; overflow-wrap: anywhere; }
+.assignment-report__common-empty { margin: .4rem 0 0; color: var(--color-text-muted); font-size: .875rem; }
+@media (prefers-reduced-motion: reduce) { .assignment-report__common-fill { transition: none; } }
 .assignment-report__subtitle { margin: 1rem 0 .55rem; color: var(--color-navy); font-size: .85rem; font-weight: 700; }
 .assignment-report__note { display: flex; align-items: flex-start; gap: .4rem; margin: .2rem 0 .4rem; color: var(--color-text-muted); font-size: .78rem; }
 .assignment-report__note i { margin-top: .05rem; color: var(--color-primary); }
