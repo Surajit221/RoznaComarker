@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpEventType, type HttpResponse } from '@angular/common/http';
-import { Observable, filter, firstValueFrom, map, timeout } from 'rxjs';
+import { Observable, filter, firstValueFrom, fromEvent, map, takeUntil, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { RubricDesigner } from '../models/submission-feedback.model';
 
@@ -82,8 +82,11 @@ export class ReferenceFilesApiService {
     return (await firstValueFrom(this.http.delete<BackendResponse<{ removed: boolean; file: ReferenceFileView }>>(`${this.base}/${encodeURIComponent(fileId)}`))).data.file;
   }
 
-  async draftRubric(fileId: string): Promise<ReferenceRubricDraft> {
-    return (await firstValueFrom(this.http.post<BackendResponse<ReferenceRubricDraft>>(`${this.base}/${encodeURIComponent(fileId)}/rubric-draft`, {}))).data;
+  /** The rubric draft (an AI call: it can take minutes). Aborting the signal cancels the request; the promise then rejects. */
+  async draftRubric(fileId: string, signal?: AbortSignal): Promise<ReferenceRubricDraft> {
+    if (signal?.aborted) throw new Error('Rubric draft stopped');
+    const request = this.http.post<BackendResponse<ReferenceRubricDraft>>(`${this.base}/${encodeURIComponent(fileId)}/rubric-draft`, {});
+    return (await firstValueFrom(signal ? request.pipe(takeUntil(fromEvent(signal, 'abort'))) : request)).data;
   }
 
   async applyRubric(fileId: string, rubricDesigner: RubricDesigner, replace: boolean): Promise<{ applied: boolean; replaced: boolean }> {

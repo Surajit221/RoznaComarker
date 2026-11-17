@@ -1,10 +1,13 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { AfterViewInit, Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, TemplateRef, ViewChild, ViewContainerRef, computed, inject, signal } from '@angular/core';
+import {
+  AfterViewInit, Component, ElementRef, EventEmitter, Injector, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, TemplateRef, ViewChild, ViewContainerRef,
+  afterNextRender, computed, effect, inject, signal, untracked
+} from '@angular/core';
 import { DomPortalOutlet, TemplatePortal } from '@angular/cdk/portal';
 import type { Subscription } from 'rxjs';
 import {
   REFERENCE_FILES_OFF, ReferenceFilesApiService, referenceError,
-  type ReferenceFileView, type ReferenceFilesConfig, type ReferenceScope
+  type ReferenceFileView, type ReferenceFilesConfig, type ReferenceRubricDraft, type ReferenceScope
 } from '../../../api/reference-files-api.service';
 import { AlertService } from '../../../services/alert.service';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
@@ -17,6 +20,14 @@ export interface PendingReferenceFile {
   state: 'staged' | 'uploading' | 'failed'; progress: number; error: string | null; requestId: string;
 }
 export interface ReferenceUploadSummary { uploaded: ReferenceFileView[]; failed: { name: string; message: string }[] }
+/** How the rubric step of a save ended: finished (or there was none), skipped by the teacher, or stopped by the time limit. */
+export type RubricStepOutcome = 'done' | 'skipped' | 'timeout';
+
+/** The rubric draft is an AI call that can take minutes: the wait shows after a second, and stops after 150 s. */
+export const RUBRIC_WAIT_NOTICE_MS = 1000;
+export const RUBRIC_DRAFT_TIMEOUT_MS = 150_000;
+export const RUBRIC_WAIT_MESSAGE = 'Turning your file into a rubric draft… this can take a minute or two';
+export const RUBRIC_DRAFT_TIMEOUT_MESSAGE = "We couldn't prepare the rubric draft in time. You can try again from Edit.";
 
 const ALLOWED = new Set(['.pdf', '.doc', '.docx', '.pptx']);
 const OLD_POWERPOINT = new Set(['.ppt', '.pps', '.pot']);
@@ -53,6 +64,9 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
   private reviewPortal: DomPortalOutlet | null = null;
   private alert = inject(AlertService);
   private unsaved = inject(UnsavedWorkRegistry);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private injector = inject(Injector);
+  @ViewChild('skipButton') private skipButton?: ElementRef<HTMLButtonElement>;
   private readonly uid = nextId++;
   readonly ids = { heading: `reference-files-${this.uid}`, help: `reference-files-help-${this.uid}`, input: `reference-files-input-${this.uid}` };
   readonly accept = '.pdf,.doc,.docx,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -83,6 +97,12 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
   /** Uploading, waiting for files to be read, or saving a reviewed rubric: the dialog around the form must not close from its backdrop. */
   readonly busy = computed(() => this.uploading() || this.waiting() || this.reviewSaving());
   readonly isAssignment = computed(() => this.scope === 'assignment');
+  /** The rubric draft has taken more than a second. */
+  private readonly draftSlow = signal(false);
+  /** The form's save is waiting on the rubric step (runRubricStep). */
+  private readonly savingStep = signal(false);
+  /** A save is waiting on a slow rubric draft: the field shows the wait with Skip, and the form's Submit reads "Saving…". */
+  readonly rubricWait = computed(() => this.savingStep() && this.drafting() !== null && this.draftSlow());
 
   private uploads = new Map<string, Subscription>();
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -93,6 +113,28 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
   private stopWaitingNow: (() => void) | null = null;
   private reviewDone: (() => void) | null = null;
   private destroyed = false;
+  /** The rubric draft in flight: aborting cancels the request, stop() ends the wait at once (Skip, time limit, form closed). */
+  private activeDraft: { abort: AbortController; stop: () => void } | null = null;
+  private lastDraftFileId: string | null = null;
+  private stepOutcome: RubricStepOutcome = 'done';
+  private waitShown = false;
+
+  constructor() {
+    // Focus follows the rubric wait: to Skip when it appears; when it goes, to the file's "Use as rubric" button if focus was left nowhere.
+    effect(() => {
+      const shown = this.rubricWait();
+      untracked(() => {
+        if (shown) {
+          this.waitShown = true;
+          this.announcement.set(RUBRIC_WAIT_MESSAGE);
+          afterNextRender(() => this.skipButton?.nativeElement.focus(), { injector: this.injector });
+        } else if (this.waitShown) {
+          this.waitShown = false;
+          afterNextRender(() => this.focusAfterWait(), { injector: this.injector });
+        }
+      });
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     this.config.set(await this.api.config());
@@ -119,6 +161,7 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.stopDraft('closed');
     this.reviewPortal?.dispose();
     for (const subscription of this.uploads.values()) subscription.unsubscribe();
     if (this.pollTimer) clearTimeout(this.pollTimer);
@@ -301,10 +344,19 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
    * Assignment create flow: offers the rubric step for a file read just now; resolves when that step is finished (or there is none).
    * A step the background refresh already started (question or review open) is waited for, not skipped.
    */
-  async runRubricStep(): Promise<void> {
-    while (this.rubricFlow) await this.rubricFlow;
-    await this.offerRubric();
+  async runRubricStep(): Promise<RubricStepOutcome> {
+    this.stepOutcome = 'done';
+    this.savingStep.set(true);
+    try {
+      // Skip or the time limit ends the step: no further file is offered, the save goes on.
+      while (this.rubricFlow && this.stepOutcome === 'done') await this.rubricFlow;
+      if (this.stepOutcome === 'done') await this.offerRubric();
+      return this.stepOutcome;
+    } finally { this.savingStep.set(false); }
   }
+
+  /** "Skip, I'll do it later": stops waiting for the rubric draft; the file keeps "Use as rubric" for later. */
+  skipRubricStep(): void { this.stopDraft('skipped'); }
 
   private dismissed(): Set<string> {
     try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]')); } catch { return new Set(); }
@@ -350,15 +402,63 @@ export class ReferenceFilesField implements OnInit, OnChanges, AfterViewInit, On
 
   private async reviewFile(file: ReferenceFileView): Promise<void> {
     if (this.drafting() || this.review()) return;
-    this.drafting.set(file.id);
-    let draft;
-    try { draft = await this.api.draftRubric(file.id); } catch (error) {
-      this.alert.showError('This file could not be used as a rubric', referenceError(error).message);
-      return;
-    } finally { this.drafting.set(null); }
+    const draft = await this.fetchDraft(file);
+    if (!draft) return;
     this.review.set({ file, draft: draft.rubricDesigner, hasExisting: draft.hasExistingRubric });
     if (draft.notes.includes('WEIGHTS_SET_EQUALLY')) this.announcement.set('The criteria weights were set equally. Check them before you apply the rubric.');
     await new Promise<void>(resolve => { this.reviewDone = resolve; });
+  }
+
+  /**
+   * The rubric draft for a file, or null when it failed (reported here), was skipped, ran out of time, or the field closed. Those three end
+   * the wait at once and cancel the request; an answer that arrives after that is ignored.
+   */
+  private async fetchDraft(file: ReferenceFileView): Promise<ReferenceRubricDraft | null> {
+    const abort = new AbortController();
+    let stop!: () => void;
+    const stopped = new Promise<null>(resolve => { stop = () => resolve(null); });
+    this.activeDraft = { abort, stop };
+    this.lastDraftFileId = file.id;
+    this.drafting.set(file.id);
+    const notice = setTimeout(() => this.draftSlow.set(true), RUBRIC_WAIT_NOTICE_MS);
+    const limit = setTimeout(() => this.stopDraft('timeout'), RUBRIC_DRAFT_TIMEOUT_MS);
+    const request = this.api.draftRubric(file.id, abort.signal).then(draft => ({ draft }), (error: unknown) => ({ error }));
+    const answer = await Promise.race([request, stopped]);
+    clearTimeout(notice); clearTimeout(limit);
+    if (!answer) return null;                                    // stopped: stopDraft has already cleaned up
+    this.activeDraft = null;
+    this.endDraft();
+    if ('error' in answer) {
+      this.alert.showError('This file could not be used as a rubric', referenceError(answer.error).message);
+      return null;
+    }
+    return answer.draft;
+  }
+
+  private endDraft(): void { this.drafting.set(null); this.draftSlow.set(false); }
+
+  /** Ends the wait for the draft in flight. During a save the form reports the outcome; otherwise a time limit is reported here. */
+  private stopDraft(reason: 'skipped' | 'timeout' | 'closed'): void {
+    const active = this.activeDraft;
+    if (!active) return;
+    this.activeDraft = null;
+    active.abort.abort();
+    active.stop();
+    this.endDraft();
+    if (this.savingStep()) this.stepOutcome = reason === 'timeout' ? 'timeout' : 'skipped';
+    else if (reason === 'timeout') this.alert.showWarning('Rubric draft not ready', RUBRIC_DRAFT_TIMEOUT_MESSAGE);
+  }
+
+  /** After the wait: focus that was on Skip (now gone) goes to the file's "Use as rubric" button, or Add files. The review editor keeps its own. */
+  private focusAfterWait(): void {
+    if (this.destroyed || this.review()) return;
+    const active = this.document.activeElement;
+    if (active && active !== this.document.body) return;
+    const root = this.host.nativeElement;
+    const fileId = this.lastDraftFileId;
+    const use = fileId ? Array.from(root.querySelectorAll<HTMLButtonElement>('[data-file] [data-use-rubric]'))
+      .find(button => button.closest('[data-file]')?.getAttribute('data-file') === fileId && !button.disabled) : undefined;
+    (use ?? root.querySelector<HTMLButtonElement>('[data-add]:not(:disabled)'))?.focus();
   }
 
   closeReview(): void {

@@ -114,8 +114,16 @@
 
   @if (waiting()) {
   <div class="reference-files__waiting" role="status" data-waiting>
-    <span>Reading your files… This usually takes a few seconds.</span>
-    <button type="button" class="reference-files__link" (click)="stopWaiting()">Continue without waiting</button>
+    <span class="reference-files__waiting-text"><i class="bx bx-loader-alt reference-files__spinner" aria-hidden="true"></i>
+      Reading your files… this usually takes a few seconds</span>
+    <button type="button" class="reference-files__button" (click)="stopWaiting()">Continue without waiting</button>
+  </div>
+  }
+  @if (rubricWait()) {
+  <div class="reference-files__waiting" aria-live="polite" data-rubric-wait>
+    <span class="reference-files__waiting-text"><i class="bx bx-loader-alt reference-files__spinner" aria-hidden="true"></i>
+      Turning your file into a rubric draft… this can take a minute or two</span>
+    <button #skipButton type="button" class="reference-files__button" (click)="skipRubricStep()" data-rubric-skip>Skip, I'll do it later</button>
   </div>
   }
   <p class="reference-files__sr" aria-live="polite">{{ announcement() }}</p>

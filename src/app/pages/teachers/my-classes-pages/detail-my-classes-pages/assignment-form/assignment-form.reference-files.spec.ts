@@ -77,7 +77,7 @@ describe('AssignmentForm reference files', () => {
     spyOn(field(), 'hasStaged').and.returnValue(true);
     spyOn(field(), 'uploadStaged').and.callFake(async (id: string) => { order.push(`upload:${id}`); return { uploaded: [uploadedFile], failed: [] }; });
     spyOn(field(), 'waitUntilRead').and.callFake(async () => { order.push('wait'); });
-    spyOn(field(), 'runRubricStep').and.callFake(async () => { order.push('rubric'); });
+    spyOn(field(), 'runRubricStep').and.callFake(async () => { order.push('rubric'); return 'done' as const; });
     const toast = spyOn(alert(), 'showToast');
     component.created.subscribe(() => order.push('created'));
     await form().handleSubmit();
@@ -93,7 +93,7 @@ describe('AssignmentForm reference files', () => {
     spyOn(field(), 'hasStaged').and.returnValue(true);
     spyOn(field(), 'uploadStaged').and.resolveTo({ uploaded: [uploadedFile], failed: [] });
     spyOn(field(), 'waitUntilRead').and.resolveTo();
-    spyOn(field(), 'runRubricStep').and.callFake(() => component.onReferenceRubricApplied());
+    spyOn(field(), 'runRubricStep').and.callFake(async () => { await component.onReferenceRubricApplied(); return 'done' as const; });
     const toast = spyOn(alert(), 'showToast');
     const created = jasmine.createSpy('created');
     component.created.subscribe(created);
@@ -118,6 +118,76 @@ describe('AssignmentForm reference files', () => {
       'plan.docm: Files with macros are not accepted. You can add files again from Edit assignment.');
     expect(toast).not.toHaveBeenCalled();
     expect(created).toHaveBeenCalledTimes(1);
+  });
+
+  describe('a slow rubric draft', () => {
+    const TIMEOUT_MESSAGE = "We couldn't prepare the rubric draft in time. You can try again from Edit.";
+    const buttons = () => Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>);
+    const submit = () => buttons().find(b => b.type === 'submit')!;
+    const cancel = () => buttons().find(b => b.textContent?.trim() === 'Cancel')!;
+    function savedWithFile(outcome: 'done' | 'skipped' | 'timeout') {
+      spyOn(api(), 'createAssignment').and.resolveTo(assignment({ _id: 'new-1', title: 'River essay' }));
+      spyOn(field(), 'hasStaged').and.returnValue(true);
+      spyOn(field(), 'uploadStaged').and.resolveTo({ uploaded: [uploadedFile], failed: [] });
+      spyOn(field(), 'waitUntilRead').and.resolveTo();
+      spyOn(field(), 'runRubricStep').and.resolveTo(outcome);
+    }
+
+    it('while it is shown, Submit reads "Saving…" and Cancel stays disabled; both return afterwards', () => {
+      fill(); fixture.detectChanges();
+      expect(submit().textContent?.trim()).toBe('Submit');
+      const waiting = spyOn(field(), 'rubricWait').and.returnValue(true);
+      component.isSubmitting = true; fixture.detectChanges();
+      expect(submit().textContent?.trim()).toBe('Saving…');
+      expect(cancel().disabled).toBeTrue();
+      waiting.and.returnValue(false); component.isSubmitting = false; fixture.detectChanges();
+      expect(submit().textContent?.trim()).toBe('Submit');
+      expect(cancel().disabled).toBeFalse();
+    });
+
+    it('a save without a rubric wait keeps its usual label', () => {
+      fill();
+      component.isSubmitting = true; fixture.detectChanges();
+      expect(submit().textContent?.trim()).toBe('Submit');
+    });
+
+    it('Skip: the save finishes, the assignment is handed over and the dialog closes with the usual success message', async () => {
+      fill(); savedWithFile('skipped');
+      const toast = spyOn(alert(), 'showToast'); const warning = spyOn(alert(), 'showWarning');
+      const created = jasmine.createSpy('created'); const closed = jasmine.createSpy('closed');
+      component.created.subscribe(created); component.closed.subscribe(closed);
+      await form().handleSubmit();
+      expect(created).toHaveBeenCalledTimes(1);
+      expect(closed).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith('Assignment created successfully', 'success');
+      expect(warning).not.toHaveBeenCalled();
+      expect(component.isSubmitting).toBeFalse();
+    });
+
+    it('time limit: the save finishes, the dialog closes, and one clear message says to try again from Edit', async () => {
+      fill(); savedWithFile('timeout');
+      const toast = spyOn(alert(), 'showToast'); const warning = spyOn(alert(), 'showWarning');
+      const created = jasmine.createSpy('created'); const closed = jasmine.createSpy('closed');
+      component.created.subscribe(created); component.closed.subscribe(closed);
+      await form().handleSubmit();
+      expect(created).toHaveBeenCalledTimes(1);
+      expect(closed).toHaveBeenCalledTimes(1);
+      expect(warning).toHaveBeenCalledOnceWith('Assignment created', TIMEOUT_MESSAGE);
+      expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('time limit with refused files: one warning carries both notes', async () => {
+      fill();
+      spyOn(api(), 'createAssignment').and.resolveTo(assignment({ _id: 'new-1', title: 'River essay' }));
+      spyOn(field(), 'hasStaged').and.returnValue(true);
+      spyOn(field(), 'uploadStaged').and.resolveTo({ uploaded: [uploadedFile], failed: [{ name: 'plan.docm', message: 'Files with macros are not accepted.' }] });
+      spyOn(field(), 'waitUntilRead').and.resolveTo();
+      spyOn(field(), 'runRubricStep').and.resolveTo('timeout');
+      const warning = spyOn(alert(), 'showWarning');
+      await form().handleSubmit();
+      expect(warning).toHaveBeenCalledOnceWith('Assignment created, but some files were not added',
+        `plan.docm: Files with macros are not accepted. You can add files again from Edit assignment. ${TIMEOUT_MESSAGE}`);
+    });
   });
 
   it('create without files behaves exactly as before', async () => {
@@ -163,6 +233,18 @@ describe('AssignmentForm reference files', () => {
       spyOn(alert(), 'showToast');
       await form().handleSubmit();
       expect(sentRubrics(update.calls.mostRecent().args)).toBeUndefined();
+    });
+
+    it('Update after the rubric draft timed out: "Assignment updated" with the same message', async () => {
+      spyOn(api(), 'updateAssignment').and.resolveTo(component.assignment as BackendAssignment);
+      spyOn(field(), 'hasStaged').and.returnValue(true);
+      spyOn(field(), 'uploadStaged').and.resolveTo({ uploaded: [uploadedFile], failed: [] });
+      spyOn(field(), 'waitUntilRead').and.resolveTo();
+      spyOn(field(), 'runRubricStep').and.resolveTo('timeout');
+      const warning = spyOn(alert(), 'showWarning'); const toast = spyOn(alert(), 'showToast');
+      await form().handleSubmit();
+      expect(warning).toHaveBeenCalledOnceWith('Assignment updated', "We couldn't prepare the rubric draft in time. You can try again from Edit.");
+      expect(toast).not.toHaveBeenCalled();
     });
 
     it('Update uploads files still waiting in the field', async () => {
