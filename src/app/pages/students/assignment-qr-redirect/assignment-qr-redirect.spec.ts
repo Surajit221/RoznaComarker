@@ -40,6 +40,36 @@ describe('AssignmentQrRedirect', () => {
       .toBe("You're not a member of this class. Join with your class code.");
   });
 
+  // The guest QR page listens: a non-member may still submit as a guest there, so the 403 is handed over, not shown.
+  async function withListener(error: HttpErrorResponse) {
+    getAssignmentByQrToken.and.rejectWith(error);
+    const fixture = TestBed.createComponent(AssignmentQrRedirect);
+    const notMember = jasmine.createSpy('notMember');
+    fixture.componentInstance.notMember.subscribe(notMember);
+    await fixture.componentInstance.ngOnInit();
+    return { notMember, component: fixture.componentInstance };
+  }
+
+  it('hands a 403 to a listening page instead of showing the membership error', async () => {
+    const { notMember, component } = await withListener(new HttpErrorResponse({ status: 403, error: { message: 'Forbidden' } }));
+    expect(notMember).toHaveBeenCalledTimes(1);
+    expect(component.errorMessage).toBe('');
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('with a listener, a 404 keeps its own message and is not handed over', async () => {
+    spyOn(console, 'error');
+    const { notMember, component } = await withListener(new HttpErrorResponse({ status: 404, error: { message: 'Assignment not found' } }));
+    expect(notMember).not.toHaveBeenCalled();
+    expect(component.errorMessage).toBe('This assignment is no longer available.');
+  });
+
+  it('with a listener, a 401 is not handed over as a membership problem', async () => {
+    spyOn(console, 'error');
+    const { notMember } = await withListener(new HttpErrorResponse({ status: 401, error: { message: 'Unauthorized' } }));
+    expect(notMember).not.toHaveBeenCalled();
+  });
+
   it('explains a 404 as an unavailable assignment', async () => {
     expect(await fail(new HttpErrorResponse({ status: 404, error: { message: 'Assignment not found' } })))
       .toBe('This assignment is no longer available.');
