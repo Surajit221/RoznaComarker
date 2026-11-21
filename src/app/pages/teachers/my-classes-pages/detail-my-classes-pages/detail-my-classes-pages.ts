@@ -38,6 +38,9 @@ import { RubricLibrarySelector } from '../../../../components/teacher/rubric-lib
 import { RubricLibraryStateService } from '../../../../services/rubric-library-state.service';
 import { designerToRubricData, rubricDataToDesigner } from '../../../../utils/rubric-library.util';
 import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-student-work/upload-student-work-dialog';
+import { SpeakingTeacherUploadDialog } from '../../../../components/teacher/speaking-teacher-upload-dialog/speaking-teacher-upload-dialog';
+import { AudioConfigService } from '../../../../services/audio-config.service';
+import type { SpeakingLimits } from '../../../../api/speaking-api.service';
 import { AssignmentTypeChoice } from '../../../../components/teacher/assignment-type-choice/assignment-type-choice';
 import { SpeakingAssignmentForm } from '../../../../components/teacher/speaking-assignment-form/speaking-assignment-form';
 import { SpeakingRubricEditor } from '../../../../components/teacher/speaking-rubric-editor/speaking-rubric-editor';
@@ -68,6 +71,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     DuplicateAssignmentForm,
     RubricLibrarySelector,
     UploadStudentWorkDialog,
+    SpeakingTeacherUploadDialog,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
@@ -476,6 +480,29 @@ export class DetailMyClassesPages {
   onUploadWorkClosed(event: { saved: number }): void {
     const assignmentId = this.uploadWorkAssignmentId;
     this.uploadWorkAssignmentId = null;
+    if (event.saved > 0 && assignmentId) void this.refreshAssignmentSubmissionCount(assignmentId);
+  }
+
+  // ---- Stage 9: a teacher uploads students' recordings (the speaking card's "Upload for a student") ----
+  private readonly audioConfig = inject(AudioConfigService);
+  speakingUploadAssignmentId: string | null = null;
+  get speakingUploadTitle(): string {
+    return this.speakingUploadAssignmentId ? this.assignmentsById[this.speakingUploadAssignmentId]?.title || '' : '';
+  }
+  /** The assignment's own maximum length (or the policy's) and the file limit, for the recording picker. */
+  get speakingUploadLimits(): SpeakingLimits | null {
+    if (!this.speakingUploadAssignmentId) return null;
+    const own = this.assignmentsById[this.speakingUploadAssignmentId]?.speaking?.maxRecordingSeconds;
+    return { maxRecordingSeconds: own ?? this.audioConfig.maxMinutes() * 60, minDurationSeconds: 5, maxFileBytes: this.audioConfig.maxFileBytes() };
+  }
+  /** The submissions dialog of a speaking assignment reads the speaking uploads. */
+  get selectedIsSpeaking(): boolean {
+    return !!this.selectedAssignmentId && this.assignmentsById[this.selectedAssignmentId]?.resourceType === 'speaking';
+  }
+  openSpeakingUpload(assignmentId: string): void { this.speakingUploadAssignmentId = assignmentId; }
+  onSpeakingUploadClosed(event: { saved: number }): void {
+    const assignmentId = this.speakingUploadAssignmentId;
+    this.speakingUploadAssignmentId = null;
     if (event.saved > 0 && assignmentId) void this.refreshAssignmentSubmissionCount(assignmentId);
   }
 

@@ -31,7 +31,8 @@ for (const level of ['debug', 'info', 'warn', 'metric', 'error']) if (typeof qui
 const app = need('src/app');
 const { connectInMemoryMongo, disconnectInMemoryMongo } = need('tests/helpers/testServer');
 const { seedTestPlans } = need('tests/helpers/seedTestPlans');
-const { seedSpeaking, makeAudioSubmission, rid } = need('tests/helpers/speakingFixtures');
+const { seedSpeaking, makeAudioSubmission, person, rid } = need('tests/helpers/speakingFixtures');
+const Membership = need('src/models/membership.model'), Submission = need('src/models/Submission');
 const h = need('tests/helpers/speakingAssessmentFixtures');
 const samples = need('tests/helpers/audioSamples');
 const { TEXTS } = need('tests/fixtures/audio/speakingBenchmark.cjs');
@@ -40,7 +41,9 @@ const User = need('src/models/user.model'), Assignment = need('src/models/assign
 
 const out = path.resolve(process.argv[2] || path.join(__dirname, '../../output/speaking-flows-qa'));
 const build = path.resolve(__dirname, '../dist/rozna-comarker-fe/browser');
-const VIEWPORTS = [{ name: '1280', width: 1280, height: 900 }, { name: '1100', width: 1100, height: 900 }, { name: '390', width: 390, height: 844 }, { name: '320', width: 320, height: 700 }];
+// 900: a tablet width (769 to 1024 px is the tablet layout), stage 9.
+const VIEWPORTS = [{ name: '1280', width: 1280, height: 900 }, { name: '1100', width: 1100, height: 900 }, { name: '900', width: 900, height: 1100 },
+  { name: '390', width: 390, height: 844 }, { name: '320', width: 320, height: 700 }];
 const report = { screens: [], failures: [], styleComparisons: [], notes: [] };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // Known and unrelated (CLAUDE.md): the fixture users have no subscription or wallet record, and fonts and icons from CDNs are blocked here.
@@ -108,6 +111,21 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
   report.notes.push(`no credits: ${(await assess(blocked, h.output())).status}`);
   await h.personalCredits(f.teacher.user, 50);
 
+  // Stage 9: recordings the teacher uploaded for students (transcribing, not marked, marked), as the teacher upload stores them.
+  A.teacherUploads = await speakingAssignment('Teacher uploads');
+  const member = async label => { const p = await person('student', label); await Membership.create({ student: p.user._id, class: f.klass._id, status: 'active' }); return p; };
+  const [ben, cy] = [await member('Ben Okafor'), await member('Cy Tran')];
+  const asTeacherUpload = async (made, typedName, emailStatus) => Submission.updateOne({ _id: made.submission._id }, { $set: { teacherUpload: {
+    uploadedBy: f.teacher.user._id, batchId: 'batch-qa-0001', uploadedAt: new Date(), typedName, email: { status: emailStatus, attempts: 0 } } } });
+  const tuTranscribing = await makeAudioSubmission({ ...forAssignment(A.teacherUploads), student: ben }, { status: 'transcribing', seconds: 40 });
+  await asTeacherUpload(tuTranscribing, 'Ben Okafor', 'queued');
+  const tuShort = await h.readyRecording({ ...forAssignment(A.teacherUploads), student: cy }, 'My town is small and quiet. I like it.', { seconds: 9 });
+  await assess(tuShort, h.output());
+  await asTeacherUpload(tuShort, 'Cy Tran', 'held');
+  const tuMarked = await h.readyRecording(forAssignment(A.teacherUploads), TEXTS.STRONG, { seconds: 80 });
+  report.notes.push(`teacher upload marked: ${(await assess(tuMarked, h.output({ level: 'Excellent' }))).status}`);
+  await asTeacherUpload(tuMarked, 'Ana Lima', 'none');
+
   // ---- Servers and browser ----
   const frontend = express();
   frontend.use(express.static(build));
@@ -174,6 +192,29 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
   const teacher = f.teacher.token, student = f.student.token;
   const speakingPage = a => `/student/my-classes/detail/my-speaking/${a._id}?classId=${C}`;
   const noLeak = text => !/credit|capped at|before the cap|deepgram|openrouter|openai|gemini|INSUFFICIENT|AUDIO_STT/i.test(text);
+  // Stage 9 helpers: open "Upload for a student" on the "Teacher uploads" card, add a member and a guest, then go to the recordings step.
+  async function openTeacherUpload(page) {
+    const opened = await page.evaluate(title => {
+      const card = [...document.querySelectorAll('.teacher-assignment-card')].find(c => c.offsetParent !== null && c.textContent.includes(title));
+      const button = card?.querySelector('[data-speaking-upload]'); if (!button) return false; button.click(); return true;
+    }, 'Teacher uploads');
+    if (!opened || !await waitFor(() => visible(page, '.upload-dialog'))) return false;
+    const fill = async (index, name, email) => page.evaluate((i, n, e) => {
+      const rows = [...document.querySelectorAll('.upload-dialog .upload-student-row')];
+      const [nameInput, emailInput] = rows[i].querySelectorAll('input');
+      for (const [input, value] of [[nameInput, n], [emailInput, e]]) { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); }
+    }, index, name, email);
+    await fill(0, 'Dee Student', 'dee.student@example.com');
+    await clickText(page, 'button', 'Add student');
+    await fill(1, 'Ana Lima', 'speaking-student@example.com');
+    return true;
+  }
+  async function toRecordings(page) {
+    await clickText(page, 'button', 'Next: add recordings');
+    if (!await waitFor(() => visible(page, '.upload-dialog [data-speaking-dropzone]'))) return false;
+    for (const input of await page.$$('.upload-dialog app-speaking-upload-picker input[type=file]')) await input.uploadFile(wavFile);
+    return waitFor(() => page.evaluate(() => [...document.querySelectorAll('.upload-dialog .upload-page-card')].every(c => c.textContent.includes('sample-recording.wav'))));
+  }
   const SCREENS = [
     { name: 'teacher-class-page', who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-pill]' },
     { name: 'assignment-type-choice', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-pill]',
@@ -211,7 +252,21 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
     { name: 'student-speaking-transcription-failed', who: student, url: speakingPage(A.failed), ready: 'app-analysis-progress .stage', check: noLeak },
     { name: 'teacher-speaking-result-cap', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${offTopic.submission._id}?classId=${C}`, ready: '[data-cap-info]' },
     { name: 'teacher-speaking-result-corrections', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${ready.submission._id}?classId=${C}`, ready: '[data-speaking-corrections]' },
-    { name: 'teacher-speaking-no-credits', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${blocked.submission._id}?classId=${C}`, ready: 'app-analysis-progress .stage' }
+    { name: 'teacher-speaking-no-credits', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${blocked.submission._id}?classId=${C}`, ready: 'app-analysis-progress .stage' },
+    // Stage 9: "Upload for a student" (students, recordings, review), the submissions list with teacher uploads, and a student's teacher-uploaded result.
+    { name: 'teacher-upload-students', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-upload]', act: openTeacherUpload },
+    { name: 'teacher-upload-recordings', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-upload]',
+      act: async page => (await openTeacherUpload(page)) && toRecordings(page) },
+    { name: 'teacher-upload-review', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-upload]',
+      act: async page => (await openTeacherUpload(page)) && (await toRecordings(page)) && clickText(page, 'button', 'Next: review')
+        .then(() => waitFor(() => visible(page, '.upload-credits'))) },
+    { name: 'submissions-with-teacher-uploads', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-upload]',
+      act: async page => { await page.evaluate(title => {
+        const card = [...document.querySelectorAll('.teacher-assignment-card')].find(c => c.offsetParent !== null && c.textContent.includes(title));
+        [...(card?.querySelectorAll('button') || [])].find(b => b.textContent.includes('View Submissions'))?.click();
+      }, 'Teacher uploads'); return waitFor(() => page.evaluate(() => document.querySelectorAll('[data-teacher-upload]').length >= 3)); } },
+    { name: 'student-teacher-uploaded-result', who: student, url: speakingPage(A.teacherUploads), ready: 'app-speaking-result-view [data-criterion]',
+      check: text => noLeak(text) && !/Replace recording/.test(text) }
   ];
 
   for (const screen of SCREENS) {

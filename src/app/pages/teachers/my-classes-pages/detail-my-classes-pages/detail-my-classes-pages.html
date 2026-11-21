@@ -195,6 +195,10 @@
                           [attr.aria-label]="'Edit the rubric for ' + item.title">
                           <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
                         </button>
+                        <button type="button" class="assignment-utility assignment-utility--upload" data-speaking-upload (click)="openSpeakingUpload(item.id)"
+                          [attr.aria-label]="'Upload a student\'s recording for ' + item.title">
+                          <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload for a student
+                        </button>
                       }
                       <button
                         type="button"
@@ -333,6 +337,7 @@
     <h2 class="text-3xl font-bold text-center mb-8">{{ selectedAssignmentTitle }}</h2>
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
+      [speaking]="selectedIsSpeaking"
       (closed)="closeDialogSubmission()"
       (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
@@ -577,6 +582,10 @@
                   [attr.aria-label]="'Edit the rubric for ' + item.title">
                   <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
                 </button>
+                <button type="button" class="assignment-utility assignment-utility--upload" data-speaking-upload (click)="openSpeakingUpload(item.id)"
+                  [attr.aria-label]="'Upload a student\'s recording for ' + item.title">
+                  <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload for a student
+                </button>
               }
               @if (item.resourceType === 'worksheet' && item.resourceId) {
                 <button
@@ -709,6 +718,7 @@
     <h2 class="text-2xl font-bold mb-5">{{ selectedAssignmentTitle }}</h2>
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
+      [speaking]="selectedIsSpeaking"
       (closed)="onCloseSubmission()"
       (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
@@ -786,6 +796,15 @@
 ></app-error-modal>
 
 <app-speaking-rubric-editor></app-speaking-rubric-editor>
+
+<app-speaking-teacher-upload-dialog
+  [open]="!!speakingUploadAssignmentId"
+  [assignmentId]="speakingUploadAssignmentId"
+  [assignmentTitle]="speakingUploadTitle"
+  [classId]="classId"
+  [limits]="speakingUploadLimits"
+  (closed)="onSpeakingUploadClosed($event)"
+></app-speaking-teacher-upload-dialog>
 
 <app-upload-student-work-dialog
   [open]="!!uploadWorkAssignmentId"

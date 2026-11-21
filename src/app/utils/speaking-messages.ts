@@ -29,7 +29,23 @@ const BY_CODE: Readonly<Record<string, string>> = Object.freeze({
   ASSIGNMENT_NOT_FOUND: "This assignment isn't available.",
   SPEAKING_MAX_RECORDING_INVALID: 'Choose a maximum recording length from the list.',
   SPEAKING_RUBRIC_NOT_FOUND: "That rubric isn't available. Choose another rubric or use the default speaking rubric.",
-  SPEAKING_SETTINGS_INVALID: SPEAKING_GENERIC_MESSAGE
+  SPEAKING_SETTINGS_INVALID: SPEAKING_GENERIC_MESSAGE,
+  // Stage 9: a teacher uploads a student's recording.
+  INSUFFICIENT_CREDITS: 'You have no assessment credits left. Add credits to upload more recordings.',
+  TEACHER_UPLOAD_GUEST_EMAIL_UNAVAILABLE: 'Feedback emails for guests are not available for speaking assignments yet. Save without sending, or add the student to the class.',
+  TEACHER_UPLOAD_EXISTS: 'A recording for this student is already uploaded. Choose whether to replace it.',
+  TEACHER_UPLOAD_MODE_INVALID: 'A speaking submission has one recording. Choose to replace it instead.',
+  STUDENT_ALREADY_SUBMITTED: 'This student already submitted their own recording for this assignment. Open it from the submissions list.',
+  TEACHER_UPLOAD_KEY_REUSED: 'This upload reference was already used for a different recording. Please try again.',
+  TEACHER_UPLOAD_DUPLICATE: 'This recording was already saved.',
+  TEACHER_UPLOAD_CHANGED: "This student's recording changed while saving. Please try again.",
+  TEACHER_UPLOAD_BUSY: 'Another upload is still being saved. Please try again.',
+  TEACHER_UPLOAD_MARKING_FAILED: 'This recording has no feedback yet, so there is nothing to email. Retry it first, or upload a new recording.',
+  TEACHER_UPLOAD_RESEND_COOLDOWN: 'The email was just sent. Wait a minute before sending it again.',
+  TEACHER_UPLOAD_NOT_SPEAKING: 'Recordings can only be uploaded for speaking assignments.',
+  TEACHER_UPLOAD_STUDENT_INVALID: "Check the student's name and email.",
+  TEACHER_UPLOAD_FILE_UNAVAILABLE: 'This recording is no longer available. Upload it again.',
+  SPEAKING_UPLOADED_BY_TEACHER: 'Your teacher uploaded this recording for you, so only your teacher can replace it.'
 });
 
 export interface SpeakingMessageLimits { maxFileBytes?: number; maxRecordingSeconds?: number; }

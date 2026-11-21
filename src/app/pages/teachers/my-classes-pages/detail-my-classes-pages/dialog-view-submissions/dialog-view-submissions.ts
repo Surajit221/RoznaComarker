@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, inject, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Injector, Input, OnChanges, OnDestroy, inject, Output, SimpleChanges } from '@angular/core';
 import { Router } from '@angular/router';
 import { DeviceService } from '../../../../../services/device.service';
 import { SubmissionApiService, type BackendSubmission, type BackendUserLite } from '../../../../../api/submission-api.service';
@@ -10,6 +10,8 @@ import { environment } from '../../../../../../environments/environment';
 import { TeacherDashboardStateService } from '../../../../../services/teacher-dashboard-state.service';
 import { TeacherUploadApiService, friendlyError, type TeacherUploadItem } from '../../../../../api/teacher-upload-api.service';
 import { uploadCanRetry, uploadIsStopped, uploadStatusDescription, uploadStatusLabel } from '../../../../../components/teacher/upload-student-work/teacher-upload-status';
+import { SpeakingTeacherUploadApiService } from '../../../../../api/speaking-teacher-upload-api.service';
+import { speakingErrorMessage } from '../../../../../utils/speaking-messages';
 
 export type SubmissionModalState = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
@@ -24,6 +26,8 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   @Input() assignmentId: string | null = null;
   @Input() open = false;
   @Input() navigateOnSelect = true;
+  /** A speaking assignment (stage 9): its teacher uploads are recordings, read and acted on through the speaking endpoints, with fixed messages. */
+  @Input() speaking = false;
   @Output() closed = new EventEmitter<void>();
   @Output() selected = new EventEmitter<string>();
   @Output() removed = new EventEmitter<string>();
@@ -32,6 +36,10 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   private alert = inject(AlertService);
   private assignmentApi = inject(AssignmentApiService);
   private teacherUploadApi = inject(TeacherUploadApiService);
+  // Resolved only for a speaking assignment, so the essay dialog needs nothing new.
+  private injector = inject(Injector);
+  private get uploadApi() { return this.speaking ? this.injector.get(SpeakingTeacherUploadApiService) : this.teacherUploadApi; }
+  private uploadError(error: unknown): string { return this.speaking ? speakingErrorMessage(error) : friendlyError(error).message; }
   private router = inject(Router);
   private teacherDashboardState = inject(TeacherDashboardStateService);
   private freshnessInvalidationSub = this.teacherDashboardState.evaluationFreshnessInvalidated$
@@ -113,8 +121,9 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
   /** Retry marking is offered for every state that is not finished; the server ignores it while a run is live. */
   uploadCanRetry(item: TeacherUploadItem): boolean { return uploadCanRetry(item); }
   /** Marking failed and the email has not gone out: there is no feedback to send yet. */
-  markingFailedNoEmail(item: TeacherUploadItem): boolean { return item.status === 'failed' && item.emailStatus !== 'sent'; }
+  markingFailedNoEmail(item: TeacherUploadItem): boolean { return (item.status === 'failed' || item.status === 'not_marked') && item.emailStatus !== 'sent'; }
   emailStatusLabel(item: TeacherUploadItem): string {
+    if (item.status === 'not_marked' && item.emailStatus !== 'sent') return 'Not marked, email not sent';
     if (this.markingFailedNoEmail(item) || item.emailStatus === 'held') return 'Marking failed, email not sent';
     if (item.emailStatus === 'failed' && item.emailDeliveryUncertain) return 'Delivery uncertain';
     if (item.emailStatus === 'sent') { const at = this.emailSentTime(item); return at ? `Email sent ${at}` : 'Email sent'; }
@@ -133,12 +142,12 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     if (!this.assignmentId || !row.upload || this.retryingSubmissionId) return;
     this.retryingSubmissionId = row.submissionId;
     try {
-      const result = await this.teacherUploadApi.retry(this.assignmentId, row.submissionId);
+      const result = await this.uploadApi.retry(this.assignmentId, row.submissionId);
       row.upload = result.item;
       if (result.alreadyRequested) this.alert.showSuccess('Marking is already running', 'This work is being marked now. Check back in a few minutes.');
       else this.alert.showSuccess('Marking restarted', 'This work is being marked again. Check back in a few minutes.');
     } catch (error) {
-      this.alert.showError('Marking not restarted', friendlyError(error).message);
+      this.alert.showError('Marking not restarted', this.uploadError(error));
     } finally {
       this.retryingSubmissionId = null;
     }
@@ -149,12 +158,12 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     if (!this.assignmentId || !row.upload || this.sendingSubmissionId) return;
     this.sendingSubmissionId = row.submissionId;
     try {
-      const result = await this.teacherUploadApi.send(this.assignmentId, row.submissionId);
+      const result = await this.uploadApi.send(this.assignmentId, row.submissionId);
       row.upload = result.item;
       this.alert.showSuccess('Email queued', result.item.status === 'marked'
         ? 'The feedback link will be emailed shortly.' : 'The feedback link will be emailed when marking is finished.');
     } catch (error) {
-      this.alert.showError('Email not queued', friendlyError(error).message);
+      this.alert.showError('Email not queued', this.uploadError(error));
     } finally {
       this.sendingSubmissionId = null;
     }
@@ -167,11 +176,11 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     if (!confirmed || this.destroyed || !this.assignmentId) return;
     this.sendingSubmissionId = row.submissionId;
     try {
-      const result = await this.teacherUploadApi.send(this.assignmentId, row.submissionId, { requestId: crypto.randomUUID() });
+      const result = await this.uploadApi.send(this.assignmentId, row.submissionId, { requestId: crypto.randomUUID() });
       row.upload = result.item;
       this.alert.showSuccess('Email queued', 'The feedback link will be emailed again shortly.');
     } catch (error) {
-      this.alert.showError('Email not queued', friendlyError(error).message);
+      this.alert.showError('Email not queued', this.uploadError(error));
     } finally {
       this.sendingSubmissionId = null;
     }
@@ -193,9 +202,10 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     try {
       const [submissions, staleSummary, uploads] = await Promise.all([
         this.submissionApi.getSubmissionsByAssignment(assignmentId, null, 'cards'),
-        this.assignmentApi.getStaleEvaluationSummary(assignmentId).catch(() => null),
+        // A speaking assignment has no essay re-evaluation summary (the endpoint is essay-only and answers 404): not asked for (stage 9).
+        this.speaking ? Promise.resolve(null) : this.assignmentApi.getStaleEvaluationSummary(assignmentId).catch(() => null),
         // Statuses of work the teacher uploaded; the list still loads without them.
-        this.teacherUploadApi.list(assignmentId).catch(() => null)
+        this.uploadApi.list(assignmentId).catch(() => null)
       ]);
       if (this.destroyed || requestSequence !== this.requestSequence || assignmentId !== this.assignmentId) return;
       this.submissions = submissions || [];

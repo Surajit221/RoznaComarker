@@ -11,8 +11,9 @@ interface BackendResponse<T> { success: boolean; data: T; message?: string; code
 
 export type TeacherUploadAccount = 'member' | 'guest';
 export type TeacherUploadMode = 'new' | 'replace' | 'add_pages';
-/** uploaded, reading (OCR), processing (marking), waiting_credits (stopped: no credits), marked, failed (stopped, with failureCode). */
-export type TeacherUploadStatus = 'uploaded' | 'reading' | 'processing' | 'waiting_credits' | 'marked' | 'failed';
+/** uploaded, reading (OCR), processing (marking), waiting_credits (stopped: no credits), marked, failed (stopped, with failureCode).
+ *  not_marked: a recording that could not be marked (not enough speech, not English); speaking only (stage 9). */
+export type TeacherUploadStatus = 'uploaded' | 'reading' | 'processing' | 'waiting_credits' | 'marked' | 'failed' | 'not_marked';
 /** held = the teacher asked for the email but marking failed: not sent; "Retry marking" queues it again. */
 export type TeacherUploadEmailStatus = 'none' | 'queued' | 'sending' | 'sent' | 'failed' | 'held';
 
@@ -28,6 +29,8 @@ export interface TeacherUploadItem {
   emailSentAt: string | null; emailFailedAt: string | null; uploadedAt: string;
   /** The server stopped while sending: the email may already have arrived, so Resend could send a second copy. */
   emailDeliveryUncertain?: boolean;
+  /** 'speaking' for a recording the teacher uploaded (stage 9); absent for essays. */
+  kind?: 'speaking';
 }
 export interface TeacherUploadSaveResult { item: TeacherUploadItem; duplicate: boolean }
 export interface TeacherUploadRequest {
