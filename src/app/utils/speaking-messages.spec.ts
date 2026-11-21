@@ -1,5 +1,21 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { SPEAKING_GENERIC_MESSAGE, speakingErrorMessage } from './speaking-messages';
+import { SPEAKING_GENERIC_MESSAGE, SPEAKING_STT_UNAVAILABLE_MESSAGE, isSttUnavailableCode, speakingErrorMessage } from './speaking-messages';
+
+// Stage 12f: operational speech-to-text problems (provider credit, configuration) are never shown as a problem with the recording.
+describe('speech-to-text temporarily unavailable', () => {
+  it('one fixed message, no provider or code in it', () => {
+    expect(SPEAKING_STT_UNAVAILABLE_MESSAGE).toBe('Speech-to-text is temporarily unavailable. Please try again later.');
+    expect(SPEAKING_STT_UNAVAILABLE_MESSAGE).not.toMatch(/openrouter|scribe|elevenlabs|deepgram|openai|AUDIO_|credit|polic/i);
+  });
+
+  it('only the operational codes use it; an unreliable result or any other failure does not', () => {
+    expect(isSttUnavailableCode('AUDIO_STT_PROVIDER_CREDITS')).toBeTrue();
+    expect(isSttUnavailableCode('AUDIO_STT_NOT_CONFIGURED')).toBeTrue();
+    for (const code of ['AUDIO_STT_UNRELIABLE_RESULT', 'AUDIO_STT_TIMEOUT', 'AUDIO_STT_REJECTED', 'AUDIO_MONTHLY_MINUTES_EXCEEDED', '', null, undefined]) {
+      expect(isSttUnavailableCode(code)).withContext(String(code)).toBeFalse();
+    }
+  });
+});
 
 // Fixed, friendly text for every backend refusal; the server's own text is never shown.
 describe('speakingErrorMessage', () => {

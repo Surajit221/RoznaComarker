@@ -34,6 +34,12 @@ describe('studentSpeakingStatus (fixed text for every state; the server\'s text 
     expect(studentSpeakingStatus({ state: 'ready', reason: null }, { canRetry: true }).canRetryTranscription).toBeFalse();
   });
 
+  it('speech-to-text temporarily unavailable (operational): its own message, not "couldn\'t turn into text", no new recording asked', () => {
+    const status = studentSpeakingStatus({ state: 'transcription_failed', reason: 'stt_unavailable' }, { canRetry: true });
+    expect(status).toEqual(jasmine.objectContaining({ tone: 'problem', final: true, canRetryTranscription: true, invitesNewRecording: false,
+      message: 'Speech-to-text is temporarily unavailable. Please try again later.' }));
+  });
+
   it('an unknown state reads as in progress, never as a result', () => {
     expect(studentSpeakingStatus({ state: 'something_new' as never, reason: null })).toEqual(jasmine.objectContaining({ tone: 'progress', final: false }));
   });

@@ -27,4 +27,13 @@ describe('teacher upload status wording for recordings (stage 9); essays unchang
     expect(uploadStatusDescription(item({ kind: 'speaking', status: 'failed', failureCode: 'AUDIO_MONTHLY_MINUTES_EXCEEDED' }))).toMatch(/minutes are used up/);
     expect(uploadStatusDescription(item({ status: 'failed', failureCode: 'OCR_TIMEOUT' }))).toMatch(/took too long/);
   });
+
+  it('operational speech-to-text codes read "temporarily unavailable"; an unreliable result keeps the recording wording (stage 12f)', () => {
+    for (const code of ['AUDIO_STT_PROVIDER_CREDITS', 'AUDIO_STT_NOT_CONFIGURED']) {
+      expect(uploadStatusDescription(item({ kind: 'speaking', status: 'failed', failureCode: code })))
+        .toBe('Speech-to-text is temporarily unavailable. Please try again later. Press Retry marking to try again.');
+    }
+    expect(uploadStatusDescription(item({ kind: 'speaking', status: 'failed', failureCode: 'AUDIO_STT_UNRELIABLE_RESULT' })))
+      .toBe('The recording could not be turned into text. Press Retry marking to try again.');
+  });
 });

@@ -26,6 +26,14 @@ describe('teacherSpeakingStatus (fixed text; the teacher sees why and can act)',
       .toBe("We couldn't turn this recording into text. This month's speech-to-text minutes are used up.");
     expect(teacherSpeakingStatus({ state: 'transcription_failed', reason: null }, recording({ status: 'failed', lastErrorCode: 'AUDIO_DAILY_MINUTES_EXCEEDED' })).message)
       .toBe("We couldn't turn this recording into text. Today's speech-to-text minutes are used up. Try again tomorrow.");
+    for (const code of ['AUDIO_STT_PROVIDER_CREDITS', 'AUDIO_STT_NOT_CONFIGURED']) {
+      const operational = teacherSpeakingStatus({ state: 'transcription_failed', reason: null }, recording({ status: 'failed', lastErrorCode: code }));
+      expect(operational).toEqual(jasmine.objectContaining({ message: 'Speech-to-text is temporarily unavailable. Please try again later.', canRetryTranscription: true }));
+    }
+    expect(teacherSpeakingStatus({ state: 'transcription_failed', reason: 'stt_unavailable' }, null).message)
+      .toBe('Speech-to-text is temporarily unavailable. Please try again later.');
+    expect(teacherSpeakingStatus({ state: 'transcription_failed', reason: null }, recording({ status: 'failed', lastErrorCode: 'AUDIO_STT_UNRELIABLE_RESULT' })).message)
+      .toBe("We couldn't turn this recording into text.");
     const other = teacherSpeakingStatus({ state: 'transcription_failed', reason: null }, recording({ status: 'failed', lastErrorCode: 'AUDIO_STT_TIMEOUT' }));
     expect(other).toEqual(jasmine.objectContaining({ message: "We couldn't turn this recording into text.", canRetryTranscription: true }));
     expect(teacherSpeakingStatus({ state: 'transcription_failed', reason: null }, recording({ status: 'failed', audioAvailable: false })).canRetryTranscription).toBeFalse();
