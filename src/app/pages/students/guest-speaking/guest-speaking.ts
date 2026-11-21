@@ -61,6 +61,10 @@ export class GuestSpeakingPage implements OnInit, OnDestroy {
   qrToken = '';
   currentPath = '';
   registered = false;
+  /** A signed-in student who is not a member of this class (the registered QR lookup answered 403), as on the essay guest page. */
+  signedInNotMember = false;
+  /** That student, when this assignment does not accept guests (or guest submission is off): show the join-class card. */
+  membershipRequired = false;
   authResolution: 'RESOLVING' | 'AUTHENTICATED' | 'ANONYMOUS' | 'RECOVERY_FAILED' = 'RESOLVING';
   guestUnavailable = false;
   loading = true;
@@ -163,7 +167,8 @@ export class GuestSpeakingPage implements OnInit, OnDestroy {
   @HostListener('window:pageshow')
   @HostListener('window:focus')
   async recheckEntrySession(): Promise<void> {
-    if (this.viewingResults || this.registered || !this.guestUnavailable || this.loading) return;
+    // A signed-in non-member on the guest fallback stays there: rechecking the session would only send them back to the 403.
+    if (this.viewingResults || this.registered || this.signedInNotMember || !this.guestUnavailable || this.loading) return;
     this.guestUnavailable = false;
     await this.ngOnInit();
   }
@@ -175,6 +180,24 @@ export class GuestSpeakingPage implements OnInit, OnDestroy {
     this.recoveryCooldown.stop();
     this.upload$?.unsubscribe();
     if (this.uploading) this.unsaved.clear(UNSAVED_KEY);
+  }
+
+  /**
+   * The registered lookup says this signed-in student is not in the class (as on the essay guest page). If the assignment accepts guests,
+   * the guest form opens: the student submits as a guest with the name and email they type (no prefill), and the guest requests carry no
+   * bearer token (/api/guest is public in classifyBackendRequest), so the account is never linked or charged. Otherwise a join-the-class card.
+   */
+  async onNotMember(): Promise<void> {
+    this.registered = false; this.signedInNotMember = true; this.membershipRequired = false;
+    this.loading = true; this.loadError = ''; this.entryClosed = false;
+    try {
+      if (!(await this.guestFeature.load())) { this.membershipRequired = true; return; }
+      this.assignment = await this.access.entry(this.qrToken);
+    } catch (error: unknown) {
+      const response = error as HttpErrorResponse;
+      if (response?.status === 404 || response?.error?.code === 'GUEST_SUBMISSION_UNAVAILABLE') this.membershipRequired = true;
+      else this.loadError = 'Unable to open this assignment. Please check your connection and try again.';
+    } finally { this.loading = false; }
   }
 
   private async routeAuthenticated(session: Session): Promise<void> {
