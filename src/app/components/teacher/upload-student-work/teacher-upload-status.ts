@@ -1,4 +1,5 @@
 import type { TeacherUploadItem, TeacherUploadStatus } from '../../../api/teacher-upload-api.service';
+import { SPEAKING_STT_UNAVAILABLE_MESSAGE, isSttUnavailableCode } from '../../../utils/speaking-messages';
 
 /** One wording for a teacher upload's status, used by View Submissions and the submission page. */
 export const UPLOAD_STATUS_LABELS: Record<TeacherUploadStatus, string> = {
@@ -42,6 +43,8 @@ export function uploadFailureReason(code: string | undefined | null): string {
   if (value === 'INSUFFICIENT_ASSESSMENT_CREDITS' || value === 'INSUFFICIENT_CREDITS') return 'There were no assessment credits left.';
   // Recordings (stage 9): checked before the general rules below (an AUDIO_ timeout is speech-to-text, not the marking service).
   if (SPEAKING_REASONS[value]) return SPEAKING_REASONS[value];
+  // Speech-to-text out of service on our side (stage 12f): not a problem with the recording.
+  if (isSttUnavailableCode(value)) return SPEAKING_STT_UNAVAILABLE_MESSAGE;
   if (value.startsWith('AUDIO_')) return 'The recording could not be turned into text.';
   if (value === 'ASSESSMENT_STALLED' || value === 'ASSESSMENT_RECOVERY_EXHAUSTED') return 'Marking stopped and did not restart on its own.';
   if (value.includes('TIMEOUT')) return 'The marking service took too long to answer.';

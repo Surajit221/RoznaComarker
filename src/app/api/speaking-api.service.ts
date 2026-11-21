@@ -47,6 +47,8 @@ export interface MySpeakingStatus { submission: StudentSpeakingSubmission | null
 export type SpeakingResultState = 'transcribing' | 'transcription_failed' | 'assessing' | 'ready' | 'not_enough_speech' | 'not_assessable'
   | 'awaiting_teacher' | 'blocked' | 'failed';
 export type SpeakingNotAssessableReason = 'not_english' | 'unintelligible' | 'too_long';
+/** A result's reason: why it could not be marked, or (with 'transcription_failed') that speech-to-text is temporarily unavailable (stage 12f). */
+export type SpeakingResultReason = SpeakingNotAssessableReason | 'stt_unavailable';
 export interface SpeakingCriterionResult { criterionId: string; title: string; level: string; weightPercent: number; points?: number; comment: string; }
 export interface SpeakingCategoryResult { key: string; label: string; score?: number; maxScore?: number; comment: string; }
 export interface SpeakingResultBlock {
@@ -65,7 +67,7 @@ export interface SpeakingCorrection { id: string; category: string; symbol: stri
 export interface SpeakingResult {
   submissionId: string;
   state: SpeakingResultState;
-  reason: SpeakingNotAssessableReason | null;
+  reason: SpeakingResultReason | null;
   message?: string | null;
   marksVisible: boolean;
   assessedText: string | null;

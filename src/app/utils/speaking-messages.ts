@@ -5,6 +5,16 @@ import { HttpErrorResponse } from '@angular/common/http';
  * Wording matches the backend's fixed messages where they exist.
  */
 export const SPEAKING_GENERIC_MESSAGE = 'Something went wrong. Please try again.';
+/**
+ * Speech-to-text out of service on our side (provider credit, configuration): never shown as a problem with the recording. Same text as the
+ * backend (services/audio/stt/errors.js STT_UNAVAILABLE_MESSAGE). No provider is named.
+ */
+export const SPEAKING_STT_UNAVAILABLE_MESSAGE = 'Speech-to-text is temporarily unavailable. Please try again later.';
+const STT_UNAVAILABLE_CODES: ReadonlySet<string> = new Set(['AUDIO_STT_PROVIDER_CREDITS', 'AUDIO_STT_NOT_CONFIGURED']);
+/** Whether a recording's error code is one of those operational ones. */
+export function isSttUnavailableCode(code: string | null | undefined): boolean {
+  return !!code && STT_UNAVAILABLE_CODES.has(code);
+}
 const CONNECTION = 'Upload failed. Check your connection and try again.';
 const RETRY_NOT_NOW = "This can't be retried now. Refresh the page.";
 

@@ -1,5 +1,9 @@
-import type { SpeakingNotAssessableReason, SpeakingResultState } from '../api/speaking-api.service';
+import type { SpeakingNotAssessableReason, SpeakingResultReason, SpeakingResultState } from '../api/speaking-api.service';
 import type { ProcessingProgress } from '../components/analysis-progress/analysis-progress';
+import { SPEAKING_STT_UNAVAILABLE_MESSAGE, isSttUnavailableCode } from './speaking-messages';
+
+/** A not-assessable reason only (the record below is keyed by those; 'stt_unavailable' belongs to a failed transcription). */
+const notAssessable = (reason: SpeakingResultReason | null): SpeakingNotAssessableReason | null => (reason && reason !== 'stt_unavailable' ? reason : null);
 
 /**
  * What a speaking result's state means on screen: fixed text only (the server's own text is never shown), whether the page keeps polling, and
@@ -30,8 +34,9 @@ const NOT_ASSESSABLE_OTHER = "This recording couldn't be marked. Record your ans
 const view = (tone: SpeakingStatusView['tone'], message: string, final: boolean, extra: Partial<SpeakingStatusView> = {}): SpeakingStatusView =>
   ({ tone, message, final, canRetryTranscription: false, canRetryAssessment: false, invitesNewRecording: false, ...extra });
 
-export function studentSpeakingStatus(result: { state: SpeakingResultState; reason: SpeakingNotAssessableReason | null },
+export function studentSpeakingStatus(result: { state: SpeakingResultState; reason: SpeakingResultReason | null },
   recording: { canRetry?: boolean } = {}): SpeakingStatusView {
+  const reason = notAssessable(result.reason);
   switch (result.state) {
     case 'transcribing': return view('progress', 'Turning your recording into text…', false);
     case 'assessing': return view('progress', 'Marking your recording…', false);
@@ -42,8 +47,10 @@ export function studentSpeakingStatus(result: { state: SpeakingResultState; reas
     case 'not_enough_speech':
       return view('problem', "There wasn't enough speech in this recording to mark it. Record a longer answer and upload it again.", true, { invitesNewRecording: true });
     case 'not_assessable':
-      return view('problem', (result.reason && NOT_ASSESSABLE[result.reason]) || NOT_ASSESSABLE_OTHER, true, { invitesNewRecording: true });
+      return view('problem', (reason && NOT_ASSESSABLE[reason]) || NOT_ASSESSABLE_OTHER, true, { invitesNewRecording: true });
     case 'transcription_failed':
+      // Speech-to-text out of service on our side: nothing is wrong with the recording, so no new recording is asked for.
+      if (result.reason === 'stt_unavailable') return view('problem', SPEAKING_STT_UNAVAILABLE_MESSAGE, true, { canRetryTranscription: recording.canRetry === true });
       return view('problem', "We couldn't turn this recording into text.", true, { canRetryTranscription: recording.canRetry === true, invitesNewRecording: true });
     default: return view('progress', 'Checking your recording…', false);
   }
@@ -62,9 +69,10 @@ const MINUTES: Readonly<Record<string, string>> = Object.freeze({
 
 /** The owning teacher's view: why marking is waiting (credits, a failed run, used-up minutes) and which retry applies. Codes map to fixed text. */
 export function teacherSpeakingStatus(
-  result: { state: SpeakingResultState; reason: SpeakingNotAssessableReason | null; errorCode?: string | null; canRetryAssessment?: boolean },
+  result: { state: SpeakingResultState; reason: SpeakingResultReason | null; errorCode?: string | null; canRetryAssessment?: boolean },
   recording: { status?: string; lastErrorCode?: string | null; audioAvailable?: boolean } | null): SpeakingStatusView {
   const retryMarking = result.canRetryAssessment === true;
+  const reason = notAssessable(result.reason);
   switch (result.state) {
     case 'transcribing': return view('progress', 'Turning the recording into text…', false);
     case 'assessing': return view('progress', 'Marking the recording…', false);
@@ -76,10 +84,14 @@ export function teacherSpeakingStatus(
     case 'awaiting_teacher': return view('problem', "Marking didn't finish. Try marking again.", true, { canRetryAssessment: retryMarking });
     case 'not_enough_speech':
       return view('problem', "There wasn't enough speech in this recording to mark it. The student can upload a longer recording.", true);
-    case 'not_assessable': return view('problem', (result.reason && TEACHER_NOT_ASSESSABLE[result.reason]) || "This recording couldn't be marked.", true);
-    case 'transcription_failed':
-      return view('problem', `We couldn't turn this recording into text.${MINUTES[recording?.lastErrorCode ?? ''] ?? ''}`, true,
-        { canRetryTranscription: recording?.status === 'failed' && recording?.audioAvailable !== false });
+    case 'not_assessable': return view('problem', (reason && TEACHER_NOT_ASSESSABLE[reason]) || "This recording couldn't be marked.", true);
+    case 'transcription_failed': {
+      const canRetryTranscription = recording?.status === 'failed' && recording?.audioAvailable !== false;
+      if (result.reason === 'stt_unavailable' || isSttUnavailableCode(recording?.lastErrorCode)) {
+        return view('problem', SPEAKING_STT_UNAVAILABLE_MESSAGE, true, { canRetryTranscription });
+      }
+      return view('problem', `We couldn't turn this recording into text.${MINUTES[recording?.lastErrorCode ?? ''] ?? ''}`, true, { canRetryTranscription });
+    }
     default: return view('progress', 'Checking the recording…', false);
   }
 }
