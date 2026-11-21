@@ -136,6 +136,9 @@
                     @if (item.resourceType === 'speaking') {
                       <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
                     }
+                    @if (!item.resourceType || item.resourceType === 'essay') {
+                      <span data-writing-pill class="px-2 py-0.5 rounded-full bg-[#008081] text-white text-xs font-semibold">Writing</span>
+                    }
                   </div>
                   @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
                     <div class="mb-2">
@@ -198,7 +201,7 @@
                         </button>
                         <button type="button" class="assignment-utility assignment-utility--upload" data-speaking-upload (click)="openSpeakingUpload(item.id)"
                           [attr.aria-label]="'Upload a student\'s recording for ' + item.title">
-                          <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload for a student
+                          <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload work
                         </button>
                       }
                       <button
@@ -536,6 +539,9 @@
               @if (item.resourceType === 'speaking') {
                 <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
               }
+              @if (!item.resourceType || item.resourceType === 'essay') {
+                <span data-writing-pill class="px-2 py-0.5 rounded-full bg-[#008081] text-white text-xs font-semibold">Writing</span>
+              }
             </div>
             @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
               <div class="mt-1 mb-2">
@@ -594,7 +600,7 @@
                 </button>
                 <button type="button" class="assignment-utility assignment-utility--upload" data-speaking-upload (click)="openSpeakingUpload(item.id)"
                   [attr.aria-label]="'Upload a student\'s recording for ' + item.title">
-                  <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload for a student
+                  <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload work
                 </button>
               }
               @if (item.resourceType === 'worksheet' && item.resourceId) {

@@ -595,7 +595,7 @@ export class DetailMyClassesPages {
     if (event.saved > 0 && assignmentId) void this.refreshAssignmentSubmissionCount(assignmentId);
   }
 
-  // ---- Stage 9: a teacher uploads students' recordings (the speaking card's "Upload for a student") ----
+  // ---- Stage 9: a teacher uploads students' recordings (the speaking card's "Upload work") ----
   private readonly audioConfig = inject(AudioConfigService);
   speakingUploadAssignmentId: string | null = null;
   get speakingUploadTitle(): string {

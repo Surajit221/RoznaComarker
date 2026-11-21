@@ -22,7 +22,7 @@
                   <a class="portal-item" routerLink="/login" data-sign-in>
                     <span class="portal-title">{{ item.assignmentTitle }}</span>
                     <span class="portal-meta">
-                      @if (item.kind === 'speaking') { <span data-kind-speaking>Speaking</span> }
+                      @if (item.kind === 'speaking') { <span data-kind-speaking>Speaking</span> } @else { <span data-kind-writing>Writing</span> }
                       @if (item.className) { <span>{{ item.className }}</span> }
                       @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'medium' }}</span> }
                     </span>
@@ -32,7 +32,7 @@
                   <button type="button" class="portal-item" (click)="open(item)">
                     <span class="portal-title">{{ item.assignmentTitle }}</span>
                     <span class="portal-meta">
-                      @if (item.kind === 'speaking') { <span data-kind-speaking>Speaking</span> }
+                      @if (item.kind === 'speaking') { <span data-kind-speaking>Speaking</span> } @else { <span data-kind-writing>Writing</span> }
                       @if (item.className) { <span>{{ item.className }}</span> }
                       @if (item.submittedAt) { <span>Submitted {{ item.submittedAt | date: 'medium' }}</span> }
                     </span>
