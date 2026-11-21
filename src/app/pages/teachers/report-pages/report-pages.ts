@@ -164,8 +164,9 @@ export class ReportPages {
 
       const submissions: BackendSubmission[] = (
         await Promise.all(
+          // The essay report: speaking assignments are left out (stage 7g).
           assignmentsByClass.flatMap((bucket) =>
-            (bucket.assignments || []).map(async (a: any) => {
+            (bucket.assignments || []).filter((a) => a?.resourceType !== 'speaking').map(async (a: any) => {
               const assignmentId = a?._id;
               if (!assignmentId) return [] as BackendSubmission[];
               try {

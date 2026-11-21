@@ -107,6 +107,17 @@ export class StudentResultsPage implements OnInit {
     const state = (nav?.extras?.state ??
       (typeof history !== 'undefined' ? history.state : {})) as Partial<ResultState>;
 
+    // Only flashcard and worksheet results are shown here. A speaking state goes to the student's speaking page (stage 7g).
+    const kind = (state as { type?: string } | null)?.type;
+    if (kind && kind !== 'flashcard' && kind !== 'worksheet') {
+      if (kind === 'speaking' && state.assignmentId) {
+        this.router.navigate(['/student/my-classes/detail/my-speaking', state.assignmentId], { queryParams: { classId: state.classId || undefined } });
+      } else {
+        this.router.navigate(['/student/my-classes']);
+      }
+      return;
+    }
+
     if (state && (state.total ?? 0) > 0) {
       this.score = state.score ?? null;
       this.total = state.total ?? 0;
