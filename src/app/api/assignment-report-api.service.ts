@@ -26,6 +26,30 @@ export interface AssignmentReportStudent {
   attentionReasons: string[];
 }
 
+/** One anonymous example of a common mistake: the student's words, the correction (may be empty) and the explanation (may be empty). */
+export interface CommonMistakeExample { original: string; corrected: string; explanation: string }
+export interface CommonMistakeType {
+  typeCode: string;
+  label: string;
+  category: string | null;
+  /** Distinct students who made it, out of totalStudents. */
+  studentCount: number;
+  totalStudents: number;
+  occurrenceCount: number;
+  /** Made by at least minStudents students; only these rows are shown, and only these carry examples. */
+  isCommon: boolean;
+  examples: CommonMistakeExample[];
+}
+/** "Common mistakes": counted from the corrections students see (removed ones left out). partial: some edited essays were left out. */
+export interface CommonMistakes {
+  basis: 'visible_corrections';
+  totalStudents: number;
+  minStudents: number;
+  state: 'ok' | 'not_enough_students' | 'none_shared';
+  partial: boolean;
+  types: CommonMistakeType[];
+}
+
 export interface AssignmentReport {
   version: string;
   generatedAt: string;
@@ -42,6 +66,8 @@ export interface AssignmentReport {
   errors: { basis: 'ai_analysis'; total: number; symbolTotal: number; submissionsWithCorrections: number;
     categories: { key: string; label: string; color: string | null; count: number; pct: number }[];
     symbols: { symbol: string; label: string; category: string | null; count: number; pct: number }[] };
+  /** Mistakes made by several students (from the corrections students see). Absent from an older backend. */
+  commonMistakes?: CommonMistakes;
   timeline: { granularity: 'day' | 'week'; points: { date: string; count: number }[] };
   students: AssignmentReportStudent[];
   insights: { code: string; text: string }[];
