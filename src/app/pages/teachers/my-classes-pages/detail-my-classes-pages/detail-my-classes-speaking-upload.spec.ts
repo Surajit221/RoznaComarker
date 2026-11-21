@@ -1,4 +1,4 @@
-// Stage 9: "Upload for a student" on a speaking card (where "Upload work" sits on an essay card), opening the speaking upload dialog; the
+// Stage 9: "Upload work" on a speaking card (the same label as on an essay card; its accessible name says it uploads a student's recording), opening the speaking upload dialog; the
 // submissions dialog of a speaking assignment reads the speaking uploads. Essay cards unchanged.
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
@@ -28,14 +28,14 @@ describe('DetailMyClassesPages: teacher-uploaded recordings (stage 9)', () => {
   const find = <T>(type: new (...args: never[]) => T) => fixture.debugElement.query(el => el.componentInstance instanceof type)?.componentInstance as T;
 
   for (const desktop of [true, false]) {
-    it(`a speaking card offers "Upload for a student" with the essay card's upload button style; it opens the speaking dialog (desktop=${desktop})`, () => {
+    it(`a speaking card offers "Upload work" (the essay card's label and button style; the accessible name says a student's recording); it opens the speaking dialog (desktop=${desktop})`, () => {
       spyOn(component.device, 'isDesktop').and.returnValue(desktop);
       spyOn(component.device, 'isMobile').and.returnValue(!desktop);
       byId({ s1: { _id: 's1', title: 'Assignment s1', resourceType: 'speaking', speaking: { maxRecordingSeconds: 180 } } });
       component.assignments = [item('s1', 'speaking'), item('e1', 'essay')];
       fixture.detectChanges();
       const button = host().querySelector<HTMLButtonElement>('[data-speaking-upload]')!;
-      expect(button.textContent!.replace(/\s+/g, ' ').trim()).toBe('Upload for a student');
+      expect(button.textContent!.replace(/\s+/g, ' ').trim()).toBe('Upload work');
       expect(button.classList).toContain('assignment-utility--upload');
       expect(button.getAttribute('aria-label')).toBe("Upload a student's recording for Assignment s1");
       expect(host().querySelectorAll('[data-speaking-upload]').length).toBe(1);

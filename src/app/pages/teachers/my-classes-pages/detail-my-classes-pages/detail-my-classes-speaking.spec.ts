@@ -43,7 +43,7 @@ describe('DetailMyClassesPages speaking branches', () => {
       expect(host().querySelector('app-assignment-type-choice')).toBeNull();
     });
 
-    it(`a speaking card: navy "Speaking" pill, description, View Submissions, Edit, Duplicate, Rubric, Delete; no Report, QR or Upload work (desktop=${desktop})`, () => {
+    it(`a speaking card: navy "Speaking" pill, description, View Submissions, Edit, Duplicate, Rubric, Upload work, Delete; no Report or QR; only its own upload button (desktop=${desktop})`, () => {
       spyOn(component.device, 'isDesktop').and.returnValue(desktop);
       spyOn(component.device, 'isMobile').and.returnValue(!desktop);
       component.assignments = [item('s1', 'speaking'), item('e1', 'essay')];
@@ -56,11 +56,21 @@ describe('DetailMyClassesPages speaking branches', () => {
       expect(speaking.textContent).toContain('Task s1');
       const labels = buttons(speaking).join(' | ');
       for (const expected of ['View Submissions', 'Edit', 'Duplicate', 'Rubric', 'Delete']) expect(labels).toContain(expected);
-      for (const absent of ['Report', 'QR Code', 'Upload work']) expect(labels).not.toContain(absent);
+      for (const absent of ['Report', 'QR Code']) expect(labels).not.toContain(absent);
+      // One upload button, the speaking one (it uploads a recording, never an essay), with the same label as the essay card's.
+      const uploads = Array.from(speaking.querySelectorAll<HTMLButtonElement>('.assignment-utility--upload'));
+      expect(uploads.length).toBe(1);
+      expect(uploads[0].hasAttribute('data-speaking-upload')).toBeTrue();
+      expect(uploads[0].textContent!.replace(/\s+/g, ' ').trim()).toBe('Upload work');
+      expect(uploads[0].getAttribute('aria-label')).toBe("Upload a student's recording for Assignment s1");
       // The essay card keeps every action it had.
       const essayLabels = buttons(essay).join(' | ');
       for (const expected of ['View Submissions', 'Report', 'QR Code', 'Edit', 'Duplicate', 'Rubric', 'Upload work', 'Delete']) expect(essayLabels).toContain(expected);
       expect(essay.querySelector('[data-speaking-pill]')).toBeNull();
+      const essayUpload = essay.querySelector<HTMLButtonElement>('.assignment-utility--upload')!;
+      expect(essayUpload.hasAttribute('data-speaking-upload')).toBeFalse();
+      expect(essayUpload.textContent!.replace(/\s+/g, ' ').trim()).toBe('Upload work');
+      expect(essayUpload.getAttribute('aria-label')).toBe('Upload student work for Assignment e1');
     });
   }
 

@@ -242,7 +242,7 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
   const teacher = f.teacher.token, student = f.student.token;
   const speakingPage = a => `/student/my-classes/detail/my-speaking/${a._id}?classId=${C}`;
   const noLeak = text => !/credit|capped at|before the cap|deepgram|openrouter|openai|gemini|INSUFFICIENT|AUDIO_STT/i.test(text);
-  // Stage 9 helpers: open "Upload for a student" on the "Teacher uploads" card, add a member and a guest, then go to the recordings step.
+  // Stage 9 helpers: open "Upload work" on the "Teacher uploads" speaking card, add a member and a guest, then go to the recordings step.
   async function openTeacherUpload(page) {
     const opened = await page.evaluate(title => {
       const card = [...document.querySelectorAll('.teacher-assignment-card')].find(c => c.offsetParent !== null && c.textContent.includes(title));
@@ -322,7 +322,7 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
     { name: 'teacher-speaking-result-cap', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${offTopic.submission._id}?classId=${C}`, ready: '[data-cap-info]' },
     { name: 'teacher-speaking-result-corrections', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${ready.submission._id}?classId=${C}`, ready: '[data-speaking-corrections]' },
     { name: 'teacher-speaking-no-credits', who: teacher, url: `/teacher/my-classes/detail/speaking-submission/${blocked.submission._id}?classId=${C}`, ready: 'app-analysis-progress .stage' },
-    // Stage 9: "Upload for a student" (students, recordings, review), the submissions list with teacher uploads, and a student's teacher-uploaded result.
+    // Stage 9: "Upload work" on a speaking card (students, recordings, review), the submissions list with teacher uploads, and a student's teacher-uploaded result.
     { name: 'teacher-upload-students', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-upload]', act: openTeacherUpload },
     { name: 'teacher-upload-recordings', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-upload]',
       act: async page => (await openTeacherUpload(page)) && toRecordings(page) },

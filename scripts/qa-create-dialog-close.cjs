@@ -3,7 +3,7 @@
 // the real backend code in-process with an in-memory database (as qa-speaking-flows.cjs). No network call leaves the machine; synthetic data only.
 // At 1280 (modal), 900, 390 and 320 px (bottom sheet): the X, backdrop, Esc and Cancel paths when clean and dirty; the "Discard changes?"
 // SweetAlert above the dialog (z-index and hit test), Esc inside it closing only the SweetAlert, a double click on Discard, focus return to the
-// create button; the teacher "Upload for a student" dialog (backdrop, SweetAlert) and the student upload dialog (a chosen file, and an upload held
+// create button; the teacher "Upload work" dialog (speaking card) (backdrop, SweetAlert) and the student upload dialog (a chosen file, and an upload held
 // in progress: "Stop the upload?"). Screenshots, console errors, failed calls and horizontal overflow for each.
 //   node scripts/qa-create-dialog-close.cjs [outputDir]     (needs the backend next to this repo, and npm run build:prod)
 const fs = require('fs');
@@ -267,7 +267,7 @@ const report = { checks: [], screenshots: [], failures: [], knownConsole: [] };
       await clickX(page);
       check(viewport, 'writing clean: X closes at once', (await dialogClosed(page)) && !(await swalOpen(page)), {});
 
-      // 5. Teacher "Upload for a student": students entered, backdrop -> SweetAlert -> Keep editing; Esc -> SweetAlert -> Discard closes.
+      // 5. Teacher "Upload work" (speaking card): students entered, backdrop -> SweetAlert -> Keep editing; Esc -> SweetAlert -> Discard closes.
       await sleep(400);
       await page.evaluate(() => { const b = [...document.querySelectorAll('[data-speaking-upload]')].find(e => e.offsetParent !== null); b?.focus(); b?.click(); });
       if (await waitFor(() => visible(page, '.upload-dialog'))) {
@@ -289,7 +289,7 @@ const report = { checks: [], screenshots: [], failures: [], knownConsole: [] };
         const teacherClosed = await waitFor(async () => !(await visible(page, '.upload-dialog')), 3000);
         await sleep(400);
         const teacherFocus = await page.evaluate(() => document.activeElement?.hasAttribute('data-speaking-upload') ?? false);
-        check(viewport, 'teacher upload: backdrop asks (SweetAlert), Keep editing stays, Esc -> Discard closes, focus back on "Upload for a student"',
+        check(viewport, 'teacher upload: backdrop asks (SweetAlert), Keep editing stays, Esc -> Discard closes, focus back on "Upload work"',
           teacherWords.title === 'Discard the student recordings you added?' && teacherWords.confirm === 'Discard' && teacherWords.cancel === 'Keep editing' && stillOpen
             && teacherClosed && teacherFocus, { teacherWords, stillOpen, teacherClosed, teacherFocus });
       } else check(viewport, 'teacher upload: dialog opened', false, {});
