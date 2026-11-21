@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, EventEmitter, Output, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AssignmentApiService, type BackendAssignment } from '../../../api/assignment-api.service';
@@ -27,6 +27,11 @@ export class AssignmentQrRedirect {
   private assignmentApi = inject(AssignmentApiService);
 
   errorMessage = '';
+  /**
+   * The signed-in student is not a member of this class (403). A page that can offer another way in (the guest QR
+   * page, when the assignment accepts guests) listens and decides; without a listener the membership error shows as before.
+   */
+  @Output() readonly notMember = new EventEmitter<void>();
 
   async ngOnInit(): Promise<void> {
     const qrToken = this.route.snapshot.paramMap.get('qrToken') || '';
@@ -39,6 +44,10 @@ export class AssignmentQrRedirect {
       const assignment = await this.assignmentApi.getAssignmentByQrToken(qrToken);
       await this.openAssignment(assignment);
     } catch (err: unknown) {
+      if (err instanceof HttpErrorResponse && err.status === 403 && this.notMember.observed) {
+        this.notMember.emit();
+        return;
+      }
       console.error('Assignment QR access failed', err);
       this.errorMessage = this.describeError(err);
     }

@@ -522,4 +522,107 @@ describe('registered student opening an assignment QR link', () => {
     expect(navigate).toHaveBeenCalledWith(['/student/my-classes/detail', 'class-1'], { queryParams: { assignmentId: 'assignment-1' } });
     http.verify(); fixture.destroy();
   });
+
+  // Client report: a signed-in student who is not in the class scanned a guest QR code and got
+  // "You're not a member of this class". When the assignment accepts guests, the guest form opens instead.
+  const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+  const notice = "You're signed in, but you're not a member of this class. You can still submit as a guest with your name and email. "
+    + 'Your teacher will see it as a guest submission, not linked to your account.';
+  async function openAsNonMember(guestEnabled = true) {
+    const http = TestBed.inject(HttpTestingController);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    spyOn(TestBed.inject(GuestSubmissionFeature), 'load').and.resolveTo(guestEnabled);
+    const fixture = TestBed.createComponent(GuestSubmissionPage);
+    await fixture.componentInstance.ngOnInit(); fixture.detectChanges(); await settle();
+    const lookup = http.expectOne(`${environment.apiUrl}/assignments/qr/share-code`);
+    expect(lookup.request.headers.get('Authorization')).toBe(`Bearer ${jwt}`);
+    lookup.flush({ success: false, message: 'Forbidden' }, { status: 403, statusText: 'Forbidden' });
+    await settle();
+    return { http, navigate, fixture };
+  }
+  async function render(fixture: ComponentFixture<GuestSubmissionPage>) {
+    await settle(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('not a member, assignment accepts guests: the guest form with a signed-in notice, and no bearer token on any guest request', async () => {
+    const { http, navigate, fixture } = await openAsNonMember();
+    const entry = http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`);
+    expect(entry.request.headers.has('Authorization')).toBeFalse();
+    entry.flush({ data: { title: 'Guest essay', allowGuestSubmission: true } });
+    const el = await render(fixture);
+    expect(el.querySelector('app-assignment-qr-redirect')).toBeNull();
+    expect(el.textContent).toContain(notice);
+    expect(el.textContent).not.toContain('Join with your class code');
+    expect(el.querySelector('#assignment-title')?.textContent).toContain('Guest essay');
+    expect(el.querySelector('#guest-name')).toBeTruthy();
+    expect((el.querySelector('#guest-name') as HTMLInputElement).value).toBe('');
+    expect((el.querySelector('#guest-email') as HTMLInputElement).value).toBe('');
+    // Already signed in: no "Already have an account? Sign in" prompt.
+    expect(el.querySelector('.account-option')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+
+    const page = fixture.componentInstance;
+    page.name = 'Typed Name'; page.email = 'typed@example.com'; page.files = [new File(['writing'], 'page.png', { type: 'image/png' })];
+    const pending = page.submit();
+    const upload = http.expectOne(`${environment.apiUrl}/guest/assignments/share-code/submit`);
+    expect(upload.request.headers.has('Authorization')).toBeFalse();
+    upload.flush({ data: { received: true } }); await pending;
+    expect(page.confirmation?.received).toBeTrue();
+    http.verify(); fixture.destroy();
+  });
+
+  it('not a member, assignment does not accept guests: a join-the-class card with a Join a class link, not the login page', async () => {
+    const { http, navigate, fixture } = await openAsNonMember();
+    http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({ success: false }, { status: 404, statusText: 'Not Found' });
+    const el = await render(fixture);
+    const card = el.querySelector('[role="alert"]');
+    expect(card?.querySelector('h1')?.textContent?.trim()).toBe('Join the class to submit this assignment');
+    expect(card?.textContent).toContain("You're signed in, but you're not a member of this class, and this assignment doesn't accept guest submissions.");
+    const join = card?.querySelector('a') as HTMLAnchorElement | null;
+    expect(join?.textContent?.trim()).toBe('Join a class');
+    expect(join?.getAttribute('href')).toBe('/student/my-classes?join=1');
+    expect(el.querySelector('#guest-name')).toBeNull();
+    expect(el.querySelector('app-assignment-qr-redirect')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    http.verify(); fixture.destroy();
+  });
+
+  it('not a member while guest submission is switched off: the join card, and no guest assignment request', async () => {
+    const { http, navigate, fixture } = await openAsNonMember(false);
+    const el = await render(fixture);
+    http.expectNone(`${environment.apiUrl}/guest/assignments/share-code`);
+    expect(el.querySelector('[role="alert"] h1')?.textContent?.trim()).toBe('Join the class to submit this assignment');
+    expect(el.textContent).not.toContain('Guest submission is temporarily unavailable');
+    expect(el.querySelector('#guest-name')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    http.verify(); fixture.destroy();
+  });
+
+  it('not a member and the guest assignment cannot be loaded (server error): a retryable error, no form and no join card', async () => {
+    const { http, navigate, fixture } = await openAsNonMember();
+    http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({ success: false }, { status: 503, statusText: 'Unavailable' });
+    const el = await render(fixture);
+    expect(el.textContent).toContain('Unable to open this assignment. Please try again.');
+    expect(el.textContent).not.toContain('Join the class to submit this assignment');
+    expect(el.querySelector('#guest-name')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    http.verify(); fixture.destroy();
+  });
+});
+
+describe('signed-in student on the guest fallback', () => {
+  it('a focus or tab return never flips the page back to the registered flow', async () => {
+    const ensure = jasmine.createSpy().and.resolveTo({ state: 'ready', role: 'student' });
+    TestBed.configureTestingModule({ providers: [GuestStudentAccess, { provide: GuestSubmissionFeature, useValue: { enabled: () => true, load: () => Promise.resolve(false) } },
+      provideHttpClient(), provideHttpClientTesting(), { provide: AuthService, useValue: { ensureQrBackendSession: ensure } },
+      { provide: Router, useValue: { navigate: jasmine.createSpy().and.resolveTo(true) } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ qrToken: 'share-code' }), fragment: null } } }] });
+    const page = TestBed.runInInjectionContext(() => new GuestSubmissionPage());
+    // State after the fallback, once a guest upload answered "guest submission unavailable".
+    Object.assign(page, { signedInNotMember: true, guestUnavailable: true, loading: false, registered: false });
+    await page.recheckEntrySession();
+    expect(ensure).not.toHaveBeenCalled();
+    expect(page.registered).toBeFalse();
+  });
 });

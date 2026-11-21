@@ -1,5 +1,12 @@
-@if (registered) { <app-assignment-qr-redirect /> }
-@else if (!viewingResults && authResolution !== 'ANONYMOUS') {
+@if (registered) { <app-assignment-qr-redirect (notMember)="onNotMember()" /> }
+@else if (membershipRequired) {
+  <main class="guest-page"><app-public-brand class="guest-brand" /><section class="card guest-shell" role="alert">
+    <h1>Join the class to submit this assignment</h1>
+    <p>You're signed in, but you're not a member of this class, and this assignment doesn't accept guest submissions. Join the class with the code from your teacher, then open this link again.</p>
+    <a class="btn-primary" routerLink="/student/my-classes" [queryParams]="{ join: 1 }">Join a class</a>
+  </section></main>
+}
+@else if (!viewingResults && authResolution !== 'ANONYMOUS' && !signedInNotMember) {
   <main class="guest-page"><app-public-brand class="guest-brand" /><section class="card guest-shell" role="status">
     @if (authResolution === 'RECOVERY_FAILED') {
       <h1>We could not restore your sign-in session</h1>
@@ -29,6 +36,11 @@
         @else if (assignment && !confirmation) { <p class="muted">Submit your writing directly to your teacher. No account needed.</p> }
       </header>
 
+      @if (signedInNotMember && assignment && !confirmation) {
+        <section class="notice" role="status">
+          <p>You're signed in, but you're not a member of this class. You can still submit as a guest with your name and email. Your teacher will see it as a guest submission, not linked to your account.</p>
+        </section>
+      }
       @if (loading) {
         <section class="card state-card" role="status" aria-live="polite" aria-busy="true">
           <span class="spinner" aria-hidden="true"></span>
@@ -100,7 +112,9 @@
             @if (busy) { <p class="muted busy-message" role="status">Checking your files and sending your work. Please keep this page open.</p> }
           </form>
         </section>
-        <p class="account-option">Already have an account? <a routerLink="/login" [queryParams]="{ returnUrl: currentPath }">Sign in</a></p>
+        @if (!signedInNotMember) {
+          <p class="account-option">Already have an account? <a routerLink="/login" [queryParams]="{ returnUrl: currentPath }">Sign in</a></p>
+        }
       }
 
       @if ((qrToken || viewingResults) && !result && !loading && linkProblem !== 'closed') {
