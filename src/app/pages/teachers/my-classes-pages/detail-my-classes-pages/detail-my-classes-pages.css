@@ -150,3 +150,11 @@
 .class-copy-field__button i{font-size:1.35rem}
 .class-copy-field__button:hover{background:#eff8f7}
 .class-copy-field__button:focus-visible{outline:3px solid #008081;outline-offset:-3px;position:relative;z-index:1}
+
+/* The Create Assignment dialog's X: the "Upload student recordings" dialog's close button (speaking-teacher-upload-dialog.css). */
+.create-dialog-close{position:absolute;z-index:1;display:grid;place-items:center;width:2.75rem;height:2.75rem;border-radius:.75rem;color:#6b7280;font-size:1.75rem;background:transparent;cursor:pointer}
+.create-dialog-close--modal{top:1rem;right:1rem}
+.create-dialog-close--sheet{top:-.25rem;right:0}
+.create-dialog-close:hover{color:#374151;background:#f3f4f6}
+.create-dialog-close:focus-visible{outline:2px solid #008081;outline-offset:2px}
+.create-dialog-close:disabled{opacity:.5;cursor:not-allowed}

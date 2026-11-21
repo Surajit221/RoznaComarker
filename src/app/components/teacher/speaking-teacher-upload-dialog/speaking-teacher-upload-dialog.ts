@@ -10,6 +10,7 @@ import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { MAX_STUDENTS, SAMPLE_CSV, parseStudentCsv, validateStudentRows, type StudentFieldErrors } from '../upload-student-work/student-input';
 import { SpeakingUploadPicker } from '../../student/speaking-upload-picker/speaking-upload-picker';
 import { speakingErrorMessage } from '../../../utils/speaking-messages';
+import { AlertService, sweetAlertDialogOpen } from '../../../services/alert.service';
 
 export type StudentSource = 'manual' | 'csv' | 'class';
 export type DialogStep = 'students' | 'recordings' | 'review' | 'saving' | 'done';
@@ -56,6 +57,9 @@ export class SpeakingTeacherUploadDialog implements OnChanges, OnDestroy {
   private api = inject(SpeakingTeacherUploadApiService);
   private classApi = inject(ClassApiService);
   private unsaved = inject(UnsavedWorkRegistry);
+  private alert = inject(AlertService);
+  /** A close SweetAlert is open: a second close request is ignored. */
+  private confirmingClose = false;
 
   protected readonly Math = Math;
   readonly sampleCsvHref = 'data:text/csv;charset=utf-8,' + encodeURIComponent(SAMPLE_CSV);
@@ -117,12 +121,34 @@ export class SpeakingTeacherUploadDialog implements OnChanges, OnDestroy {
     setTimeout(() => this.heading?.nativeElement.focus());
   }
 
-  requestClose(): void {
-    if (this.step() === 'saving' && this.counts().uploading > 0) {
-      if (!window.confirm('Uploads are still in progress. Stop them and close?')) return;
-      this.cancelUploads();
-    } else if (this.hasUnsavedWork() && !window.confirm('Discard the student recordings you added? They have not been saved.')) return;
+  /** X, Cancel, Done, Esc or the backdrop. Uploads in progress or unsaved students ask first (SweetAlert); otherwise closes at once. */
+  async requestClose(): Promise<void> {
+    if (this.confirmingClose) return;
+    const uploading = () => this.step() === 'saving' && this.counts().uploading > 0;
+    if (uploading() || this.hasUnsavedWork()) {
+      this.confirmingClose = true;
+      // This dialog returns focus itself (to the button that opened it, or back into the dialog); SweetAlert's late restore would undo that.
+      const focusedBefore = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      let confirmed = false;
+      try {
+        confirmed = uploading()
+          ? await this.alert.showConfirm('Stop the upload?', 'The upload is still in progress. If you close now, it will be cancelled.', 'Stop upload', 'Keep uploading', { returnFocus: false })
+          : await this.alert.showConfirm('Discard the student recordings you added?', 'They have not been saved.', 'Discard', 'Keep editing', { returnFocus: false });
+      } finally {
+        this.confirmingClose = false;
+      }
+      if (!this.open) return;
+      if (!confirmed) { if (focusedBefore?.isConnected) focusedBefore.focus(); return; }
+      // Uploads that finished while the SweetAlert was open are kept; only those still running are stopped.
+      if (uploading()) this.cancelUploads();
+    }
     this.finishClose();
+  }
+
+  /** The backdrop: a click on the overlay itself (not inside the dialog). Esc is the keyboard path. */
+  @HostListener('click', ['$event'])
+  onOverlayClick(event: MouseEvent): void {
+    if (this.open && (event.target as HTMLElement | null)?.classList?.contains('upload-overlay')) void this.requestClose();
   }
 
   private finishClose(): void {
@@ -136,11 +162,12 @@ export class SpeakingTeacherUploadDialog implements OnChanges, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
-    if (!this.open) return;
+    // A SweetAlert has its own Esc and focus handling: Esc closes only it, and Tab is never pulled back into this dialog.
+    if (!this.open || sweetAlertDialogOpen()) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       if (this.confirmingReplace()) { this.confirmingReplace.set(false); return; }
-      this.requestClose();
+      void this.requestClose();
       return;
     }
     if (event.key !== 'Tab' || !this.dialogRoot) return;

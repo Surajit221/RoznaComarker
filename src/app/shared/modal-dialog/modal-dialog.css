@@ -30,3 +30,8 @@
 .animate-bounceOut {
   animation: bounceOut 0.25s ease-in forwards;
 }
+
+/* Only dialogs that opted in to dialog semantics (labelledBy): no bounce under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  [aria-modal='true'].animate-bounceIn { animation: none; transition: none; }
+}

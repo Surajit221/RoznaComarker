@@ -1,6 +1,14 @@
 import { Injectable } from '@angular/core';
 import Swal, { SweetAlertIcon, SweetAlertOptions } from 'sweetalert2';
 
+/**
+ * A SweetAlert dialog (not a toast) is on screen. Dialogs underneath leave Esc and Tab to it, so Esc closes only the SweetAlert.
+ * A toast never counts: it has no focus or Esc of its own.
+ */
+export function sweetAlertDialogOpen(doc: Document = document): boolean {
+    return !!doc.querySelector('.swal2-container .swal2-popup:not(.swal2-toast)');
+}
+
 @Injectable({ providedIn: 'root' })
 export class AlertService {
     private readonly swalOptions: SweetAlertOptions = {
@@ -55,7 +63,9 @@ export class AlertService {
         title: string,
         text: string,
         confirmButtonText = 'Ya',
-        cancelButtonText = 'Batal'
+        cancelButtonText = 'Batal',
+        /** returnFocus: false when the caller moves focus itself (e.g. back to the button that opened a dialog it closes). */
+        options: Pick<SweetAlertOptions, 'returnFocus'> = {}
     ): Promise<boolean> {
         const result = await Swal.fire({
             ...this.swalOptions,
@@ -65,6 +75,7 @@ export class AlertService {
             showCancelButton: true,
             confirmButtonText,
             cancelButtonText,
+            ...options,
         });
         return result.isConfirmed;
     }

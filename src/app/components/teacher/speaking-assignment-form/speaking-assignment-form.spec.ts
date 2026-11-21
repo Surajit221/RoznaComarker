@@ -119,7 +119,8 @@ describe('SpeakingAssignmentForm', () => {
     component.form.markAsDirty();
     fixture.detectChanges();
     expect(unsaved.register).toHaveBeenCalledWith('speaking-assignment-form', jasmine.any(String));
-    component.close();
+    // Cancel only asks the page to close; the page discards (after "Discard changes?") and that clears the entry.
+    component.discardChanges();
     expect(unsaved.clear).toHaveBeenCalledWith('speaking-assignment-form');
   });
 });

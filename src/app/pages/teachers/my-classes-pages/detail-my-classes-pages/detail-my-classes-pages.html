@@ -318,20 +318,28 @@
   </div>
 
   <!-- dialog -->
-  <app-modal-dialog [open]="showDialog">
-    <h2 class="text-3xl font-bold text-center mb-8">{{ assignmentDialogTitle }}</h2>
-    @if (speaking.step() === 'choice') { <app-assignment-type-choice (chosen)="speaking.choose($event)"></app-assignment-type-choice> }
+  <!-- Create/edit assignment: the backdrop, Esc, X and the forms' Cancel all go through requestCloseCreateAssignment. -->
+  <app-modal-dialog data-create-dialog="modal" [open]="showDialog" [closeOnEscape]="true" labelledBy="create-assignment-title-modal"
+    [dismissible]="!modalWritingForm.busy() && !speaking.busy()" (closed)="requestCloseCreateAssignment('modal')">
+    <div #createModalBody>
+    <button type="button" class="create-dialog-close create-dialog-close--modal" data-create-close aria-label="Close"
+      [disabled]="modalWritingForm.busy() || speaking.busy()" (click)="requestCloseCreateAssignment('modal')">
+      <i class="bx bx-x" aria-hidden="true"></i>
+    </button>
+    <h2 id="create-assignment-title-modal" tabindex="-1" class="text-3xl font-bold text-center mb-8 px-10 outline-none">{{ assignmentDialogTitle }}</h2>
+    @if (speaking.step() === 'choice') { <app-assignment-type-choice [maxMinutes]="speaking.maxMinutes()" (chosen)="speaking.choose($event)"></app-assignment-type-choice> }
     @if (speaking.step() === 'speaking') {
-    <app-speaking-assignment-form [classId]="classId" [assignment]="selectedAssignmentForEdit" (created)="onAssignmentCreated($event)"
-      (updated)="onAssignmentUpdated($event)" (closed)="closeDialog()"></app-speaking-assignment-form>
+    <app-speaking-assignment-form #modalSpeakingForm [classId]="classId" [assignment]="selectedAssignmentForEdit" (created)="onAssignmentCreated($event)"
+      (updated)="onAssignmentUpdated($event)" (closed)="requestCloseCreateAssignment('modal', 'cancel')"></app-speaking-assignment-form>
     }
-    <app-assignment-form [class.hidden]="speaking.hideWritingForm()"
+    <app-assignment-form #modalWritingForm [class.hidden]="speaking.hideWritingForm()"
       [classId]="classId"
       [assignment]="selectedAssignmentForEdit"
       (created)="onAssignmentCreated($event)"
       (updated)="onAssignmentUpdated($event)"
-      (closed)="closeDialog()"
+      (closed)="requestCloseCreateAssignment('modal', 'cancel')"
     ></app-assignment-form>
+    </div>
   </app-modal-dialog>
 
   <app-modal-dialog [open]="showDialogSubmission">
@@ -680,20 +688,27 @@
       </div>
     </div>
   </div>
-  <app-bottomsheet-dialog [open]="openSheetAssignment" [dismissible]="!assignmentSheetForm.busy() && !speaking.busy()" (closed)="onCloseCreateAssignment()">
-    <h2 class="text-2xl font-bold mb-5">{{ assignmentDialogTitle }}</h2>
-    @if (speaking.step() === 'choice') { <app-assignment-type-choice (chosen)="speaking.choose($event)"></app-assignment-type-choice> }
+  <app-bottomsheet-dialog data-create-dialog="sheet" [open]="openSheetAssignment" labelledBy="create-assignment-title-sheet"
+    [dismissible]="!assignmentSheetForm.busy() && !speaking.busy()" (closed)="requestCloseCreateAssignment('sheet')">
+    <div #createSheetBody class="relative">
+    <button type="button" class="create-dialog-close create-dialog-close--sheet" data-create-close aria-label="Close"
+      [disabled]="assignmentSheetForm.busy() || speaking.busy()" (click)="requestCloseCreateAssignment('sheet')">
+      <i class="bx bx-x" aria-hidden="true"></i>
+    </button>
+    <h2 id="create-assignment-title-sheet" tabindex="-1" class="text-2xl font-bold mb-5 pr-12 outline-none">{{ assignmentDialogTitle }}</h2>
+    @if (speaking.step() === 'choice') { <app-assignment-type-choice [maxMinutes]="speaking.maxMinutes()" (chosen)="speaking.choose($event)"></app-assignment-type-choice> }
     @if (speaking.step() === 'speaking') {
-    <app-speaking-assignment-form [classId]="classId" [assignment]="selectedAssignmentForEdit" (created)="onAssignmentCreated($event)"
-      (updated)="onAssignmentUpdated($event)" (closed)="onCloseCreateAssignment()"></app-speaking-assignment-form>
+    <app-speaking-assignment-form #sheetSpeakingForm [classId]="classId" [assignment]="selectedAssignmentForEdit" (created)="onAssignmentCreated($event)"
+      (updated)="onAssignmentUpdated($event)" (closed)="requestCloseCreateAssignment('sheet', 'cancel')"></app-speaking-assignment-form>
     }
     <app-assignment-form #assignmentSheetForm [class.hidden]="speaking.hideWritingForm()"
       [classId]="classId"
       [assignment]="selectedAssignmentForEdit"
       (created)="onAssignmentCreated($event)"
       (updated)="onAssignmentUpdated($event)"
-      (closed)="onCloseCreateAssignment()"
+      (closed)="requestCloseCreateAssignment('sheet', 'cancel')"
     ></app-assignment-form>
+    </div>
   </app-bottomsheet-dialog>
 
   <app-bottomsheet-dialog [open]="openSheetQr" (closed)="onCloseQR()">

@@ -1,6 +1,6 @@
 import { GuestSubmissionFeature, type GuestFeatureState } from '../../../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, EventEmitter, inject, Input, type OnDestroy, Output, SimpleChanges, ViewChild } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
@@ -22,6 +22,10 @@ import { designerToRubricData, rubricDataToDesigner } from '../../../../../utils
 import { getAssignmentCapabilities } from '../../../../../utils/assignment-capabilities';
 import { DraftLimitFeature } from '../../../../../services/draft-limit-feature.service';
 import { ReferenceFilesField } from '../../../../../components/teacher/reference-files-field/reference-files-field';
+import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
+import { Subscription } from 'rxjs';
+
+let nextFormId = 0;
 
 @Component({
   selector: 'app-assignment-form',
@@ -29,7 +33,7 @@ import { ReferenceFilesField } from '../../../../../components/teacher/reference
   templateUrl: './assignment-form.html',
   styleUrl: './assignment-form.css',
 })
-export class AssignmentForm {
+export class AssignmentForm implements OnDestroy {
   guestFeature = inject(GuestSubmissionFeature);
   @ViewChild(RubricDesignerModal) rubricEditor?: RubricDesignerModal;
   /** Reference files for AI marking (writing assignments; shown only when the backend has the feature on). */
@@ -51,6 +55,13 @@ export class AssignmentForm {
   private alert = inject(AlertService);
   private rubricApi = inject(RubricApiService);
   private rubricLibraryState = inject(RubricLibraryStateService);
+  private unsaved = inject(UnsavedWorkRegistry);
+  /** The page has two of these forms (modal and bottom sheet), so each registers under its own key. */
+  private readonly unsavedKey = `assignment-form-${++nextFormId}`;
+  /** The form's values and the rubric when the form opened (or the rubric last loaded from the server); changes are differences from them. */
+  private formBaseline = '';
+  private rubricBaseline = '';
+  private formChanges?: Subscription;
 
   isSubmitting = false;
   isRubricDialogOpen = false;
@@ -78,8 +89,45 @@ export class AssignmentForm {
 
   ngOnInit(): void {
     void this.guestFeature.load();
-    void this.draftLimit.load().then(() => this.applyMaxDrafts());
+    // The draft limit config may arrive after the form opened: filling in its default is not a change the teacher made.
+    void this.draftLimit.load().then(() => {
+      const clean = !this.hasFormChanges();
+      this.applyMaxDrafts();
+      if (clean) this.formBaseline = this.formSnapshot();
+      this.syncUnsaved();
+    });
     this.applyAssignmentToForm();
+    this.formChanges ??= this.classForm.valueChanges.subscribe(() => this.syncUnsaved());
+  }
+
+  ngOnDestroy(): void {
+    this.formChanges?.unsubscribe();
+    this.unsaved.clear(this.unsavedKey);
+  }
+
+  /**
+   * Unsaved input: a field or the rubric differs from what the form opened with (changing it back counts as clean), or a reference file
+   * is chosen but not uploaded yet. The hosting page asks before discarding it.
+   */
+  hasUnsavedChanges(): boolean {
+    return this.hasFormChanges() || this.rubricSnapshot() !== this.rubricBaseline || Boolean(this.referenceFiles?.hasStaged());
+  }
+
+  /** The page decided to close without saving: the form is reset and nothing stays registered. */
+  discardChanges(): void { this.onReset(); }
+
+  private hasFormChanges(): boolean { return this.formSnapshot() !== this.formBaseline; }
+  private formSnapshot(): string {
+    const value = this.classForm.getRawValue();
+    // maxDrafts only counts while it is shown (it is never sent otherwise).
+    return JSON.stringify({ ...value, maxDrafts: this.showMaxDrafts ? value.maxDrafts : null });
+  }
+  private rubricSnapshot(): string { return JSON.stringify(this.rubricDesignerForModal ?? null); }
+  private syncUnsaved(): void {
+    // Reference files register on their own (reference-files-field); this entry covers the fields and the rubric.
+    if (this.hasFormChanges() || this.rubricSnapshot() !== this.rubricBaseline) {
+      this.unsaved.register(this.unsavedKey, 'You have unsaved changes to this assignment. Leave and discard them?');
+    } else this.unsaved.clear(this.unsavedKey);
   }
 
   /** Shown (and validated) only with the draft limit on and "Allow another draft" checked; otherwise ignored and never sent. */
@@ -133,6 +181,8 @@ export class AssignmentForm {
       
       // Load existing rubric if present
       this.loadRubricFromAssignment(a);
+      this.formBaseline = this.formSnapshot();
+      this.syncUnsaved();
       return;
     }
 
@@ -150,6 +200,9 @@ export class AssignmentForm {
     
     // A new assignment must be persisted before any rubric workflow starts.
     this.rubricDesignerForModal = null;
+    this.rubricBaseline = this.rubricSnapshot();
+    this.formBaseline = this.formSnapshot();
+    this.syncUnsaved();
   }
 
   createForm(): FormGroup {
@@ -344,7 +397,8 @@ export class AssignmentForm {
     const id = this.assignment?._id;
     if (!id) return;
     try { this.loadRubricFromAssignment(await this.assignmentApi.getAssignmentByIdForTeacher(id)); }
-    catch { this.rubricDesignerForModal = null; }
+    catch { this.rubricDesignerForModal = null; this.rubricBaseline = this.rubricSnapshot(); }
+    this.syncUnsaved();
   }
 
   onReset(): void {
@@ -353,10 +407,14 @@ export class AssignmentForm {
     this.ngOnInit();
   }
 
+  /** After a save: tells the page and resets the form. */
   closeDialog() {
     this.closed.emit();
     this.onReset();
   }
+
+  /** Cancel: asks the page to close. The page closes at once when nothing changed, otherwise asks first (then calls discardChanges). */
+  requestClose(): void { this.closed.emit(); }
 
   openRubricDesignerDialog() {
     this.isRubricDialogOpen = true;
@@ -375,6 +433,7 @@ export class AssignmentForm {
     const imported = rubricDataToDesigner(saved.rubricData, saved.name);
     this.rubricDesignerForModal = structuredClone(imported);
     this.rubricEditor?.applyRubric(imported);
+    this.syncUnsaved();
     this.isRubricSelectorOpen = false;
     this.alert.showToast('Saved rubric copied into assignment', 'success');
   }
@@ -422,6 +481,7 @@ export class AssignmentForm {
         : await this.assignmentApi.generateDraftRubricDesignerFromPrompt(prompt, context);
       this.rubricDesignerForModal = structuredClone(designer);
       this.rubricEditor?.applyRubric(designer);
+      this.syncUnsaved();
     } catch (error: any) {
       this.alert.showError('Generate Rubric failed', error?.error?.message || error?.message || 'Please try again.');
     } finally { this.isRubricGenerating = false; }
@@ -456,6 +516,8 @@ export class AssignmentForm {
     } else {
       this.rubricDesignerForModal = null;
     }
+    // What the server has is not an unsaved change.
+    this.rubricBaseline = this.rubricSnapshot();
   }
 
   private parseRubricDesignerFromRubricsField(value: any, assignmentTitle: string): RubricDesigner | null {
@@ -532,6 +594,7 @@ export class AssignmentForm {
     this.isRubricSaving = true;
     try {
       this.rubricDesignerForModal = designer;
+      this.syncUnsaved();
       this.alert.showToast('Rubric saved successfully', 'success');
       this.closeRubricDesignerDialog();
     } catch (err: any) {

@@ -1,12 +1,18 @@
-<div class="lt-choice-grid" role="group" aria-label="Assignment type">
-  <button type="button" class="lt-choice-card" data-choice="writing" (click)="chosen.emit('writing')">
+<div class="lt-choice-grid" role="group" aria-label="Assignment type" (keydown)="onKeydown($event)">
+  <button type="button" class="lt-choice-card" data-choice="writing" [class.is-selected]="selected() === 'writing'"
+    [attr.aria-pressed]="selected() === 'writing'" (click)="choose('writing')">
+    @if (selected() === 'writing') { <span class="lt-choice-check"><i class="bx bx-check-circle" aria-hidden="true"></i></span> }
     <span class="lt-choice-icon"><i class="bx bx-edit" aria-hidden="true"></i></span>
     <span class="lt-choice-title">Writing assignment</span>
-    <span class="lt-choice-desc">Students upload their writing, marked with your rubric</span>
+    <span class="lt-choice-desc">Students submit their writing, marked with your rubric.</span>
+    <span class="lt-choice-chip">Handwritten or typed work</span>
   </button>
-  <button type="button" class="lt-choice-card" data-choice="speaking" (click)="chosen.emit('speaking')">
+  <button type="button" class="lt-choice-card" data-choice="speaking" [class.is-selected]="selected() === 'speaking'"
+    [attr.aria-pressed]="selected() === 'speaking'" (click)="choose('speaking')">
+    @if (selected() === 'speaking') { <span class="lt-choice-check"><i class="bx bx-check-circle" aria-hidden="true"></i></span> }
     <span class="lt-choice-icon"><i class="bx bx-microphone" aria-hidden="true"></i></span>
     <span class="lt-choice-title">Speaking assignment</span>
-    <span class="lt-choice-desc">Students upload a recording, turned into text and marked with your rubric</span>
+    <span class="lt-choice-desc">Students upload a recording, turned into text and marked with your rubric.</span>
+    <span class="lt-choice-chip lt-choice-chip--speaking">{{ maxMinutes ? 'Recording up to ' + maxMinutes + ' min' : 'Audio recording' }}</span>
   </button>
 </div>

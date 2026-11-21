@@ -2,9 +2,9 @@
   <div class="upload-modal-header">
     <div>
       <p class="upload-modal-eyebrow">Speaking assignment</p>
-      <h2>{{ title }}</h2>
+      <h2 id="speaking-upload-title">{{ title }}</h2>
     </div>
-    <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="cancel()">
+    <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="requestClose()">
       <i class="bx bx-x" aria-hidden="true"></i>
     </button>
   </div>
@@ -56,7 +56,7 @@
 </ng-template>
 
 @if (sheet) {
-  <app-bottomsheet-dialog [open]="open" [dismissible]="!uploading" (closed)="cancel()">
+  <app-bottomsheet-dialog [open]="open" [dismissible]="!uploading" labelledBy="speaking-upload-title" (closed)="requestClose()">
     <div class="student-sheet-content">
       <ng-container *ngTemplateOutlet="body"></ng-container>
       <div class="student-sheet-actions flex flex-col justify-center items-center gap-3 mt-6">
@@ -64,15 +64,16 @@
           [attr.aria-busy]="uploading">
           <i class="bx bx-upload" aria-hidden="true"></i> {{ title }}
         </button>
-        <button type="button" class="btn-danger-sm w-full" (click)="cancel()">Cancel</button>
+        <button type="button" class="btn-danger-sm w-full" (click)="requestClose()">Cancel</button>
       </div>
     </div>
   </app-bottomsheet-dialog>
 } @else {
-  <app-modal-dialog [open]="open" [dismissible]="!uploading" maxWidthClass="max-w-[760px]" panelClass="student-upload-panel" (closed)="cancel()">
+  <app-modal-dialog [open]="open" [dismissible]="!uploading" [closeOnEscape]="true" labelledBy="speaking-upload-title" maxWidthClass="max-w-[760px]"
+    panelClass="student-upload-panel" (closed)="requestClose()">
     <ng-container *ngTemplateOutlet="body"></ng-container>
     <div class="upload-modal-actions">
-      <button type="button" class="btn-danger" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn-danger" (click)="requestClose()">Cancel</button>
       @if (file) {
         <button type="button" class="btn-primary" (click)="upload()" [disabled]="uploading" [class.opacity-50]="uploading" [attr.aria-busy]="uploading">
           <i class="bx bx-upload" aria-hidden="true"></i>

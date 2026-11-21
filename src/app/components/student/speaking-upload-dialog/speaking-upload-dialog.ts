@@ -53,6 +53,8 @@ export class SpeakingUploadDialog implements OnChanges, OnDestroy {
   private requestId: string | null = null;
   private subscription: Subscription | null = null;
   private sheetLocked = false;
+  /** A close SweetAlert is open: a second close request is ignored. */
+  private confirmingClose = false;
 
   get sheet(): boolean { return this.device.isMobile() || this.device.isTablet(); }
   get title(): string { return this.replacing ? 'Replace Recording' : 'Upload Recording'; }
@@ -109,7 +111,28 @@ export class SpeakingUploadDialog implements OnChanges, OnDestroy {
     });
   }
 
-  /** Cancel, the close button, Escape or the backdrop: aborts a running upload and closes. */
+  /**
+   * X, Cancel, Escape or the backdrop. Nothing chosen: closes at once. An upload in progress ("Stop the upload?") or a chosen file that is
+   * not uploaded ("Discard the selected file?") closes only when confirmed. While uploading, the backdrop and Escape stay blocked (dismissible).
+   */
+  async requestClose(): Promise<void> {
+    if (this.confirmingClose) return;
+    if (this.uploading || this.file) {
+      this.confirmingClose = true;
+      let confirmed = false;
+      try {
+        confirmed = this.uploading
+          ? await this.alert.showConfirm('Stop the upload?', 'The upload is still in progress. If you close now, it will be cancelled.', 'Stop upload', 'Keep uploading')
+          : await this.alert.showConfirm('Discard the selected file?', 'The file has not been uploaded yet.', 'Discard', 'Keep file');
+      } finally {
+        this.confirmingClose = false;
+      }
+      if (!confirmed) return;
+    }
+    this.cancel();
+  }
+
+  /** Closes now: aborts a running upload, forgets the chosen file and closes (the caller has already asked). */
   cancel(): void {
     this.abort();
     this.resetChoice();

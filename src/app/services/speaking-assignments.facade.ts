@@ -32,6 +32,8 @@ export class SpeakingAssignmentsFacade {
   readonly editing = signal<BackendAssignment | null>(null);
   readonly busy = signal(false);
   readonly enabled = this.config.enabled;
+  /** The longest recording allowed, in minutes (shown on the Speaking choice card). */
+  readonly maxMinutes = computed(() => this.config.maxMinutes());
   readonly hideWritingForm = computed(() => this.step() === 'choice' || this.step() === 'speaking');
   readonly createButtonLabel = computed(() => (this.config.enabled() ? 'Create Assignment' : 'Create Writing Assignment'));
 

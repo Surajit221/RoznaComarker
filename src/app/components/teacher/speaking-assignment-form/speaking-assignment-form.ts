@@ -44,6 +44,8 @@ export class SpeakingAssignmentForm implements OnInit, OnDestroy {
   readonly device = inject(DeviceService);
   private readonly fb = inject(FormBuilder);
   private changes?: Subscription;
+  /** The form's values (and rubric choice) when it opened; unsaved changes are differences from it. */
+  private baseline = '';
 
   readonly minuteOptions = computed(() => Array.from({ length: this.config.maxMinutes() }, (_, index) => index + 1));
   readonly form = this.fb.nonNullable.group({
@@ -71,21 +73,33 @@ export class SpeakingAssignmentForm implements OnInit, OnDestroy {
         maxMinutes: seconds ? Math.min(maxMinutes, Math.max(1, Math.round(seconds / 60))) : maxMinutes,
         showMarksToStudent: this.assignment.showMarksToStudent !== false, allowGuestSubmission: this.assignment.allowGuestSubmission === true });
     }
-    // form.events also reports a control becoming dirty (not only value changes), so a change is never missed.
-    this.changes = this.form.events.subscribe(() => {
-      if (this.form.dirty) this.unsaved.register(UNSAVED_KEY, 'You have unsaved changes to this speaking assignment. Leave and discard them?');
-    });
+    this.baseline = this.snapshot();
+    // form.events reports every value change (typing, selects, checkboxes); the registry follows the real difference from the baseline.
+    this.changes = this.form.events.subscribe(() => this.syncUnsaved());
   }
 
   ngOnDestroy(): void { this.changes?.unsubscribe(); this.unsaved.clear(UNSAVED_KEY); this.facade?.busy.set(false); }
+
+  /** True when a field or the rubric choice differs from what the form opened with (changing it back counts as clean). */
+  hasUnsavedChanges(): boolean { return this.snapshot() !== this.baseline; }
+
+  /** The page decided to close without saving: nothing of this form is kept or registered any more. */
+  discardChanges(): void { this.baseline = this.snapshot(); this.unsaved.clear(UNSAVED_KEY); }
+
+  private snapshot(): string { return JSON.stringify({ ...this.form.getRawValue(), rubric: this.rubric()?.id ?? null }); }
+
+  private syncUnsaved(): void {
+    if (this.hasUnsavedChanges()) this.unsaved.register(UNSAVED_KEY, 'You have unsaved changes to this speaking assignment. Leave and discard them?');
+    else this.unsaved.clear(UNSAVED_KEY);
+  }
 
   isFieldInvalid(name: 'title' | 'deadline' | 'description'): boolean {
     const field = this.form.get(name);
     return Boolean(field && field.invalid && (field.dirty || field.touched));
   }
 
-  onRubricSelected(rubric: SavedRubric): void { this.rubric.set({ id: rubric._id, name: rubric.name }); this.rubricSelectorOpen = false; this.form.markAsDirty(); }
-  useDefaultRubric(): void { this.rubric.set(null); }
+  onRubricSelected(rubric: SavedRubric): void { this.rubric.set({ id: rubric._id, name: rubric.name }); this.rubricSelectorOpen = false; this.form.markAsDirty(); this.syncUnsaved(); }
+  useDefaultRubric(): void { this.rubric.set(null); this.syncUnsaved(); }
 
   async submit(): Promise<void> {
     this.errorMessage.set(null);
@@ -116,7 +130,8 @@ export class SpeakingAssignmentForm implements OnInit, OnDestroy {
     }
   }
 
-  close(): void { this.unsaved.clear(UNSAVED_KEY); this.closed.emit(); }
+  /** Cancel: asks the page to close. The page closes at once when nothing changed, otherwise asks first (then calls discardChanges). */
+  close(): void { this.closed.emit(); }
 
   /**
    * The writing form's rule: send the field only when guest submission is confirmed on; switching it off is always sent (the server always
