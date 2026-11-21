@@ -106,10 +106,13 @@
         <button type="button" class="upload-info__send" [disabled]="retryingSubmissionId !== null" [attr.aria-busy]="retryingSubmissionId === student.submissionId"
           (click)="retryMarking(student)" data-retry-marking>Retry marking <span class="sr-only">for {{ student.name }}</span></button>
       }
-      @if (upload.status === 'failed') {
-        <!-- No feedback exists until marking succeeds: Send stays disabled; a held email is sent once, after a successful retry. -->
-        <button type="button" class="upload-info__send" [disabled]="retryingSubmissionId !== null" [attr.aria-busy]="retryingSubmissionId === student.submissionId"
-          (click)="retryMarking(student)" data-retry-marking>Retry marking <span class="sr-only">for {{ student.name }}</span></button>
+      @if (upload.status === 'failed' || upload.status === 'not_marked') {
+        <!-- No feedback exists until marking succeeds: Send stays disabled; a held email is sent once, after a successful retry.
+             A recording that could not be marked (not_marked, stage 9) has no retry: a new recording is the way forward. -->
+        @if (upload.status === 'failed') {
+          <button type="button" class="upload-info__send" [disabled]="retryingSubmissionId !== null" [attr.aria-busy]="retryingSubmissionId === student.submissionId"
+            (click)="retryMarking(student)" data-retry-marking>Retry marking <span class="sr-only">for {{ student.name }}</span></button>
+        }
         @if (upload.emailStatus !== 'sent') {
           <button type="button" class="upload-info__send" disabled [attr.aria-describedby]="'marking-failed-' + student.submissionId">Send
             <span class="sr-only">feedback email to {{ student.name }}</span></button>

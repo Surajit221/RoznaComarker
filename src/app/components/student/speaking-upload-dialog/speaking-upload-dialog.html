@@ -1,0 +1,85 @@
+<ng-template #body>
+  <div class="upload-modal-header">
+    <div>
+      <p class="upload-modal-eyebrow">Speaking assignment</p>
+      <h2 id="speaking-upload-title">{{ title }}</h2>
+    </div>
+    <button type="button" class="upload-modal-close" aria-label="Close upload dialog" (click)="requestClose()">
+      <i class="bx bx-x" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="assignment-upload-details">
+    <section class="assignment-upload-detail">
+      <span class="assignment-upload-detail__icon"><i class="bx bx-book-open" aria-hidden="true"></i></span>
+      <div><p class="assignment-upload-detail__label">Title</p><p class="assignment-upload-detail__value">{{ assignment?.title }}</p></div>
+    </section>
+    @if (assignment?.instructions) {
+      <section class="assignment-upload-detail">
+        <span class="assignment-upload-detail__icon"><i class="bx bx-file" aria-hidden="true"></i></span>
+        <div><p class="assignment-upload-detail__label">Description</p><p class="assignment-upload-detail__copy whitespace-pre-line">{{ assignment?.instructions }}</p></div>
+      </section>
+    }
+    @if (assignment?.deadline) {
+      <section class="assignment-upload-detail">
+        <span class="assignment-upload-detail__icon"><i class="bx bx-calendar" aria-hidden="true"></i></span>
+        <div class="min-w-0"><p class="assignment-upload-detail__label">Deadline</p><div class="deadline-row"><span><i class="bx bx-calendar-event" aria-hidden="true"></i>{{ assignment?.deadline | date:'MMM d, y' }}</span><span><i class="bx bx-time-five" aria-hidden="true"></i>{{ assignment?.deadline | date:'h:mm a' }}</span></div></div>
+      </section>
+    }
+    <section class="assignment-upload-detail">
+      <span class="assignment-upload-detail__icon"><i class="bx bx-info-circle" aria-hidden="true"></i></span>
+      <div><p class="assignment-upload-detail__label">About your recording</p><p class="assignment-upload-detail__copy">{{ notice }}</p>
+        @if (replacing) { <p class="assignment-upload-detail__copy mt-1 font-semibold">Your new recording replaces the current one.</p> }
+      </div>
+    </section>
+  </div>
+  <div class="upload-section-heading"><div><p>Upload a recording</p><span>{{ limitsLine }}</span></div></div>
+  <app-speaking-upload-picker [limits]="limits" [disabled]="uploading" (fileChosen)="onFile($event)"></app-speaking-upload-picker>
+
+  @if (progress !== null) {
+    <div class="w-full mt-6">
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-sm text-gray-600">{{ progress === 100 ? 'Saving recording…' : 'Uploading recording…' }}</p>
+        <p class="text-sm font-semibold text-gray-700">{{ progress }}%</p>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100"
+        [attr.aria-valuenow]="progress">
+        <div class="h-2 bg-blue-600 rounded-full transition-all duration-200" [style.width.%]="progress"></div>
+      </div>
+    </div>
+  }
+
+  @if (error) {
+    <div class="w-full mt-4">
+      <p class="text-sm text-red-500 font-medium" role="alert">{{ error }}</p>
+    </div>
+  }
+</ng-template>
+
+@if (sheet) {
+  <app-bottomsheet-dialog [open]="open" [dismissible]="!uploading" labelledBy="speaking-upload-title" (closed)="requestClose()">
+    <div class="student-sheet-content">
+      <ng-container *ngTemplateOutlet="body"></ng-container>
+      <div class="student-sheet-actions flex flex-col justify-center items-center gap-3 mt-6">
+        <button type="button" class="btn-primary-sm w-full" (click)="upload()" [disabled]="uploading || !file" [class.opacity-50]="uploading || !file"
+          [attr.aria-busy]="uploading">
+          <i class="bx bx-upload" aria-hidden="true"></i> {{ title }}
+        </button>
+        <button type="button" class="btn-danger-sm w-full" (click)="requestClose()">Cancel</button>
+      </div>
+    </div>
+  </app-bottomsheet-dialog>
+} @else {
+  <app-modal-dialog [open]="open" [dismissible]="!uploading" [closeOnEscape]="true" labelledBy="speaking-upload-title" maxWidthClass="max-w-[760px]"
+    panelClass="student-upload-panel" (closed)="requestClose()">
+    <ng-container *ngTemplateOutlet="body"></ng-container>
+    <div class="upload-modal-actions">
+      <button type="button" class="btn-danger" (click)="requestClose()">Cancel</button>
+      @if (file) {
+        <button type="button" class="btn-primary" (click)="upload()" [disabled]="uploading" [class.opacity-50]="uploading" [attr.aria-busy]="uploading">
+          <i class="bx bx-upload" aria-hidden="true"></i>
+          {{ title }}
+        </button>
+      }
+    </div>
+  </app-modal-dialog>
+}

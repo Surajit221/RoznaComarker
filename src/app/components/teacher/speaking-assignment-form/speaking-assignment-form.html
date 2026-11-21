@@ -1,0 +1,112 @@
+<!-- Same structure and classes as the writing assignment form (pages/.../assignment-form/assignment-form.html). -->
+<form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
+  <div class="grid grid-cols-1 gap-4 w-full">
+    <div class="flex flex-col gap-1">
+      <label for="speaking-title" class="text-sm font-bold pl-2">Assignment Title</label>
+      <div class="w-full">
+        <input id="speaking-title" type="text" formControlName="title" class="input-text bg-white" placeholder="Enter Assignment Title Here"
+          [class.input-error]="isFieldInvalid('title')" [attr.aria-invalid]="isFieldInvalid('title')" />
+        @if (isFieldInvalid('title')) {
+        <div class="text-red-500 text-sm mt-1">
+          @if (form.get('title')?.errors?.['required']) { <span>Assignment Title is required</span> }
+          @if (form.get('title')?.errors?.['minlength']) { <span>Assignment Title must be at least 3 characters</span> }
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <fieldset class="assignment-settings">
+    <legend>Student access</legend>
+    <!-- The writing form's setting (assignment-form.html), for guests on a speaking assignment (stage 10b). -->
+    @if (guestFeature.enabled()) {
+    <label class="assignment-setting">
+      <span><strong>Allow submission without login</strong><small>Students with the assignment link or QR code can submit using their name and email without creating an account.</small></span>
+      <input type="checkbox" formControlName="allowGuestSubmission" />
+    </label>
+    } @else if (guestFeature.state() === 'unavailable') {
+    <p class="text-sm text-gray-500" role="status">Couldn't load the 'submission without login' setting. It will be left as it is.</p>
+    }
+    <label class="assignment-setting">
+      <span><strong>Show marks to students</strong><small>All students in this assignment can see their overall and rubric marks.</small></span>
+      <input type="checkbox" formControlName="showMarksToStudent" />
+    </label>
+  </fieldset>
+
+  <div class="grid grid-cols-2 gap-4 w-full">
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <label for="speaking-max-minutes" class="text-sm font-bold pl-2">Maximum recording length</label>
+        <div class="relative w-full">
+          <select id="speaking-max-minutes" formControlName="maxMinutes" class="input-text appearance-none pr-10 cursor-pointer text-gray-700">
+            @for (minutes of minuteOptions(); track minutes) { <option [ngValue]="minutes">{{ minuteLabel(minutes) }}</option> }
+          </select>
+          <i class="bx bx-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-2xl" aria-hidden="true"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <label for="speaking-deadline" class="text-sm font-bold pl-2">Deadline</label>
+        <div class="relative w-full">
+          <input id="speaking-deadline" type="date" formControlName="deadline" class="input-text date-input pr-10 cursor-pointer"
+            [class.input-error]="isFieldInvalid('deadline')" [attr.aria-invalid]="isFieldInvalid('deadline')" #deadlineInput />
+          <i class="bx bx-calendar absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer text-2xl" aria-hidden="true" (click)="deadlineInput.showPicker()"></i>
+        </div>
+        @if (isFieldInvalid('deadline')) { <div class="text-red-500 text-sm mt-1">Due date is required</div> }
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 w-full">
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <label for="speaking-description" class="text-sm font-bold pl-2">Description</label>
+      </div>
+      <textarea id="speaking-description" formControlName="description" class="input-text h-32 resize-none" maxlength="500"
+        placeholder="Describe the task students should speak about..." [class.input-error]="isFieldInvalid('description')"
+        [attr.aria-invalid]="isFieldInvalid('description')" aria-describedby="speaking-description-count"></textarea>
+      @if (isFieldInvalid('description')) {
+      <div class="text-red-500 text-sm mt-1">
+        @if (form.get('description')?.errors?.['required']) { <span>Description is required</span> }
+        @if (form.get('description')?.errors?.['minlength']) { <span>Description must be at least 10 characters</span> }
+      </div>
+      }
+      <div id="speaking-description-count" class="text-sm text-gray-500 mt-1">{{ form.get('description')?.value?.length || 0 }}/500 characters</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 w-full">
+    <div class="w-full">
+      <div class="flex flex-col gap-1">
+        <span class="text-sm font-bold pl-2">Rubric</span>
+        @if (editing) {
+          <p class="text-sm text-gray-600 pl-2">To change the rubric, use the Rubric button on the assignment card.</p>
+        } @else {
+          <p class="text-sm text-gray-600 pl-2" data-rubric-choice>{{ rubric() ? rubric()!.name : 'Speaking rubric (default)' }}</p>
+          <div class="rubric-actions">
+            <button type="button" class="rubric-action" (click)="rubricSelectorOpen = true">Choose from library</button>
+            @if (rubric()) { <button type="button" class="rubric-action" (click)="useDefaultRubric()">Use the default rubric</button> }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (errorMessage()) { <p class="text-sm text-red-500 font-medium" role="alert">{{ errorMessage() }}</p> }
+
+  @if (device.isDesktop()) {
+  <div class="flex justify-center items-center gap-3">
+    <button type="button" class="btn-danger" [disabled]="submitting()" (click)="close()">Cancel</button>
+    <button type="submit" class="btn-primary" [disabled]="submitting()">{{ editing ? 'Update' : 'Submit' }}</button>
+  </div>
+  } @else {
+  <div class="flex flex-col justify-center items-center gap-3">
+    <button type="submit" class="btn-primary-sm w-full" [disabled]="submitting()">{{ editing ? 'Update' : 'Submit' }}</button>
+    <button type="button" class="btn-danger-sm w-full" [disabled]="submitting()" (click)="close()">Cancel</button>
+  </div>
+  }
+</form>
+
+<app-rubric-library-selector [open]="rubricSelectorOpen" (closed)="rubricSelectorOpen = false" (selected)="onRubricSelected($event)" />

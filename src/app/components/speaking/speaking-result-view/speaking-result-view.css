@@ -1,0 +1,25 @@
+/* Copied as is from my-submission-page.css (card, marks-hidden notice) and detail-my-classes-pages.css (the stats list), so the speaking result
+   looks like the essay result. Keep them in step. */
+.gradient-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+}
+.marks-hidden-notice { min-height: 9rem; display: flex; align-items: center; justify-content: center; gap: .75rem; padding: 1rem; text-align: left; color: #334155; }
+.marks-hidden-notice > i { flex: 0 0 auto; color: #008081; font-size: 1.75rem; }
+.marks-hidden-notice strong { display: block; color: #1f2937; }
+.marks-hidden-notice p { margin-top: .25rem; font-size: .82rem; line-height: 1.45; }
+.assignment-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: .6rem; margin: .75rem 0 0; min-width: 0; }
+.assignment-stat { display: flex; align-items: flex-start; gap: .5rem; min-width: 0; padding: .65rem .7rem; background: #fff; border: 1px solid #e2e8ee; border-radius: .75rem; }
+.assignment-stat > i { flex: 0 0 auto; margin-top: .1rem; color: #008081; font-size: 1.1rem; }
+.assignment-stat > div { min-width: 0; }
+.assignment-stat dt { color: #64748b; font-size: .7rem; line-height: 1.4; font-weight: 600; }
+.assignment-stat dd { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem .4rem; margin: .2rem 0 0; color: #203864; font-size: .8rem; line-height: 1.45; font-weight: 700; overflow-wrap: anywhere; }
+
+:host { display: block; min-width: 0; }
+.speaking-result { display: grid; gap: 1rem; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 768px) {
+  .gradient-card.p-6 { padding: 1rem; }
+  .speaking-result .px-6 { padding-left: 1rem; padding-right: 1rem; }
+}

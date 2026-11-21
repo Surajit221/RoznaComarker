@@ -16,6 +16,8 @@ import { StudentResultsPage } from './student-results-page/student-results-page'
 import { StudentWorksheetResultsPage } from './student-worksheet-results/student-worksheet-results';
 import { StudentWorksheetPageComponent } from './student-worksheet-page/student-worksheet-page';
 import { AssignmentQrRedirect } from './assignment-qr-redirect/assignment-qr-redirect';
+import { StudentSpeakingSubmissionPage } from './my-class-student-pages/detail-my-class-student-pages/speaking-submission-page/speaking-submission-page';
+import { unsavedWorkGuard } from '../../core/app-update/unsaved-work';
 
 export const STUDENT_ROUTE: Routes = [
   {
@@ -27,10 +29,12 @@ export const STUDENT_ROUTE: Routes = [
       { path: 'my-notification', component: MyNotificationStudentPages },
       { path: 'my-profile', component: MyProfileStudentPages },
       { path: 'my-classes', component: MyClassStudentPages },
-      { path: 'my-classes/detail/:slug', component: DetailMyClassStudentPages },
+      // The unsaved-work guard keeps a recording upload in progress from being lost to a navigation (stage 7d).
+      { path: 'my-classes/detail/:slug', component: DetailMyClassStudentPages, canDeactivate: [unsavedWorkGuard] },
       { path: 'my-classes/detail/my-submissions/:slug', component: MySubmissionPage },
+      { path: 'my-classes/detail/my-speaking/:assignmentId', component: StudentSpeakingSubmissionPage, canDeactivate: [unsavedWorkGuard] },
       { path: 'join-class', component: JoinClassLinkPages },
-      { path: 'classroom/:classId', component: DetailMyClassStudentPages },
+      { path: 'classroom/:classId', component: DetailMyClassStudentPages, canDeactivate: [unsavedWorkGuard] },
       { path: 'handwritten-ocr', component: HandwrittenOcrPage },
       { path: 'assignments/qr/:qrToken', component: AssignmentQrRedirect },
       /* ── Learning tool routes (Issue 3) ─────────────────── */

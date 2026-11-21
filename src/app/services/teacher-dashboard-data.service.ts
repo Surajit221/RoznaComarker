@@ -65,9 +65,10 @@ export class TeacherDashboardDataService {
       })
     ).then((arr) => arr.filter(Boolean) as Array<{ classId: string; classTitle: string; assignments: any[] }>);
 
+    // Essay numbers only: speaking assignments are not loaded here (no essay feedback exists for them; stage 7g). Their deadlines still count.
     const submissionsByAssignment: DashboardSubmission[][] = await Promise.all(
       assignmentsByClass.flatMap((bucket) =>
-        (bucket.assignments || []).map(async (a: any) => {
+        (bucket.assignments || []).filter((a) => a?.resourceType !== 'speaking').map(async (a: any) => {
           const assignmentId = a?._id;
           if (!assignmentId) return [];
 

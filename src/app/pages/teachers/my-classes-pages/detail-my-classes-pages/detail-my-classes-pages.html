@@ -112,7 +112,7 @@
                 Learning Tools
               </button>
               <button type="button" class="btn-primary" (click)="onAddAssignment()">
-                Create Writing Assignment
+                {{ speaking.createButtonLabel() }}
               </button>
             </div>
           </div>
@@ -133,8 +133,11 @@
                     @if (item.resourceType === 'flashcard') {
                       <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
                     }
+                    @if (item.resourceType === 'speaking') {
+                      <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
+                    }
                   </div>
-                  @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+                  @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
                     <div class="mb-2">
                       <p class="text-xs font-semibold text-gray-700">Description</p>
                       <p class="text-sm text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
@@ -155,13 +158,16 @@
                       }
                     </div>
                     <div class="teacher-assignment-actions__grid">
+                      @if (showAssignmentQr(item)) {
                       <button
                         type="button"
                         class="assignment-utility assignment-utility--qr"
                         (click)="openAssignmentQr(item.id)"
+                        [attr.aria-label]="item.resourceType === 'speaking' ? 'QR code and guest link for ' + item.title : null"
                       >
                         <i class="bx bx-qr" aria-hidden="true"></i> QR Code
                       </button>
+                      }
                       <button
                         type="button"
                         class="assignment-utility assignment-utility--edit"
@@ -183,6 +189,16 @@
                         <button type="button" class="assignment-utility assignment-utility--upload" (click)="openUploadWork(item.id)"
                           [attr.aria-label]="'Upload student work for ' + item.title">
                           <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload work
+                        </button>
+                      }
+                      @if (item.resourceType === 'speaking') {
+                        <button type="button" class="assignment-utility assignment-utility--rubric" (click)="onSpeakingRubric(item.id)"
+                          [attr.aria-label]="'Edit the rubric for ' + item.title">
+                          <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
+                        </button>
+                        <button type="button" class="assignment-utility assignment-utility--upload" data-speaking-upload (click)="openSpeakingUpload(item.id)"
+                          [attr.aria-label]="'Upload a student\'s recording for ' + item.title">
+                          <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload for a student
                         </button>
                       }
                       <button
@@ -302,21 +318,35 @@
   </div>
 
   <!-- dialog -->
-  <app-modal-dialog [open]="showDialog">
-    <h2 class="text-3xl font-bold text-center mb-8">{{ assignmentDialogTitle }}</h2>
-    <app-assignment-form
+  <!-- Create/edit assignment: the backdrop, Esc, X and the forms' Cancel all go through requestCloseCreateAssignment. -->
+  <app-modal-dialog data-create-dialog="modal" [open]="showDialog" [closeOnEscape]="true" labelledBy="create-assignment-title-modal"
+    [dismissible]="!modalWritingForm.busy() && !speaking.busy()" (closed)="requestCloseCreateAssignment('modal')">
+    <div #createModalBody>
+    <button type="button" class="create-dialog-close create-dialog-close--modal" data-create-close aria-label="Close"
+      [disabled]="modalWritingForm.busy() || speaking.busy()" (click)="requestCloseCreateAssignment('modal')">
+      <i class="bx bx-x" aria-hidden="true"></i>
+    </button>
+    <h2 id="create-assignment-title-modal" tabindex="-1" class="text-3xl font-bold text-center mb-8 px-10 outline-none">{{ assignmentDialogTitle }}</h2>
+    @if (speaking.step() === 'choice') { <app-assignment-type-choice [maxMinutes]="speaking.maxMinutes()" (chosen)="speaking.choose($event)"></app-assignment-type-choice> }
+    @if (speaking.step() === 'speaking') {
+    <app-speaking-assignment-form #modalSpeakingForm [classId]="classId" [assignment]="selectedAssignmentForEdit" (created)="onAssignmentCreated($event)"
+      (updated)="onAssignmentUpdated($event)" (closed)="requestCloseCreateAssignment('modal', 'cancel')"></app-speaking-assignment-form>
+    }
+    <app-assignment-form #modalWritingForm [class.hidden]="speaking.hideWritingForm()"
       [classId]="classId"
       [assignment]="selectedAssignmentForEdit"
       (created)="onAssignmentCreated($event)"
       (updated)="onAssignmentUpdated($event)"
-      (closed)="closeDialog()"
+      (closed)="requestCloseCreateAssignment('modal', 'cancel')"
     ></app-assignment-form>
+    </div>
   </app-modal-dialog>
 
   <app-modal-dialog [open]="showDialogSubmission">
     <h2 class="text-3xl font-bold text-center mb-8">{{ selectedAssignmentTitle }}</h2>
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
+      [speaking]="selectedIsSpeaking"
       (closed)="closeDialogSubmission()"
       (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
@@ -336,7 +366,7 @@
     <app-dialog-qr-classes
       [qrValue]="selectedAssignmentQrValue"
       [classTitle]="selectedQrAssignmentTitle"
-      instructionText="Students can scan this QR code to open the assignment."
+      [instructionText]="selectedQrInstruction"
       [showShareLink]="true"
       (closed)="closeAssignmentQr()"
     ></app-dialog-qr-classes>
@@ -503,8 +533,11 @@
               @if (item.resourceType === 'flashcard') {
                 <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
               }
+              @if (item.resourceType === 'speaking') {
+                <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
+              }
             </div>
-            @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+            @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
               <div class="mt-1 mb-2">
                 <p class="text-xs font-semibold text-gray-700">Description</p>
                 <p class="text-xs text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
@@ -521,13 +554,16 @@
                 }
               </div>
               <div class="teacher-assignment-actions__grid">
+              @if (showAssignmentQr(item)) {
               <button
                 type="button"
                 class="assignment-utility assignment-utility--qr"
                 (click)="openAssignmentQr(item.id)"
+                [attr.aria-label]="item.resourceType === 'speaking' ? 'QR code and guest link for ' + item.title : null"
               >
                 <i class="bx bx-qr" aria-hidden="true"></i> QR Code
               </button>
+              }
               <button
                 type="button"
                 class="assignment-utility assignment-utility--edit"
@@ -549,6 +585,16 @@
                 <button type="button" class="assignment-utility assignment-utility--upload" (click)="openUploadWork(item.id)"
                   [attr.aria-label]="'Upload student work for ' + item.title">
                   <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload work
+                </button>
+              }
+              @if (item.resourceType === 'speaking') {
+                <button type="button" class="assignment-utility assignment-utility--rubric" (click)="onSpeakingRubric(item.id)"
+                  [attr.aria-label]="'Edit the rubric for ' + item.title">
+                  <i class="bx bx-list-check" aria-hidden="true"></i> Rubric
+                </button>
+                <button type="button" class="assignment-utility assignment-utility--upload" data-speaking-upload (click)="openSpeakingUpload(item.id)"
+                  [attr.aria-label]="'Upload a student\'s recording for ' + item.title">
+                  <i class="bx bx-cloud-upload" aria-hidden="true"></i> Upload for a student
                 </button>
               }
               @if (item.resourceType === 'worksheet' && item.resourceId) {
@@ -642,15 +688,27 @@
       </div>
     </div>
   </div>
-  <app-bottomsheet-dialog [open]="openSheetAssignment" [dismissible]="!assignmentSheetForm.busy()" (closed)="onCloseCreateAssignment()">
-    <h2 class="text-2xl font-bold mb-5">{{ assignmentDialogTitle }}</h2>
-    <app-assignment-form #assignmentSheetForm
+  <app-bottomsheet-dialog data-create-dialog="sheet" [open]="openSheetAssignment" labelledBy="create-assignment-title-sheet"
+    [dismissible]="!assignmentSheetForm.busy() && !speaking.busy()" (closed)="requestCloseCreateAssignment('sheet')">
+    <div #createSheetBody class="relative">
+    <button type="button" class="create-dialog-close create-dialog-close--sheet" data-create-close aria-label="Close"
+      [disabled]="assignmentSheetForm.busy() || speaking.busy()" (click)="requestCloseCreateAssignment('sheet')">
+      <i class="bx bx-x" aria-hidden="true"></i>
+    </button>
+    <h2 id="create-assignment-title-sheet" tabindex="-1" class="text-2xl font-bold mb-5 pr-12 outline-none">{{ assignmentDialogTitle }}</h2>
+    @if (speaking.step() === 'choice') { <app-assignment-type-choice [maxMinutes]="speaking.maxMinutes()" (chosen)="speaking.choose($event)"></app-assignment-type-choice> }
+    @if (speaking.step() === 'speaking') {
+    <app-speaking-assignment-form #sheetSpeakingForm [classId]="classId" [assignment]="selectedAssignmentForEdit" (created)="onAssignmentCreated($event)"
+      (updated)="onAssignmentUpdated($event)" (closed)="requestCloseCreateAssignment('sheet', 'cancel')"></app-speaking-assignment-form>
+    }
+    <app-assignment-form #assignmentSheetForm [class.hidden]="speaking.hideWritingForm()"
       [classId]="classId"
       [assignment]="selectedAssignmentForEdit"
       (created)="onAssignmentCreated($event)"
       (updated)="onAssignmentUpdated($event)"
-      (closed)="onCloseCreateAssignment()"
+      (closed)="requestCloseCreateAssignment('sheet', 'cancel')"
     ></app-assignment-form>
+    </div>
   </app-bottomsheet-dialog>
 
   <app-bottomsheet-dialog [open]="openSheetQr" (closed)="onCloseQR()">
@@ -667,7 +725,7 @@
     <app-dialog-qr-classes
       [qrValue]="selectedAssignmentQrValue"
       [classTitle]="selectedQrAssignmentTitle"
-      instructionText="Students can scan this QR code to open the assignment."
+      [instructionText]="selectedQrInstruction"
       [showShareLink]="true"
       (closed)="closeAssignmentQr()"
     ></app-dialog-qr-classes>
@@ -677,6 +735,7 @@
     <h2 class="text-2xl font-bold mb-5">{{ selectedAssignmentTitle }}</h2>
     <app-dialog-view-submissions
       [assignmentId]="selectedAssignmentId"
+      [speaking]="selectedIsSpeaking"
       (closed)="onCloseSubmission()"
       (removed)="onSubmissionRemoved()"
     ></app-dialog-view-submissions>
@@ -752,6 +811,17 @@
   [message]="errorModal.message"
   (closed)="errorModal = { open: false, title: '', message: '' }"
 ></app-error-modal>
+
+<app-speaking-rubric-editor></app-speaking-rubric-editor>
+
+<app-speaking-teacher-upload-dialog
+  [open]="!!speakingUploadAssignmentId"
+  [assignmentId]="speakingUploadAssignmentId"
+  [assignmentTitle]="speakingUploadTitle"
+  [classId]="classId"
+  [limits]="speakingUploadLimits"
+  (closed)="onSpeakingUploadClosed($event)"
+></app-speaking-teacher-upload-dialog>
 
 <app-upload-student-work-dialog
   [open]="!!uploadWorkAssignmentId"

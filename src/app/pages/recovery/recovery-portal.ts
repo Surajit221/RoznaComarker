@@ -71,7 +71,8 @@ export class RecoveryPortalPage implements OnInit, OnDestroy {
   }
 
   open(item: RecoveredAssignment): Promise<boolean> {
-    return this.router.navigate(['/guest/results', item.id]);
+    // A recording opens the guest speaking page (stage 10b); essays the essay result page, as before.
+    return this.router.navigate([item.kind === 'speaking' ? '/guest/speaking' : '/guest/results', item.id]);
   }
 
   async requestLink(): Promise<void> {

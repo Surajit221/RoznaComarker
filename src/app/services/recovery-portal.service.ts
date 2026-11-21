@@ -12,6 +12,8 @@ export interface RecoveredAssignment {
   status?: 'ready' | 'processing' | 'failed';
   /** 'signIn': work saved on the student account with this address; it opens only after signing in (no status, no results). */
   access?: 'signIn';
+  /** 'speaking': a recording (stage 10); it opens the guest speaking page. Absent for essays. */
+  kind?: 'speaking';
 }
 
 const SESSION_KEY = 'comarker:recovery-session';

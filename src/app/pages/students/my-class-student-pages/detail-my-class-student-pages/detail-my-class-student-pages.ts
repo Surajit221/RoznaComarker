@@ -21,10 +21,12 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { UploadGuidelines } from './upload-guidelines/upload-guidelines';
 import { AdaptivePracticeApiService } from '../../../../api/adaptive-practice-api.service';
 import { teacherDisplayName } from '../../../../utils/teacher-display-name.util';
+import { SpeakingApiService, type SpeakingLimits } from '../../../../api/speaking-api.service';
+import { SpeakingUploadDialog, type SpeakingUploadTarget } from '../../../../components/student/speaking-upload-dialog/speaking-upload-dialog';
 
 @Component({
   selector: 'app-detail-my-class-student-pages',
-  imports: [CommonModule, ModalDialog, UploadEssayForm, UploadGuidelines, BottomsheetDialog, AppBarBackButton, ErrorModal],
+  imports: [CommonModule, ModalDialog, UploadEssayForm, UploadGuidelines, BottomsheetDialog, AppBarBackButton, ErrorModal, SpeakingUploadDialog],
   templateUrl: './detail-my-class-student-pages.html',
   styleUrl: './detail-my-class-student-pages.css',
 })
@@ -53,6 +55,7 @@ export class DetailMyClassStudentPages {
   private assignmentState = inject(AssignmentStateService);
   private worksheetApi    = inject(WorksheetApiService);
   private adaptivePracticeApi = inject(AdaptivePracticeApiService);
+  private speakingApi = inject(SpeakingApiService);
 
   classId: string | null = null;
   isLoading = false;
@@ -122,6 +125,8 @@ export class DetailMyClassStudentPages {
     /** Draft limit (only when the backend sends maxDrafts): all drafts used. */
     maxDrafts?: number;
     draftLimitReached?: boolean;
+    /** Speaking assignments: the recording limits that apply (from GET /api/speaking/:id/my). */
+    speakingLimits?: SpeakingLimits;
   }> = [];
 
   constructor(private router: Router) {}
@@ -135,7 +140,9 @@ export class DetailMyClassStudentPages {
     const openResubmission = this.route.snapshot.queryParamMap.get('resubmit') === 'true';
     if (linkedAssignmentId && this.assignments.some((assignment) => assignment.id === linkedAssignmentId)) {
       const linkedAssignment = this.assignments.find((assignment) => assignment.id === linkedAssignmentId)!;
-      if (linkedAssignment.status === 'completed' && !openResubmission) {
+      if (linkedAssignment.resourceType === 'speaking') {
+        if (linkedAssignment.submitted > 0) this.toSpeakingPage(linkedAssignmentId); else this.openSpeakingUpload(linkedAssignmentId);
+      } else if (linkedAssignment.status === 'completed' && !openResubmission) {
         this.toViewSubmission(linkedAssignmentId);
       } else {
         await this.openUpload(linkedAssignmentId);
@@ -232,6 +239,7 @@ export class DetailMyClassStudentPages {
     let submissionId: string | null = null;
     let draftNumber = 1;
     let total = 1; // Each assignment has 1 total submission slot
+    let speakingLimits: SpeakingLimits | undefined;
 
     try {
       if (a.resourceType === 'flashcard') {
@@ -245,6 +253,14 @@ export class DetailMyClassStudentPages {
         /** Check WorksheetSubmission for worksheet-type assignments */
         const sub = await this.worksheetApi.getMySubmissionByAssignment(a.resourceId, a._id);
         if (sub) {
+          submitted = 1;
+          status = 'completed';
+        }
+      } else if (a.resourceType === 'speaking') {
+        /** Speaking: the student's own recording status (never the essay submission endpoint) */
+        const mine = await this.speakingApi.getMyStatus(a._id);
+        speakingLimits = mine.limits;
+        if (mine.submission) {
           submitted = 1;
           status = 'completed';
         }
@@ -295,7 +311,43 @@ export class DetailMyClassStudentPages {
       requireAdaptiveBeforeResubmission,
       adaptiveResubmissionSatisfied,
       ...(maxDrafts !== undefined ? { maxDrafts, draftLimitReached } : {}),
+      ...(speakingLimits ? { speakingLimits } : {}),
     };
+  }
+
+  // ---- Speaking assignments (stage 7d) -------------------------------------------------------------------------------------------
+  /** The speaking assignment whose upload dialog is open. */
+  speakingUploadId: string | null = null;
+
+  get speakingUploadTarget(): SpeakingUploadTarget | null {
+    const item = this.assignments.find((assignment) => assignment.id === this.speakingUploadId);
+    return item ? { id: item.id, title: item.title, instructions: item.instructions, deadline: item.deadline } : null;
+  }
+
+  get speakingUploadLimits(): SpeakingLimits | null {
+    return this.assignments.find((assignment) => assignment.id === this.speakingUploadId)?.speakingLimits ?? null;
+  }
+
+  openSpeakingUpload(assignmentId: string): void {
+    this.speakingUploadId = assignmentId;
+  }
+
+  closeSpeakingUpload(): void {
+    this.speakingUploadId = null;
+  }
+
+  /** The dialog saved the recording: the card shows it as done and the student's speaking page opens. */
+  onSpeakingUploaded(): void {
+    const assignmentId = this.speakingUploadId;
+    this.speakingUploadId = null;
+    if (!assignmentId) return;
+    const index = this.assignments.findIndex((assignment) => assignment.id === assignmentId);
+    if (index >= 0) this.assignments[index] = { ...this.assignments[index], submitted: 1, status: 'completed' };
+    this.toSpeakingPage(assignmentId);
+  }
+
+  toSpeakingPage(assignmentId: string): void {
+    void this.router.navigate(['/student/my-classes/detail/my-speaking', assignmentId], { queryParams: { classId: this.classId || undefined } });
   }
 
   openUploadGuidelines(): void {

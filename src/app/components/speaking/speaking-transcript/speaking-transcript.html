@@ -1,0 +1,49 @@
+<section class="gradient-card p-6" aria-labelledby="speaking-transcript-title">
+  <div class="flex flex-row flex-wrap justify-between items-center gap-3 mb-2">
+    <h3 id="speaking-transcript-title" class="font-semibold text-gray-700">What was said</h3>
+    @if (hasFillers) {
+      <label class="speaking-fillers-toggle text-sm text-gray-700">
+        <input type="checkbox" [checked]="showFillers" (change)="toggleFillers($event)" />
+        Show filler words
+      </label>
+    }
+  </div>
+  <p class="text-xs text-gray-500 mb-3">Turned into text by a speech-to-text service. Punctuation was added automatically and is not marked.</p>
+  @if (showFillers) { <p class="text-xs text-gray-500 mb-2" role="status">Filler words are shown in brackets, for example (um).</p> }
+  <div class="speaking-transcript bg-[#F3F3F3] p-4 rounded-2xl" role="region" aria-label="Transcript">
+    <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans" [ocrWords]="model.words" [annotations]="model.annotations"></app-tokenized-transcript>
+  </div>
+
+  <h4 class="font-semibold text-gray-700 mt-4 mb-3">Correction Statistics</h4>
+  <!-- The rows of the essay Correction Statistics card (correction-statistics.ts), for the two categories marked in speech. -->
+  <div class="space-y-4">
+    @for (row of statistics; track row.category) {
+      <div [attr.data-statistic]="row.category">
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">{{ row.title }} Issues</span>
+          <span class="font-medium" data-statistic-value>{{ row.value }}</span>
+        </div>
+        @if (row.codes) { <p class="text-xs text-gray-500 mb-1" [attr.aria-label]="row.title + ' issue types: ' + row.codes">{{ row.codes }}</p> }
+        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div class="h-full rounded-full" [class.bg-green-400]="row.category === 'grammar'" [class.bg-purple-400]="row.category === 'vocabulary'" [style.width]="row.width"></div>
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (result.corrections.length) {
+    <h4 class="font-semibold text-gray-700 mt-4 mb-2" data-speaking-corrections-heading>Corrections ({{ result.corrections.length }})</h4>
+    <ol class="speaking-corrections" data-speaking-corrections>
+      @for (g of groups; track g.key) {
+        <li>
+          <span class="font-semibold">“{{ g.quotedText }}”</span>
+          @if (g.suggestedText) { → <span class="font-semibold">“{{ g.suggestedText }}”</span> }
+          @if (g.count > 1) { <span class="text-sm font-semibold text-gray-700"><span aria-hidden="true"> ×{{ g.count }}</span><span class="sr-only">, {{ g.count }} times in the text</span></span> }
+          <span class="block text-sm text-gray-600">{{ g.message }} <span class="text-xs text-gray-500">({{ label(g.category) }} · {{ g.symbol }})</span></span>
+        </li>
+      }
+    </ol>
+  }
+
+  <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="legend"></app-writing-corrections-legend></details>
+</section>

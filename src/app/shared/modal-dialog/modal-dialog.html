@@ -6,6 +6,9 @@
   <div
     class="bg-white rounded-3xl shadow-lg w-[calc(100vw-2rem)] mx-4 p-6 sm:p-8 text-gray-700 relative transform transition-all duration-300 ease-out animate-bounceIn max-h-[85vh] overflow-y-auto"
     [ngClass]="[maxWidthClass, panelClass]"
+    [attr.role]="labelledBy ? 'dialog' : null"
+    [attr.aria-modal]="labelledBy ? 'true' : null"
+    [attr.aria-labelledby]="labelledBy"
     (click)="$event.stopPropagation()"
   >
     <!-- <button

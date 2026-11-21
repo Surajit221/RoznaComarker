@@ -1,0 +1,85 @@
+/* Copied exactly from components/teacher/learning-tools-picker/learning-tools-picker.css (.lt-choice-*), so the choice looks the same as
+   the Learning Tools "How would you like to proceed?" step. Additions, in the same colours: the hover look also on keyboard focus and for
+   the chosen card (with a check icon), a pressed state, the meta chips (teal; navy for Speaking, as the Speaking pill on the cards),
+   one column on narrow phones, and no motion under reduced motion. */
+.lt-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+  padding-bottom: 4px;
+}
+
+.lt-choice-card {
+  position: relative;
+  background: #ffffff;
+  border: 2px solid #E7E7E7;
+  border-radius: 1rem;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.lt-choice-card:hover,
+.lt-choice-card:focus-visible,
+.lt-choice-card.is-selected {
+  border-color: #008081;
+  background: #E6F2F2;
+  box-shadow: 0 4px 0 #008081;
+}
+.lt-choice-card:focus-visible { outline: 2px solid #008081; outline-offset: 2px; }
+.lt-choice-card:active { transform: translateY(2px); box-shadow: 0 2px 0 #008081; }
+
+.lt-choice-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #008081;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.lt-choice-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.lt-choice-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.lt-choice-desc {
+  font-size: 0.73rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.lt-choice-chip {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #E6F2F2;
+  color: #136C6D;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.lt-choice-chip--speaking { background: #203864; color: #ffffff; }
+.lt-choice-card:hover .lt-choice-chip:not(.lt-choice-chip--speaking),
+.lt-choice-card:focus-visible .lt-choice-chip:not(.lt-choice-chip--speaking),
+.lt-choice-card.is-selected .lt-choice-chip:not(.lt-choice-chip--speaking) { background: #ffffff; }
+
+@media (max-width: 360px) {
+  .lt-choice-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lt-choice-card { transition: none; }
+  .lt-choice-card:active { transform: none; }
+}

@@ -1,0 +1,19 @@
+<section class="gradient-card p-6" aria-label="Recording">
+  <h3 class="font-semibold text-gray-700 mb-3">{{ label }}</h3>
+  @if (!available) {
+    <p class="text-sm text-gray-600">The recording is no longer available.</p>
+  } @else if (state === 'loading') {
+    <p class="text-sm text-gray-600" role="status">Loading the recording…</p>
+  } @else if (state === 'error') {
+    <div class="section-load-error" role="alert">The recording couldn't be loaded.<button type="button" (click)="load()">Try again</button></div>
+  } @else {
+    <audio class="w-full" controls preload="metadata" [src]="url" [attr.aria-label]="label"></audio>
+  }
+  @if (durationText) { <p class="text-sm text-gray-500 mt-2">Length: {{ durationText }}</p> }
+  @if (downloadable && available) {
+    <button type="button" class="btn-info-sm mt-3" (click)="download()" [disabled]="downloading" [attr.aria-busy]="downloading">
+      <i class="bx bx-download" aria-hidden="true"></i> Download recording
+    </button>
+    @if (downloadError) { <p class="text-sm text-red-500 font-medium mt-2" role="alert">The recording couldn't be downloaded. Please try again.</p> }
+  }
+</section>

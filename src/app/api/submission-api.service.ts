@@ -33,6 +33,8 @@ export type BackendFile = {
 
 export type BackendSubmission = {
   sourceFidelity?: SourceFidelity;
+  /** 'audio' for a speaking recording (stage 5); absent or 'essay' otherwise. */
+  sourceKind?: string;
   submissionMode?: 'registered' | 'guest';
   guest?: { displayName: string; normalizedEmail?: string };
   _id: string;

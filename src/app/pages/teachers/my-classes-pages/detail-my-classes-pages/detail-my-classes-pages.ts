@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, Injector, ViewChild, afterNextRender, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -18,7 +18,7 @@ import {
   type BackendFlashcardAssignmentSubmission,
 } from '../../../../api/assignment-api.service';
 import { RubricApiService, type SavedRubric } from '../../../../api/rubric-api.service';
-import { AlertService } from '../../../../services/alert.service';
+import { AlertService, sweetAlertDialogOpen } from '../../../../services/alert.service';
 import { ClassApiService, type BackendClassStudent, type BackendClassSummary } from '../../../../api/class-api.service';
 import { SubmissionApiService } from '../../../../api/submission-api.service';
 import { QrGeneratorService } from '../../../../services/qr-generator.service';
@@ -38,6 +38,14 @@ import { RubricLibrarySelector } from '../../../../components/teacher/rubric-lib
 import { RubricLibraryStateService } from '../../../../services/rubric-library-state.service';
 import { designerToRubricData, rubricDataToDesigner } from '../../../../utils/rubric-library.util';
 import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-student-work/upload-student-work-dialog';
+import { SpeakingTeacherUploadDialog } from '../../../../components/teacher/speaking-teacher-upload-dialog/speaking-teacher-upload-dialog';
+import { AudioConfigService } from '../../../../services/audio-config.service';
+import type { SpeakingLimits } from '../../../../api/speaking-api.service';
+import { AssignmentTypeChoice } from '../../../../components/teacher/assignment-type-choice/assignment-type-choice';
+import { SpeakingAssignmentForm } from '../../../../components/teacher/speaking-assignment-form/speaking-assignment-form';
+import { SpeakingRubricEditor } from '../../../../components/teacher/speaking-rubric-editor/speaking-rubric-editor';
+import { SpeakingAssignmentsFacade } from '../../../../services/speaking-assignments.facade';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -46,6 +54,9 @@ import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-s
     FormsModule,
     ModalDialog,
     AssignmentForm,
+    AssignmentTypeChoice,
+    SpeakingAssignmentForm,
+    SpeakingRubricEditor,
     DialogQrClasses,
     DialogViewSubmissions,
     InviteStudentsDialog,
@@ -60,6 +71,7 @@ import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-s
     DuplicateAssignmentForm,
     RubricLibrarySelector,
     UploadStudentWorkDialog,
+    SpeakingTeacherUploadDialog,
   ],
   templateUrl: './detail-my-classes-pages.html',
   styleUrl: './detail-my-classes-pages.css',
@@ -164,7 +176,21 @@ export class DetailMyClassesPages {
     const assignment = this.selectedQrAssignmentId
       ? this.assignmentsById[this.selectedQrAssignmentId]
       : null;
-    return assignment?.qrToken ? this.qrGenerator.generateAssignmentUrl(assignment.qrToken) : '';
+    if (!assignment?.qrToken) return '';
+    // A speaking assignment's QR code and link open the guest speaking page (stage 10b).
+    return assignment.resourceType === 'speaking' ? this.qrGenerator.generateSpeakingAssignmentUrl(assignment.qrToken)
+      : this.qrGenerator.generateAssignmentUrl(assignment.qrToken);
+  }
+
+  get selectedQrInstruction(): string {
+    const assignment = this.selectedQrAssignmentId ? this.assignmentsById[this.selectedQrAssignmentId] : null;
+    return assignment?.resourceType === 'speaking' ? 'Students can scan this QR code to record and upload their answer. No account needed.'
+      : 'Students can scan this QR code to open the assignment.';
+  }
+
+  /** The QR button of a card: every essay card; a speaking card only while guests are allowed (its QR code is the guest link). */
+  showAssignmentQr(item: { id: string; resourceType?: string }): boolean {
+    return item.resourceType !== 'speaking' || this.assignmentsById[item.id]?.allowGuestSubmission === true;
   }
 
   get selectedQrAssignmentTitle(): string {
@@ -183,7 +209,114 @@ export class DetailMyClassesPages {
   get assignmentRecords(): BackendAssignment[] { return Object.values(this.assignmentsById); }
 
   get assignmentDialogTitle(): string {
-    return this.selectedAssignmentForEdit ? getAssignmentCapabilities(this.selectedAssignmentForEdit).editTitle : 'Create Writing Assignment';
+    return this.speaking.dialogTitle(this.selectedAssignmentForEdit ? getAssignmentCapabilities(this.selectedAssignmentForEdit).editTitle : 'Create Writing Assignment');
+  }
+
+  /** Speaking assignments (audio + speech-to-text): everything lives in the facade; the page only branches on it. */
+  readonly speaking = inject(SpeakingAssignmentsFacade);
+  private readonly speakingRubricChanges = this.speaking.assignmentChanged.pipe(takeUntilDestroyed())
+    .subscribe((updated) => { this.assignmentsById = { ...this.assignmentsById, [updated._id]: updated }; });
+  onSpeakingRubric(assignmentId: string): void {
+    const found = this.assignmentsById[assignmentId];
+    if (found) void this.speaking.openRubric(found);
+  }
+
+  // ---- Closing the Create/Edit Assignment dialog (desktop modal, phone/tablet sheet): one rule for backdrop, Esc, X and Cancel ----
+  @ViewChild('createModalBody') private createModalBody?: ElementRef<HTMLElement>;
+  @ViewChild('createSheetBody') private createSheetBody?: ElementRef<HTMLElement>;
+  @ViewChild('modalWritingForm') private modalWritingForm?: AssignmentForm;
+  @ViewChild('assignmentSheetForm') private sheetWritingForm?: AssignmentForm;
+  @ViewChild('modalSpeakingForm') private modalSpeakingForm?: SpeakingAssignmentForm;
+  @ViewChild('sheetSpeakingForm') private sheetSpeakingForm?: SpeakingAssignmentForm;
+  /** The "Discard changes?" SweetAlert is open: further close requests (a second click, Esc) are ignored. */
+  private confirmingCreateClose = false;
+  /** Where focus goes back to when the dialog closes (the button that opened it). */
+  private createReturnFocus: HTMLElement | null = null;
+  private readonly injector = inject(Injector);
+
+  private createDialogOpen(container: 'modal' | 'sheet'): boolean { return container === 'modal' ? this.showDialog : this.openSheetAssignment; }
+
+  /** The form showing in that dialog: none on the choice step, the speaking form, or the writing form. */
+  private createDialogForm(container: 'modal' | 'sheet'): { hasUnsavedChanges(): boolean; discardChanges(): void; busy?: () => boolean } | null {
+    const step = this.speaking.step();
+    if (step === 'choice' || step === 'idle') return null;
+    if (step === 'speaking') return (container === 'modal' ? this.modalSpeakingForm : this.sheetSpeakingForm) ?? null;
+    return (container === 'modal' ? this.modalWritingForm : this.sheetWritingForm) ?? null;
+  }
+
+  private createDialogBusy(container: 'modal' | 'sheet'): boolean {
+    const writing = container === 'modal' ? this.modalWritingForm : this.sheetWritingForm;
+    return Boolean(writing?.busy()) || this.speaking.busy();
+  }
+
+  /** A dialog opened from inside the form (rubric library, rubric editor) or a SweetAlert: Esc and the backdrop belong to it. */
+  private createDialogCovered(container: 'modal' | 'sheet'): boolean {
+    if (sweetAlertDialogOpen()) return true;
+    const body = (container === 'modal' ? this.createModalBody : this.createSheetBody)?.nativeElement;
+    return Boolean(body?.querySelector('[aria-modal="true"], .fixed.inset-0'));
+  }
+
+  /**
+   * Backdrop, Esc and X (source 'dismiss'), or a form's Cancel ('cancel'). Nothing typed or chosen: closes at once. Unsaved input: the
+   * "Discard changes?" SweetAlert, closing only on Discard. While saving, the backdrop, Esc and X do nothing (Cancel is disabled then).
+   */
+  async requestCloseCreateAssignment(container: 'modal' | 'sheet', source: 'dismiss' | 'cancel' = 'dismiss'): Promise<void> {
+    if (!this.createDialogOpen(container) || this.confirmingCreateClose) return;
+    if (source === 'dismiss' && (this.createDialogBusy(container) || this.createDialogCovered(container))) return;
+    const form = this.createDialogForm(container);
+    if (form?.hasUnsavedChanges()) {
+      this.confirmingCreateClose = true;
+      // SweetAlert's own focus restore runs 100 ms after it closes and would undo the focus return below, so this page moves focus itself.
+      const focusedBefore = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      let discard = false;
+      try {
+        discard = await this.alert.showConfirm('Discard changes?', 'You have unsaved changes to this assignment. If you close now, they will be lost.',
+          'Discard', 'Keep editing', { returnFocus: false });
+      } finally {
+        this.confirmingCreateClose = false;
+      }
+      if (!this.createDialogOpen(container)) return;
+      if (!discard) {
+        // Another bottom sheet's Esc handler may have unlocked the page meanwhile (every sheet listens to Esc): keep it locked.
+        document.body.classList.add('overflow-hidden');
+        if (focusedBefore?.isConnected) focusedBefore.focus();
+        return;
+      }
+    }
+    form?.discardChanges();
+    if (container === 'modal') this.closeDialog(); else this.onCloseCreateAssignment();
+  }
+
+  /** Keeps Tab and Shift+Tab inside the open Create Assignment dialog (not while a SweetAlert has the focus). */
+  @HostListener('document:keydown', ['$event'])
+  onCreateDialogKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Tab' || sweetAlertDialogOpen()) return;
+    const body = this.showDialog ? this.createModalBody?.nativeElement : this.openSheetAssignment ? this.createSheetBody?.nativeElement : null;
+    if (!body) return;
+    const focusable = Array.from(body.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    const inside = body.contains(document.activeElement);
+    if (event.shiftKey && (document.activeElement === first || !inside)) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (document.activeElement === last || !inside)) { event.preventDefault(); first.focus(); }
+  }
+
+  /** Opening: remember the opener, lock the page behind, and move focus to the dialog title. */
+  private openCreateDialog(container: 'modal' | 'sheet'): void {
+    this.createReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.classList.add('overflow-hidden');
+    // After the dialog is rendered: with event coalescing (app.config) a setTimeout can run before the dialog exists.
+    afterNextRender(() => document.getElementById(`create-assignment-title-${container}`)?.focus(), { injector: this.injector });
+  }
+
+  /** Closing: unlock the page and give focus back to the button that opened the dialog. */
+  private releaseCreateDialog(): void {
+    document.body.classList.remove('overflow-hidden');
+    const target = this.createReturnFocus;
+    this.createReturnFocus = null;
+    if (target) setTimeout(() => target.focus());
   }
 
   assignments: Array<{
@@ -194,7 +327,7 @@ export class DetailMyClassesPages {
     total: number;
     guestSubmitted?: number;
     status: 'pending' | 'in-progress' | 'completed';
-    resourceType?: 'essay' | 'flashcard' | 'worksheet';
+    resourceType?: 'essay' | 'flashcard' | 'worksheet' | 'speaking';
     resourceId?: string;
     instructions?: string;
   }> = [];
@@ -202,6 +335,7 @@ export class DetailMyClassesPages {
   private studentSubmissionStatsById: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
 
   async ngOnInit() {
+    void this.speaking.load();
     this.destroyed = false;
     this.classId = this.route.snapshot.paramMap.get('slug');
     const RESERVED = ['student-profile', 'student-submissions'];
@@ -458,6 +592,29 @@ export class DetailMyClassesPages {
   onUploadWorkClosed(event: { saved: number }): void {
     const assignmentId = this.uploadWorkAssignmentId;
     this.uploadWorkAssignmentId = null;
+    if (event.saved > 0 && assignmentId) void this.refreshAssignmentSubmissionCount(assignmentId);
+  }
+
+  // ---- Stage 9: a teacher uploads students' recordings (the speaking card's "Upload for a student") ----
+  private readonly audioConfig = inject(AudioConfigService);
+  speakingUploadAssignmentId: string | null = null;
+  get speakingUploadTitle(): string {
+    return this.speakingUploadAssignmentId ? this.assignmentsById[this.speakingUploadAssignmentId]?.title || '' : '';
+  }
+  /** The assignment's own maximum length (or the policy's) and the file limit, for the recording picker. */
+  get speakingUploadLimits(): SpeakingLimits | null {
+    if (!this.speakingUploadAssignmentId) return null;
+    const own = this.assignmentsById[this.speakingUploadAssignmentId]?.speaking?.maxRecordingSeconds;
+    return { maxRecordingSeconds: own ?? this.audioConfig.maxMinutes() * 60, minDurationSeconds: 5, maxFileBytes: this.audioConfig.maxFileBytes() };
+  }
+  /** The submissions dialog of a speaking assignment reads the speaking uploads. */
+  get selectedIsSpeaking(): boolean {
+    return !!this.selectedAssignmentId && this.assignmentsById[this.selectedAssignmentId]?.resourceType === 'speaking';
+  }
+  openSpeakingUpload(assignmentId: string): void { this.speakingUploadAssignmentId = assignmentId; }
+  onSpeakingUploadClosed(event: { saved: number }): void {
+    const assignmentId = this.speakingUploadAssignmentId;
+    this.speakingUploadAssignmentId = null;
     if (event.saved > 0 && assignmentId) void this.refreshAssignmentSubmissionCount(assignmentId);
   }
 
@@ -1045,21 +1202,27 @@ export class DetailMyClassesPages {
 
   onAddAssignment() {
     this.selectedAssignmentForEdit = null;
+    this.speaking.startCreate();
     this.showDialog = true;
+    this.openCreateDialog('modal');
   }
 
   onEditAssignment(assignmentId: string) {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
     this.selectedAssignmentForEdit = found;
+    this.speaking.startEdit(found);
     this.showDialog = true;
+    this.openCreateDialog('modal');
   }
 
   onOpenEditAssignmentSheet(assignmentId: string) {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
     this.selectedAssignmentForEdit = found;
+    this.speaking.startEdit(found);
     this.openSheetAssignment = true;
+    this.openCreateDialog('sheet');
   }
 
   async onDeleteAssignment(assignmentId: string) {
@@ -1123,8 +1286,11 @@ export class DetailMyClassesPages {
   }
 
   closeDialog() {
+    const wasOpen = this.showDialog;
     this.showDialog = false;
     this.selectedAssignmentForEdit = null;
+    this.speaking.reset();
+    if (wasOpen) this.releaseCreateDialog();
   }
 
   closeDialogSubmission() {
@@ -1173,14 +1339,18 @@ export class DetailMyClassesPages {
   }
 
   onCloseCreateAssignment() {
+    const wasOpen = this.openSheetAssignment;
     document.body.classList.remove('overflow-hidden');
     this.openSheetAssignment = false;
     this.selectedAssignmentForEdit = null;
+    this.speaking.reset();
+    if (wasOpen) this.releaseCreateDialog();
   }
 
   onOpenCreateNewAssignment() {
-    document.body.classList.add('overflow-hidden');
+    this.speaking.startCreate();
     this.openSheetAssignment = true;
+    this.openCreateDialog('sheet');
   }
 
   onCloseQR() {

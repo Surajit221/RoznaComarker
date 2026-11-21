@@ -1,0 +1,4 @@
+/* Only what the essay guest stylesheet (../guest-submission/guest-submission.css, shared) does not have: the consent box's checkbox, in the
+   theme's primary colour and the form checkbox size (speaking-assignment-form.css .assignment-setting input). */
+.consent-check input { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; accent-color: var(--color-primary); cursor: pointer; }
+.consent-check span { font-weight: 600; }

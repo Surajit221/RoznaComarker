@@ -111,15 +111,18 @@ export class StudentDashboardStateService {
 
   readonly stats$: Observable<StudentDashboardStats> = this.state$.pipe(
     map((s) => {
-      const submissions = s.submissions || [];
+      // Essay numbers only: a speaking recording (sourceKind 'audio') is not an essay (stage 7g).
+      const submissions = (s.submissions || []).filter((x) => x?.sourceKind !== 'audio');
       const essaysDone = submissions.filter((x) => {
         const status = (x as any)?.status;
         return status === 'submitted' || status === 'late';
       }).length;
 
-      const feedbackList: SubmissionFeedback[] = Object.values(s.feedbackBySubmissionId || {}).filter(
-        (fb): fb is SubmissionFeedback => !!fb
-      );
+      const essayIds = new Set(submissions.map((x) => x?._id).filter(Boolean));
+      const feedbackList: SubmissionFeedback[] = Object.entries(s.feedbackBySubmissionId || {})
+        .filter(([id]) => essayIds.has(id))
+        .map(([, fb]) => fb)
+        .filter((fb): fb is SubmissionFeedback => !!fb);
 
       const scoreValues = feedbackList
         .map((fb) => Number((fb as any)?.overallScore))
@@ -144,7 +147,8 @@ export class StudentDashboardStateService {
 
   readonly latestFeedback$: Observable<StudentDashboardLatestFeedback | null> = this.state$.pipe(
     map((s) => {
-      const submissions = s.submissions || [];
+      // The latest essay feedback: speaking recordings have none (stage 7g).
+      const submissions = (s.submissions || []).filter((x) => x?.sourceKind !== 'audio');
       const feedbackById = s.feedbackBySubmissionId || {};
 
       const candidates = submissions

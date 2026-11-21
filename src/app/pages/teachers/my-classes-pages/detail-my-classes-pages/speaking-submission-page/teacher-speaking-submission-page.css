@@ -1,0 +1,10 @@
+/* .section-load-error copied as is from my-submission-page.css (the essay result page). Same layout rules as the student speaking page. */
+.section-load-error { padding: .875rem 1rem; color: #991b1b; background: #fff5f5; border: 1px solid #fecaca; border-radius: .625rem; font-size: .875rem; }
+.speaking-page { min-width: 0; overflow-wrap: anywhere; }
+.speaking-status-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+@media (max-width: 430px) {
+  .speaking-status-actions { flex-direction: column; align-items: stretch; }
+  .speaking-status-actions button { width: 100%; min-height: 44px; }
+}
+/* As my-submission-page.css does for its inner area on narrow screens. */
+@media (max-width: 768px) { .speaking-results { padding: .75rem; } }

@@ -37,7 +37,9 @@ export class StudentDashboardDataService {
       this.safeGetMySubmissions()
     ]);
 
+    // Speaking recordings (sourceKind 'audio') have no essay feedback: the request would answer 404 (stage 7g).
     const submissionIdsNeedingFeedback = (submissions || [])
+      .filter((s) => s?.sourceKind !== 'audio')
       .map((s) => s?._id)
       .filter((id): id is string => typeof id === 'string' && id.length > 0)
       .filter((id) => {

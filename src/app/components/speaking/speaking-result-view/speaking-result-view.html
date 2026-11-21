@@ -1,0 +1,72 @@
+<div class="speaking-result">
+  <section class="gradient-card p-6" aria-labelledby="speaking-score-title">
+    @if (marksVisible) {
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <h3 id="speaking-score-title" class="font-semibold text-gray-700">Overall Score</h3>
+        @if (showScore) { <span class="text-blue-500 text-xl font-bold">{{ result.overallScore | number:'1.0-1' }}/{{ result.maxScore ?? 100 }}</span> }
+      </div>
+      @if (showScore && result.grade) { <p class="text-sm text-gray-600">Grade: {{ result.grade }}</p> }
+    } @else {
+      <h3 id="speaking-score-title" class="sr-only">Overall Score</h3>
+      <div class="marks-hidden-notice" role="status"><i class="bx bx-hide" aria-hidden="true"></i><div><strong>Marks hidden by teacher</strong><p>Your teacher has not released the marks for this assignment yet.</p></div></div>
+    }
+    @if (result.scoreNote) {
+      <p class="text-sm text-gray-700 mt-2" role="note" data-score-note><i class="bx bx-info-circle text-[#008081]" aria-hidden="true"></i> {{ result.scoreNote }}</p>
+    }
+    @if (audience === 'teacher' && offTopicCap) {
+      <p class="text-sm text-gray-600 mt-1" data-cap-info>Off topic: the score is capped at {{ offTopicCap.cap }}. Before the cap it was {{ offTopicCap.uncappedScore | number:'1.0-2' }}.</p>
+    }
+  </section>
+
+  <section class="gradient-card p-6" aria-labelledby="speaking-rubric-title">
+    <h3 id="speaking-rubric-title" class="font-semibold text-gray-700 mb-4">Rubric</h3>
+    <div class="flex flex-col gap-3">
+      @for (c of result.criteria; track c.criterionId) {
+        <div class="w-full flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-4 px-6 bg-[#F3F3F3] rounded-xl" data-criterion>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-row gap-2 items-center flex-wrap">
+              <p class="text-xl font-bold mb-1 break-words">{{ c.title }}</p>
+              @if (marksVisible && c.points !== undefined && c.points !== null) {
+                <div class="rounded-full bg-[#008081] flex items-center justify-center shrink-0 h-12 w-16">
+                  <p class="font-bold text-white text-xs">{{ c.points | number:'1.0-2' }}/{{ c.weightPercent | number:'1.0-2' }}</p>
+                </div>
+              }
+            </div>
+            <p class="text-sm font-semibold text-gray-700 mb-1">Level: {{ c.level }}</p>
+            <p class="break-words">{{ c.comment }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+
+  @if (fluency) {
+    <section class="gradient-card p-6" aria-labelledby="speaking-fluency-title">
+      <h3 id="speaking-fluency-title" class="font-semibold text-gray-700">Fluency</h3>
+      <dl class="assignment-stats" aria-label="Fluency figures">
+        <div class="assignment-stat"><i class="bx bx-tachometer" aria-hidden="true"></i><div><dt>Words per minute</dt><dd>{{ fluency.wordsPerMinute | number:'1.0-1' }}</dd></div></div>
+        <div class="assignment-stat"><i class="bx bx-message-rounded-dots" aria-hidden="true"></i><div><dt>Fillers per 100 words</dt><dd>{{ fluency.fillersPer100Words | number:'1.0-1' }}</dd></div></div>
+        <div class="assignment-stat"><i class="bx bx-pause-circle" aria-hidden="true"></i><div><dt>Pauses over 1 second</dt><dd>{{ fluency.pausesOverOneSecond }}</dd></div></div>
+        <div class="assignment-stat"><i class="bx bx-time-five" aria-hidden="true"></i><div><dt>Longest pause</dt><dd>{{ fluency.longestPauseSeconds | number:'1.0-1' }} s</dd></div></div>
+        <div class="assignment-stat"><i class="bx bx-revision" aria-hidden="true"></i><div><dt>Repetitions</dt><dd>{{ fluency.repetitions }}</dd></div></div>
+      </dl>
+      <p class="text-xs text-gray-500 mt-3">Worked out from the recording by software, not by AI.</p>
+    </section>
+  }
+
+  @if (result.summary) {
+    <section class="gradient-card p-6" aria-labelledby="speaking-summary-title">
+      <h3 id="speaking-summary-title" class="font-semibold text-gray-700 mb-2">Summary</h3>
+      <p class="break-words">{{ result.summary }}</p>
+    </section>
+  }
+
+  <app-canonical-detailed-feedback [model]="feedback" [marksVisible]="marksVisible" [teacher]="audience === 'teacher'"></app-canonical-detailed-feedback>
+
+  @if (result.teacherComments) {
+    <section class="gradient-card p-6" aria-labelledby="speaking-teacher-comments-title">
+      <h3 id="speaking-teacher-comments-title" class="font-semibold text-gray-700 mb-2">Teacher comments</h3>
+      <p class="break-words whitespace-pre-line">{{ result.teacherComments }}</p>
+    </section>
+  }
+</div>

@@ -10,6 +10,10 @@
     class="bg-white w-full rounded-t-2xl shadow-lg p-4 transform transition-transform duration-300"
     [class.translate-y-full]="!show"
     [class.translate-y-0]="show"
+    [ngClass]="{ 'motion-reduce:transition-none': !!labelledBy }"
+    [attr.role]="labelledBy ? 'dialog' : null"
+    [attr.aria-modal]="labelledBy ? 'true' : null"
+    [attr.aria-labelledby]="labelledBy"
     (click)="$event.stopPropagation()"
   >
     <div class="flex justify-center">

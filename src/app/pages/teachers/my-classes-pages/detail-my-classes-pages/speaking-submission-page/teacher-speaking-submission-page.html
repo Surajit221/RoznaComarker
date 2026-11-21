@@ -1,0 +1,54 @@
+@if (device.isDesktop()) {
+  <div class="mb-6 flex flex-row justify-between items-center gap-4">
+    <div class="min-w-0">
+      <h1 class="text-4xl font-bold text-gray-800 break-words">{{ title }}</h1>
+      @if (view) {
+        <p class="text-gray-500 mt-1">{{ recordingLabel }}@if (view.submittedAt) { · {{ view.submittedAt | date:'MMM d, y, h:mm a' }}}@if (view.isLate) { · Late}</p>
+      }
+    </div>
+    <button type="button" class="btn-danger shrink-0" (click)="back()">Back To Class</button>
+  </div>
+} @else {
+  <app-app-bar-back-button [title]="title" (back)="back()"></app-app-bar-back-button>
+}
+
+<div class="speaking-page w-full bg-white rounded-3xl flex flex-col gap-4 mb-10" [class.p-6]="device.isDesktop()" [class.p-3]="!device.isDesktop()">
+  @if (loading) {
+    <p class="text-sm text-gray-600" role="status">Loading the recording…</p>
+  } @else if (loadError) {
+    <div class="section-load-error" role="alert">{{ loadError }}</div>
+  } @else if (view) {
+    @if (!device.isDesktop()) {
+      <p class="text-sm text-gray-500">{{ recordingLabel }}@if (view.submittedAt) { · {{ view.submittedAt | date:'MMM d, y, h:mm a' }}}@if (view.isLate) { · Late}</p>
+    }
+    <section class="bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-3" aria-label="Recording status">
+      <app-analysis-progress [progress]="progress" [showCompleted]="true"></app-analysis-progress>
+      @if (statusView?.canRetryTranscription || statusView?.canRetryAssessment) {
+        <div class="speaking-status-actions">
+          @if (statusView?.canRetryTranscription) {
+            <button type="button" class="btn-primary-sm" (click)="retryTranscription()" [disabled]="!!busy" [attr.aria-busy]="busy === 'transcription'">Retry transcription</button>
+          }
+          @if (statusView?.canRetryAssessment) {
+            <button type="button" class="btn-primary-sm" (click)="retryMarking()" [disabled]="!!busy" [attr.aria-busy]="busy === 'marking'">Retry marking</button>
+          }
+        </div>
+      }
+      @if (actionError) { <p class="text-sm text-red-500 font-medium" role="alert">{{ actionError }}</p> }
+    </section>
+
+    <!-- The essay result page's layout: white cards on the grey inner area (my-submission-page.html). -->
+    <div class="speaking-results bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-4">
+    @if (view.recording) {
+      <app-speaking-audio-player [submissionId]="submissionId" [label]="recordingLabel" [durationSeconds]="view.recording.durationSeconds"
+        [available]="view.recording.audioAvailable" [downloadable]="true"></app-speaking-audio-player>
+    }
+    @if (result?.assessedText) {
+      <app-speaking-transcript [result]="result!"></app-speaking-transcript>
+    }
+    @if (result?.state === 'ready' && result?.result) {
+      <app-speaking-result-view [result]="result!.result!" [marksVisible]="true" [fluency]="result!.fluency" audience="teacher"
+        [offTopicCap]="result!.offTopicCap ?? null"></app-speaking-result-view>
+    }
+    </div>
+  }
+</div>
