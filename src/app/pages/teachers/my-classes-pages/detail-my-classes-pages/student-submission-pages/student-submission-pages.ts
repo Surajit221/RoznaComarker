@@ -3627,9 +3627,13 @@ export class StudentSubmissionPages {
     } catch (error: unknown) {
       if (active()) {
         const status = (error as { status?: number })?.status;
+        // Only the code is read from the backend body; the text shown is always fixed here (never provider or model details).
+        const code = (error as { error?: { code?: unknown } })?.error?.code;
         this.alert.showError('Unable to generate comment', status === 404 || status === 409
           ? 'AI feedback is not available for this submission yet.'
-          : 'Unable to generate a comment right now. Please try again.');
+          : status === 503 && code === 'TEACHER_COMMENT_DRAFT_NOT_POSSIBLE'
+            ? 'A comment could not be drafted for this submission. Please write the comment yourself.'
+            : 'Unable to generate a comment right now. Please try again.');
       }
     } finally {
       this.isTeacherCommentGenerating = false;

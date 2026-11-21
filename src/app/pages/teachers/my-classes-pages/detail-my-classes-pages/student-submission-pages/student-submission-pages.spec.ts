@@ -644,6 +644,49 @@ describe('StudentSubmissionPages', () => {
       expect(component.feedbackForm.value.message).toBe('Keep this.');
       expect(alert).toHaveBeenCalled(); expect(component.isTeacherCommentGenerating).toBeFalse();
     });
+    describe('draft failure messages', () => {
+      const notPossible = 'A comment could not be drafted for this submission. Please write the comment yourself.';
+      const tryAgain = 'Unable to generate a comment right now. Please try again.';
+      const notAvailable = 'AI feedback is not available for this submission yet.';
+      const fail = async (status: number, error: unknown) => {
+        component.feedbackForm.patchValue({ message: 'Keep this.' });
+        spyOn(TestBed.inject(FeedbackApiService), 'generateTeacherCommentDraft')
+          .and.rejectWith(new HttpErrorResponse({ status, error }));
+        const alert = spyOn(TestBed.inject(AlertService), 'showError');
+        await component.generateTeacherCommentDraft();
+        expect(component.feedbackForm.value.message).toBe('Keep this.');
+        expect(component.isTeacherCommentGenerating).toBeFalse();
+        expect(alert).toHaveBeenCalledTimes(1);
+        return alert.calls.mostRecent().args;
+      };
+      it('shows the backend text when the draft is not possible', async () => {
+        expect(await fail(503, { success: false, code: 'TEACHER_COMMENT_DRAFT_NOT_POSSIBLE', message: notPossible }))
+          .toEqual(['Unable to generate comment', notPossible]);
+      });
+      it('keeps the try-again text for every other 503, whatever the backend message says', async () => {
+        expect(await fail(503, { success: false, code: 'TEACHER_COMMENT_DRAFT_TRY_AGAIN', message: 'Something else from the server.' }))
+          .toEqual(['Unable to generate comment', tryAgain]);
+      });
+      it('keeps the try-again text for a 503 without a body', async () => {
+        expect(await fail(503, null)).toEqual(['Unable to generate comment', tryAgain]);
+      });
+      it('never shows a provider or model name, even with the not-possible code', async () => {
+        const [, shown] = await fail(503, { code: 'TEACHER_COMMENT_DRAFT_NOT_POSSIBLE', message: 'OpenRouter anthropic/claude-haiku-5.5 returned length.' });
+        expect(shown).toBe(notPossible);
+      });
+      it('keeps the try-again text for 429', async () => {
+        expect(await fail(429, { success: false, message: 'Too many requests' })).toEqual(['Unable to generate comment', tryAgain]);
+      });
+      it('keeps the try-again text for 403', async () => {
+        expect(await fail(403, { success: false, message: 'No permission' })).toEqual(['Unable to generate comment', tryAgain]);
+      });
+      it('keeps the not-available text for 404', async () => {
+        expect(await fail(404, { message: 'Submission not found' })).toEqual(['Unable to generate comment', notAvailable]);
+      });
+      it('keeps the not-available text for 409, even with the not-possible code', async () => {
+        expect(await fail(409, { code: 'TEACHER_COMMENT_DRAFT_NOT_POSSIBLE', message: notPossible })).toEqual(['Unable to generate comment', notAvailable]);
+      });
+    });
     it('requires confirmation when existing text is deleted during generation', async () => {
       component.feedbackForm.patchValue({ message: 'Original draft.' });
       let resolve!: (value: { comment: string }) => void;
