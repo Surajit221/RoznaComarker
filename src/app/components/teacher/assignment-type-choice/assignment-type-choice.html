@@ -1,0 +1,12 @@
+<div class="lt-choice-grid" role="group" aria-label="Assignment type">
+  <button type="button" class="lt-choice-card" data-choice="writing" (click)="chosen.emit('writing')">
+    <span class="lt-choice-icon"><i class="bx bx-edit" aria-hidden="true"></i></span>
+    <span class="lt-choice-title">Writing assignment</span>
+    <span class="lt-choice-desc">Students upload their writing, marked with your rubric</span>
+  </button>
+  <button type="button" class="lt-choice-card" data-choice="speaking" (click)="chosen.emit('speaking')">
+    <span class="lt-choice-icon"><i class="bx bx-microphone" aria-hidden="true"></i></span>
+    <span class="lt-choice-title">Speaking assignment</span>
+    <span class="lt-choice-desc">Students upload a recording, turned into text and marked with your rubric</span>
+  </button>
+</div>

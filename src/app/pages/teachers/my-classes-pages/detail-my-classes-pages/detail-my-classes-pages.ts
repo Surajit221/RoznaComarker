@@ -38,6 +38,11 @@ import { RubricLibrarySelector } from '../../../../components/teacher/rubric-lib
 import { RubricLibraryStateService } from '../../../../services/rubric-library-state.service';
 import { designerToRubricData, rubricDataToDesigner } from '../../../../utils/rubric-library.util';
 import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-student-work/upload-student-work-dialog';
+import { AssignmentTypeChoice } from '../../../../components/teacher/assignment-type-choice/assignment-type-choice';
+import { SpeakingAssignmentForm } from '../../../../components/teacher/speaking-assignment-form/speaking-assignment-form';
+import { SpeakingRubricEditor } from '../../../../components/teacher/speaking-rubric-editor/speaking-rubric-editor';
+import { SpeakingAssignmentsFacade } from '../../../../services/speaking-assignments.facade';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-detail-my-classes-pages',
@@ -46,6 +51,9 @@ import { UploadStudentWorkDialog } from '../../../../components/teacher/upload-s
     FormsModule,
     ModalDialog,
     AssignmentForm,
+    AssignmentTypeChoice,
+    SpeakingAssignmentForm,
+    SpeakingRubricEditor,
     DialogQrClasses,
     DialogViewSubmissions,
     InviteStudentsDialog,
@@ -183,7 +191,16 @@ export class DetailMyClassesPages {
   get assignmentRecords(): BackendAssignment[] { return Object.values(this.assignmentsById); }
 
   get assignmentDialogTitle(): string {
-    return this.selectedAssignmentForEdit ? getAssignmentCapabilities(this.selectedAssignmentForEdit).editTitle : 'Create Writing Assignment';
+    return this.speaking.dialogTitle(this.selectedAssignmentForEdit ? getAssignmentCapabilities(this.selectedAssignmentForEdit).editTitle : 'Create Writing Assignment');
+  }
+
+  /** Speaking assignments (audio + speech-to-text): everything lives in the facade; the page only branches on it. */
+  readonly speaking = inject(SpeakingAssignmentsFacade);
+  private readonly speakingRubricChanges = this.speaking.assignmentChanged.pipe(takeUntilDestroyed())
+    .subscribe((updated) => { this.assignmentsById = { ...this.assignmentsById, [updated._id]: updated }; });
+  onSpeakingRubric(assignmentId: string): void {
+    const found = this.assignmentsById[assignmentId];
+    if (found) void this.speaking.openRubric(found);
   }
 
   assignments: Array<{
@@ -202,6 +219,7 @@ export class DetailMyClassesPages {
   private studentSubmissionStatsById: Record<string, { assignmentIds: Set<string>; lastActivityMs: number }> = {};
 
   async ngOnInit() {
+    void this.speaking.load();
     this.destroyed = false;
     this.classId = this.route.snapshot.paramMap.get('slug');
     const RESERVED = ['student-profile', 'student-submissions'];
@@ -1045,6 +1063,7 @@ export class DetailMyClassesPages {
 
   onAddAssignment() {
     this.selectedAssignmentForEdit = null;
+    this.speaking.startCreate();
     this.showDialog = true;
   }
 
@@ -1052,6 +1071,7 @@ export class DetailMyClassesPages {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
     this.selectedAssignmentForEdit = found;
+    this.speaking.startEdit(found);
     this.showDialog = true;
   }
 
@@ -1059,6 +1079,7 @@ export class DetailMyClassesPages {
     const found = this.assignmentsById[assignmentId];
     if (!found) return;
     this.selectedAssignmentForEdit = found;
+    this.speaking.startEdit(found);
     this.openSheetAssignment = true;
   }
 
@@ -1125,6 +1146,7 @@ export class DetailMyClassesPages {
   closeDialog() {
     this.showDialog = false;
     this.selectedAssignmentForEdit = null;
+    this.speaking.reset();
   }
 
   closeDialogSubmission() {
@@ -1176,10 +1198,12 @@ export class DetailMyClassesPages {
     document.body.classList.remove('overflow-hidden');
     this.openSheetAssignment = false;
     this.selectedAssignmentForEdit = null;
+    this.speaking.reset();
   }
 
   onOpenCreateNewAssignment() {
     document.body.classList.add('overflow-hidden');
+    this.speaking.startCreate();
     this.openSheetAssignment = true;
   }
 

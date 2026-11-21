@@ -1,0 +1,17 @@
+/* Copied exactly from pages/teachers/my-classes-pages/detail-my-classes-pages/assignment-form/assignment-form.css (the rules this form
+   uses), so the speaking form looks the same as the writing form. */
+.assignment-settings { border: 1px solid #dbe5e7; border-radius: 1rem; padding: 1rem; display: grid; gap: .75rem; }
+.assignment-settings legend { padding: 0 .35rem; color: #374151; font-size: .875rem; font-weight: 700; }
+.assignment-setting { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem .9rem; border-radius: .75rem; background: #f7faf9; cursor: pointer; }
+.assignment-setting span { min-width: 0; display: grid; gap: .15rem; }
+.assignment-setting strong { color: #1f2937; font-size: .875rem; }
+.assignment-setting small { color: #6b7280; font-size: .75rem; line-height: 1.4; }
+.assignment-setting input { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; accent-color: #008081; }
+.rubric-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.rubric-action { min-height: 2.65rem; border: 1px solid #008081; color: #006d6e; background: white; border-radius: .7rem; padding: .55rem .85rem; font-weight: 650; }
+
+@media (max-width: 480px) {
+  .assignment-settings { padding: .8rem; }
+  .assignment-setting { align-items: flex-start; }
+  .rubric-actions { flex-direction: column; }.rubric-action { width: 100%; }
+}
