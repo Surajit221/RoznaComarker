@@ -194,7 +194,7 @@ export class DetailMyClassesPages {
     total: number;
     guestSubmitted?: number;
     status: 'pending' | 'in-progress' | 'completed';
-    resourceType?: 'essay' | 'flashcard' | 'worksheet';
+    resourceType?: 'essay' | 'flashcard' | 'worksheet' | 'speaking';
     resourceId?: string;
     instructions?: string;
   }> = [];

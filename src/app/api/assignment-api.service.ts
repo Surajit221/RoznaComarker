@@ -33,8 +33,10 @@ export type BackendAssignment = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  /** Present when the assignment links to a flashcard set or worksheet (Issue 3) */
-  resourceType?: 'essay' | 'flashcard' | 'worksheet';
+  /** Present when the assignment links to a flashcard set or worksheet (Issue 3); 'speaking' for a speaking assignment (audio + speech-to-text). */
+  resourceType?: 'essay' | 'flashcard' | 'worksheet' | 'speaking';
+  /** Speaking assignments only: the longest recording accepted (seconds; null = the policy limit) and the saved rubric it is marked with. */
+  speaking?: { maxRecordingSeconds: number | null; rubricRef: string | null };
   /** The _id of the linked FlashcardSet or Worksheet document */
   resourceId?: string;
   /** Pre-computed submission count from getClassAssignments — correct for all resource types */
