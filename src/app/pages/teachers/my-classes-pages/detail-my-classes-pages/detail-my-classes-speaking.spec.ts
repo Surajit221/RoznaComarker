@@ -74,6 +74,38 @@ describe('DetailMyClassesPages speaking branches', () => {
     });
   }
 
+  // The "Writing" pill: the Speaking pill's markup in brand teal, on essay (writing) cards only; the visible label is the only text.
+  for (const desktop of [true, false]) {
+    it(`an essay card shows a teal "Writing" pill where a speaking card shows "Speaking"; worksheets and flashcards get neither (desktop=${desktop})`, () => {
+      spyOn(component.device, 'isDesktop').and.returnValue(desktop);
+      spyOn(component.device, 'isMobile').and.returnValue(!desktop);
+      component.assignments = [item('e1', 'essay'), item('l1'), item('s1', 'speaking'),
+        { ...item('w1'), resourceType: 'worksheet' as never }, { ...item('f1'), resourceType: 'flashcard' as never }];
+      fixture.detectChanges();
+      const [essay, legacy, speaking, worksheet, flashcard] = cards();
+      for (const card of [essay, legacy]) {
+        const pill = card.querySelector('[data-writing-pill]') as HTMLElement;
+        expect(pill.textContent).toBe('Writing');
+        expect(pill.className).toContain('bg-[#008081]');
+        expect(pill.className).toContain('text-white');
+        expect(pill.getAttribute('aria-label')).toBeNull();
+        expect(pill.children.length).toBe(0);
+        expect(card.querySelector('[data-speaking-pill]')).toBeNull();
+      }
+      const writingPill = essay.querySelector('[data-writing-pill]') as HTMLElement;
+      const speakingPill = speaking.querySelector('[data-speaking-pill]') as HTMLElement;
+      // The same component and layout: the same classes apart from the colour, right after the title.
+      const shape = (el: HTMLElement) => el.className.split(/\s+/).filter(c => c && !c.startsWith('bg-')).sort();
+      expect(shape(writingPill)).toEqual(shape(speakingPill));
+      expect(writingPill.previousElementSibling?.textContent?.trim()).toBe('Assignment e1');
+      expect(speaking.querySelector('[data-writing-pill]')).toBeNull();
+      for (const card of [worksheet, flashcard]) {
+        expect(card.querySelector('[data-writing-pill]')).toBeNull();
+        expect(card.querySelector('[data-speaking-pill]')).toBeNull();
+      }
+    });
+  }
+
   it('feature on: "Create Assignment" opens the choice; Writing shows the existing form, Speaking the speaking form', () => {
     spyOn(component.device, 'isDesktop').and.returnValue(true);
     enabled.set(true);

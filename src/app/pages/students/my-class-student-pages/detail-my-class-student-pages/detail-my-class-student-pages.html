@@ -62,6 +62,9 @@
                     @if (item.resourceType === 'speaking') {
                       <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
                     }
+                    @if (!item.resourceType || item.resourceType === 'essay') {
+                      <span data-writing-pill class="px-2 py-0.5 rounded-full bg-[#008081] text-white text-xs font-semibold">Writing</span>
+                    }
                   </div>
                   @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
                     <div class="mb-2">
@@ -292,6 +295,9 @@
               }
               @if (item.resourceType === 'speaking') {
                 <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
+              }
+              @if (!item.resourceType || item.resourceType === 'essay') {
+                <span data-writing-pill class="px-2 py-0.5 rounded-full bg-[#008081] text-white text-xs font-semibold">Writing</span>
               }
             </div>
             @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {

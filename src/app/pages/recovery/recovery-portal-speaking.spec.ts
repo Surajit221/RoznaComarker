@@ -40,14 +40,16 @@ describe('RecoveryPortalPage: speaking rows (stage 10b)', () => {
     const { root, navigate } = await listed([SPEAKING, ESSAY]);
     const [speakingRow] = Array.from(root.querySelectorAll<HTMLButtonElement>('button.portal-item'));
     expect(speakingRow.querySelector('[data-kind-speaking]')?.textContent?.trim()).toBe('Speaking');
+    expect(speakingRow.querySelector('[data-kind-writing]')).toBeNull();
     speakingRow.click();
     expect(navigate).toHaveBeenCalledWith(['/guest/speaking', 'c'.repeat(24)]);
   });
 
-  it('an essay row is unchanged: no kind label, it opens the essay result page', async () => {
+  it('an essay row says "Writing" where a speaking row says "Speaking"; it opens the essay result page', async () => {
     const { root, navigate } = await listed([ESSAY]);
     const row = root.querySelector<HTMLButtonElement>('button.portal-item')!;
     expect(row.querySelector('[data-kind-speaking]')).toBeNull();
+    expect(row.querySelector('[data-kind-writing]')?.textContent).toBe('Writing');
     expect(row.textContent).toContain('Feedback ready');
     row.click();
     expect(navigate).toHaveBeenCalledWith(['/guest/results', 'a'.repeat(24)]);
@@ -58,8 +60,16 @@ describe('RecoveryPortalPage: speaking rows (stage 10b)', () => {
     const link = root.querySelector<HTMLAnchorElement>('a[data-sign-in]')!;
     expect(link.textContent).toContain('Sign in to view');
     expect(link.querySelector('[data-kind-speaking]')?.textContent?.trim()).toBe('Speaking');
+    expect(link.querySelector('[data-kind-writing]')).toBeNull();
     expect(link.getAttribute('href')).toBe('/login');
     expect(root.querySelector('button.portal-item')).toBeNull();
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('an essay on the student account says "Writing" on its "Sign in to view" link', async () => {
+    const { root } = await listed([{ ...ESSAY, id: 'account-2', access: 'signIn' }]);
+    const link = root.querySelector<HTMLAnchorElement>('a[data-sign-in]')!;
+    expect(link.querySelector('[data-kind-writing]')?.textContent).toBe('Writing');
+    expect(link.querySelector('[data-kind-speaking]')).toBeNull();
   });
 });

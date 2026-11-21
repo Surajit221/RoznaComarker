@@ -73,9 +73,46 @@ describe('DetailMyClassStudentPages: speaking assignments (stage 7d)', () => {
     expect(component.assignments[0].status).toBe('completed');
   });
 
-  it('an essay card is unchanged: Upload Essay, no Speaking pill', () => {
+  it('an essay card is unchanged apart from its "Writing" pill: Upload Essay, no Speaking pill', () => {
     const root = render([card({ resourceType: 'essay' })]);
     expect(labels(root)).toContain('Upload Essay');
     expect(root.querySelector('[data-speaking-pill]')).toBeNull();
+    expect(root.querySelector('[data-writing-pill]')?.textContent).toBe('Writing');
+  });
+
+  it('the teal "Writing" pill sits where the "Speaking" pill does, with the same markup apart from the colour; worksheets and flashcards get neither', () => {
+    expectWritingPills(render([card({ id: 'e1', title: 'Essay one', resourceType: 'essay' }), card({ id: 'l1', title: 'Legacy essay', resourceType: undefined }),
+      card({ id: 's1', title: 'Talk one' }), card({ id: 'w1', title: 'Sheet', resourceType: 'worksheet' as never }), card({ id: 'f1', title: 'Cards', resourceType: 'flashcard' as never })]));
+  });
+});
+
+/** Two writing pills (the essay and the legacy card, after their titles), one speaking pill, and the same classes apart from the colour. */
+function expectWritingPills(root: HTMLElement): void {
+  const writing = [...root.querySelectorAll<HTMLElement>('[data-writing-pill]')];
+  const speaking = [...root.querySelectorAll<HTMLElement>('[data-speaking-pill]')];
+  expect(writing.length).toBe(2);
+  expect(speaking.length).toBe(1);
+  expect(writing.map(p => p.previousElementSibling?.textContent?.trim())).toEqual(['Essay one', 'Legacy essay']);
+  const shape = (el: HTMLElement) => el.className.split(/\s+/).filter(c => c && !c.startsWith('bg-')).sort();
+  for (const pill of writing) {
+    expect(pill.textContent).toBe('Writing');
+    expect(pill.className).toContain('bg-[#008081]');
+    expect(pill.className).toContain('text-white');
+    expect(pill.getAttribute('aria-label')).toBeNull();
+    expect(pill.children.length).toBe(0);
+    expect(shape(pill)).toEqual(shape(speaking[0]));
+  }
+}
+
+describe('DetailMyClassStudentPages: the Writing pill on the mobile layout', () => {
+  it('the same pills on the mobile cards', async () => {
+    await TestBed.configureTestingModule({ imports: [DetailMyClassStudentPages],
+      providers: [...routedHttpTestProviders({ classId: 'class-1' }), { provide: AuthService, useValue: { getBackendJwt: () => null } },
+        { provide: DeviceService, useValue: { isDesktop: () => false, isMobile: () => true, isTablet: () => false } }] }).compileComponents();
+    const fixture = TestBed.createComponent(DetailMyClassStudentPages);
+    fixture.componentInstance.assignments = [card({ id: 'e1', title: 'Essay one', resourceType: 'essay' }), card({ id: 'l1', title: 'Legacy essay', resourceType: undefined }),
+      card({ id: 's1', title: 'Talk one' }), card({ id: 'w1', title: 'Sheet', resourceType: 'worksheet' as never }), card({ id: 'f1', title: 'Cards', resourceType: 'flashcard' as never })];
+    fixture.detectChanges();
+    expectWritingPills(fixture.nativeElement as HTMLElement);
   });
 });

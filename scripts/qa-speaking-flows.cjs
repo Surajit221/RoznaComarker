@@ -95,6 +95,10 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
   A.hidden = await speakingAssignment('Describe your street (marks hidden)', { showMarksToStudent: false });
   const hidden = await h.readyRecording(forAssignment(A.hidden), TEXTS.STRONG, { seconds: 80 });
   report.notes.push(`hidden marks: ${(await assess(hidden, h.output({ level: 'Excellent' }))).status}`);
+  // Long titles: the card's buttons and the Speaking / Writing pills must not clip, wrap or leave the card (fix/upload-work-and-writing-pill).
+  A.longSpeaking = await speakingAssignment('A very long speaking assignment title about the town where you live, its river, its old bridges and its busy market');
+  A.longEssay = await Assignment.create({ title: 'A very long writing assignment title about the town where you live, its river, its old bridges and its busy market',
+    writingType: 'essay', class: f.klass._id, teacher: f.teacher.user._id, deadline: week(), qrToken: rid(), instructions: 'Write about your town.' });
   A.offTopic = await speakingAssignment('Describe your town (off topic)');
   const offTopic = await h.readyRecording(forAssignment(A.offTopic), TEXTS.OFF_TOPIC, { seconds: 40 });
   report.notes.push(`off topic: ${(await assess(offTopic, h.output({ relevance: 'off_topic', level: 'Good', levels: { 'speaking-task': 'Beginning' } }))).status}`);
@@ -387,6 +391,23 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
         await page.screenshot({ path: path.join(out, file), fullPage: !screen.dialog });
         entry.screenshot = file;
         entry.overflow = await overflow(page);
+        // Card labels: a clipped button text, a pill whose text wraps, or a pill outside its card is a failure.
+        entry.cardLabels = await page.evaluate(() => {
+          const problems = [];
+          const visible = el => el.offsetParent !== null && el.getBoundingClientRect().width > 0;
+          for (const el of document.querySelectorAll('.assignment-utility, .teacher-assignment-primary, .teacher-assignment-report')) {
+            if (!visible(el)) continue;
+            if (el.scrollWidth > el.clientWidth + 1) problems.push(`clipped button: ${el.textContent.trim().replace(/\s+/g, ' ')}`);
+          }
+          for (const pill of document.querySelectorAll('[data-writing-pill], [data-speaking-pill]')) {
+            if (!visible(pill)) continue;
+            const r = pill.getBoundingClientRect(), lh = parseFloat(getComputedStyle(pill).lineHeight) || 16;
+            if (r.height > lh * 1.6 + 8) problems.push(`wrapped pill: ${pill.textContent.trim()}`);
+            const card = pill.closest('.teacher-assignment-card, .gradient-card, [class*=card]');
+            if (card) { const c = card.getBoundingClientRect(); if (r.right > c.right + 1 || r.left < c.left - 1) problems.push(`pill outside its card: ${pill.textContent.trim()}`); }
+          }
+          return { pills: document.querySelectorAll('[data-writing-pill], [data-speaking-pill]').length, problems };
+        });
         const text = await textOf(page);
         entry.statusText = await page.evaluate(() => [...document.querySelectorAll('app-analysis-progress .stage')].map(e => e.textContent.trim().replace(/\s+/g, ' ')).join(' | '));
         entry.heading = await page.evaluate(() => (document.querySelector('h1, .upload-modal-header h2')?.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80));
@@ -406,7 +427,7 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
             guestInput: pick('#guest-name'), guestNote: pick('.privacy-note'), guestRecovery: pick('details.recovery'), guestFooter: pick('.page-footer') };
         });
         entry.ok = Boolean(entry.ready && (screen.act ? entry.acted : true) && !entry.overflow.overflowing && !entry.consoleErrors.length && !entry.failedCalls.length
-          && entry.textCheck !== false);
+          && entry.textCheck !== false && !entry.cardLabels.problems.length);
       } catch (error) {
         entry.error = String(error?.message || error).slice(0, 300);
       } finally {
@@ -414,7 +435,7 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
       }
       report.screens.push(entry);
       if (!entry.ok) report.failures.push(label);
-      console.log(`${entry.ok ? 'PASS' : 'FAIL'}  ${label}${entry.ok ? '' : ` :: ${JSON.stringify({ ready: entry.ready, acted: entry.acted, overflow: entry.overflow?.offenders, console: entry.consoleErrors, calls: entry.failedCalls, text: entry.textCheck, error: entry.error })}`}`);
+      console.log(`${entry.ok ? 'PASS' : 'FAIL'}  ${label}${entry.ok ? '' : ` :: ${JSON.stringify({ ready: entry.ready, acted: entry.acted, overflow: entry.overflow?.offenders, cardLabels: entry.cardLabels?.problems, console: entry.consoleErrors, calls: entry.failedCalls, text: entry.textCheck, error: entry.error })}`}`);
     }
   }
 
