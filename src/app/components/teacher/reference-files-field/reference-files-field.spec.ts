@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@an
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
 import { ReferenceFilesField } from './reference-files-field';
-import { ReferenceFilesApiService, type ReferenceFileView, type ReferenceUploadEvent } from '../../../api/reference-files-api.service';
+import { ReferenceFilesApiService, type ReferenceFileView, type ReferenceRubricDraft, type ReferenceUploadEvent } from '../../../api/reference-files-api.service';
 import { AlertService } from '../../../services/alert.service';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { RubricDesignerModal } from '../rubric-designer-modal/rubric-designer-modal';
@@ -267,7 +267,7 @@ describe('ReferenceFilesField', () => {
       const applied = jasmine.createSpy('applied');
       component.rubricApplied.subscribe(applied);
       await settle(); fixture.detectChanges();
-      expect(api.draftRubric).toHaveBeenCalledOnceWith('f1');
+      expect(api.draftRubric).toHaveBeenCalledOnceWith('f1', jasmine.any(AbortSignal));
       expect(modal().open).toBeTrue();
       expect(modal().showTools).toBeFalse();
       expect(el().ownerDocument.body.textContent).not.toContain('Generate with AI');
@@ -316,7 +316,7 @@ describe('ReferenceFilesField', () => {
       await readNow({ markedAsRubric: true });
       await settle();
       expect(alert.showConfirm).not.toHaveBeenCalled();
-      expect(api.draftRubric).toHaveBeenCalledOnceWith('f1');
+      expect(api.draftRubric).toHaveBeenCalledOnceWith('f1', jasmine.any(AbortSignal));
     });
 
     it('an existing rubric is replaced only after confirming; Cancel keeps the editor open and applies nothing', async () => {
@@ -377,5 +377,185 @@ describe('ReferenceFilesField', () => {
       await component.reload();
       await expectAsync(component.waitUntilRead(60000)).toBeResolved();
     });
+
+    it('"Reading your files…" uses the same wording, spinner and button style as the rubric wait', async () => {
+      api.list.and.resolveTo({ files: [view({ status: 'processing' })], classFiles: [], limits: { maxFiles: 5, maxFileBytes: 1 } });
+      await create('assignment', 'a1');
+      void component.waitUntilRead(60000);
+      fixture.detectChanges();
+      const box = el().querySelector('[data-waiting]')!;
+      expect(box.textContent?.replace(/\s+/g, ' ')).toContain('Reading your files… this usually takes a few seconds');
+      expect(box.querySelector('.reference-files__spinner')?.getAttribute('aria-hidden')).toBe('true');
+      const button = box.querySelector('button')!;
+      expect(button.textContent?.trim()).toBe('Continue without waiting');
+      expect(button.classList).toContain('reference-files__button');
+      component.stopWaiting();
+    });
+  });
+
+  // The rubric step of a save (assignment form): a slow AI draft can be skipped, gives up after 150 s, and an answer after that is ignored.
+  describe('waiting for the rubric draft during a save', () => {
+    const MESSAGE = 'Turning your file into a rubric draft… this can take a minute or two';
+    const TIMEOUT_MESSAGE = "We couldn't prepare the rubric draft in time. You can try again from Edit.";
+    const listOf = (...files: ReferenceFileView[]) => ({ files, classFiles: [], limits: { maxFiles: 5, maxFileBytes: 1 } });
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>(done => { resolve = done; });
+      return { promise, resolve };
+    }
+    const ANSWER: ReferenceRubricDraft = { rubricDesigner: DESIGNER, notes: [], hasExistingRubric: false };
+    const waitBox = () => el().querySelector('[data-rubric-wait]');
+    const skip = () => el().querySelector('[data-rubric-skip]') as HTMLButtonElement | null;
+    const signalOf = () => api.draftRubric.calls.mostRecent().args[1] as AbortSignal | undefined;
+
+    /** fakeAsync: an assignment file ticked as a rubric has just been read; the background refresh starts drafting it (the answer waits). */
+    function fileReadNow(patch: Partial<ReferenceFileView> = { markedAsRubric: true }) {
+      api.config.and.resolveTo(ON);
+      api.list.and.resolveTo(listOf(view({ status: 'processing', ...patch })));
+      fixture = TestBed.createComponent(ReferenceFilesField); component = fixture.componentInstance;
+      fixture.componentRef.setInput('scope', 'assignment'); fixture.componentRef.setInput('targetId', 'a1');
+      fixture.detectChanges(); flushMicrotasks();
+      const answer = deferred<ReferenceRubricDraft>();
+      api.draftRubric.and.returnValue(answer.promise);
+      api.list.and.resolveTo(listOf(view({ status: 'ready', ...patch })));
+      void component.reload(); flushMicrotasks(); fixture.detectChanges();
+      return answer;
+    }
+    function saveStep() {
+      const result: { outcome?: unknown } = {};
+      void component.runRubricStep().then((outcome: unknown) => { result.outcome = outcome; });
+      flushMicrotasks(); fixture.detectChanges();
+      return result;
+    }
+
+    it('a slow draft shows the message (polite live region), a spinner and Skip, and moves focus to Skip', fakeAsync(() => {
+      fileReadNow();
+      const step = saveStep();
+      expect(waitBox()).toBeNull();                                           // nothing in the first second
+      tick(1000); fixture.detectChanges(); flushMicrotasks();
+      const box = waitBox()!;
+      expect(box).not.toBeNull();
+      expect(box.textContent?.replace(/\s+/g, ' ')).toContain(MESSAGE);
+      expect(box.getAttribute('aria-live')).toBe('polite');
+      expect(box.querySelector('.reference-files__spinner')?.getAttribute('aria-hidden')).toBe('true');
+      expect(skip()?.textContent?.trim()).toBe("Skip, I'll do it later");
+      expect(skip()?.classList).toContain('reference-files__button');
+      expect(document.activeElement).toBe(skip());
+      expect(component.rubricWait()).toBeTrue();
+      expect(step.outcome).toBeUndefined();
+      fixture.destroy();
+    }));
+
+    it('a draft that finishes within a second never shows the message, and the review opens as before', fakeAsync(() => {
+      const answer = fileReadNow();
+      const step = saveStep();
+      tick(900); fixture.detectChanges();
+      expect(waitBox()).toBeNull();
+      answer.resolve(ANSWER); flushMicrotasks(); fixture.detectChanges();
+      tick(5000); fixture.detectChanges();
+      expect(waitBox()).toBeNull();
+      expect(component.review()).not.toBeNull();
+      component.closeReview(); flushMicrotasks();
+      expect(step.outcome).toBe('done');
+      fixture.destroy();
+    }));
+
+    it('Skip ends the step as skipped, cancels the request, opens nothing, and keeps "Use as rubric" for later', fakeAsync(() => {
+      fileReadNow();
+      const step = saveStep();
+      tick(1000); fixture.detectChanges(); flushMicrotasks();
+      skip()!.click(); flushMicrotasks(); fixture.detectChanges(); flushMicrotasks();
+      expect(step.outcome).toBe('skipped');
+      expect(signalOf()?.aborted).toBeTrue();
+      expect(waitBox()).toBeNull();
+      expect(component.review()).toBeNull();
+      expect(component.drafting()).toBeNull();
+      expect(alert.showError).not.toHaveBeenCalled();
+      const use = el().querySelector('[data-use-rubric]') as HTMLButtonElement;
+      expect(use.disabled).toBeFalse();
+      expect(localStorage.getItem('rubrilo.referenceRubricDismissed') ?? '[]').not.toContain('f1');
+      fixture.destroy();
+    }));
+
+    it('an answer that arrives after Skip is ignored (no review, no stale state)', fakeAsync(() => {
+      const answer = fileReadNow();
+      const step = saveStep();
+      tick(1000); fixture.detectChanges(); flushMicrotasks();
+      skip()!.click(); flushMicrotasks();
+      answer.resolve(ANSWER); flushMicrotasks(); fixture.detectChanges(); tick(1000);
+      expect(step.outcome).toBe('skipped');
+      expect(component.review()).toBeNull();
+      expect(component.drafting()).toBeNull();
+      expect(component.rubricWait()).toBeFalse();
+      fixture.destroy();
+    }));
+
+    it('after 150 s the step ends as timed out: request cancelled, no error popup, and a late answer is ignored', fakeAsync(() => {
+      const answer = fileReadNow();
+      const step = saveStep();
+      tick(149_000); fixture.detectChanges(); flushMicrotasks();
+      expect(step.outcome).toBeUndefined();
+      expect(waitBox()).not.toBeNull();
+      tick(1000); flushMicrotasks(); fixture.detectChanges(); flushMicrotasks();
+      expect(step.outcome).toBe('timeout');
+      expect(signalOf()?.aborted).toBeTrue();
+      expect(waitBox()).toBeNull();
+      expect(alert.showError).not.toHaveBeenCalled();
+      expect(alert.showWarning).not.toHaveBeenCalled();                     // the form reports it, once
+      answer.resolve(ANSWER); flushMicrotasks(); fixture.detectChanges();
+      expect(component.review()).toBeNull();
+      fixture.destroy();
+    }));
+
+    it('outside a save ("Use as rubric" in Edit) there is no wait box, and the time limit is reported here', fakeAsync(() => {
+      api.config.and.resolveTo(ON);
+      api.list.and.resolveTo(listOf(view()));
+      fixture = TestBed.createComponent(ReferenceFilesField); component = fixture.componentInstance;
+      fixture.componentRef.setInput('scope', 'assignment'); fixture.componentRef.setInput('targetId', 'a1');
+      fixture.detectChanges(); flushMicrotasks(); fixture.detectChanges();
+      api.draftRubric.and.returnValue(deferred<ReferenceRubricDraft>().promise);
+      let ended = false;
+      void component.startReview(component.files()[0]).then(() => { ended = true; });
+      tick(5000); fixture.detectChanges();
+      expect(waitBox()).toBeNull();
+      expect(el().querySelector('[data-use-rubric]')?.textContent?.trim()).toBe('Preparing…');
+      tick(145_000); flushMicrotasks();
+      expect(ended).toBeTrue();
+      expect(alert.showWarning).toHaveBeenCalledOnceWith('Rubric draft not ready', TIMEOUT_MESSAGE);
+      expect(component.drafting()).toBeNull();
+      fixture.destroy();
+    }));
+
+    it('when the wait ends, focus goes to the file\'s "Use as rubric" button instead of being lost', fakeAsync(() => {
+      fileReadNow();
+      saveStep();
+      tick(1000); fixture.detectChanges(); flushMicrotasks();
+      expect(document.activeElement).toBe(skip());
+      tick(149_000); flushMicrotasks(); fixture.detectChanges(); flushMicrotasks(); fixture.detectChanges();
+      expect(document.activeElement).toBe(el().querySelector('[data-file="f1"] [data-use-rubric]'));
+      fixture.destroy();
+    }));
+
+    it('closing the form mid-draft cancels the request quietly', fakeAsync(() => {
+      const answer = fileReadNow();
+      saveStep();
+      tick(1000); fixture.detectChanges(); flushMicrotasks();
+      fixture.destroy(); flushMicrotasks();
+      expect(signalOf()?.aborted).toBeTrue();
+      answer.resolve(ANSWER); flushMicrotasks(); tick(200_000);
+      expect(alert.showError).not.toHaveBeenCalled();
+      expect(alert.showWarning).not.toHaveBeenCalled();
+    }));
+
+    it('with no rubric file the step ends at once and nothing is shown', fakeAsync(() => {
+      fileReadNow({ markedAsRubric: false });
+      const step = saveStep();
+      tick(5000); fixture.detectChanges();
+      expect(step.outcome).toBe('done');
+      expect(api.draftRubric).not.toHaveBeenCalled();
+      expect(waitBox()).toBeNull();
+      expect(component.rubricWait()).toBeFalse();
+      fixture.destroy();
+    }));
   });
 });

@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import {
   AssignmentReportApiService, browserTimeZone, reportErrorState, summaryErrorMessage,
-  type AssignmentReport, type AssignmentReportStudent, type ReportErrorState,
+  type AssignmentReport, type AssignmentReportStudent, type CommonMistakeType, type ReportErrorState,
 } from '../../../api/assignment-report-api.service';
 import { ReportColumnChart } from '../../../components/teacher/assignment-report-charts/report-column-chart';
 import { ReportBarList, type ReportBarItem } from '../../../components/teacher/assignment-report-charts/report-bar-list';
@@ -17,6 +17,7 @@ type PageState = 'loading' | 'ready' | ReportErrorState;
 type SortKey = 'name' | 'status' | 'score' | 'late' | 'reviewed';
 interface StudentRow extends AssignmentReportStudent { statusLabel: string; statusDetail: string | null; statusTone: string; statusIcon: string; sourceLabel: string }
 type TableEntry = { kind: 'group'; label: string } | { kind: 'row'; row: StudentRow };
+interface CommonMistakeRow extends CommonMistakeType { title: string; studentText: string; percent: number; color: string | null; examplesId: string }
 
 const PAGE_SIZE = 10;
 export const ERROR_MESSAGES: Readonly<Record<ReportErrorState, string>> = Object.freeze({
@@ -81,6 +82,29 @@ export class AssignmentReportPage implements OnInit, OnDestroy {
     return state === 'loading' || state === 'ready' ? '' : ERROR_MESSAGES[state];
   });
   readonly errorsNote = 'Counts are from the AI analysis and may include items you removed.';
+
+  /** Common mistakes: only types 2 or more students made; their examples open one row at a time (each row on its own). */
+  readonly commonMistakesNote = 'Based on the corrections students can see. Corrections you removed are not counted.';
+  readonly commonMistakesPartialNote = 'Some edited essays were left out of this section.';
+  readonly commonMistakes = computed(() => this.report()?.commonMistakes ?? null);
+  readonly commonRows = computed<CommonMistakeRow[]>(() => (this.commonMistakes()?.types || []).filter((t) => t.isCommon).map((t) => ({
+    ...t, title: `${t.typeCode} · ${t.label}`, studentText: `${t.studentCount} of ${t.totalStudents} students`,
+    percent: t.totalStudents > 0 ? Math.round((t.studentCount / t.totalStudents) * 100) : 0,
+    color: CATEGORY_TONES[String(t.category) as CorrectionCategoryKey]?.edge ?? null,
+    examplesId: `common-mistake-examples-${t.typeCode.replace(/[^A-Za-z0-9_-]/g, '')}` })));
+  readonly commonEmptyText = computed(() => {
+    const block = this.commonMistakes();
+    if (!block) return null;
+    if (block.state === 'not_enough_students') return 'Not enough submissions yet to find common mistakes';
+    return this.commonRows().length ? null : 'No mistake was shared by 2 or more students.';
+  });
+  private readonly openExamples = signal<ReadonlySet<string>>(new Set());
+  examplesOpen(typeCode: string): boolean { return this.openExamples().has(typeCode); }
+  toggleExamples(typeCode: string): void {
+    const next = new Set(this.openExamples());
+    if (next.has(typeCode)) next.delete(typeCode); else next.add(typeCode);
+    this.openExamples.set(next);
+  }
   readonly state = signal<PageState>('loading');
   readonly report = signal<AssignmentReport | null>(null);
   readonly search = signal('');

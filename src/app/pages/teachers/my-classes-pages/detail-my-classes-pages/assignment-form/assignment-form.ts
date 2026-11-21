@@ -21,9 +21,12 @@ import { RubricLibraryStateService } from '../../../../../services/rubric-librar
 import { designerToRubricData, rubricDataToDesigner } from '../../../../../utils/rubric-library.util';
 import { getAssignmentCapabilities } from '../../../../../utils/assignment-capabilities';
 import { DraftLimitFeature } from '../../../../../services/draft-limit-feature.service';
-import { ReferenceFilesField } from '../../../../../components/teacher/reference-files-field/reference-files-field';
+import { RUBRIC_DRAFT_TIMEOUT_MESSAGE, ReferenceFilesField } from '../../../../../components/teacher/reference-files-field/reference-files-field';
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { Subscription } from 'rxjs';
+
+/** Notes for one popup, in order, skipping empty ones. */
+const joinNotes = (...notes: string[]) => notes.filter(Boolean).join(' ');
 
 let nextFormId = 0;
 
@@ -42,6 +45,11 @@ export class AssignmentForm implements OnDestroy {
   private rubricAppliedFromFile = false;
   /** Saving or files uploading: the dialog around this form ignores backdrop clicks (bound by the hosting page). */
   busy(): boolean { return this.isSubmitting || Boolean(this.referenceFiles?.busy()); }
+  /** "Saving…" while the save waits on a slow rubric draft from a reference file (the field shows why, with Skip). */
+  submitLabel(): string {
+    if (this.isSubmitting && this.referenceFiles?.rubricWait()) return 'Saving…';
+    return this.assignment?._id ? 'Update' : 'Submit';
+  }
   classForm: FormGroup;
   @Input() classId: string | null = null;
   @Input() assignment: BackendAssignment | null = null;
@@ -320,7 +328,8 @@ export class AssignmentForm implements OnDestroy {
         if (files.applied) updated = await this.assignmentApi.getAssignmentByIdForTeacher(this.assignment._id).catch(() => updated);
         // SweetAlert shows one popup at a time: a warning replaces the success toast (a rubric applied from a file had its own).
         if (guestWarning) this.showGuestOffWarning();
-        else if (files.notAdded) this.alert.showWarning('Assignment updated, but some files were not added', files.notAdded);
+        else if (files.notAdded) this.alert.showWarning('Assignment updated, but some files were not added', joinNotes(files.notAdded, files.rubricNote));
+        else if (files.rubricNote) this.alert.showWarning('Assignment updated', files.rubricNote);
         else if (!files.applied) this.alert.showToast('Assignment updated successfully', 'success');
         this.updated.emit(updated);
         this.closeDialog();
@@ -338,10 +347,11 @@ export class AssignmentForm implements OnDestroy {
 
       // Reference files need the new assignment's id: they upload (and, for a rubric file, are reviewed) before the dialog closes.
       // With a rubric applied, the parent receives the assignment with it, so it does not open an empty rubric editor.
-      const files = created?._id ? await this.finishReferenceFiles(created._id) : { applied: false, notAdded: '' };
+      const files = created?._id ? await this.finishReferenceFiles(created._id) : { applied: false, notAdded: '', rubricNote: '' };
       if (files.applied) created = await this.assignmentApi.getAssignmentByIdForTeacher(created._id).catch(() => created);
       if (guestWarning) this.showGuestOffWarning();
-      else if (files.notAdded) this.alert.showWarning('Assignment created, but some files were not added', files.notAdded);
+      else if (files.notAdded) this.alert.showWarning('Assignment created, but some files were not added', joinNotes(files.notAdded, files.rubricNote));
+      else if (files.rubricNote) this.alert.showWarning('Assignment created', files.rubricNote);
       else if (!files.applied) this.alert.showToast('Assignment created successfully', 'success');
       this.created.emit(created);
       this.closeDialog();
@@ -373,19 +383,20 @@ export class AssignmentForm implements OnDestroy {
 
   /**
    * After the assignment is saved: uploads the reference files waiting in the form, waits briefly for them to be read (the teacher can
-   * continue) and offers the rubric step for a rubric file. Returns whether a rubric was applied and, for files the server refused, the
-   * note to show (the caller shows one popup at a time).
+   * continue) and offers the rubric step for a rubric file (the teacher can skip it; it stops after a time limit). Returns whether a rubric
+   * was applied, the note for files the server refused, and the note for a rubric draft that ran out of time (one popup at a time).
    */
-  private async finishReferenceFiles(assignmentId: string): Promise<{ applied: boolean; notAdded: string }> {
+  private async finishReferenceFiles(assignmentId: string): Promise<{ applied: boolean; notAdded: string; rubricNote: string }> {
     const field = this.referenceFiles;
-    if (!field?.hasStaged()) return { applied: this.rubricAppliedFromFile, notAdded: '' };
+    if (!field?.hasStaged()) return { applied: this.rubricAppliedFromFile, notAdded: '', rubricNote: '' };
     const { uploaded, failed } = await field.uploadStaged(assignmentId);
+    let rubricNote = '';
     if (uploaded.length) {
       await field.waitUntilRead();
-      await field.runRubricStep();
+      if (await field.runRubricStep() === 'timeout') rubricNote = RUBRIC_DRAFT_TIMEOUT_MESSAGE;
     }
     const notAdded = failed.length ? `${failed.map(item => `${item.name}: ${item.message}`).join(' ')} You can add files again from Edit assignment.` : '';
-    return { applied: this.rubricAppliedFromFile, notAdded };
+    return { applied: this.rubricAppliedFromFile, notAdded, rubricNote };
   }
 
   /**

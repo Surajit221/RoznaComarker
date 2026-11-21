@@ -74,6 +74,18 @@ describe('ReferenceFilesApiService', () => {
     apply.flush({ success: true, data: { applied: true, replaced: true, assignmentId: 'a1' } });
     expect((await applied).replaced).toBeTrue();
   });
+
+  it('draftRubric: stopping the wait (Skip, time limit, form closed) cancels the request; an already-stopped wait sends nothing', async () => {
+    const stop = new AbortController();
+    const pending = api.draftRubric('f1', stop.signal);
+    const request = http.expectOne(`${base}/f1/rubric-draft`);
+    stop.abort();
+    expect(request.cancelled).toBeTrue();
+    await expectAsync(pending).toBeRejected();
+    const stopped = new AbortController(); stopped.abort();
+    await expectAsync(api.draftRubric('f1', stopped.signal)).toBeRejected();
+    http.expectNone(`${base}/f1/rubric-draft`);
+  });
 });
 
 describe('referenceError', () => {
