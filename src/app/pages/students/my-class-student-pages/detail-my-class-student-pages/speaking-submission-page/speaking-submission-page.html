@@ -30,26 +30,29 @@
         Uploaded {{ submission.submittedAt | date:'MMM d, y, h:mm a' }}@if (durationText) { · {{ durationText }}}@if (submission.isLate) { · Late}
       </p>
       <app-analysis-progress [progress]="progress" [showCompleted]="true"></app-analysis-progress>
-      @if (statusView?.canRetryTranscription || offerNewRecording) {
+      @if (statusView?.canRetryTranscription || canReplaceRecording) {
         <div class="speaking-status-actions">
           @if (statusView?.canRetryTranscription) {
             <button type="button" class="btn-primary-sm" (click)="retryTranscription()" [disabled]="retrying" [attr.aria-busy]="retrying">Retry transcription</button>
           }
-          @if (offerNewRecording) {
-            <button type="button" class="btn-info-sm" (click)="openUpload()">Upload a new recording</button>
+          @if (canReplaceRecording) {
+            <button type="button" class="btn-info-sm" (click)="openUpload()">Replace recording</button>
           }
         </div>
       }
       @if (retryError) { <p class="text-sm text-red-500 font-medium" role="alert">{{ retryError }}</p> }
     </section>
 
-    <app-speaking-audio-player [submissionId]="submission.id" label="Your recording" [durationSeconds]="submission.recording.durationSeconds"></app-speaking-audio-player>
-    @if (result?.state === 'ready' && result?.assessedText) {
-      <app-speaking-transcript [result]="result!"></app-speaking-transcript>
-    }
-    @if (result?.state === 'ready' && result?.result) {
-      <app-speaking-result-view [result]="result!.result!" [marksVisible]="result!.marksVisible" [fluency]="result!.fluency" audience="student"></app-speaking-result-view>
-    }
+    <!-- The essay result page's layout: white cards on the grey inner area (my-submission-page.html). -->
+    <div class="speaking-results bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-4">
+      <app-speaking-audio-player [submissionId]="submission.id" label="Your recording" [durationSeconds]="submission.recording.durationSeconds"></app-speaking-audio-player>
+      @if (result?.state === 'ready' && result?.assessedText) {
+        <app-speaking-transcript [result]="result!"></app-speaking-transcript>
+      }
+      @if (result?.state === 'ready' && result?.result) {
+        <app-speaking-result-view [result]="result!.result!" [marksVisible]="result!.marksVisible" [fluency]="result!.fluency" audience="student"></app-speaking-result-view>
+      }
+    </div>
   }
 </div>
 

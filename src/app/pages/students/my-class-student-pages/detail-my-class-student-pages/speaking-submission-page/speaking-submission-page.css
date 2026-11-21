@@ -8,3 +8,5 @@
   .speaking-status-actions { flex-direction: column; align-items: stretch; }
   .speaking-status-actions button { width: 100%; min-height: 44px; }
 }
+/* As my-submission-page.css does for its inner area on narrow screens. */
+@media (max-width: 768px) { .speaking-results { padding: .75rem; } }

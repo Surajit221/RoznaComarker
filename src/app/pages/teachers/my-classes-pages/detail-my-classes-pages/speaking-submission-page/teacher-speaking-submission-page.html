@@ -36,6 +36,8 @@
       @if (actionError) { <p class="text-sm text-red-500 font-medium" role="alert">{{ actionError }}</p> }
     </section>
 
+    <!-- The essay result page's layout: white cards on the grey inner area (my-submission-page.html). -->
+    <div class="speaking-results bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-4">
     @if (view.recording) {
       <app-speaking-audio-player [submissionId]="submissionId" [label]="recordingLabel" [durationSeconds]="view.recording.durationSeconds"
         [available]="view.recording.audioAvailable" [downloadable]="true"></app-speaking-audio-player>
@@ -47,5 +49,6 @@
       <app-speaking-result-view [result]="result!.result!" [marksVisible]="true" [fluency]="result!.fluency" audience="teacher"
         [offTopicCap]="result!.offTopicCap ?? null"></app-speaking-result-view>
     }
+    </div>
   }
 </div>

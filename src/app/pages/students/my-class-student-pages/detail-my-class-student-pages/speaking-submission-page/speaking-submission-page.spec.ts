@@ -76,12 +76,12 @@ describe('StudentSpeakingSubmissionPage (stage 7d: status flow and polling)', ()
     http.expectNone(`${API}/speaking/submissions/s1/result`);
   }));
 
-  it('not English: the fixed text for that reason (never the server text) and "Upload a new recording" while it can be replaced', fakeAsync(() => {
+  it('not English: the fixed text for that reason (never the server text) and "Replace recording" while it can be replaced', fakeAsync(() => {
     load({ submission: submission({ recording: { state: 'ready', canRetry: false } }), limits: LIMITS });
     answer(result('not_assessable', { reason: 'not_english' }));
     expect(status()).toMatch(/not in English/);
     expect(root().textContent).not.toContain('SERVER TEXT');
-    button('Upload a new recording')!.click();
+    button('Replace recording')!.click();
     fixture.detectChanges();
     const dialog = fixture.debugElement.query(el => el.componentInstance instanceof SpeakingUploadDialog).componentInstance as SpeakingUploadDialog;
     expect(dialog.open).toBeTrue();
@@ -92,7 +92,7 @@ describe('StudentSpeakingSubmissionPage (stage 7d: status flow and polling)', ()
     load({ submission: submission({ canReplace: false, recording: { state: 'ready', canRetry: false } }), limits: LIMITS });
     answer(result('not_enough_speech'));
     expect(status()).toMatch(/enough speech/);
-    expect(button('Upload a new recording')).toBeNull();
+    expect(button('Replace recording')).toBeNull();
   }));
 
   it('transcription failed: Retry transcription asks the server and polls again', fakeAsync(() => {

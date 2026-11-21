@@ -58,8 +58,8 @@ export class StudentSpeakingSubmissionPage implements OnInit, OnDestroy {
     return { ...base, status: 'failed', completed: false, failed: true, active: false };
   }
 
-  /** A new recording fits this state and the recording can still be replaced (not marked, before the due date). */
-  get offerNewRecording(): boolean { return this.statusView?.invitesNewRecording === true && this.submission?.canReplace === true; }
+  /** Replace recording (stage 7f): while the server says it can still be replaced (not marked, before the due date) and it is not shown as marked. */
+  get canReplaceRecording(): boolean { return this.submission?.canReplace === true && this.result?.state !== 'ready'; }
 
   get durationText(): string {
     const seconds = this.submission?.recording?.durationSeconds;
@@ -105,7 +105,21 @@ export class StudentSpeakingSubmissionPage implements OnInit, OnDestroy {
     if (this.destroyed || this.submission !== submission) return true;
     this.result = result;
     this.statusView = studentSpeakingStatus(result, submission.recording);
+    if (this.statusView.final) void this.reloadStatus(submission.id);
     return this.statusView.final;
+  }
+
+  /** Once the status is final, the recording's own status is read again (whether it can still be replaced or retried). */
+  private async reloadStatus(submissionId: string): Promise<void> {
+    try {
+      const mine = await this.speakingApi.getMyStatus(this.assignmentId);
+      if (!this.destroyed && mine.submission?.id === submissionId && this.submission?.id === submissionId) {
+        this.submission = mine.submission;
+        if (this.result) this.statusView = studentSpeakingStatus(this.result, mine.submission.recording);
+      }
+    } catch {
+      // The status already shown stays; the server checks again on any action.
+    }
   }
 
   openUpload(): void { this.dialogOpen = true; }

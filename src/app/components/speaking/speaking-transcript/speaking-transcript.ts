@@ -5,6 +5,7 @@ import { WritingCorrectionsApiService } from '../../../api/writing-corrections-a
 import type { CorrectionLegend } from '../../../models/correction-legend.model';
 import type { SpeakingResult } from '../../../api/speaking-api.service';
 import { type SpeakingTranscriptModel, buildSpeakingTranscript, speakingCategoryLabel } from '../../../utils/speaking-transcript';
+import { type SpeakingCorrectionGroup, type SpeakingStatisticRow, groupSpeakingCorrections, speakingCorrectionStatistics } from '../../../utils/speaking-corrections';
 
 /** The categories marked for speech (stage 6): the legend shows only these. */
 const SPEECH_GROUPS = ['GRAMMAR', 'VOCABULARY'];
@@ -27,6 +28,10 @@ export class SpeakingTranscript implements OnInit, OnChanges {
   showFillers = false;
   model: SpeakingTranscriptModel = { words: [], annotations: [] };
   legend: CorrectionLegend | null = null;
+  /** The plain list: identical corrections once, with a count (the transcript keeps every highlight). */
+  groups: SpeakingCorrectionGroup[] = [];
+  /** Issue counts per category, every occurrence counted (as the essay Correction Statistics). */
+  statistics: SpeakingStatisticRow[] = [];
   readonly label = speakingCategoryLabel;
 
   get hasFillers(): boolean { return (this.result?.fillers?.length ?? 0) > 0; }
@@ -39,6 +44,9 @@ export class SpeakingTranscript implements OnInit, OnChanges {
 
   ngOnChanges(): void {
     if (!this.hasFillers) this.showFillers = false;
+    const corrections = this.result?.corrections ?? [];
+    this.groups = groupSpeakingCorrections(corrections);
+    this.statistics = speakingCorrectionStatistics(corrections);
     this.rebuild();
   }
 
