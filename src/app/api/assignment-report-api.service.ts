@@ -26,8 +26,15 @@ export interface AssignmentReportStudent {
   attentionReasons: string[];
 }
 
-/** One anonymous example of a common mistake: the student's words, the correction (may be empty) and the explanation (may be empty). */
-export interface CommonMistakeExample { original: string; corrected: string; explanation: string }
+/** A part of a student's sentence: plain text, a mistake (with its correction, may be empty), or a gap where a long sentence was cut. */
+export type ExampleSentencePart = { text: string; error?: false } | { text: string; error: true; corrected: string } | { gap: true };
+/** The student's sentence around the mistake(s), cut from the stored transcript (teacher report only). cutStart/cutEnd: shortened there. */
+export interface ExampleSentence { parts: ExampleSentencePart[]; cutStart: boolean; cutEnd: boolean }
+/**
+ * One anonymous example of a common mistake: the student's words, the correction (may be empty) and the explanation (may be empty);
+ * the sentence when it could be cut from the transcript (older backends and unreadable text send none). Up to 5 per type.
+ */
+export interface CommonMistakeExample { original: string; corrected: string; explanation: string; sentence?: ExampleSentence }
 export interface CommonMistakeType {
   typeCode: string;
   label: string;

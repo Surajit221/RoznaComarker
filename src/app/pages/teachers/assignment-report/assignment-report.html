@@ -142,101 +142,132 @@
             </section>
           }
 
-          @if (r.insights.length) {
-            <section class="assignment-report__panel" aria-labelledby="report-insights-title">
-              <h2 id="report-insights-title" class="assignment-report__panel-title">Insights</h2>
-              <ul class="assignment-report__insights">
-                @for (insight of r.insights; track insight.code) {
-                  <li><i class="bx bx-bulb" aria-hidden="true"></i><span>{{ insight.text }}</span></li>
-                }
-              </ul>
-            </section>
-          }
-
-          <div class="assignment-report__grid">
-            @if (r.counts.scored > 0) {
-              <section class="assignment-report__panel" aria-labelledby="report-distribution-title">
+          @if (r.counts.scored > 0) {
+            <div class="assignment-report__row" data-row="charts">
+              <section class="assignment-report__panel" data-section="distribution" aria-labelledby="report-distribution-title">
                 <h2 id="report-distribution-title" class="assignment-report__panel-title">Score distribution</h2>
                 <p class="assignment-report__panel-sub">Scored submissions per score band (%)</p>
                 <app-report-column-chart data-chart="distribution" ariaLabel="Score distribution" valueName="submissions" categoryName="Score band"
                   [points]="distribution()" [showValues]="true"
                   [hiddenReason]="r.smallData.distributionHidden ? 'Not enough scored submissions to show a fair distribution (at least 3 are needed).' : null" />
               </section>
-            }
-            <section class="assignment-report__panel" aria-labelledby="report-timeline-title">
-              <h2 id="report-timeline-title" class="assignment-report__panel-title">Submissions over time</h2>
-              <p class="assignment-report__panel-sub">{{ weekly() ? 'Per week (week starting)' : 'Per day' }}, in your time zone</p>
-              <app-report-column-chart data-chart="timeline" [ariaLabel]="weekly() ? 'Submissions per week' : 'Submissions per day'" valueName="submissions"
-                [categoryName]="weekly() ? 'Week starting' : 'Day'" color="var(--color-navy)" [points]="timeline()"
-                [hiddenReason]="r.smallData.timelineHidden ? 'Not enough submissions to show a trend (at least 3 are needed).' : null" />
-            </section>
-            @if (r.counts.scored > 0) {
               <section class="assignment-report__panel" data-section="rubric" aria-labelledby="report-rubric-title">
                 <h2 id="report-rubric-title" class="assignment-report__panel-title">{{ r.rubric.kind === 'custom' ? 'Rubric criteria' : 'Rubric categories' }}</h2>
                 <p class="assignment-report__panel-sub">Average across scored submissions</p>
                 <app-report-bar-list ariaLabel="Rubric averages" [items]="rubricItems()" emptyText="No rubric scores yet." />
               </section>
+            </div>
+          }
+
+          <div class="assignment-report__row" data-row="overview">
+            @if (r.insights.length) {
+              <section class="assignment-report__panel" data-section="insights" aria-labelledby="report-insights-title">
+                <h2 id="report-insights-title" class="assignment-report__panel-title">Insights</h2>
+                <p class="assignment-report__panel-sub">What stands out</p>
+                <ul class="assignment-report__callouts">
+                  @for (insight of r.insights; track insight.code; let i = $index) {
+                    <li class="assignment-report__callout" [class.assignment-report__callout--navy]="i % 2 === 1" data-insight>
+                      <i class="bx bx-bulb" aria-hidden="true"></i><span>{{ insight.text }}</span>
+                    </li>
+                  }
+                </ul>
+              </section>
             }
-            <section class="assignment-report__panel" data-section="errors" aria-labelledby="report-errors-title">
-              <h2 id="report-errors-title" class="assignment-report__panel-title">Most common errors</h2>
-              <p class="assignment-report__note"><i class="bx bx-info-circle" aria-hidden="true"></i> {{ errorsNote }}</p>
-              <h3 class="assignment-report__subtitle">By category</h3>
-              <app-report-bar-list ariaLabel="Errors by category" [items]="r.errors.total > 0 ? categoryItems() : []" emptyText="No corrections recorded yet." />
-              @if (symbolItems().length) {
-                <h3 class="assignment-report__subtitle">Top correction types</h3>
-                <app-report-bar-list ariaLabel="Top correction types" [items]="symbolItems()" />
+            <section class="assignment-report__panel" data-section="timeline" aria-labelledby="report-timeline-title">
+              <h2 id="report-timeline-title" class="assignment-report__panel-title">Submissions over time</h2>
+              <p class="assignment-report__panel-sub">{{ weekly() ? 'Per week (week starting)' : 'Per day' }}, in your time zone</p>
+              @if (timelineSummary(); as summary) {
+                <div class="assignment-report__timing">
+                  <p class="assignment-report__timing-stat" data-timeline-busiest>{{ summary.busiest }}</p>
+                  <p class="assignment-report__timing-stat assignment-report__timing-stat--late" data-timeline-late>{{ summary.late }}</p>
+                </div>
               }
+              <div class="assignment-report__timeline-chart">
+                <app-report-column-chart data-chart="timeline" [ariaLabel]="weekly() ? 'Submissions per week' : 'Submissions per day'" valueName="submissions"
+                  [categoryName]="weekly() ? 'Week starting' : 'Day'" color="var(--color-navy)" [points]="timeline()"
+                  [hiddenReason]="r.smallData.timelineHidden ? 'Not enough submissions to show a trend (at least 3 are needed).' : null" />
+              </div>
             </section>
           </div>
 
-          @if (commonMistakes(); as common) {
-            <section class="assignment-report__panel" data-section="common-mistakes" aria-labelledby="report-common-title">
-              <h2 id="report-common-title" class="assignment-report__panel-title">Common mistakes</h2>
+          <section class="assignment-report__panel" data-section="common-errors" aria-labelledby="report-common-title">
+            <h2 id="report-common-title" class="assignment-report__panel-title">Common errors</h2>
+            @if (commonMistakes()) {
               <p class="assignment-report__note"><i class="bx bx-info-circle" aria-hidden="true"></i> {{ commonMistakesNote }}</p>
-              @if (common.partial) {
-                <p class="assignment-report__note" data-common-partial><i class="bx bx-error-circle" aria-hidden="true"></i> {{ commonMistakesPartialNote }}</p>
-              }
-              @if (commonEmptyText(); as empty) {
-                <p class="assignment-report__common-empty" data-common-empty>{{ empty }}</p>
-              } @else {
-                <ul class="assignment-report__common" aria-label="Mistakes made by 2 or more students">
-                  @for (row of commonRows(); track row.typeCode) {
-                    <li class="assignment-report__common-row" data-common-type>
-                      <div class="assignment-report__common-head">
-                        <span class="assignment-report__common-label" data-common-label>{{ row.title }}</span>
-                        <span class="assignment-report__common-value" data-common-count>{{ row.studentText }}</span>
-                      </div>
-                      <div class="assignment-report__common-track" aria-hidden="true">
-                        <div class="assignment-report__common-fill" data-common-fill [style.width.%]="row.percent" [style.background]="row.color"></div>
-                      </div>
+            }
+            @if (errorCategories().length) {
+              <div class="assignment-report__chips">
+                <span class="assignment-report__chips-label">By category</span>
+                <ul class="assignment-report__chip-list" aria-label="Corrections by category">
+                  @for (c of errorCategories(); track c.key) {
+                    <li class="assignment-report__chip" data-error-category [style.border-left-color]="c.color">{{ c.label }} <strong>{{ c.count }}</strong></li>
+                  }
+                </ul>
+              </div>
+            }
+            <p class="assignment-report__note"><i class="bx bx-info-circle" aria-hidden="true"></i> {{ errorsNote }}</p>
+            @if (commonMistakes()?.partial) {
+              <p class="assignment-report__note" data-common-partial><i class="bx bx-error-circle" aria-hidden="true"></i> {{ commonMistakesPartialNote }}</p>
+            }
+            @if (commonEmptyText(); as empty) {
+              <p class="assignment-report__common-empty" data-common-empty>{{ empty }}</p>
+            }
+            @if (errorRows().length) {
+              <ul class="assignment-report__errors" aria-label="Correction types">
+                @for (row of errorRows(); track row.key) {
+                  <li class="assignment-report__error-row" data-error-type>
+                    <div class="assignment-report__error-head">
+                      <span class="assignment-report__error-label" data-error-label>{{ row.title }}</span>
+                      @if (row.studentText) { <span class="assignment-report__count-chip" data-error-students>{{ row.studentText }}</span> }
+                      <span class="assignment-report__error-total" data-error-total>{{ row.totalText }}</span>
                       @if (row.examples.length) {
-                        <button type="button" class="assignment-report__common-toggle" [attr.aria-expanded]="examplesOpen(row.typeCode)"
-                          [attr.aria-controls]="row.examplesId" (click)="toggleExamples(row.typeCode)">
-                          <i class="bx" [class.bx-chevron-down]="!examplesOpen(row.typeCode)" [class.bx-chevron-up]="examplesOpen(row.typeCode)" aria-hidden="true"></i>
-                          {{ examplesOpen(row.typeCode) ? 'Hide examples' : 'Show examples' }}<span class="sr-only"> for {{ row.title }}</span>
+                        <button type="button" class="assignment-report__common-toggle" [attr.aria-expanded]="examplesOpen(row.key)"
+                          [attr.aria-controls]="row.examplesId" (click)="toggleExamples(row.key)">
+                          <i class="bx" [class.bx-chevron-down]="!examplesOpen(row.key)" [class.bx-chevron-up]="examplesOpen(row.key)" aria-hidden="true"></i>
+                          {{ examplesOpen(row.key) ? 'Hide examples' : 'Show examples' }}<span class="sr-only"> for {{ row.title }}</span>
                         </button>
-                        <ul class="assignment-report__common-examples" [id]="row.examplesId" [hidden]="!examplesOpen(row.typeCode)">
-                          @for (example of row.examples; track $index) {
-                            <li class="assignment-report__common-example">
-                              <p class="assignment-report__common-change">
-                                <span class="sr-only">Original: </span><del>{{ example.original }}</del>
-                                @if (example.corrected) {
-                                  <span class="assignment-report__common-arrow" aria-hidden="true"> → </span><span class="sr-only">Correction: </span><ins>{{ example.corrected }}</ins>
+                      } @else if (row.noExamples) {
+                        <span class="assignment-report__muted">No shared examples</span>
+                      }
+                    </div>
+                    @if (row.examples.length) {
+                      <div class="assignment-report__examples-wrap" [id]="row.examplesId" [hidden]="!examplesOpen(row.key)">
+                        <ul class="assignment-report__common-examples">
+                          @for (example of row.examples; track $index; let i = $index) {
+                            <li class="assignment-report__common-example" data-example [hidden]="i >= shownExamples && !moreOpen(row.key)">
+                              @if (example.sentence; as s) {
+                                <p class="assignment-report__sentence" data-sentence="original"><span class="assignment-report__sentence-label">Student wrote:</span>{{ ' ' }}@if (s.cutStart) {… }@for (seg of s.original; track $index) {@switch (seg.kind) {@case ('gap') { … }@case ('mark') {<mark class="assignment-report__mark assignment-report__mark--err">{{ seg.text }}</mark>}@default {{{ seg.text }}}}}@if (s.cutEnd) {…}@if (s.marks > 1) { <span class="assignment-report__grouped" data-grouped>{{ s.marks }} in this sentence</span>}</p>
+                                @if (s.corrected; as fixed) {
+                                  <p class="assignment-report__sentence" data-sentence="corrected"><span class="assignment-report__sentence-label">Corrected:</span>{{ ' ' }}@if (s.cutStart) {… }@for (seg of fixed; track $index) {@switch (seg.kind) {@case ('gap') { … }@case ('mark') {<mark class="assignment-report__mark assignment-report__mark--fix">{{ seg.text }}</mark>}@default {{{ seg.text }}}}}@if (s.cutEnd) {…}</p>
                                 }
-                              </p>
+                              } @else {
+                                <p class="assignment-report__common-change">
+                                  <span class="sr-only">Original: </span><del>{{ example.original }}</del>
+                                  @if (example.corrected) {
+                                    <span class="assignment-report__common-arrow" aria-hidden="true"> → </span><span class="sr-only">Correction: </span><ins>{{ example.corrected }}</ins>
+                                  }
+                                </p>
+                              }
                               @if (example.explanation) { <p class="assignment-report__common-why">{{ example.explanation }}</p> }
                             </li>
                           }
                         </ul>
-                      }
-                    </li>
-                  }
-                </ul>
-              }
-            </section>
-          }
+                        @if (row.examples.length > shownExamples) {
+                          <button type="button" class="assignment-report__more" data-more-examples [attr.aria-expanded]="moreOpen(row.key)" (click)="toggleMore(row.key)">
+                            {{ moreOpen(row.key) ? 'Show fewer examples' : 'Show ' + (row.examples.length - shownExamples) + ' more examples' }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else if (!commonEmptyText()) {
+              <p class="assignment-report__common-empty">No corrections recorded yet.</p>
+            }
+          </section>
 
-          <section class="assignment-report__panel" aria-labelledby="report-students-title">
+          <section class="assignment-report__panel" data-section="students" aria-labelledby="report-students-title">
             <div class="assignment-report__table-head">
               <h2 id="report-students-title" class="assignment-report__panel-title">Students</h2>
               <label class="assignment-report__search">
@@ -244,6 +275,12 @@
                 <i class="bx bx-search" aria-hidden="true"></i>
                 <input type="search" placeholder="Search by name" [value]="search()" (input)="onSearch($any($event.target).value)" />
               </label>
+            </div>
+            <div class="assignment-report__filters" role="group" aria-label="Filter students by status" data-status-filter>
+              @for (f of statusFilters(); track f.key) {
+                <button type="button" class="assignment-report__filter" [class.assignment-report__filter--on]="statusFilter() === f.key"
+                  [attr.aria-pressed]="statusFilter() === f.key" (click)="setStatusFilter(f.key)">{{ f.label }} <span class="assignment-report__filter-count">{{ f.count }}</span></button>
+              }
             </div>
             <p class="assignment-report__result" aria-live="polite">{{ resultText() }}</p>
             <div class="assignment-report__table-wrap">

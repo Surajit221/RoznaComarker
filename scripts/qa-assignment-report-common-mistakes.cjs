@@ -1,5 +1,5 @@
 'use strict';
-// Real-browser QA of the "Common mistakes" card on the assignment report page, against the real backend code in process with an in-memory
+// Real-browser QA of the "Common errors" card (sentence examples, "Show 2 more") and the page layout on the assignment report page, against the real backend code in process with an in-memory
 // database (like the other qa-*.cjs). Synthetic data only: the shared annotation fixture (a class member and a guest who share three mistake
 // types). No AI, email or other network call (any non-local fetch throws).
 // Screens, each at 1280, 1100, 900, 390 and 320 px: the card (real report), the card with examples open, both empty states, the partial note,
@@ -72,7 +72,9 @@ const LONG_WHY = 'The subject is plural, so the verb must agree with it. Read th
     long: { ...real.data.commonMistakes, types: ['VF', 'AGR', 'SP', 'ART', 'WC'].map((code, i) => ({ typeCode: code,
       label: ['Verb Form', 'Subject–Verb Agreement', 'Spelling', 'Article Use', 'Word Choice'][i], category: ['GRAMMAR', 'GRAMMAR', 'MECHANICS', 'GRAMMAR', 'VOCABULARY'][i],
       studentCount: 6 - i, totalStudents: 6, occurrenceCount: 12 - i, isCommon: true,
-      examples: [0, 1, 2].map(() => ({ original: `${LONG.slice(0, 79)}…`, corrected: `${LONG.replace('goes', 'go').slice(0, 79)}…`, explanation: LONG_WHY })) })) }
+      // Five examples: long, cut sentences with the mistake in the middle (the card shows three and offers "Show 2 more").
+      examples: [0, 1, 2, 3, 4].map(k => ({ original: 'goes', corrected: 'go', explanation: LONG_WHY, sentence: { cutStart: true, cutEnd: true,
+        parts: [{ text: `${LONG.slice(0, 60 + k)} and the students ` }, { text: 'goes', error: true, corrected: 'go' }, { gap: true }, { text: `${LONG.slice(20, 110)}` }] } })) })) }
   };
 
   async function open(viewport, variant) {
@@ -130,20 +132,20 @@ const LONG_WHY = 'The subject is plural, so the verb must agree with it. Read th
       }
     }
     // The card itself must also fit inside its own panel (the shell can scroll sideways on narrow phones for other reasons).
-    const card = document.querySelector('[data-section="common-mistakes"]');
+    const card = document.querySelector('[data-section="common-errors"]');
     const cardOverflow = card ? card.scrollWidth > card.clientWidth + 1 : false;
     return { overflowing: scroll > width + 1, cardOverflow, offenders };
   });
-  const cardText = page => page.evaluate(() => (document.querySelector('[data-section="common-mistakes"]')?.innerText || '').replace(/\s+/g, ' '));
-  const scrollToCard = page => page.evaluate(() => document.querySelector('[data-section="common-mistakes"]')?.scrollIntoView({ block: 'start' }));
-  const openFirst = async page => { await page.click('[data-section="common-mistakes"] button[aria-controls]'); return waitFor(() => page.evaluate(() =>
-    document.querySelector('[data-section="common-mistakes"] button[aria-controls]')?.getAttribute('aria-expanded') === 'true')); };
+  const cardText = page => page.evaluate(() => (document.querySelector('[data-section="common-errors"]')?.innerText || '').replace(/\s+/g, ' '));
+  const scrollToCard = page => page.evaluate(() => document.querySelector('[data-section="common-errors"]')?.scrollIntoView({ block: 'start' }));
+  const openFirst = async page => { await page.click('[data-section="common-errors"] button[aria-controls]'); return waitFor(() => page.evaluate(() =>
+    document.querySelector('[data-section="common-errors"] button[aria-controls]')?.getAttribute('aria-expanded') === 'true')); };
   // Keyboard only: Tab from the top until the first "Show examples" button has focus (it must be reachable), then capture its focus ring.
   async function tabToToggle(page) {
     await page.evaluate(() => document.activeElement?.blur());
     for (let i = 0; i < 80; i++) {
       await page.keyboard.press('Tab');
-      if (await page.evaluate(() => document.activeElement?.matches?.('[data-section="common-mistakes"] button[aria-controls]'))) {
+      if (await page.evaluate(() => document.activeElement?.matches?.('[data-section="common-errors"] button[aria-controls]'))) {
         return page.evaluate(() => { const b = document.activeElement; b.scrollIntoView({ block: 'center' }); const s = getComputedStyle(b);
           return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0; });
       }
@@ -154,11 +156,15 @@ const LONG_WHY = 'The subject is plural, so the verb must agree with it. Read th
 
   const SCREENS = [
     { name: 'card-real', variant: null, check: t => /2 of 2 students/.test(t) && /Show examples/.test(t) && noNames(t) },
-    { name: 'card-real-examples-open', variant: null, act: openFirst, check: t => /Hide examples/.test(t) && /→/.test(t) && noNames(t) },
+    { name: 'card-real-examples-open', variant: null, act: openFirst, check: t => /Hide examples/.test(t) && /Student wrote:/i.test(t) && /Corrected:/i.test(t) && noNames(t) },
     { name: 'empty-not-enough-students', variant: variants.notEnough, check: t => /Not enough submissions yet to find common mistakes/.test(t) },
     { name: 'empty-none-shared', variant: variants.noneShared, check: t => /No mistake was shared by 2 or more students\./.test(t) },
     { name: 'partial-note', variant: variants.partial, check: t => /Some edited essays were left out of this section\./.test(t) },
     { name: 'long-examples-open', variant: variants.long, act: openFirst, check: t => /6 of 6 students/.test(t) },
+    { name: 'long-examples-show-more', variant: variants.long, act: async page => (await openFirst(page)) && page.evaluate(() => {
+      const more = document.querySelector('[data-section="common-errors"] [data-more-examples]'); more?.click(); return Boolean(more); }),
+      check: t => /Show fewer examples/.test(t) && /Student wrote:/i.test(t) },
+    { name: 'page-full-layout', variant: null, fullPage: true, check: t => /Common errors/.test(t) && noNames(t) },
     { name: 'keyboard-focus-show-examples', variant: null, act: tabToToggle, check: noNames, viewportShot: true }
   ];
 
@@ -173,7 +179,7 @@ const LONG_WHY = 'The subject is plural, so the verb must agree with it. Read th
         const opened = await open(viewport, screen.variant);
         context = opened.context;
         const page = opened.page;
-        entry.ready = await waitFor(() => visible(page, '[data-section="common-mistakes"]'), 40000);
+        entry.ready = await waitFor(() => visible(page, '[data-section="common-errors"]'), 40000);
         if (!entry.ready) {   // what the page shows instead, for the report
           await page.screenshot({ path: path.join(out, `${screen.name}-${viewport.name}-NOT-READY.png`), fullPage: true });
           entry.consoleErrors = opened.seen.console; entry.failedCalls = opened.seen.calls;
@@ -195,9 +201,10 @@ const LONG_WHY = 'The subject is plural, so the verb must agree with it. Read th
           await sleep(400);
           await page.evaluate(() => { scrollTo(0, 0); document.querySelectorAll('*').forEach(e => { if (e.scrollTop) e.scrollTop = 0; }); });
           await sleep(200);
-          const box = await page.evaluate(() => { const r = document.querySelector('[data-section="common-mistakes"]').getBoundingClientRect();
+          // page-full-layout: the whole page at this width (two-column rows, callouts, the card, the students table).
+          const box = screen.fullPage ? null : await page.evaluate(() => { const r = document.querySelector('[data-section="common-errors"]').getBoundingClientRect();
             return { x: 0, y: Math.max(0, r.top - 12), width: document.documentElement.clientWidth, height: Math.ceil(r.height + 24) }; });
-          await page.screenshot({ path: path.join(out, file), clip: box });
+          await page.screenshot({ path: path.join(out, file), ...(box ? { clip: box } : {}) });
         }
         entry.screenshot = file;
         entry.overflow = await overflow(page);
