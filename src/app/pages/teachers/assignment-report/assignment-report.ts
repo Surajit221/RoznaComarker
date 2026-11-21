@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import {
   AssignmentReportApiService, browserTimeZone, reportErrorState, summaryErrorMessage,
-  type AssignmentReport, type AssignmentReportStudent, type CommonMistakeType, type ReportErrorState,
+  type AssignmentReport, type AssignmentReportStudent, type CommonMistakeExample, type ReportErrorState,
 } from '../../../api/assignment-report-api.service';
 import { ReportColumnChart } from '../../../components/teacher/assignment-report-charts/report-column-chart';
 import { ReportBarList, type ReportBarItem } from '../../../components/teacher/assignment-report-charts/report-bar-list';
@@ -17,9 +17,46 @@ type PageState = 'loading' | 'ready' | ReportErrorState;
 type SortKey = 'name' | 'status' | 'score' | 'late' | 'reviewed';
 interface StudentRow extends AssignmentReportStudent { statusLabel: string; statusDetail: string | null; statusTone: string; statusIcon: string; sourceLabel: string }
 type TableEntry = { kind: 'group'; label: string } | { kind: 'row'; row: StudentRow };
-interface CommonMistakeRow extends CommonMistakeType { title: string; studentText: string; percent: number; color: string | null; examplesId: string }
+type StatusFilter = 'all' | 'attention' | 'not_reviewed' | 'late';
+/** A piece of a sentence as shown: plain text, a marked mistake (or correction), or the gap of a shortened sentence. */
+type Segment = { kind: 'text'; text: string } | { kind: 'mark'; text: string } | { kind: 'gap' };
+interface SentenceView { original: Segment[]; corrected: Segment[] | null; cutStart: boolean; cutEnd: boolean; marks: number }
+interface ExampleView { original: string; corrected: string; explanation: string; sentence: SentenceView | null }
+/** One row of the "Common errors" card: a correction type with its students chip (null for AI-analysis counts), total and examples. */
+interface ErrorRow { key: string; title: string; studentText: string | null; totalText: string; examples: ExampleView[]; examplesId: string; noExamples: boolean }
 
 const PAGE_SIZE = 10;
+// The card shows this many examples of a type; the rest (up to 5 from the API) open with "Show N more".
+const SHOWN_EXAMPLES = 3;
+const times = (n: number) => (n === 1 ? '1 time' : `${n} times`);
+const asText = (value: unknown) => (typeof value === 'string' ? value : '');
+
+/** The sentence as two lines of segments (as written, then corrected), or null when the data is not a usable sentence. Never throws. */
+function sentenceView(sentence: CommonMistakeExample['sentence'] | unknown): SentenceView | null {
+  const parts = (sentence as { parts?: unknown } | null | undefined)?.parts;
+  if (!Array.isArray(parts)) return null;
+  const original: Segment[] = [], corrected: Segment[] = [];
+  let marks = 0, anyCorrection = false;
+  for (const part of parts as (Record<string, unknown> | null)[]) {
+    if (!part || typeof part !== 'object') return null;
+    if (part['gap'] === true) { original.push({ kind: 'gap' }); corrected.push({ kind: 'gap' }); continue; }
+    const text = asText(part['text']);
+    if (part['error'] === true) {
+      marks += 1;
+      original.push({ kind: 'mark', text });
+      const fix = asText(part['corrected']);
+      if (fix) { anyCorrection = true; corrected.push({ kind: 'mark', text: fix }); }
+    } else { original.push({ kind: 'text', text }); corrected.push({ kind: 'text', text }); }
+  }
+  if (!marks) return null;
+  const s = sentence as { cutStart?: unknown; cutEnd?: unknown };
+  return { original, corrected: anyCorrection ? corrected : null, cutStart: s.cutStart === true, cutEnd: s.cutEnd === true, marks };
+}
+function exampleView(example: CommonMistakeExample | unknown): ExampleView | null {
+  if (!example || typeof example !== 'object') return null;
+  const e = example as Partial<CommonMistakeExample>;
+  return { original: asText(e.original), corrected: asText(e.corrected), explanation: asText(e.explanation), sentence: sentenceView(e.sentence) };
+}
 export const ERROR_MESSAGES: Readonly<Record<ReportErrorState, string>> = Object.freeze({
   not_found: 'Report not found',
   unsupported: 'Reports are only available for essay assignments',
@@ -83,27 +120,46 @@ export class AssignmentReportPage implements OnInit, OnDestroy {
   });
   readonly errorsNote = 'Counts are from the AI analysis and may include items you removed.';
 
-  /** Common mistakes: only types 2 or more students made; their examples open one row at a time (each row on its own). */
+  /**
+   * "Common errors": one card. Category chips come from the AI analysis (errorsNote); the rows from the corrections students can see:
+   * each type with the students affected, the total, and examples (only for a type 2 or more students made). An older backend, or too
+   * few students, falls back to the AI-analysis type counts (no students chip, no examples).
+   */
   readonly commonMistakesNote = 'Based on the corrections students can see. Corrections you removed are not counted.';
   readonly commonMistakesPartialNote = 'Some edited essays were left out of this section.';
   readonly commonMistakes = computed(() => this.report()?.commonMistakes ?? null);
-  readonly commonRows = computed<CommonMistakeRow[]>(() => (this.commonMistakes()?.types || []).filter((t) => t.isCommon).map((t) => ({
-    ...t, title: `${t.typeCode} · ${t.label}`, studentText: `${t.studentCount} of ${t.totalStudents} students`,
-    percent: t.totalStudents > 0 ? Math.round((t.studentCount / t.totalStudents) * 100) : 0,
-    color: CATEGORY_TONES[String(t.category) as CorrectionCategoryKey]?.edge ?? null,
-    examplesId: `common-mistake-examples-${t.typeCode.replace(/[^A-Za-z0-9_-]/g, '')}` })));
+  readonly errorCategories = computed(() => (this.report()?.errors.categories || []).filter((c) => c.count > 0)
+    .map((c) => ({ key: c.key, label: c.label, count: c.count, color: CATEGORY_TONES[c.key as CorrectionCategoryKey]?.edge ?? null })));
+  readonly errorRows = computed<ErrorRow[]>(() => {
+    const block = this.commonMistakes();
+    const idOf = (code: string) => `common-error-examples-${code.replace(/[^A-Za-z0-9_-]/g, '')}`;
+    const types = block?.state === 'ok' && Array.isArray(block.types) ? block.types : [];
+    if (types.length) return types.map((t) => {
+      const examples = t.isCommon && Array.isArray(t.examples) ? t.examples.map(exampleView).filter((e): e is ExampleView => e !== null) : [];
+      return { key: t.typeCode, title: `${t.typeCode} · ${t.label}`, totalText: times(t.occurrenceCount), examples, examplesId: idOf(t.typeCode),
+        studentText: t.studentCount === 1 ? '1 student' : `${t.studentCount} of ${t.totalStudents} students`, noExamples: !examples.length };
+    });
+    return (this.report()?.errors.symbols || []).map((s) => ({ key: s.symbol, title: `${s.symbol} · ${s.label}`, studentText: null,
+      totalText: times(s.count), examples: [], examplesId: idOf(s.symbol), noExamples: false }));
+  });
   readonly commonEmptyText = computed(() => {
     const block = this.commonMistakes();
     if (!block) return null;
     if (block.state === 'not_enough_students') return 'Not enough submissions yet to find common mistakes';
-    return this.commonRows().length ? null : 'No mistake was shared by 2 or more students.';
+    return block.state === 'ok' && block.types?.length ? null : 'No mistake was shared by 2 or more students.';
   });
   private readonly openExamples = signal<ReadonlySet<string>>(new Set());
+  private readonly moreExamples = signal<ReadonlySet<string>>(new Set());
+  readonly shownExamples = SHOWN_EXAMPLES;
   examplesOpen(typeCode: string): boolean { return this.openExamples().has(typeCode); }
-  toggleExamples(typeCode: string): void {
-    const next = new Set(this.openExamples());
-    if (next.has(typeCode)) next.delete(typeCode); else next.add(typeCode);
-    this.openExamples.set(next);
+  toggleExamples(typeCode: string): void { this.openExamples.set(this.flip(this.openExamples(), typeCode)); }
+  /** "Show 2 more examples": the rest of a type's examples (each row on its own). */
+  moreOpen(typeCode: string): boolean { return this.moreExamples().has(typeCode); }
+  toggleMore(typeCode: string): void { this.moreExamples.set(this.flip(this.moreExamples(), typeCode)); }
+  private flip(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
   }
   readonly state = signal<PageState>('loading');
   readonly report = signal<AssignmentReport | null>(null);
@@ -157,6 +213,17 @@ export class AssignmentReportPage implements OnInit, OnDestroy {
     return r.timeline.points.map((p) => ({ label: fmt.format(new Date(`${p.date}T00:00:00Z`)), value: p.count }));
   });
   readonly weekly = computed(() => this.report()?.timeline.granularity === 'week');
+  /** The line above the timeline: the busiest day (or week) and how many were late. Not shown when the timeline is hidden or empty. */
+  readonly timelineSummary = computed(() => {
+    const r = this.report();
+    const points = r?.timeline.points || [];
+    if (!r || r.smallData.timelineHidden || !points.length) return null;
+    const top = points.reduce((best, p) => (p.count > best.count ? p : best), points[0]);
+    if (!top.count) return null;
+    const day = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${top.date}T00:00:00Z`));
+    const busiest = this.weekly() ? `${top.count} of ${r.counts.total} in the week of ${day} (busiest week)` : `${top.count} of ${r.counts.total} on ${day} (busiest day)`;
+    return { busiest, late: `${r.counts.late} late` };
+  });
 
   readonly rubricItems = computed<ReportBarItem[]>(() => {
     const rubric = this.report()?.rubric;
@@ -164,19 +231,22 @@ export class AssignmentReportPage implements OnInit, OnDestroy {
     return rubric.criteria.map((c) => ({ key: c.key, label: c.label, percent: c.averagePct, valueText: `${c.averagePct}%`,
       marker: c.key === rubric.strongestKey ? 'strongest' : c.key === rubric.weakestKey ? 'weakest' : null }));
   });
-  readonly categoryItems = computed<ReportBarItem[]>(() => (this.report()?.errors.categories || []).map((c) => ({
-    key: c.key, label: c.label, percent: c.pct, valueText: `${c.count} (${c.pct}%)`,
-    color: CATEGORY_TONES[c.key as CorrectionCategoryKey]?.edge ?? null })));
-  readonly symbolItems = computed<ReportBarItem[]>(() => (this.report()?.errors.symbols || []).map((s) => ({
-    key: s.symbol, label: `${s.symbol} · ${s.label}`, percent: s.pct, valueText: `${s.count} (${s.pct}%)`,
-    color: CATEGORY_TONES[String(s.category) as CorrectionCategoryKey]?.edge ?? null })));
 
   private readonly rows = computed<StudentRow[]>(() => (this.report()?.students || []).map((s) => ({
     ...s, ...statusOf(s), sourceLabel: SOURCE_LABELS[s.source] || 'Class' })));
 
+  /** Students status filter (with counts), combined with the search. */
+  readonly statusFilter = signal<StatusFilter>('all');
+  private readonly statusTests: Readonly<Record<StatusFilter, (r: StudentRow) => boolean>> = {
+    all: () => true, attention: (r) => r.needsAttention, not_reviewed: (r) => !r.reviewed, late: (r) => r.isLate };
+  readonly statusFilters = computed(() => ([['all', 'All'], ['attention', 'Needs attention'], ['not_reviewed', 'Not reviewed'], ['late', 'Late']] as const)
+    .map(([key, label]) => ({ key, label, count: this.rows().filter(this.statusTests[key]).length })));
+  setStatusFilter(key: StatusFilter): void { this.statusFilter.set(key); this.page.set(1); }
+
   readonly filtered = computed(() => {
     const term = this.search().trim().toLowerCase();
-    const list = term ? this.rows().filter((r) => r.name.toLowerCase().includes(term)) : this.rows().slice();
+    const status = this.statusTests[this.statusFilter()];
+    const list = this.rows().filter((r) => status(r) && (!term || r.name.toLowerCase().includes(term)));
     const key = this.sortKey(), dir = this.sortDir() === 'asc' ? 1 : -1;
     const compare = (a: StudentRow, b: StudentRow): number => {
       if (key === 'score') {

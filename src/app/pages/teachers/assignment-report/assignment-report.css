@@ -133,6 +133,57 @@
 .skeleton-panel { height: 14rem; }
 @keyframes report-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
+/* Balanced rows: two columns when there is room for two readable panels (about 340px each), one column otherwise (900px with the
+   sidebar, tablets, phones). A row with one panel lets it span the row. */
+.assignment-report__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 1rem; margin-bottom: 1rem; align-items: stretch; }
+.assignment-report__row > .assignment-report__panel { margin-bottom: 0; }
+
+/* Insights: small highlighted callouts (teal, every other one navy). Colour is never the only signal: each has its icon and text. */
+.assignment-report__callouts { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.assignment-report__callout { display: flex; align-items: flex-start; gap: .55rem; padding: .6rem .75rem; border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-md); background: var(--color-primary-bg); color: var(--color-text); font-size: .875rem; line-height: 1.45; overflow-wrap: anywhere; }
+.assignment-report__callout i { margin-top: .1rem; color: var(--color-primary-dark); font-size: 1.05rem; }
+.assignment-report__callout--navy { border-left-color: var(--color-navy); background: #e9edf5; }
+.assignment-report__callout--navy i { color: var(--color-navy); }
+
+/* Submissions over time: the summary first, then a shorter chart. */
+.assignment-report__timing { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: .5rem; margin-bottom: .6rem; }
+.assignment-report__timing-stat { margin: 0; padding: .55rem .7rem; border-radius: var(--radius-md); background: #f3f6f8; color: #14264d; font-size: .85rem; font-weight: 700; overflow-wrap: anywhere; }
+.assignment-report__timing-stat--late { color: #92400e; background: #fff7ed; }
+
+/* Common errors: category chips, then one row per type (label, students chip, total, examples button). */
+.assignment-report__chips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .5rem 0 .2rem; }
+.assignment-report__chips-label { color: var(--color-text-muted); font-size: .75rem; font-weight: 700; }
+.assignment-report__chip-list { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.assignment-report__chip { padding: .15rem .6rem; border: 1px solid #e2e8ee; border-left-width: 4px; border-radius: 999px; background: #fff; font-size: .78rem; color: var(--color-text); }
+.assignment-report__chip strong { color: #14264d; }
+.assignment-report__errors { display: grid; margin: .6rem 0 0; padding: 0; list-style: none; }
+.assignment-report__error-row { min-width: 0; padding: .65rem 0; border-top: 1px solid #edf1f4; }
+.assignment-report__error-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; }
+.assignment-report__error-label { flex: 1 1 12rem; min-width: 0; color: #14264d; font-size: .9rem; font-weight: 700; overflow-wrap: anywhere; }
+.assignment-report__count-chip { padding: .12rem .6rem; border-radius: 999px; background: var(--color-primary-bg); color: var(--color-primary-dark); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.assignment-report__error-total { min-width: 4.5rem; color: var(--color-text); font-size: .82rem; white-space: nowrap; }
+.assignment-report__examples-wrap[hidden] { display: none; }
+.assignment-report__common-example[hidden] { display: none; }
+.assignment-report__common-example { padding: .55rem .75rem; border: 1px solid #e5e7eb; border-left: 3px solid #e5e7eb; border-radius: var(--radius-md); background: #fbfcfd; }
+.assignment-report__sentence { margin: 0 0 .25rem; font-size: .875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.assignment-report__sentence-label { margin-right: .3rem; color: var(--color-text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+/* Marked words: colour plus strike-through (mistake) or bold with an underline (correction), never colour alone. */
+.assignment-report__mark { padding: 0 .15rem; border-radius: 3px; }
+.assignment-report__mark--err { background: #fde8e8; color: #9b1c1c; text-decoration: line-through; border-bottom: 2px solid #b42318; }
+.assignment-report__mark--fix { background: #e3f5ec; color: #0f5132; font-weight: 700; border-bottom: 2px solid #0f6b46; }
+.assignment-report__grouped { display: inline-block; margin-left: .4rem; padding: 0 .5rem; border-radius: 999px; background: #e9edf5; color: var(--color-navy); font-size: .7rem; font-weight: 700; }
+.assignment-report__more { min-height: 2.3rem; margin-top: .4rem; padding: .3rem .1rem; border: 0; background: transparent; color: var(--color-primary-dark); font-size: .82rem; font-weight: 700; cursor: pointer; }
+.assignment-report__more:hover { text-decoration: underline; }
+
+/* Students: a compact status filter (pressed state shown by colour and by aria-pressed for screen readers). */
+.assignment-report__filters { display: flex; flex-wrap: wrap; gap: .4rem; margin: .6rem 0 0; }
+.assignment-report__filter { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.2rem; padding: .3rem .75rem; border: 1px solid #d1d5db; border-radius: 999px;
+  background: #fff; color: var(--color-navy); font-size: .8rem; font-weight: 600; cursor: pointer; }
+.assignment-report__filter--on { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+.assignment-report__filter-count { font-weight: 700; }
+.assignment-report__table td { padding-top: .45rem; padding-bottom: .45rem; }
+
 @media (max-width: 1024px) { .assignment-report__grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) {
   .assignment-report { padding-inline: .75rem; }
