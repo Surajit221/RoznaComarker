@@ -220,6 +220,13 @@ export class DialogViewSubmissions implements OnChanges, OnDestroy {
     }
 
     const submission = this.submissions.find((s) => s._id === student.submissionId);
+    // A speaking (audio) submission has its own page (stage 7e).
+    if (submission?.sourceKind === 'audio') {
+      this.router.navigate(['/teacher/my-classes/detail/speaking-submission', student.submissionId], {
+        queryParams: { classId: this.relatedId(submission.class), assignmentId: this.assignmentId || undefined }
+      });
+      return;
+    }
     const studentObj = submission && typeof submission.student !== 'string' ? submission.student : null;
     const studentId = submission?.submissionMode === 'guest' ? 'guest' : studentObj?._id;
 

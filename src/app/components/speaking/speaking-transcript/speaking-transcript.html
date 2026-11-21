@@ -1,0 +1,31 @@
+<section class="gradient-card p-6" aria-labelledby="speaking-transcript-title">
+  <div class="flex flex-row flex-wrap justify-between items-center gap-3 mb-2">
+    <h3 id="speaking-transcript-title" class="font-semibold text-gray-700">What was said</h3>
+    @if (hasFillers) {
+      <label class="speaking-fillers-toggle text-sm text-gray-700">
+        <input type="checkbox" [checked]="showFillers" (change)="toggleFillers($event)" />
+        Show filler words
+      </label>
+    }
+  </div>
+  <p class="text-xs text-gray-500 mb-3">Turned into text by a speech-to-text service. Punctuation was added automatically and is not marked.</p>
+  @if (showFillers) { <p class="text-xs text-gray-500 mb-2" role="status">Filler words are shown in brackets, for example (um).</p> }
+  <div class="speaking-transcript bg-[#F3F3F3] p-4 rounded-2xl" role="region" aria-label="Transcript">
+    <app-tokenized-transcript class="text-sm leading-relaxed text-gray-700 font-sans" [ocrWords]="model.words" [annotations]="model.annotations"></app-tokenized-transcript>
+  </div>
+
+  @if (result.corrections.length) {
+    <h4 class="font-semibold text-gray-700 mt-4 mb-2">Corrections ({{ result.corrections.length }})</h4>
+    <ol class="speaking-corrections" data-speaking-corrections>
+      @for (c of result.corrections; track c.id) {
+        <li>
+          <span class="font-semibold">“{{ c.quotedText }}”</span>
+          @if (c.suggestedText) { → <span class="font-semibold">“{{ c.suggestedText }}”</span> }
+          <span class="block text-sm text-gray-600">{{ c.message }} <span class="text-xs text-gray-500">({{ label(c.category) }} · {{ c.symbol }})</span></span>
+        </li>
+      }
+    </ol>
+  }
+
+  <details class="mt-3"><summary class="cursor-pointer font-medium">View correction legend</summary><app-writing-corrections-legend class="block mt-2" [legend]="legend"></app-writing-corrections-legend></details>
+</section>

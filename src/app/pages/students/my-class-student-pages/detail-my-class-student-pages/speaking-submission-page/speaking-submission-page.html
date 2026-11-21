@@ -42,6 +42,14 @@
       }
       @if (retryError) { <p class="text-sm text-red-500 font-medium" role="alert">{{ retryError }}</p> }
     </section>
+
+    <app-speaking-audio-player [submissionId]="submission.id" label="Your recording" [durationSeconds]="submission.recording.durationSeconds"></app-speaking-audio-player>
+    @if (result?.state === 'ready' && result?.assessedText) {
+      <app-speaking-transcript [result]="result!"></app-speaking-transcript>
+    }
+    @if (result?.state === 'ready' && result?.result) {
+      <app-speaking-result-view [result]="result!.result!" [marksVisible]="result!.marksVisible" [fluency]="result!.fluency" audience="student"></app-speaking-result-view>
+    }
   }
 </div>
 

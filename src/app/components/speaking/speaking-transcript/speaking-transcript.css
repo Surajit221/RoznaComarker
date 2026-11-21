@@ -1,0 +1,14 @@
+/* .gradient-card copied as is from my-submission-page.css (the essay result page). */
+.gradient-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+}
+:host { display: block; min-width: 0; }
+.speaking-transcript { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+/* The checkbox colour used by the existing teacher forms (reference-files-field.css). */
+.speaking-fillers-toggle { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; cursor: pointer; }
+.speaking-fillers-toggle input { width: 1.1rem; height: 1.1rem; accent-color: #008081; }
+.speaking-corrections { display: grid; gap: .6rem; padding-left: 1.25rem; list-style: decimal; overflow-wrap: anywhere; }
+@media (max-width: 768px) { .gradient-card.p-6 { padding: 1rem; } }

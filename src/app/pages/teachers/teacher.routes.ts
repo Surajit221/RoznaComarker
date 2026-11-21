@@ -11,6 +11,7 @@ import { ReportPages } from './report-pages/report-pages';
 import { TeacherGuard } from '../../auth/teacher.guard';
 import { RubricLibraryPage } from './rubric-library/rubric-library';
 import { unsavedWorkGuard } from '../../core/app-update/unsaved-work';
+import { TeacherSpeakingSubmissionPage } from './my-classes-pages/detail-my-classes-pages/speaking-submission-page/teacher-speaking-submission-page';
 export const TEACHER_ROUTE: Routes = [
   {
     path: 'teacher',
@@ -27,6 +28,7 @@ export const TEACHER_ROUTE: Routes = [
       { path: 'assignment-report/:assignmentId', loadComponent: () => import('./assignment-report/assignment-report').then((m) => m.AssignmentReportPage) },
       { path: 'my-classes/detail/student-profile/:studentId', component: StudentProfilePages },
       { path: 'my-classes/detail/student-submissions/:studentId', component: StudentSubmissionPages, canDeactivate: [unsavedWorkGuard] },
+      { path: 'my-classes/detail/speaking-submission/:submissionId', component: TeacherSpeakingSubmissionPage, canDeactivate: [unsavedWorkGuard] },
       { path: 'my-classes/detail/:slug', component: DetailMyClassesPages, canDeactivate: [unsavedWorkGuard] },
     ],
   },

@@ -7,6 +7,9 @@ import { SpeakingApiService, type SpeakingLimits, type SpeakingResult, type Stud
 import { AppBarBackButton } from '../../../../../shared/app-bar-back-button/app-bar-back-button';
 import { AnalysisProgress, type ProcessingProgress } from '../../../../../components/analysis-progress/analysis-progress';
 import { SpeakingUploadDialog, type SpeakingUploadTarget } from '../../../../../components/student/speaking-upload-dialog/speaking-upload-dialog';
+import { SpeakingAudioPlayer } from '../../../../../components/speaking/speaking-audio-player/speaking-audio-player';
+import { SpeakingTranscript } from '../../../../../components/speaking/speaking-transcript/speaking-transcript';
+import { SpeakingResultView } from '../../../../../components/speaking/speaking-result-view/speaking-result-view';
 import { SpeakingPoller, type SpeakingStatusView, studentSpeakingStatus } from '../../../../../utils/speaking-status';
 import { speakingErrorMessage } from '../../../../../utils/speaking-messages';
 
@@ -17,7 +20,7 @@ import { speakingErrorMessage } from '../../../../../utils/speaking-messages';
  */
 @Component({
   selector: 'app-student-speaking-submission-page',
-  imports: [CommonModule, AppBarBackButton, AnalysisProgress, SpeakingUploadDialog],
+  imports: [CommonModule, AppBarBackButton, AnalysisProgress, SpeakingUploadDialog, SpeakingAudioPlayer, SpeakingTranscript, SpeakingResultView],
   templateUrl: './speaking-submission-page.html',
   styleUrl: './speaking-submission-page.css'
 })

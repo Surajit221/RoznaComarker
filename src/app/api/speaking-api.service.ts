@@ -77,6 +77,19 @@ export interface SpeakingResult {
   offTopicCap?: { cap: number; uncappedScore: number } | null;
 }
 
+/** GET /api/speaking/submissions/:id (the owning teacher): the job state and whose recording it is (display name only). */
+export interface TeacherSpeakingSubmission {
+  id: string;
+  assignmentId: string;
+  studentId: string | null;
+  studentName: string | null;
+  status: string;
+  submittedAt: string | null;
+  isLate: boolean;
+  recording: { status: 'uploaded' | 'queued' | 'transcribing' | 'ready' | 'failed' | 'cancelled'; attempts: number; lastErrorCode: string | null;
+    durationSeconds: number | null; sizeBytes: number; contentType: string; audioAvailable: boolean } | null;
+}
+
 /** A new upload reference (Idempotency-Key): 16 to 80 letters, digits, - or _. One per chosen recording; reused when that upload is retried. */
 export function newRecordingRequestId(): string {
   const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -142,5 +155,28 @@ export class SpeakingApiService {
 
   async retryTranscription(submissionId: string): Promise<void> {
     await firstValueFrom(this.http.post(`${this.base}/speaking/submissions/${encodeURIComponent(submissionId)}/retry-transcription`, {}));
+  }
+
+  // ---- Teacher ------------------------------------------------------------------------------------------------------------------
+  async getTeacherSubmission(submissionId: string): Promise<TeacherSpeakingSubmission> {
+    const response = await firstValueFrom(this.http.get<Envelope<TeacherSpeakingSubmission>>(`${this.base}/speaking/submissions/${encodeURIComponent(submissionId)}`));
+    return response.data;
+  }
+
+  /** Queues a failed or blocked marking again (the owning teacher); answers with the result as it now stands. */
+  async retryAssessment(submissionId: string): Promise<SpeakingResult> {
+    const response = await firstValueFrom(this.http.post<Envelope<SpeakingResult>>(
+      `${this.base}/speaking/submissions/${encodeURIComponent(submissionId)}/retry-assessment`, {}));
+    return response.data;
+  }
+
+  // ---- Private audio (the owning student or teacher), always through this signed-in client -------------------------------------------
+  getRecordingBlob(submissionId: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${this.base}/audio/submissions/${encodeURIComponent(submissionId)}/media`, { responseType: 'blob' }));
+  }
+
+  /** The owning teacher only. */
+  downloadRecordingBlob(submissionId: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${this.base}/audio/submissions/${encodeURIComponent(submissionId)}/download`, { responseType: 'blob' }));
   }
 }
