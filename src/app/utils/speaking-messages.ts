@@ -42,13 +42,19 @@ export function tooLargeMessage(limits: SpeakingMessageLimits = {}): string {
     + 'Save it as MP3 or M4A, or record in mono, and upload it again.';
 }
 
+/** The fixed message for a backend code (also used by the checks made before an upload); null for a code without one. */
+export function messageForCode(code: string, limits: SpeakingMessageLimits = {}): string | null {
+  if (code === 'AUDIO_TOO_LARGE' || code === 'AUDIO_TOO_LONG') return tooLargeMessage(limits);
+  return BY_CODE[code] ?? null;
+}
+
 /** The message for a failed speaking request. */
 export function speakingErrorMessage(error: unknown, limits: SpeakingMessageLimits = {}): string {
   if (!(error instanceof HttpErrorResponse)) return SPEAKING_GENERIC_MESSAGE;
   if (error.status === 0) return CONNECTION;
   const code = typeof error.error?.code === 'string' ? error.error.code : '';
-  if (code === 'AUDIO_TOO_LARGE' || code === 'AUDIO_TOO_LONG') return tooLargeMessage(limits);
-  if (code && BY_CODE[code]) return BY_CODE[code];
+  const known = code ? messageForCode(code, limits) : null;
+  if (known) return known;
   if (error.status === 429) return 'Too many requests. Please wait a few minutes and try again.';
   return SPEAKING_GENERIC_MESSAGE;
 }

@@ -1,0 +1,34 @@
+<input #fileInput type="file" class="hidden" [accept]="accept" aria-label="Choose a recording" (change)="onInput($event)" />
+
+<div
+  data-speaking-dropzone
+  class="essay-dropzone relative flex flex-col items-center justify-center w-full mx-auto p-8 border-2 border-dashed rounded-2xl transition-colors duration-200 cursor-pointer select-none"
+  [ngClass]="{ 'border-blue-500 bg-blue-50': dragging, 'border-gray-300 hover:border-blue-400': !dragging }"
+  role="button"
+  tabindex="0"
+  [attr.aria-disabled]="disabled"
+  aria-label="Choose a recording: MP3, M4A, WebM, Ogg or WAV"
+  (click)="open($event)"
+  (keydown.enter)="open($event)"
+  (keydown.space)="open($event)"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  <div class="essay-dropzone__icon"><i class="bx bx-microphone text-4xl" aria-hidden="true"></i></div>
+  @if (chosenName) {
+    <p class="text-center text-base font-semibold text-gray-700 break-all">{{ chosenName }}</p>
+    <p class="text-center text-sm text-gray-500 mt-1">{{ chosenSize }} · {{ device.isDesktop() ? 'Click to choose another file' : 'Tap to choose another file' }}</p>
+  } @else if (device.isDesktop()) {
+    <p class="text-center text-lg font-bold text-gray-700">Upload a recording</p>
+    <p class="text-center text-sm text-gray-500 mt-1">Drop a file here or click to browse</p>
+  } @else {
+    <p class="text-center text-base font-semibold text-gray-700">Upload a recording</p>
+    <p class="text-center text-sm text-gray-500 mt-1">Tap here to choose a file</p>
+  }
+  <p class="essay-dropzone__formats">MP3, M4A, WebM, Ogg or WAV</p>
+</div>
+
+@if (error) {
+  <p class="text-sm text-red-500 font-medium mt-3" role="alert">{{ error }}</p>
+}

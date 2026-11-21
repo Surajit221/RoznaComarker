@@ -1,0 +1,49 @@
+@if (device.isDesktop()) {
+  <div class="mb-6 flex flex-row justify-between items-center gap-4">
+    <h1 class="text-4xl font-bold text-gray-800 break-words min-w-0">{{ title }}</h1>
+    <button type="button" class="btn-danger shrink-0" (click)="back()">Back To Class</button>
+  </div>
+} @else {
+  <app-app-bar-back-button [title]="title" (back)="back()"></app-app-bar-back-button>
+}
+
+<div class="speaking-page w-full bg-white rounded-3xl flex flex-col gap-4 mb-10" [class.p-6]="device.isDesktop()" [class.p-3]="!device.isDesktop()">
+  @if (assignment?.instructions) {
+    <div>
+      <p class="text-xs font-semibold text-gray-700">Description</p>
+      <p class="text-sm text-gray-600 whitespace-pre-line">{{ assignment?.instructions }}</p>
+    </div>
+  }
+
+  @if (loading) {
+    <p class="text-sm text-gray-600" role="status">Loading your recording…</p>
+  } @else if (loadError) {
+    <div class="section-load-error" role="alert">{{ loadError }}</div>
+  } @else if (!submission) {
+    <div class="bg-[#F3F3F3] p-4 rounded-2xl flex flex-col items-start gap-3">
+      <p class="text-base font-semibold text-gray-700">You haven't uploaded a recording yet.</p>
+      <button type="button" class="btn-primary" (click)="openUpload()">Upload Recording</button>
+    </div>
+  } @else {
+    <section class="bg-[#F3F3F3] p-4 rounded-2xl flex flex-col gap-3" aria-label="Recording status">
+      <p class="text-sm text-gray-500">
+        Uploaded {{ submission.submittedAt | date:'MMM d, y, h:mm a' }}@if (durationText) { · {{ durationText }}}@if (submission.isLate) { · Late}
+      </p>
+      <app-analysis-progress [progress]="progress" [showCompleted]="true"></app-analysis-progress>
+      @if (statusView?.canRetryTranscription || offerNewRecording) {
+        <div class="speaking-status-actions">
+          @if (statusView?.canRetryTranscription) {
+            <button type="button" class="btn-primary-sm" (click)="retryTranscription()" [disabled]="retrying" [attr.aria-busy]="retrying">Retry transcription</button>
+          }
+          @if (offerNewRecording) {
+            <button type="button" class="btn-info-sm" (click)="openUpload()">Upload a new recording</button>
+          }
+        </div>
+      }
+      @if (retryError) { <p class="text-sm text-red-500 font-medium" role="alert">{{ retryError }}</p> }
+    </section>
+  }
+</div>
+
+<app-speaking-upload-dialog [open]="dialogOpen" [assignment]="assignment" [limits]="limits" [replacing]="!!submission"
+  (closed)="dialogOpen = false" (uploaded)="onUploaded($event)"></app-speaking-upload-dialog>

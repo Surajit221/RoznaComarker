@@ -59,8 +59,11 @@
                     @if (item.resourceType === 'flashcard') {
                       <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
                     }
+                    @if (item.resourceType === 'speaking') {
+                      <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
+                    }
                   </div>
-                  @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+                  @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
                     <div class="mb-2">
                       <p class="text-xs font-semibold text-gray-700">Description</p>
                       <p class="text-sm text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
@@ -96,6 +99,12 @@
                       class="text-sm underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
                       (click)="viewWorksheetResult(item)"
                     >&#128202; View result</p>
+                  } @else if (item.resourceType === 'speaking') {
+                    @if (item.submitted > 0) {
+                      <button type="button" class="btn-primary-sm submission-action-button" (click)="toSpeakingPage(item.id)" [attr.aria-label]="'View recording: ' + (item.title || 'assignment')">View Recording</button>
+                    } @else {
+                      <button type="button" class="btn-primary-sm submission-action-button" (click)="openSpeakingUpload(item.id)" [attr.aria-label]="'Upload recording: ' + (item.title || 'assignment')">Upload Recording</button>
+                    }
                   } @else if(item.status == 'waiting') {
                     <button type="button"
                       class="btn-primary-sm submission-action-button"
@@ -281,8 +290,11 @@
               @if (item.resourceType === 'flashcard') {
                 <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">Flashcard</span>
               }
+              @if (item.resourceType === 'speaking') {
+                <span data-speaking-pill class="px-2 py-0.5 rounded-full bg-[#203864] text-white text-xs font-semibold">Speaking</span>
+              }
             </div>
-            @if ((!item.resourceType || item.resourceType === 'essay') && item.instructions) {
+            @if ((!item.resourceType || item.resourceType === 'essay' || item.resourceType === 'speaking') && item.instructions) {
               <div class="mt-1">
                 <p class="text-xs font-semibold text-gray-700">Description</p>
                 <p class="text-xs text-gray-600 whitespace-pre-line">{{ item.instructions }}</p>
@@ -314,6 +326,12 @@
                 class="text-xs underline cursor-pointer text-[#008081] hover:text-[#136c6d] font-medium"
                 (click)="viewWorksheetResult(item)"
               >&#128202; View result</p>
+            } @else if (item.resourceType === 'speaking') {
+              @if (item.submitted > 0) {
+                <button type="button" class="btn-primary-sm submission-action-button" (click)="toSpeakingPage(item.id)" [attr.aria-label]="'View recording: ' + (item.title || 'assignment')">View Recording</button>
+              } @else {
+                <button type="button" class="btn-primary-sm submission-action-button" (click)="openSpeakingUpload(item.id)" [attr.aria-label]="'Upload recording: ' + (item.title || 'assignment')">Upload Recording</button>
+              }
             } @else if(item.status == 'waiting') {
               <button type="button"
                 class="btn-primary-sm submission-action-button"
@@ -447,3 +465,6 @@
   [message]="errorModal.message"
   (closed)="errorModal = { open: false, title: '', message: '' }"
 ></app-error-modal>
+
+<app-speaking-upload-dialog [open]="!!speakingUploadId" [assignment]="speakingUploadTarget" [limits]="speakingUploadLimits"
+  (closed)="closeSpeakingUpload()" (uploaded)="onSpeakingUploaded()"></app-speaking-upload-dialog>

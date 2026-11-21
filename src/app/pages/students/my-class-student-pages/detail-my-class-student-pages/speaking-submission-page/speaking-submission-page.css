@@ -1,0 +1,10 @@
+/* .section-load-error copied as is from my-submission-page.css (the essay result page). */
+.section-load-error { padding: .875rem 1rem; color: #991b1b; background: #fff5f5; border: 1px solid #fecaca; border-radius: .625rem; font-size: .875rem; }
+
+.speaking-page { min-width: 0; overflow-wrap: anywhere; }
+/* The status actions: side by side when there is room, full-width buttons on narrow screens (the existing -sm button pattern). */
+.speaking-status-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+@media (max-width: 430px) {
+  .speaking-status-actions { flex-direction: column; align-items: stretch; }
+  .speaking-status-actions button { width: 100%; min-height: 44px; }
+}
