@@ -8,6 +8,11 @@ export const routes: Routes = [
     import('./pages/students/guest-submission/guest-submission').then(m => m.GuestSubmissionPage) },
   { path: 'guest/results/:submissionId', loadComponent: () =>
     import('./pages/students/guest-submission/guest-submission').then(m => m.GuestSubmissionPage) },
+  // Guests on a speaking assignment (stage 10b): the guest link and QR code (the essay address plus /speaking), and the emailed result link.
+  { path: 'student/assignments/qr/:qrToken/speaking', loadComponent: () =>
+    import('./pages/students/guest-speaking/guest-speaking').then(m => m.GuestSpeakingPage) },
+  { path: 'guest/speaking/:submissionId', loadComponent: () =>
+    import('./pages/students/guest-speaking/guest-speaking').then(m => m.GuestSpeakingPage) },
   // Multi-assignment recovery portal (guest submissions): ask for a link, and the emailed link's target.
   { path: 'recover', data: { mode: 'request' }, loadComponent: () =>
     import('./pages/recovery/recovery-portal').then(m => m.RecoveryPortalPage) },

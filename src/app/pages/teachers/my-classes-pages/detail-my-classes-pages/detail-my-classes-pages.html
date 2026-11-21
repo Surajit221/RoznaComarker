@@ -158,11 +158,12 @@
                       }
                     </div>
                     <div class="teacher-assignment-actions__grid">
-                      @if (item.resourceType !== 'speaking') {
+                      @if (showAssignmentQr(item)) {
                       <button
                         type="button"
                         class="assignment-utility assignment-utility--qr"
                         (click)="openAssignmentQr(item.id)"
+                        [attr.aria-label]="item.resourceType === 'speaking' ? 'QR code and guest link for ' + item.title : null"
                       >
                         <i class="bx bx-qr" aria-hidden="true"></i> QR Code
                       </button>
@@ -357,7 +358,7 @@
     <app-dialog-qr-classes
       [qrValue]="selectedAssignmentQrValue"
       [classTitle]="selectedQrAssignmentTitle"
-      instructionText="Students can scan this QR code to open the assignment."
+      [instructionText]="selectedQrInstruction"
       [showShareLink]="true"
       (closed)="closeAssignmentQr()"
     ></app-dialog-qr-classes>
@@ -545,11 +546,12 @@
                 }
               </div>
               <div class="teacher-assignment-actions__grid">
-              @if (item.resourceType !== 'speaking') {
+              @if (showAssignmentQr(item)) {
               <button
                 type="button"
                 class="assignment-utility assignment-utility--qr"
                 (click)="openAssignmentQr(item.id)"
+                [attr.aria-label]="item.resourceType === 'speaking' ? 'QR code and guest link for ' + item.title : null"
               >
                 <i class="bx bx-qr" aria-hidden="true"></i> QR Code
               </button>
@@ -708,7 +710,7 @@
     <app-dialog-qr-classes
       [qrValue]="selectedAssignmentQrValue"
       [classTitle]="selectedQrAssignmentTitle"
-      instructionText="Students can scan this QR code to open the assignment."
+      [instructionText]="selectedQrInstruction"
       [showShareLink]="true"
       (closed)="closeAssignmentQr()"
     ></app-dialog-qr-classes>

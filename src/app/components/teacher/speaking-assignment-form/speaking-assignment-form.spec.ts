@@ -7,6 +7,7 @@ import { RubricApiService } from '../../../api/rubric-api.service';
 import { AudioConfigService } from '../../../services/audio-config.service';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import { AlertService } from '../../../services/alert.service';
+import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import type { BackendAssignment } from '../../../api/assignment-api.service';
 import { httpTestingProviders, routedComponentProviders } from '../../../../testing/standalone-test-providers';
 
@@ -23,6 +24,8 @@ describe('SpeakingAssignmentForm', () => {
       { provide: AudioConfigService, useValue: { enabled: signal(true), maxMinutes: signal(maxMinutes), load: () => Promise.resolve() } },
       { provide: UnsavedWorkRegistry, useValue: unsaved },
       { provide: AlertService, useValue: jasmine.createSpyObj('AlertService', ['showToast', 'showError']) },
+      // Stage 10b: the form reads guest availability (as the writing form does); switched off here (speaking-assignment-form-guests.spec.ts covers it).
+      { provide: GuestSubmissionFeature, useValue: { enabled: () => false, state: () => 'disabled', load: () => Promise.resolve(false), settled: () => Promise.resolve('disabled') } },
       ...routedComponentProviders(), ...httpTestingProviders] }).compileComponents();
     fixture = TestBed.createComponent(SpeakingAssignmentForm); component = fixture.componentInstance;
     component.classId = 'class-1';

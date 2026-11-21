@@ -31,8 +31,9 @@ const uid = () => crypto.randomUUID();
  * "Upload student recordings" (stage 9): the essay "Upload student work" dialog (upload-student-work-dialog.ts) for a speaking assignment, step
  * for step: students (typed, a CSV file or the class list) checked locally and then by the server; one recording per student, chosen with the
  * student's own recording picker; a review with credits, Save or Save and send; up to four uploads at a time, each with its own reference so a
- * retry never saves twice; results per student. Differences: one recording (a recording already uploaded can only be replaced), and "Save and
- * send" emails class members only (guest speaking results come later). Messages are fixed (utils/speaking-messages), never the server's text.
+ * retry never saves twice; results per student. Difference: one recording (a recording already uploaded can only be replaced). "Save and send"
+ * emails every student, guests included (stage 10: a guest gets a private link to the guest speaking page). Messages are fixed
+ * (utils/speaking-messages), never the server's text.
  */
 @Component({
   selector: 'app-speaking-teacher-upload-dialog',
@@ -319,7 +320,7 @@ export class SpeakingTeacherUploadDialog implements OnChanges, OnDestroy {
     return new Promise(resolve => {
       this.patch(entry.id, { state: 'uploading', progress: 0 });
       const sub = this.api.upload(this.assignmentId!, { name: entry.name, email: entry.email, requestKey: entry.requestKey, batchId: this.batchId,
-        mode: entry.existing ? 'replace' : 'new', send: this.sendEmails() && entry.account === 'member', file: entry.file! })
+        mode: entry.existing ? 'replace' : 'new', send: this.sendEmails(), file: entry.file! })
         .subscribe({
           next: event => {
             if (event.type === 'progress') this.patch(entry.id, { progress: event.total ? event.loaded / event.total : 0 });

@@ -11,7 +11,9 @@ const fs = require('fs');
 const path = require('path');
 const BACKEND = path.resolve(__dirname, '../../backend');
 const FRONT_PORT = 4410;
+// GUEST_SUBMISSION_ENABLED and RECOVERY_LINK_MAX_USES (stage 10b): the guest pages and the recovery portal, opened once per width.
 Object.assign(process.env, { JWT_SECRET: 'speaking-flows-qa', NODE_ENV: 'test', AUDIO_STT_ENABLED: 'true', FRONTEND_URL: `http://localhost:${FRONT_PORT}`,
+  GUEST_SUBMISSION_ENABLED: 'true', RECOVERY_LINK_MAX_USES: '100',
   UPLOAD_BASE_PATH: `uploads/speaking-flows-qa-${process.pid}`, SENSITIVE_RATE_LIMIT_MAX: '100000', AUTH_READ_RATE_LIMIT_MAX: '100000', AUTH_WRITE_RATE_LIMIT_MAX: '100000',
   BASELINE_RATE_LIMIT_MAX: '1000000', SSE_TOKEN_RATE_LIMIT_MAX: '100000', COARSE_IP_RATE_LIMIT_MAX: '1000000', SPEAKING_UPLOAD_RATE_LIMIT_MAX: '100000' });
 // Tripwire: the process never reaches the network (the fake model reply is injected; speech-to-text is never started).
@@ -126,6 +128,53 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
   report.notes.push(`teacher upload marked: ${(await assess(tuMarked, h.output({ level: 'Excellent' }))).status}`);
   await asTeacherUpload(tuMarked, 'Ana Lima', 'none');
 
+  // Stage 10b: guests on a speaking assignment. Guest recordings in each state (made as the guest upload stores them, each with its own private
+  // link), an assignment closed to guests, the essay guest page to compare, and emailed recovery-portal links (a guest's and a member's).
+  const access = need('src/services/guestAccess.service');
+  const RecoveryToken = need('src/models/RecoveryToken');
+  const portalService = need('src/services/recoveryPortal.service');
+  await Assignment.updateOne({ _id: f.essay._id }, { $set: { allowGuestSubmission: true } });
+  A.guests = await speakingAssignment('Guest recordings', { allowGuestSubmission: true });
+  A.guestsHidden = await speakingAssignment('Guest recordings (marks hidden)', { allowGuestSubmission: true, showMarksToStudent: false });
+  A.guestsClosed = await speakingAssignment('Closed to guests', { allowGuestSubmission: false });
+  const GUEST_EMAIL = 'dee.guest@example.com';
+  const guestRecording = async (assignment, text, { seconds = 60, status = 'ready' } = {}) => {
+    const made = await makeAudioSubmission(forAssignment(assignment), { mode: 'guest', status, seconds });
+    if (text) await AudioRecording.collection.updateOne({ _id: made.recording._id }, { $set: { derived: { derivedTextVersion: 'audio-derived-text-v1',
+      displayText: { text, fillers: [] }, assessorText: text, fluency: h.fluencyFor(text) }, transcriptSchemaVersion: 'audio-transcript-v1', wordTimingsAvailable: true } });
+    const issued = access.issueToken();
+    await Submission.collection.updateOne({ _id: made.submission._id }, { $set: { 'guest.displayName': 'Dee Guest', 'guest.normalizedEmail': GUEST_EMAIL,
+      'guest.accessHash': issued.accessHash, 'guest.expiresAt': issued.expiresAt, qrToken: assignment.qrToken } });
+    return { ...made, token: issued.token };
+  };
+  const g = {};
+  g.transcribing = await guestRecording(A.guests, null, { status: 'queued', seconds: 50 });
+  g.ready = await guestRecording(A.guests, READY_TEXT, { seconds: 70 });
+  report.notes.push(`guest ready: ${(await assess(g.ready, readyReply)).status}`);
+  g.hidden = await guestRecording(A.guestsHidden, TEXTS.STRONG, { seconds: 80 });
+  report.notes.push(`guest marks hidden: ${(await assess(g.hidden, h.output({ level: 'Excellent' }))).status}`);
+  g.short = await guestRecording(A.guests, 'My town is small and quiet. I like it.', { seconds: 9 });
+  report.notes.push(`guest too short: ${(await assess(g.short, h.output())).status}`);
+  g.notEnglish = await guestRecording(A.guests, TEXTS.SPANISH, { seconds: 24 });
+  report.notes.push(`guest not English: ${(await assess(g.notEnglish, h.output({ assessable: false, reason: 'not_english' }))).status}`);
+  g.blocked = await guestRecording(A.guests, TEXTS.MEDIUM, { seconds: 50 });
+  await h.personalCredits(f.teacher.user, 0);
+  report.notes.push(`guest no credits: ${(await assess(g.blocked, h.output())).status}`);
+  await h.personalCredits(f.teacher.user, 50);
+  const essayGuest = access.issueToken();
+  await Submission.create({ submissionMode: 'guest', assignment: f.essay._id, class: f.klass._id, qrToken: f.essay.qrToken, submittedAt: new Date(Date.now() - 3600000),
+    status: 'submitted', assessmentStatus: 'processing', guest: { displayName: 'Dee Guest', normalizedEmail: GUEST_EMAIL, accessHash: essayGuest.accessHash, expiresAt: essayGuest.expiresAt } });
+  const portalLink = async email => {
+    const token = require('crypto').randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + 86400000);
+    await RecoveryToken.create({ emailNormalized: email, tokenHash: portalService.sha(token), expiresAt, source: 'student', purgeAt: new Date(expiresAt.getTime() + 86400000) });
+    return `/recover/portal#${token}`;
+  };
+  const guestPortal = await portalLink(GUEST_EMAIL), memberPortal = await portalLink(f.student.user.email);
+  const guestPage = made => `/guest/speaking/${made.submission._id}#${made.token}`;
+  const shortWav = path.join(out, 'short-recording.wav');
+  fs.writeFileSync(shortWav, samples.wav(2));
+
   // ---- Servers and browser ----
   const frontend = express();
   frontend.use(express.static(build));
@@ -143,7 +192,8 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     await page.setViewport({ width: viewport.width, height: viewport.height });
-    await page.evaluateOnNewDocument(jwt => { localStorage.setItem('backend_jwt', jwt); }, token);
+    // A guest (stage 10b) opens the page signed out.
+    if (token) await page.evaluateOnNewDocument(jwt => { localStorage.setItem('backend_jwt', jwt); }, token);
     const seen = { console: [], calls: [] };
     page.on('console', msg => { if (msg.type() === 'error' && !KNOWN_CONSOLE.test(msg.text())) seen.console.push(msg.text().replace(/[a-f0-9]{24}/g, '<id>').slice(0, 220)); });
     page.on('pageerror', error => seen.console.push(`pageerror: ${String(error.message).slice(0, 220)}`));
@@ -215,6 +265,25 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
     for (const input of await page.$$('.upload-dialog app-speaking-upload-picker input[type=file]')) await input.uploadFile(wavFile);
     return waitFor(() => page.evaluate(() => [...document.querySelectorAll('.upload-dialog .upload-page-card')].every(c => c.textContent.includes('sample-recording.wav'))));
   }
+  // Stage 10b helpers: the guest upload page up to the recording step, with a recording chosen; then consent and submit.
+  async function toGuestRecording(page, file = wavFile) {
+    for (const [selector, value] of [['#guest-name', 'Dee Guest'], ['#guest-email', 'dee.guest@example.com']]) {
+      await page.click(selector, { clickCount: 3 }); await page.type(selector, value);
+    }
+    // The button is enabled once the form has checked the typed values: wait for that, then click.
+    await waitFor(() => page.evaluate(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Continue' && !b.disabled)));
+    await clickText(page, 'button', 'Continue');
+    if (!await waitFor(() => visible(page, '[data-consent]'))) return false;
+    const input = await page.$('app-speaking-upload-picker input[type=file]');
+    await input.uploadFile(file);
+    return waitFor(() => page.evaluate(() => document.querySelector('app-speaking-upload-picker')?.textContent.includes('.wav')));
+  }
+  async function consentAndSubmit(page) {
+    await page.click('[data-consent]');
+    await page.click('[data-submit-recording]');
+    return true;
+  }
+  const guestUploadPage = qr => `/student/assignments/qr/${qr}/speaking`;
   const SCREENS = [
     { name: 'teacher-class-page', who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-pill]' },
     { name: 'assignment-type-choice', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-pill]',
@@ -266,7 +335,39 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
         [...(card?.querySelectorAll('button') || [])].find(b => b.textContent.includes('View Submissions'))?.click();
       }, 'Teacher uploads'); return waitFor(() => page.evaluate(() => document.querySelectorAll('[data-teacher-upload]').length >= 3)); } },
     { name: 'student-teacher-uploaded-result', who: student, url: speakingPage(A.teacherUploads), ready: 'app-speaking-result-view [data-criterion]',
-      check: text => noLeak(text) && !/Replace recording/.test(text) }
+      check: text => noLeak(text) && !/Replace recording/.test(text) },
+    // Stage 10b: guests. The upload page in each state, the essay guest page to compare, the result page in each status, the lost-link screens,
+    // the recovery portal with speaking rows, and the speaking QR dialog.
+    { name: 'guest-upload-details', who: null, url: guestUploadPage(A.guests.qrToken), ready: '#guest-name', check: noLeak },
+    { name: 'guest-essay-page (compare)', who: null, url: `/student/assignments/qr/${f.essay.qrToken}`, ready: '#guest-name' },
+    { name: 'guest-upload-consent-not-ticked', who: null, url: guestUploadPage(A.guests.qrToken), ready: '#guest-name', check: noLeak,
+      act: async page => (await toGuestRecording(page)) && waitFor(() => visible(page, '[data-consent-hint]'))
+        && page.evaluate(() => document.querySelector('[data-submit-recording]').disabled) },
+    { name: 'guest-upload-error', who: null, url: guestUploadPage(A.guests.qrToken), ready: '#guest-name', expectCalls: /POST \/api\/guest\/speaking\/assignments\/[^ ]+\/submit 422/, check: text => noLeak(text) && /shorter than 5 seconds/.test(text),
+      act: async page => (await toGuestRecording(page, shortWav)) && (await consentAndSubmit(page))
+        && waitFor(() => page.evaluate(() => /shorter than 5 seconds/.test(document.querySelector('[role=alert]')?.textContent || ''))) },
+    { name: 'guest-upload-received', who: null, url: guestUploadPage(A.guests.qrToken), ready: '#guest-name', check: noLeak,
+      act: async page => (await toGuestRecording(page)) && (await consentAndSubmit(page)) && waitFor(() => visible(page, '[data-received]')) },
+    { name: 'guest-link-closed', who: null, url: guestUploadPage(A.guestsClosed.qrToken), ready: '[data-entry-closed]',
+      expectCalls: /GET \/api\/guest\/speaking\/assignments\/[^ ]+ 404/ },
+    { name: 'guest-result-transcribing', who: null, url: guestPage(g.transcribing), ready: 'app-analysis-progress .stage', check: noLeak },
+    { name: 'guest-result-ready', who: null, url: guestPage(g.ready), ready: 'app-speaking-result-view [data-criterion]', check: noLeak },
+    { name: 'guest-result-marks-hidden', who: null, url: guestPage(g.hidden), ready: 'app-speaking-result-view .marks-hidden-notice', check: noLeak },
+    { name: 'guest-result-teacher-will-check', who: null, url: guestPage(g.blocked), ready: 'app-analysis-progress .stage',
+      check: text => noLeak(text) && /Your teacher will check this recording/.test(text) },
+    { name: 'guest-result-not-enough-speech', who: null, url: guestPage(g.short), ready: 'app-analysis-progress .stage', check: noLeak },
+    { name: 'guest-result-not-english', who: null, url: guestPage(g.notEnglish), ready: 'app-analysis-progress .stage', check: noLeak },
+    { name: 'guest-lost-link', who: null, url: `/guest/speaking/${g.ready.submission._id}`, ready: 'details.recovery[open]' },
+    { name: 'guest-link-expired', who: null, url: `/guest/speaking/${g.ready.submission._id}#${'x'.repeat(43)}`, ready: 'details.recovery[open]',
+      expectCalls: /GET \/api\/guest\/speaking\/submissions\/:id 404/ },
+    { name: 'portal-speaking-rows', who: null, url: guestPortal, ready: '[data-kind-speaking]' },
+    { name: 'portal-account-rows', who: null, url: memberPortal, ready: 'a[data-sign-in] [data-kind-speaking]' },
+    { name: 'speaking-qr-dialog', dialog: true, who: teacher, url: `/teacher/my-classes/detail/${C}`, ready: '[data-speaking-pill]',
+      act: async page => (await page.evaluate(title => {
+        const card = [...document.querySelectorAll('.teacher-assignment-card')].find(c => c.offsetParent !== null && c.textContent.includes(title));
+        const button = card?.querySelector('.assignment-utility--qr'); if (!button) return false; button.click(); return true;
+      }, 'Guest recordings')) && waitFor(() => page.evaluate(() => [...document.querySelectorAll('app-dialog-qr-classes')]
+        .some(d => d.offsetParent !== null && d.textContent.includes('record and upload their answer')))) }
   ];
 
   for (const screen of SCREENS) {
@@ -291,14 +392,18 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
         entry.heading = await page.evaluate(() => (document.querySelector('h1, .upload-modal-header h2')?.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80));
         if (screen.check) entry.textCheck = screen.check(text);
         entry.consoleErrors = opened.seen.console;
-        entry.failedCalls = opened.seen.calls;
+        // A screen that shows a refusal expects exactly that call to be refused (the lost-link screen of an expired link).
+        entry.failedCalls = opened.seen.calls.filter(call => !(screen.expectCalls && screen.expectCalls.test(call)));
         if (viewport.name === '1280') entry.styles = await page.evaluate(() => {
           const pick = selector => { const el = [...document.querySelectorAll(selector)].find(e => e.offsetParent !== null); if (!el) return null;
             const s = getComputedStyle(el); return { font: `${s.fontFamily.split(',')[0]} ${s.fontSize} ${s.fontWeight}`, color: s.color, background: s.backgroundColor,
               radius: s.borderRadius, padding: s.padding, border: `${s.borderTopWidth} ${s.borderTopStyle} ${s.borderTopColor}` }; };
           return { h2: pick('.upload-modal-header h2'), eyebrow: pick('.upload-modal-eyebrow'), detail: pick('.assignment-upload-detail'), dropzone: pick('.essay-dropzone'),
             sectionHeading: pick('.upload-section-heading p'), danger: pick('.upload-modal-actions .btn-danger'), input: pick('form input[type=text], form input:not([type])'),
-            label: pick('form label'), primary: pick('form button.btn-primary, form .btn-primary'), pill: pick('[data-speaking-pill]'), card: pick('.gradient-card') };
+            label: pick('form label'), primary: pick('form button.btn-primary, form .btn-primary'), pill: pick('[data-speaking-pill]'), card: pick('.gradient-card'),
+            // Stage 10b: the guest page (speaking and essay).
+            guestCard: pick('.assignment-card'), guestBadge: pick('.guest-badge'), guestTitle: pick('.assignment-card h1'), guestContent: pick('.content-card'),
+            guestInput: pick('#guest-name'), guestNote: pick('.privacy-note'), guestRecovery: pick('details.recovery'), guestFooter: pick('.page-footer') };
         });
         entry.ok = Boolean(entry.ready && (screen.act ? entry.acted : true) && !entry.overflow.overflowing && !entry.consoleErrors.length && !entry.failedCalls.length
           && entry.textCheck !== false);
@@ -325,6 +430,8 @@ const TOWN = 'Speak for one to three minutes about the town where you live: what
   };
   compare('upload dialog', 'upload-dialog', 'essay-upload-dialog (compare)', ['h2', 'eyebrow', 'detail', 'dropzone', 'sectionHeading', 'danger']);
   compare('assignment form', 'speaking-form', 'writing-form (compare)', ['input', 'label']);
+  compare('guest page', 'guest-upload-details', 'guest-essay-page (compare)', ['guestCard', 'guestBadge', 'guestTitle', 'guestContent', 'guestInput', 'guestNote',
+    'guestRecovery', 'guestFooter', 'primary']);
 
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
   console.log(`\n${report.screens.length} screenshots in ${out}; ${report.failures.length} failing; notes: ${report.notes.join('; ')}`);

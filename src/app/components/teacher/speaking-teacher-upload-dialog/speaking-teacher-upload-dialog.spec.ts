@@ -66,28 +66,28 @@ describe('SpeakingTeacherUploadDialog (stage 9: the essay "Upload student work" 
     expect(root().textContent).toContain('Enter a valid email address.');
   }));
 
-  it('Save and send: one recording per student, its own key; class members are emailed, guests are saved without an email', fakeAsync(() => {
+  it('Save and send: one recording per student, its own key; every student is emailed, guests included (stage 10)', fakeAsync(() => {
     fillAndCheck([{ name: 'Ana', email: 'ana@example.com' }, { name: 'Guest', email: 'g@example.com' }],
       { students: [{ index: 0, name: 'Ana', email: 'ana@example.com', account: 'member' }, { index: 1, name: 'Guest', email: 'g@example.com', account: 'guest' }],
         credits: { needed: 2, available: 5 } });
     expect(root().textContent).toContain('Class member');
-    expect(root().textContent).toContain('Guest: saved without an email for now');
+    expect(root().textContent).toContain('Guest: gets an emailed link');
     expect(button('Next: review')!.disabled).toBeTrue();
     chooseAll();
     button('Next: review')!.click();
     http.expectOne(`${BASE}/check`).flush({ success: true, data: { students: [], credits: { needed: 2, available: 5 } } });
     flushMicrotasks(); fixture.detectChanges();
     expect(root().textContent).toContain('Credits needed: 2 · Available: 5');
-    expect(root().textContent).toContain('"Save and send" emails each class member a link to their feedback when marking is finished. Guests are saved without an email for now.');
+    expect(root().textContent).toContain('"Save and send" emails each student a private link to their feedback when marking is finished. Students who do not have an account do not need one.');
     button('Save and send')!.click();
     fixture.detectChanges();
     const uploads = http.match(BASE);
     expect(uploads.length).toBe(2);
     const fields = uploads.map(r => r.request.body as FormData);
-    expect(fields.map(f => f.get('send'))).toEqual(['true', null]);
+    expect(fields.map(f => f.get('send'))).toEqual(['true', 'true']);
     expect(fields.every(f => (f.get('audio') as File).name === 'recording.wav')).toBeTrue();
     expect(new Set(fields.map(f => f.get('requestKey'))).size).toBe(2);
-    uploads.forEach((r, i) => r.flush({ success: true, data: { item: { submissionId: `s${i}`, emailStatus: i ? 'none' : 'queued' }, duplicate: false } }));
+    uploads.forEach((r, i) => r.flush({ success: true, data: { item: { submissionId: `s${i}`, emailStatus: 'queued' }, duplicate: false } }));
     flushMicrotasks(); tick(); fixture.detectChanges();
     expect(root().textContent).toContain('2 saved.');
   }));

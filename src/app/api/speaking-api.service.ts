@@ -22,6 +22,8 @@ export interface SpeakingAssignmentInput {
   showMarksToStudent: boolean;
   maxRecordingSeconds: number;
   rubricRef: string | null;
+  /** Guests through the link and QR code (stage 10b). Left out: unchanged on edit, off on create. */
+  allowGuestSubmission?: boolean;
 }
 export type SpeakingAssignmentUpdate = Omit<SpeakingAssignmentInput, 'classId' | 'rubricRef'>;
 

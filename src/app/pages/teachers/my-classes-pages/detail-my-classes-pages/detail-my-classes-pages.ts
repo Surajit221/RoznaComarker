@@ -176,7 +176,21 @@ export class DetailMyClassesPages {
     const assignment = this.selectedQrAssignmentId
       ? this.assignmentsById[this.selectedQrAssignmentId]
       : null;
-    return assignment?.qrToken ? this.qrGenerator.generateAssignmentUrl(assignment.qrToken) : '';
+    if (!assignment?.qrToken) return '';
+    // A speaking assignment's QR code and link open the guest speaking page (stage 10b).
+    return assignment.resourceType === 'speaking' ? this.qrGenerator.generateSpeakingAssignmentUrl(assignment.qrToken)
+      : this.qrGenerator.generateAssignmentUrl(assignment.qrToken);
+  }
+
+  get selectedQrInstruction(): string {
+    const assignment = this.selectedQrAssignmentId ? this.assignmentsById[this.selectedQrAssignmentId] : null;
+    return assignment?.resourceType === 'speaking' ? 'Students can scan this QR code to record and upload their answer. No account needed.'
+      : 'Students can scan this QR code to open the assignment.';
+  }
+
+  /** The QR button of a card: every essay card; a speaking card only while guests are allowed (its QR code is the guest link). */
+  showAssignmentQr(item: { id: string; resourceType?: string }): boolean {
+    return item.resourceType !== 'speaking' || this.assignmentsById[item.id]?.allowGuestSubmission === true;
   }
 
   get selectedQrAssignmentTitle(): string {

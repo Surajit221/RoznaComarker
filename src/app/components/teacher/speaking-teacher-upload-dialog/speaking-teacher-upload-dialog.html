@@ -126,7 +126,7 @@
           }
         </ul>
         <p class="text-sm text-gray-600 mt-4">Each recording is turned into text and then marked. Longer recordings take longer.</p>
-        <p class="text-sm text-gray-600 mt-2">"Save and send" emails each class member a link to their feedback when marking is finished. Guests are saved without an email for now.</p>
+        <p class="text-sm text-gray-600 mt-2">"Save and send" emails each student a private link to their feedback when marking is finished. Students who do not have an account do not need one.</p>
 
         @if (confirmingReplace()) {
           <div class="upload-confirm" role="alertdialog" aria-labelledby="confirm-replace-title" aria-describedby="confirm-replace-text">
@@ -157,7 +157,7 @@
                   <h3 class="text-lg font-bold break-words">{{ s.name }}</h3>
                   <p class="text-sm text-gray-600 break-all">{{ s.email }}</p>
                 </div>
-                <span class="upload-chip">{{ s.account === 'member' ? 'Class member' : 'Guest: saved without an email for now' }}</span>
+                <span class="upload-chip">{{ s.account === 'member' ? 'Class member' : 'Guest: gets an emailed link' }}</span>
               </div>
 
               @if (s.existing) {
@@ -194,9 +194,7 @@
               <p class="upload-error mt-1">{{ s.error }}</p>
               @if (step() === 'done') { <button type="button" class="upload-link" (click)="retry(s.id)">Retry <span class="sr-only">{{ s.name }}</span></button> }
             }
-            @if (s.state === 'saved' && sendEmails()) {
-              <p class="text-sm text-gray-600 mt-1">{{ s.account === 'member' ? 'The feedback link will be emailed when marking is finished.' : 'Saved without an email (guest).' }}</p>
-            }
+            @if (s.state === 'saved' && sendEmails()) { <p class="text-sm text-gray-600 mt-1">The feedback link will be emailed when marking is finished.</p> }
           </li>
         }
       </ul>

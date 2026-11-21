@@ -32,7 +32,6 @@ const BY_CODE: Readonly<Record<string, string>> = Object.freeze({
   SPEAKING_SETTINGS_INVALID: SPEAKING_GENERIC_MESSAGE,
   // Stage 9: a teacher uploads a student's recording.
   INSUFFICIENT_CREDITS: 'You have no assessment credits left. Add credits to upload more recordings.',
-  TEACHER_UPLOAD_GUEST_EMAIL_UNAVAILABLE: 'Feedback emails for guests are not available for speaking assignments yet. Save without sending, or add the student to the class.',
   TEACHER_UPLOAD_EXISTS: 'A recording for this student is already uploaded. Choose whether to replace it.',
   TEACHER_UPLOAD_MODE_INVALID: 'A speaking submission has one recording. Choose to replace it instead.',
   STUDENT_ALREADY_SUBMITTED: 'This student already submitted their own recording for this assignment. Open it from the submissions list.',
@@ -45,7 +44,17 @@ const BY_CODE: Readonly<Record<string, string>> = Object.freeze({
   TEACHER_UPLOAD_NOT_SPEAKING: 'Recordings can only be uploaded for speaking assignments.',
   TEACHER_UPLOAD_STUDENT_INVALID: "Check the student's name and email.",
   TEACHER_UPLOAD_FILE_UNAVAILABLE: 'This recording is no longer available. Upload it again.',
-  SPEAKING_UPLOADED_BY_TEACHER: 'Your teacher uploaded this recording for you, so only your teacher can replace it.'
+  SPEAKING_UPLOADED_BY_TEACHER: 'Your teacher uploaded this recording for you, so only your teacher can replace it.',
+  // Guests (stage 10b): the guest speaking page.
+  SPEAKING_CONSENT_REQUIRED: 'Read the notice and tick the box to agree before you upload.',
+  INSUFFICIENT_ASSESSMENT_CREDITS: "Your teacher can't receive recordings right now. Please contact your teacher.",
+  TEACHER_STORAGE_FULL: "Your teacher can't receive recordings right now. Please contact your teacher.",
+  ASSIGNMENT_UNAVAILABLE: "This assignment isn't open for guest recordings. Ask your teacher for a new link.",
+  GUEST_REQUEST_KEY_REQUIRED: 'Something went wrong with this upload. Choose your recording again and upload it.',
+  GUEST_REQUEST_KEY_REUSED: 'Something went wrong with this upload. Choose your recording again and upload it.',
+  GUEST_UPLOAD_IN_PROGRESS: 'Your recording is already being saved. Please wait a moment.',
+  GUEST_SUBMISSION_UNAVAILABLE: 'Guest submission is temporarily unavailable. Please contact your teacher.',
+  GUEST_LINK_INVALID: 'This link is invalid or has expired. Request a new link below.'
 });
 
 export interface SpeakingMessageLimits { maxFileBytes?: number; maxRecordingSeconds?: number; }

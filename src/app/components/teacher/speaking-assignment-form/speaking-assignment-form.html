@@ -18,6 +18,15 @@
 
   <fieldset class="assignment-settings">
     <legend>Student access</legend>
+    <!-- The writing form's setting (assignment-form.html), for guests on a speaking assignment (stage 10b). -->
+    @if (guestFeature.enabled()) {
+    <label class="assignment-setting">
+      <span><strong>Allow submission without login</strong><small>Students with the assignment link or QR code can submit using their name and email without creating an account.</small></span>
+      <input type="checkbox" formControlName="allowGuestSubmission" />
+    </label>
+    } @else if (guestFeature.state() === 'unavailable') {
+    <p class="text-sm text-gray-500" role="status">Couldn't load the 'submission without login' setting. It will be left as it is.</p>
+    }
     <label class="assignment-setting">
       <span><strong>Show marks to students</strong><small>All students in this assignment can see their overall and rubric marks.</small></span>
       <input type="checkbox" formControlName="showMarksToStudent" />

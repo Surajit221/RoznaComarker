@@ -33,6 +33,11 @@ export class QrGeneratorService {
     return `${baseUrl}/student/assignments/qr/${encodeURIComponent(qrToken)}`;
   }
 
+  /** A speaking assignment's guest link and QR code (stage 10b): the essay address plus /speaking. */
+  generateSpeakingAssignmentUrl(qrToken: string): string {
+    return `${this.generateAssignmentUrl(qrToken)}/speaking`;
+  }
+
   generateFlashcardSetUrl(flashcardSetId: string): string {
     const baseUrl = this.getFrontendBaseUrl();
     return `${baseUrl}/flashcards/${flashcardSetId}`;
