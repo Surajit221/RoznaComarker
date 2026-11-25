@@ -20,6 +20,8 @@ import { SPEAKING_GENERIC_MESSAGE, speakingErrorMessage } from '../../../utils/s
 import { SPEAKING_POLL_MS, SpeakingPoller, speakingProgress, studentSpeakingStatus } from '../../../utils/speaking-status';
 import { RECOVERY_EMAIL_PROMPT, RecoveryCooldown, recoveryRequestError } from '../../../services/recovery-cooldown';
 import { GUEST_SPEAKING_PROVIDERS, GuestSpeakingAccess, type GuestSpeakingEntry, type GuestSpeakingView } from './guest-speaking-access';
+import { SpeakingCoach } from '../../../components/speaking/speaking-coach/speaking-coach';
+import type { CoachClient } from '../../../api/speaking-coach-api.service';
 
 interface GuestConfirmation { received: boolean; duplicate?: boolean; returnUrl?: string; emailSent?: boolean; }
 type Session = Awaited<ReturnType<AuthService['ensureQrBackendSession']>>;
@@ -41,7 +43,7 @@ const IDENTITY_MESSAGE = 'Enter your name and a valid email address.';
 @Component({
   selector: 'app-guest-speaking',
   imports: [DatePipe, FormsModule, RouterLink, PublicBrand, AssignmentQrRedirect, AnalysisProgress, SpeakingUploadPicker, SpeakingAudioPlayer,
-    SpeakingTranscript, SpeakingResultView],
+    SpeakingTranscript, SpeakingResultView, SpeakingCoach],
   providers: [...GUEST_SPEAKING_PROVIDERS],
   templateUrl: './guest-speaking.html',
   styleUrls: ['../guest-submission/guest-submission.css', './guest-speaking.css'],
@@ -56,6 +58,11 @@ export class GuestSpeakingPage implements OnInit, OnDestroy {
   private readonly unsaved = inject(UnsavedWorkRegistry);
   private readonly base = `${environment.apiUrl}/guest`;
   @ViewChild(SpeakingUploadPicker) private picker?: SpeakingUploadPicker;
+  private coach: CoachClient | null = null;
+
+  /** Speaking Coach for this guest submission (through the guest's link; read only with a recovery-portal session). */
+  get coachClient(): CoachClient { return (this.coach ??= this.access.coachClient()); }
+  get coachReadOnly(): boolean { return !this.access.canPractise(); }
 
   submissionId = '';
   qrToken = '';

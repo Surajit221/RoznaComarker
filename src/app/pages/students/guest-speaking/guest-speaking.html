@@ -85,6 +85,10 @@
               }
             </div>
           </section>
+          <!-- Speaking Coach for guests: practice through the private link (read only with a recovery-portal session); hidden while there is none. -->
+          @if (result?.state === 'ready') {
+            <div class="mt-4"><app-speaking-coach [client]="coachClient" [guest]="true" [readOnly]="coachReadOnly"></app-speaking-coach></div>
+          }
         }
       } @else if (confirmation) {
         <section class="card content-card confirmation" aria-labelledby="confirmation-title" data-received>
