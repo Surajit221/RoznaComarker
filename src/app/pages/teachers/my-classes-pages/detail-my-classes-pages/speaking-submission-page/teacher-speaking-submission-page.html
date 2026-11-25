@@ -50,5 +50,7 @@
         [offTopicCap]="result!.offTopicCap ?? null"></app-speaking-result-view>
     }
     </div>
+    <!-- Speaking Coach: the student's practice progress (read only; the card hides itself while the coach is off). -->
+    <app-speaking-coach-progress [submissionId]="submissionId"></app-speaking-coach-progress>
   }
 </div>
