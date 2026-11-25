@@ -1,0 +1,38 @@
+<div class="recorder">
+  @if (supported) {
+    <div class="recorder__controls">
+      <button type="button" class="recorder__record" [class.recorder__record--on]="recording" (click)="toggle()"
+        [disabled]="disabled || state === 'requesting'" [attr.aria-pressed]="recording">
+        <span class="recorder__dot" aria-hidden="true"></span>
+        {{ recording ? 'Stop recording' : state === 'requesting' ? 'Starting the microphone…' : 'Start recording' }}
+      </button>
+      <span class="recorder__time" role="timer" aria-label="Recording time">
+        @if (recording) { <span class="recorder__live">Recording</span> }
+        {{ clock }} <span class="recorder__limit">/ {{ limitText }}</span>
+      </span>
+    </div>
+  } @else {
+    <p class="recorder__note">Recording in the browser is not available here. Upload a recording instead.</p>
+  }
+
+  @if (state === 'recorded' && previewUrl) {
+    <div class="recorder__preview">
+      <p class="recorder__label">Listen to your answer before you send it</p>
+      <audio controls [src]="previewUrl" preload="metadata" aria-label="Your practice recording"></audio>
+      <button type="button" class="recorder__again" (click)="reset()" [disabled]="disabled">Record again</button>
+    </div>
+  }
+
+  @if (notice) { <p class="recorder__notice">{{ notice }}</p> }
+  @if (error) { <p class="recorder__error" role="alert">{{ error }}</p> }
+
+  @if (supported && !showUpload) {
+    <button type="button" class="recorder__switch" (click)="showUpload = true" [disabled]="disabled">Upload a recording file instead</button>
+  }
+  @if (showUpload) {
+    <div class="recorder__upload">
+      <app-speaking-upload-picker [limits]="limits" [disabled]="disabled" (fileChosen)="onFile($event)"></app-speaking-upload-picker>
+    </div>
+  }
+  <p class="sr-only" aria-live="polite">{{ announcement }}</p>
+</div>
