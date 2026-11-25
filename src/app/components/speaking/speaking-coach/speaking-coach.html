@@ -1,0 +1,134 @@
+@if (visible) {
+<section class="coach" aria-labelledby="coach-title">
+  <header class="coach__header">
+    <h2 id="coach-title">Practise your speaking</h2>
+    <p class="coach__sub">Short tasks to build on your result. Practice never changes your mark.</p>
+  </header>
+
+  <ng-template #notice>
+    <div class="coach__notice">
+      @if (guest && view?.notice) {
+        <p>{{ view?.notice?.text }}</p>
+        @if (!readOnly) {
+          <label class="coach__agree"><input type="checkbox" [checked]="agreed" (change)="agreed = $any($event.target).checked" /> I have read this and agree</label>
+        }
+      } @else {
+        <p>{{ studentNotice }}</p>
+      }
+    </div>
+  </ng-template>
+
+  <div class="coach__body" aria-live="polite">
+    @switch (state) {
+      @case ('no_practice_needed') {
+        <p class="coach__note coach__note--good"><span aria-hidden="true">✓ </span>Every area of your answer met the goal, so there is no speaking practice to do. Well done!</p>
+      }
+      @case ('idle') {
+        <p class="coach__intro">You will get two or three short speaking tasks about what to work on in your answer. Record an answer for each one: the
+          coach tells you what got better and gives you a tip for the next try.</p>
+        <ng-container *ngTemplateOutlet="notice"></ng-container>
+        @if (readOnly) {
+          <p class="coach__note">Open the private link from your email to practise.</p>
+        } @else {
+          <button type="button" class="coach__primary" (click)="start()" [disabled]="!canStart" [attr.aria-busy]="starting">
+            {{ starting ? 'Preparing your tasks…' : 'Start practice' }}</button>
+        }
+      }
+      @case ('generating') {
+        <p class="coach__checking" role="status"><span class="coach__spinner" aria-hidden="true"></span>Preparing your practice tasks…</p>
+      }
+      @case ('failed') {
+        <p class="coach__error" role="alert">Your practice could not be prepared.</p>
+        @if (!readOnly) { <button type="button" class="coach__secondary" (click)="start()" [disabled]="starting">Try again</button> }
+      }
+      @default {
+        @if (session) {
+          <ol class="coach__steps" aria-label="Practice tasks">
+            @for (task of tasks; track task.taskId; let i = $index) {
+              <li class="coach__step" [class.coach__step--done]="task.status === 'done'" [class.coach__step--current]="task.status === 'current'"
+                [attr.aria-current]="task.status === 'current' ? 'step' : null">
+                <span class="coach__step-icon" aria-hidden="true">{{ statusIcon(task.status) }}</span>
+                <span class="coach__step-name">Task {{ i + 1 }}: {{ task.area }}</span>
+                <span class="coach__step-status">{{ statusLabel(task.status) }}</span>
+              </li>
+            }
+          </ol>
+
+          @if (last; as attempt) {
+            <section class="coach__result" aria-labelledby="coach-last-title">
+              <h3 id="coach-last-title">Your last answer</h3>
+              @if (attempt.state === 'ready') {
+                @if (attempt.feedback?.improved?.length) {
+                  <h4>What got better</h4>
+                  <ul>@for (line of attempt.feedback!.improved; track $index) { <li>{{ line }}</li> }</ul>
+                }
+                @if (fluencyLines(attempt).length) {
+                  <ul class="coach__fluency">@for (line of fluencyLines(attempt); track line) { <li>{{ line }}</li> }</ul>
+                }
+                @if (attempt.feedback?.stillWeak?.length) {
+                  <h4>Keep working on</h4>
+                  <ul>@for (line of attempt.feedback!.stillWeak; track $index) { <li>{{ line }}</li> }</ul>
+                }
+                @if (attempt.vocab; as vocab) {
+                  @if (vocab.used.length) { <p class="coach__words"><span aria-hidden="true">✓ </span>Words you used: {{ vocab.used.join(', ') }}</p> }
+                  @if (vocab.missing.length) { <p class="coach__words"><span aria-hidden="true">○ </span>Words to try next time: {{ vocab.missing.join(', ') }}</p> }
+                }
+                @if (attempt.feedback?.nextTip) { <p class="coach__tip"><strong>Next tip:</strong> {{ attempt.feedback!.nextTip }}</p> }
+              } @else if (attempt.state === 'not_assessable') {
+                <p>{{ reasonText(attempt) }}</p>
+              } @else if (attempt.state === 'failed') {
+                <p>{{ failureText(attempt) }}</p>
+                @if (attempt.canRetry && !readOnly) {
+                  <button type="button" class="coach__secondary" (click)="retryCheck()" [disabled]="retrying" [attr.aria-busy]="retrying">Check again</button>
+                }
+              }
+              @if (nextText(attempt)) { <p class="coach__next">{{ nextText(attempt) }}</p> }
+            </section>
+          }
+
+          @if (checking) {
+            <p class="coach__checking" role="status"><span class="coach__spinner" aria-hidden="true"></span>Checking your answer… This usually takes less than a minute.</p>
+          }
+
+          @if (state === 'completed') {
+            <div class="coach__end"><h3>You finished every practice task</h3><p>Great work. Your practice is saved, and your teacher can see your progress.</p></div>
+          }
+          @if (state === 'capped') {
+            <div class="coach__end"><h3>You have used all your practice recordings</h3><p>Your practice is saved, and your teacher can see your progress.</p></div>
+          }
+
+          @if (state === 'ready' && currentTask; as task) {
+            <article class="coach__task" aria-labelledby="coach-task-title">
+              <p class="coach__task-meta">Task {{ currentIndex }} of {{ tasks.length }} · {{ typeLabel[task.type] }}</p>
+              <h3 id="coach-task-title">Focus: {{ task.area }}</h3>
+              <p class="coach__prompt">{{ task.prompt }}</p>
+              <p class="coach__tip"><strong>Tip:</strong> {{ task.tip }}</p>
+              @if (task.targets.length) {
+                <p class="coach__label">Use these words</p>
+                <ul class="coach__chips">@for (word of task.targets; track word) { <li class="coach__chip">{{ word }}</li> }</ul>
+              }
+              <p class="coach__left">Recordings left: {{ session.attemptsLeft }}</p>
+              @if (readOnly) {
+                <p class="coach__note">Open the private link from your email to practise.</p>
+              } @else if (needsNotice) {
+                <ng-container *ngTemplateOutlet="notice"></ng-container>
+                <button type="button" class="coach__primary" (click)="start()" [disabled]="!canStart">Agree and continue</button>
+              } @else if (!checking) {
+                <app-speaking-recorder [maxSeconds]="task.maxSeconds" [minSeconds]="5" [maxFileBytes]="maxFileBytes" [disabled]="uploading"
+                  (recordingChange)="onRecording($event)"></app-speaking-recorder>
+                @if (uploadPercent !== null) {
+                  <div class="coach__progress" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="uploadPercent">
+                    <span [style.width.%]="uploadPercent"></span></div>
+                }
+                <button type="button" class="coach__primary" (click)="send()" [disabled]="!pending || uploading" [attr.aria-busy]="uploading">
+                  {{ uploading ? 'Sending…' : 'Send my answer' }}</button>
+              }
+            </article>
+          }
+        }
+      }
+    }
+    @if (error) { <p class="coach__error" role="alert">{{ error }}</p> }
+  </div>
+</section>
+}
