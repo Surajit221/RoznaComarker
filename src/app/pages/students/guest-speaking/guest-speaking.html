@@ -85,9 +85,10 @@
               }
             </div>
           </section>
-          <!-- Speaking Coach for guests: practice through the private link (read only with a recovery-portal session); hidden while there is none. -->
-          @if (result?.state === 'ready') {
-            <div class="mt-4"><app-speaking-coach [client]="coachClient" [guest]="true" [readOnly]="coachReadOnly"></app-speaking-coach></div>
+          <!-- Speaking Coach for guests: practice through the private link (read only with a recovery-portal session); shown from the time the
+               recording is being marked; hidden while the coach is off (404). -->
+          @if (coachShown(result?.state)) {
+            <div class="mt-4"><app-speaking-coach [client]="coachClient" [guest]="true" [readOnly]="coachReadOnly" [resultState]="result?.state ?? null"></app-speaking-coach></div>
           }
         }
       } @else if (confirmation) {

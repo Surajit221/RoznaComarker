@@ -18,14 +18,41 @@
     </div>
   </ng-template>
 
+  <!-- Each area as the graded result shows it (title, level title) and Needs practice / Strong: the label is always written out. -->
+  <ng-template #areaList>
+    @if (areas.length) {
+      <ul class="coach__areas" aria-label="Your speaking areas">
+        @for (area of areas; track area.criterionId) {
+          <li class="coach__area" [class.coach__area--weak]="area.needsPractice && !!area.strength">
+            <span class="coach__area-title">{{ area.title }}</span>&ngsp;
+            @if (area.strength) {
+              <span class="coach__area-level">Level: {{ area.strength }}</span>&ngsp;
+              <span class="coach__badge" [class.coach__badge--weak]="area.needsPractice"><span aria-hidden="true">{{ area.needsPractice ? '●' : '✓' }}</span>
+                {{ area.needsPractice ? 'Needs practice' : 'Strong' }}</span>
+            } @else {
+              <span class="coach__area-level">Not assessed</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </ng-template>
+
   <div class="coach__body" aria-live="polite">
     @switch (state) {
       @case ('no_practice_needed') {
-        <p class="coach__note coach__note--good"><span aria-hidden="true">✓ </span>Every area of your answer met the goal, so there is no speaking practice to do. Well done!</p>
+        <p id="coach-blocked" class="coach__note coach__note--good"><span aria-hidden="true">✓ </span>{{ blockedMessage }}</p>
+        <ng-container *ngTemplateOutlet="areaList"></ng-container>
+        <button type="button" class="coach__primary coach__primary--blocked" aria-disabled="true" aria-describedby="coach-blocked">Start practice</button>
+      }
+      @case ('unavailable') {
+        <p id="coach-blocked" class="coach__note">{{ blockedMessage }}</p>
+        <button type="button" class="coach__primary coach__primary--blocked" aria-disabled="true" aria-describedby="coach-blocked">Start practice</button>
       }
       @case ('idle') {
         <p class="coach__intro">You will get two or three short speaking tasks about what to work on in your answer. Record an answer for each one: the
           coach tells you what got better and gives you a tip for the next try.</p>
+        <ng-container *ngTemplateOutlet="areaList"></ng-container>
         <ng-container *ngTemplateOutlet="notice"></ng-container>
         @if (readOnly) {
           <p class="coach__note">Open the private link from your email to practise.</p>

@@ -30,7 +30,15 @@ export interface CoachSession {
 }
 /** Guests only: the practice notice to accept before the first practice recording. */
 export interface CoachNotice { version: string; text: string; accepted: boolean; }
-export interface CoachView { state: CoachState; session: CoachSession | null; notice?: CoachNotice; }
+/**
+ * One area of the graded result as the result shows it (its title and level title) and whether it needs practice ("Needs practice" / "Strong").
+ * strength is null for an area the result did not assess.
+ */
+export interface CoachOverviewArea { criterionId: string; title: string; strength: string | null; needsPractice: boolean; }
+/** Why there is no practice to start: every area strong, the result not ready yet, or a result without rubric scores; null when there is. */
+export type CoachOverviewReason = 'no_weak_areas' | 'result_not_ready' | 'no_rubric_scores' | null;
+export interface CoachOverview { reason: CoachOverviewReason; areas: CoachOverviewArea[]; }
+export interface CoachView { state: CoachState; session: CoachSession | null; overview?: CoachOverview; notice?: CoachNotice; }
 export interface CoachAttemptView { session: CoachSession; attempt: CoachAttempt; }
 
 /** One practice owner's calls: the signed-in student's (SpeakingCoachApiService.forStudent) or the guest's (GuestSpeakingAccess.coachClient). */
@@ -49,11 +57,15 @@ export interface TeacherCoachTask {
   lastAttemptAt: string | null;
 }
 export interface TeacherCoachProgress {
-  state: 'not-started' | 'generating' | 'in-progress' | 'completed' | 'capped' | 'failed'; sourceStatus: 'current' | 'outdated'; submissionId: string;
+  state: 'not-started' | 'no-practice-needed' | 'result-not-ready' | 'no-rubric-scores' | 'generating' | 'in-progress' | 'completed' | 'capped' | 'failed';
+  sourceStatus: 'current' | 'outdated'; submissionId: string;
   sessionId: string | null; settings: { passPercent: number; attemptCap: number } | null;
   summary: { totalTasks: number; passedTasks: number; attemptsUsed: number; attemptCap: number | null; lastPracticedAt: string | null };
   tasks: TeacherCoachTask[];
+  /** The current result's areas with the level title and whether each needs practice (empty when the result is not ready or has changed). */
+  areas?: TeacherCoachArea[];
 }
+export interface TeacherCoachArea { criterionId: string; title: string; levelTitle: string | null; needsPractice: boolean; }
 export interface TeacherCoachAttempt {
   id: string; attemptNumber: number; state: CoachAttemptState; levelTitle: string | null; passed: boolean | null; onTask: boolean | null;
   notAssessableReason: CoachNotAssessableReason | null; failure: 'transcription' | 'check' | null; feedback: CoachFeedback | null;

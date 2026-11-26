@@ -41,7 +41,45 @@ describe('SpeakingCoachProgress (teacher)', () => {
       summary: { totalTasks: 0, passedTasks: 0, attemptsUsed: 0, attemptCap: null, lastPracticedAt: null } } }));
     expect(text()).toContain('Speaking Practice Progress');
     expect(text()).toContain('Practice only — does not affect the assignment grade');
-    expect(text()).toContain('The student has not started speaking practice yet.');
+    expect(text()).toContain('The student has not started practice yet.');
+  });
+
+  describe('always shown (empty states and the areas)', () => {
+    const EMPTY = { ...PROGRESS, sessionId: null, settings: null, tasks: [], summary: { totalTasks: 0, passedTasks: 0, attemptsUsed: 0, attemptCap: null, lastPracticedAt: null } };
+    const AREAS = [{ criterionId: 'speaking-task', title: 'Task and content', levelTitle: 'Excellent', needsPractice: false },
+      { criterionId: 'speaking-grammar', title: 'Grammar', levelTitle: 'Developing', needsPractice: true },
+      { criterionId: 'speaking-fluency', title: 'Fluency', levelTitle: null, needsPractice: false }];
+    const rows = () => [...root().querySelectorAll('.area')].map(row => row.textContent!.replace(/\s+/g, ' ').trim());
+
+    it('the 96% case: "No practice needed", with every area and its level marked Strong', async () => {
+      const strong = AREAS.map(area => ({ ...area, levelTitle: area.levelTitle ?? 'Good', needsPractice: false }));
+      await load(url => http.expectOne(url).flush({ success: true, data: { ...EMPTY, state: 'no-practice-needed', areas: strong } }));
+      expect(text()).toContain('No practice needed: every area of this result is strong.');
+      expect(text()).not.toContain('has not started');
+      expect(rows()).toEqual(['Task and content Excellent ✓ Strong', 'Grammar Developing ✓ Strong', 'Fluency Good ✓ Strong']);
+    });
+
+    it('not started: "Student has not started practice yet", the areas that need practice marked in words', async () => {
+      await load(url => http.expectOne(url).flush({ success: true, data: { ...EMPTY, state: 'not-started', areas: AREAS } }));
+      expect(text()).toContain('The student has not started practice yet.');
+      expect(rows()).toEqual(['Task and content Excellent ✓ Strong', 'Grammar Developing ● Needs practice', 'Fluency Not assessed']);
+      expect(root().querySelector('.areas')!.getAttribute('aria-label')).toBe('Areas of this result');
+    });
+
+    it('result not ready, and a result without rubric scores: the card says so', async () => {
+      await load(url => http.expectOne(url).flush({ success: true, data: { ...EMPTY, state: 'result-not-ready', areas: [] } }));
+      expect(text()).toContain('Practice opens when this result is ready.');
+      expect(root().querySelector('.areas')).toBeNull();
+      http.verify(); fixture.destroy(); TestBed.resetTestingModule();
+      await load(url => http.expectOne(url).flush({ success: true, data: { ...EMPTY, state: 'no-rubric-scores', areas: [] } }));
+      expect(text()).toContain('Practice is not available for this result: it has no rubric scores.');
+    });
+
+    it('in progress: the areas are listed too (with the progress)', async () => {
+      await load(url => http.expectOne(url).flush({ success: true, data: { ...PROGRESS, areas: AREAS } }));
+      expect(text()).toContain('Tasks passed: 1 of 2');
+      expect(rows().length).toBe(3);
+    });
   });
 
   it('in progress: tasks passed, recordings used, each task with its level, pass or not in words, and the pass rule', async () => {

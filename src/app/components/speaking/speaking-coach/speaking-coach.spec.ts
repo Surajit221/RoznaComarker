@@ -58,13 +58,97 @@ describe('SpeakingCoach', () => {
     }
   }));
 
-  it('nothing below the goal: a short note and no practice', fakeAsync(async () => {
-    const fixture = await setup(client({ state: 'no_practice_needed', session: null }));
-    flushMicrotasks(); fixture.detectChanges();
-    expect(text(fixture)).toContain('Every area of your answer met the goal');
-    expect(button(fixture, /Start practice/)).toBeNull();
-    fixture.destroy();
-  }));
+  describe('the card is always shown once the server has a coach (overview)', () => {
+    const AREAS = [{ criterionId: 'speaking-task', title: 'Task and content', strength: 'Good', needsPractice: false },
+      { criterionId: 'speaking-grammar', title: 'Grammar', strength: 'Developing', needsPractice: true },
+      { criterionId: 'speaking-fluency', title: 'Fluency', strength: null, needsPractice: false }];
+    const STRONG = AREAS.map(area => ({ ...area, strength: area.strength ?? 'Excellent', needsPractice: false }));
+    const el = (fixture: ComponentFixture<SpeakingCoach>) => fixture.nativeElement as HTMLElement;
+    const rows = (fixture: ComponentFixture<SpeakingCoach>) => [...el(fixture).querySelectorAll('.coach__area')].map(li => li.textContent!.replace(/\s+/g, ' ').trim());
+    const startButton = (fixture: ComponentFixture<SpeakingCoach>) => button(fixture, /Start practice/);
+    // The card may show each area's level title (the graded result shows it too) and Needs practice / Strong; never a number, score or grade.
+    const NO_NUMBERS = /\d+\s*%|\bscores?\b|\bgrades?\b|\bpoints?\b|\bpass(ed)?\b|\bfail(ed)?\b/i;
+
+    it('weak areas: each area with its level as the result shows it and Needs practice or Strong; Start practice enabled', fakeAsync(async () => {
+      const coach = client({ state: 'idle', session: null, overview: { reason: null, areas: AREAS } });
+      coach.start.and.resolveTo({ state: 'ready', session: session(), overview: { reason: null, areas: AREAS } });
+      const fixture = await setup(coach);
+      flushMicrotasks(); fixture.detectChanges();
+      expect(rows(fixture)).toEqual(['Task and content Level: Good ✓ Strong', 'Grammar Level: Developing ● Needs practice', 'Fluency Not assessed']);
+      expect(el(fixture).querySelector('.coach__areas')!.getAttribute('aria-label')).toBe('Your speaking areas');
+      // The label is written out: colour is never the only signal; the symbols are hidden from screen readers.
+      for (const icon of el(fixture).querySelectorAll('.coach__badge [aria-hidden="true"]')) expect(icon.textContent!.trim()).toMatch(/^[✓●]$/);
+      expect(text(fixture)).not.toMatch(NO_NUMBERS);
+      const start = startButton(fixture)!;
+      expect(start.getAttribute('aria-disabled')).toBeNull();
+      start.click(); flushMicrotasks(); fixture.detectChanges();
+      expect(coach.start).toHaveBeenCalledTimes(1);
+      fixture.destroy();
+    }));
+
+    it('no weak area: "Great work!", every area Strong, Start practice disabled with the reason read out', fakeAsync(async () => {
+      const coach = client({ state: 'no_practice_needed', session: null, overview: { reason: 'no_weak_areas', areas: STRONG } });
+      const fixture = await setup(coach);
+      flushMicrotasks(); fixture.detectChanges();
+      expect(text(fixture)).toContain('Great work! Every area is strong, so no practice is needed right now.');
+      expect(rows(fixture).every(row => row.endsWith('Strong'))).toBeTrue();
+      const start = startButton(fixture)!;
+      expect(start.getAttribute('aria-disabled')).toBe('true');
+      const reason = el(fixture).querySelector(`#${start.getAttribute('aria-describedby')}`);
+      expect(reason?.textContent).toContain('Great work!');
+      start.click(); flushMicrotasks();
+      expect(coach.start).not.toHaveBeenCalled();
+      // Nothing to start: start() itself refuses, whatever calls it.
+      expect(fixture.componentInstance.canStart).toBeFalse();
+      void fixture.componentInstance.start(); flushMicrotasks();
+      expect(coach.start).not.toHaveBeenCalled();
+      expect(text(fixture)).not.toMatch(NO_NUMBERS);
+      fixture.destroy();
+    }));
+
+    it('not ready: "Practice opens when your result is ready", Start practice disabled, no areas', fakeAsync(async () => {
+      const coach = client({ state: 'unavailable', session: null, overview: { reason: 'result_not_ready', areas: [] } });
+      const fixture = await setup(coach);
+      flushMicrotasks(); fixture.detectChanges();
+      expect(text(fixture)).toContain('Practice opens when your result is ready');
+      expect(startButton(fixture)!.getAttribute('aria-disabled')).toBe('true');
+      expect(el(fixture).querySelector('.coach__areas')).toBeNull();
+      startButton(fixture)!.click(); flushMicrotasks();
+      expect(coach.start).not.toHaveBeenCalled();
+      fixture.destroy();
+    }));
+
+    it('a result without rubric scores: the card says practice is not available (instead of hiding)', fakeAsync(async () => {
+      const fixture = await setup(client({ state: 'unavailable', session: null, overview: { reason: 'no_rubric_scores', areas: [] } }));
+      flushMicrotasks(); fixture.detectChanges();
+      expect(text(fixture)).toContain('Practice is not available for this result.');
+      expect(startButton(fixture)!.getAttribute('aria-disabled')).toBe('true');
+      fixture.destroy();
+    }));
+
+    it('reloads when the result becomes ready (resultState changes), and stays put otherwise', fakeAsync(async () => {
+      const coach = client({ state: 'unavailable', session: null, overview: { reason: 'result_not_ready', areas: [] } });
+      const fixture = await setup(coach, { resultState: 'assessing' });
+      flushMicrotasks(); fixture.detectChanges();
+      coach.getSession.and.resolveTo({ state: 'idle', session: null, overview: { reason: null, areas: AREAS } });
+      fixture.componentRef.setInput('resultState', 'assessing'); fixture.detectChanges(); flushMicrotasks();
+      expect(coach.getSession).toHaveBeenCalledTimes(1);
+      fixture.componentRef.setInput('resultState', 'ready'); fixture.detectChanges(); flushMicrotasks(); fixture.detectChanges();
+      expect(coach.getSession).toHaveBeenCalledTimes(2);
+      expect(rows(fixture).length).toBe(3);
+      expect(startButton(fixture)!.getAttribute('aria-disabled')).toBeNull();
+      fixture.destroy();
+    }));
+
+    it('read only (a recovery-portal session) with weak areas: the areas, and the private-link note instead of Start practice', fakeAsync(async () => {
+      const fixture = await setup(client({ state: 'idle', session: null, overview: { reason: null, areas: AREAS }, notice: NOTICE }), { guest: true, readOnly: true });
+      flushMicrotasks(); fixture.detectChanges();
+      expect(rows(fixture).length).toBe(3);
+      expect(text(fixture)).toContain('Open the private link from your email to practise.');
+      expect(startButton(fixture)).toBeNull();
+      fixture.destroy();
+    }));
+  });
 
   it('a student: the notice, then Start practice opens the first task', fakeAsync(async () => {
     const coach = client({ state: 'idle', session: null });

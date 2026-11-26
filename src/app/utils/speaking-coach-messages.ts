@@ -16,6 +16,13 @@ export const COACH_TASK_TYPE_LABEL: Readonly<Record<CoachTaskType, string>> = {
 export const COACH_STUDENT_NOTICE = 'Your practice recordings are turned into text by a speech-to-text service and checked with AI to give you feedback. '
   + 'The audio is deleted as soon as it has been turned into text. Practice never changes your mark.';
 
+/** Why the coach card has no practice to start (overview.reason), as the card says it. */
+export const COACH_OVERVIEW_MESSAGE: Readonly<Record<'no_weak_areas' | 'result_not_ready' | 'no_rubric_scores', string>> = {
+  no_weak_areas: 'Great work! Every area is strong, so no practice is needed right now.',
+  result_not_ready: 'Practice opens when your result is ready.',
+  no_rubric_scores: 'Practice is not available for this result.'
+};
+
 const REASON: Readonly<Record<CoachNotAssessableReason, string>> = {
   not_enough_speech: 'We could not hear enough words to check this answer. Try again and speak for a little longer.',
   not_english: 'This answer was mostly not in English. Try again in English.',

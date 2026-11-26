@@ -12,7 +12,7 @@ import { SpeakingTranscript } from '../../../../../components/speaking/speaking-
 import { SpeakingResultView } from '../../../../../components/speaking/speaking-result-view/speaking-result-view';
 import { SpeakingPoller, type SpeakingStatusView, studentSpeakingStatus } from '../../../../../utils/speaking-status';
 import { speakingErrorMessage } from '../../../../../utils/speaking-messages';
-import { SpeakingCoach } from '../../../../../components/speaking/speaking-coach/speaking-coach';
+import { SpeakingCoach, coachShownFor } from '../../../../../components/speaking/speaking-coach/speaking-coach';
 import { SpeakingCoachApiService, type CoachClient } from '../../../../../api/speaking-coach-api.service';
 
 /**
@@ -35,6 +35,8 @@ export class StudentSpeakingSubmissionPage implements OnInit, OnDestroy {
   private readonly coachApi = inject(SpeakingCoachApiService);
   private coachFor: { id: string; client: CoachClient } | null = null;
 
+  /** Whether the coach card is shown for this result state. */
+  readonly coachShown = coachShownFor;
   /** The Speaking Coach client for this submission (one per submission). */
   get coachClient(): CoachClient | null {
     const id = this.submission?.id;

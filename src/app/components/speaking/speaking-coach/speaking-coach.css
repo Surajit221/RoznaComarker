@@ -19,6 +19,21 @@
 .coach__primary { border: none; background: var(--color-primary, #008081); color: #fff; }
 .coach__secondary { border: 1px solid var(--color-border, #d1d5db); background: #fff; color: var(--color-navy-dark, #152e5e); }
 .coach__primary:disabled, .coach__secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Start practice with nothing to start: still focusable (aria-disabled) so its reason is read out; grey with readable contrast. */
+.coach__primary--blocked { background: #e5e7eb; color: #4b5563; cursor: not-allowed; }
+.coach__areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; padding: 0; margin: 0; list-style: none; }
+.coach__area {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 12px; border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px; background: #f9fafb; font-size: 0.9rem;
+}
+.coach__area--weak { border-color: #fcd34d; background: #fffbeb; }
+.coach__area-title { flex: 1 1 100%; color: var(--color-navy-dark, #152e5e); font-weight: 600; }
+.coach__area-level { color: var(--color-text-muted, #4b5563); }
+.coach__badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; border: 1px solid #a7f3d0; background: #ecfdf5;
+  color: #065f46; font-size: 0.8rem; font-weight: 600;
+}
+.coach__badge--weak { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
 .coach__primary:focus-visible, .coach__secondary:focus-visible { outline: 3px solid var(--color-focus, #2563eb); outline-offset: 2px; }
 .coach__steps { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
 .coach__step {
@@ -56,4 +71,5 @@
   .coach { padding: 16px; }
   .coach__primary, .coach__secondary { width: 100%; align-self: stretch; }
   .coach__steps { flex-direction: column; }
+  .coach__areas { grid-template-columns: 1fr; }
 }

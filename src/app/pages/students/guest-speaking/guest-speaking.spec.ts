@@ -269,6 +269,26 @@ describe('GuestSpeakingPage: results (/guest/speaking/<id>)', () => {
     portal.page.ngOnDestroy();
   });
 
+  it('still being marked: the guest coach card says practice opens when the result is ready; never for a recording that could not be marked', async () => {
+    const assessing = { ...READY, state: 'assessing', assessedText: null, fluency: null, result: null };
+    const { root, http, page, fixture } = await results(data(assessing));
+    flushMedia(http);
+    const coach = http.expectOne(`${API}/speaking/submissions/${SUB}/coach`);
+    expect(coach.request.headers.get('X-Guest-Token')).toBe(TOKEN);
+    coach.flush({ success: true, data: { state: 'unavailable', session: null, overview: { reason: 'result_not_ready', areas: [] },
+      notice: { version: 'speaking-coach-guest-2026-11', text: 'PRACTICE NOTICE TEXT', accepted: false } } });
+    await render(fixture);
+    expect(root.textContent).toContain('Practice opens when your result is ready.');
+    page.ngOnDestroy();
+
+    TestBed.resetTestingModule();
+    const failed = await results(data({ ...assessing, state: 'not_enough_speech' }));
+    flushMedia(failed.http);
+    expect(failed.http.match(r => r.url.endsWith(`/speaking/submissions/${SUB}/coach`)).length).toBe(0);
+    expect(failed.root.querySelector('app-speaking-coach')).toBeNull();
+    failed.page.ngOnDestroy();
+  });
+
   it('marks hidden by the teacher: no score shown', async () => {
     const hidden = { ...READY, marksVisible: false, result: { ...READY.result, overallScore: undefined, grade: undefined } };
     const { root, http, page } = await results(data(hidden));
@@ -291,6 +311,10 @@ describe('GuestSpeakingPage: results (/guest/speaking/<id>)', () => {
       expect(root.textContent).toContain(expected);
       expect(root.textContent).not.toContain('RAW SERVER TEXT');
       expect(root.querySelector('app-speaking-result-view')).toBeNull();
+      // While the recording is being marked the coach card asks the server (it says when practice opens); never after a recording that failed.
+      const coach = http.match(r => r.url.endsWith(`/speaking/submissions/${SUB}/coach`));
+      expect(coach.length).toBe(['transcribing', 'assessing', 'awaiting_teacher'].includes(String(result['state'])) ? 1 : 0);
+      coachOff(http);
       page.ngOnDestroy();
       http.verify();
     }

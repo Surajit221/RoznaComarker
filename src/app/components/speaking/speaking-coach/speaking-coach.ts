@@ -1,14 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, type OnDestroy, type OnInit, ViewChild, inject } from '@angular/core';
+import { Component, Input, type OnChanges, type OnDestroy, type OnInit, type SimpleChanges, ViewChild, inject } from '@angular/core';
 import { HttpEventType } from '@angular/common/http';
 import { SpeakingRecorder, type PracticeRecording } from '../speaking-recorder/speaking-recorder';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
-import { newPracticeRequestId, type CoachAttempt, type CoachAttemptView, type CoachClient, type CoachSession, type CoachTask, type CoachTaskStatus,
-  type CoachView } from '../../../api/speaking-coach-api.service';
-import { COACH_STUDENT_NOTICE, COACH_TASK_TYPE_LABEL, coachErrorMessage, coachFailureMessage, coachFluencyLines, coachNextStepMessage,
+import { newPracticeRequestId, type CoachAttempt, type CoachAttemptView, type CoachClient, type CoachOverviewArea, type CoachSession, type CoachTask,
+  type CoachTaskStatus, type CoachView } from '../../../api/speaking-coach-api.service';
+import { COACH_OVERVIEW_MESSAGE, COACH_STUDENT_NOTICE, COACH_TASK_TYPE_LABEL, coachErrorMessage, coachFailureMessage, coachFluencyLines, coachNextStepMessage,
   coachReasonMessage } from '../../../utils/speaking-coach-messages';
 
 const UNSAVED_KEY = 'speaking-coach-upload';
+/** Result states where the page shows the coach card: being marked (the card says practice opens when the result is ready) and ready. */
+const COACH_RESULT_STATES: ReadonlySet<string> = new Set(['transcribing', 'assessing', 'awaiting_teacher', 'ready']);
+/** Whether a speaking page shows the coach for this result state (never for a recording that could not be marked). */
+export const coachShownFor = (state: string | null | undefined): boolean => !!state && COACH_RESULT_STATES.has(state);
 const UNSAVED_MESSAGE = 'Your practice answer is still uploading. Leave and cancel it?';
 const STATUS_LABEL: Readonly<Record<CoachTaskStatus, string>> = { current: 'Current', done: 'Done', locked: 'Locked' };
 const STATUS_ICON: Readonly<Record<CoachTaskStatus, string>> = { current: '●', done: '✓', locked: '○' };
@@ -17,8 +21,10 @@ const STATUS_ICON: Readonly<Record<CoachTaskStatus, string>> = { current: '●',
  * Speaking Coach (students and guests): two or three short speaking tasks after a speaking result. The student records an answer for the
  * current task; it is checked against that task's area and compared with the previous try; short feedback and the next tip come back.
  * Never a score, a level or a pass word: the coach says what got better, what to keep working on, and what comes next.
- * The client decides whose practice it is (the signed-in student's, or a guest's through their link). Shown only when the server has a coach
- * for this submission and the result is ready. A guest accepts the practice notice before starting; read only (a recovery-portal session)
+ * The client decides whose practice it is (the signed-in student's, or a guest's through their link). Shown whenever the server has a coach for
+ * this submission (hidden on a 404): before practice it lists each area of the graded result with the level title the result shows and "Needs
+ * practice" or "Strong" (the server's overview; client decision 2026-11-26), and when there is nothing to start (every area strong, the result
+ * not ready, no rubric scores) Start practice stays visible but disabled, with the reason read out. Reloads when resultState changes. A guest accepts the practice notice before starting; read only (a recovery-portal session)
  * shows the practice without recording. Polls while tasks are being prepared or an answer is being checked.
  */
 @Component({
@@ -27,12 +33,14 @@ const STATUS_ICON: Readonly<Record<CoachTaskStatus, string>> = { current: '●',
   templateUrl: './speaking-coach.html',
   styleUrl: './speaking-coach.css'
 })
-export class SpeakingCoach implements OnInit, OnDestroy {
+export class SpeakingCoach implements OnInit, OnChanges, OnDestroy {
   private readonly unsaved = inject(UnsavedWorkRegistry);
 
   @Input({ required: true }) client!: CoachClient;
   @Input() guest = false;
   @Input() readOnly = false;
+  /** The page's graded result state: a change (for example to ready) reads the coach again. */
+  @Input() resultState: string | null = null;
   @Input() pollMs = 4000;
   /** The practice upload limit shown to the student (the server checks again). */
   @Input() maxFileBytes = 20 * 1024 * 1024;
@@ -55,7 +63,16 @@ export class SpeakingCoach implements OnInit, OnDestroy {
 
   get state() { return this.view?.state ?? null; }
   get session(): CoachSession | null { return this.view?.session ?? null; }
-  get visible(): boolean { return !this.loading && !!this.view && this.view.state !== 'unavailable'; }
+  /** Hidden on a 404 (null), and for an unavailable coach from a server without an overview. */
+  get visible(): boolean { return !this.loading && !!this.view && (this.view.state !== 'unavailable' || !!this.view.overview); }
+  get areas(): CoachOverviewArea[] { return this.view?.overview?.areas ?? []; }
+  /** Nothing to start: why, as the card says it (null when practice can start). */
+  get blockedMessage(): string | null {
+    if (this.state === 'no_practice_needed') return COACH_OVERVIEW_MESSAGE.no_weak_areas;
+    if (this.state !== 'unavailable') return null;
+    const reason = this.view?.overview?.reason;
+    return reason === 'no_rubric_scores' ? COACH_OVERVIEW_MESSAGE.no_rubric_scores : COACH_OVERVIEW_MESSAGE.result_not_ready;
+  }
   get tasks(): CoachTask[] { return [...(this.session?.tasks ?? [])].sort((a, b) => a.order - b.order); }
   get currentTask(): CoachTask | null { return this.tasks.find(task => task.status === 'current') ?? null; }
   get currentIndex(): number { const task = this.currentTask; return task ? this.tasks.indexOf(task) + 1 : 0; }
@@ -63,7 +80,7 @@ export class SpeakingCoach implements OnInit, OnDestroy {
   get last(): CoachAttempt | null { const attempt = this.session?.lastAttempt; return attempt && attempt.state !== 'processing' ? attempt : null; }
   /** A guest whose accepted practice notice is out of date (or never accepted) must accept the current one before recording. */
   get needsNotice(): boolean { return this.guest && !!this.view?.notice && !this.view.notice.accepted; }
-  get canStart(): boolean { return !this.readOnly && !this.starting && (!this.needsNotice || this.agreed); }
+  get canStart(): boolean { return !this.readOnly && !this.starting && !this.blockedMessage && (!this.needsNotice || this.agreed); }
   get canRecord(): boolean { return !this.readOnly && this.state === 'ready' && !!this.currentTask && !this.checking && !this.needsNotice; }
 
   statusLabel(status: CoachTaskStatus): string { return STATUS_LABEL[status]; }
@@ -74,6 +91,12 @@ export class SpeakingCoach implements OnInit, OnDestroy {
   fluencyLines(attempt: CoachAttempt): string[] { return coachFluencyLines(attempt.fluencyChange); }
 
   async ngOnInit(): Promise<void> { await this.load(); }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const change = changes['resultState'];
+    if (!change || change.firstChange || this.uploading || this.loading) return;
+    void this.load();
+  }
 
   ngOnDestroy(): void {
     this.destroyed = true;

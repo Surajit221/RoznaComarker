@@ -1,4 +1,5 @@
-// Speaking Coach on the student's speaking page: only once the result is ready; hidden while the coach is off (404); nothing asked before.
+// Speaking Coach on the student's speaking page: shown from the time the recording is being marked (the card says when practice opens) until the
+// result is ready; never for a recording that could not be marked; hidden while the coach is off (404).
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { StudentSpeakingSubmissionPage } from './speaking-submission-page';
@@ -58,10 +59,38 @@ describe('StudentSpeakingSubmissionPage: Speaking Coach', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Practise your speaking');
   }));
 
-  it('still being marked: no coach and no coach request', fakeAsync(() => {
+  it('still being marked: the coach card says practice opens when the result is ready (disabled Start practice)', fakeAsync(() => {
     load('assessing');
-    expect(coach()).toBeUndefined();
-    http.expectNone(`${API}/speaking-coach/submissions/s1`);
+    expect(coach()).toBeDefined();
+    expect(coach()!.resultState).toBe('assessing');
+    http.expectOne(`${API}/speaking-coach/submissions/s1`).flush({ success: true, data: { state: 'unavailable', session: null,
+      overview: { reason: 'result_not_ready', areas: [] } } });
+    flushMicrotasks(); fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Practice opens when your result is ready.');
+    const start = [...root.querySelectorAll('button')].find(b => /Start practice/.test(b.textContent || ''));
+    expect(start?.getAttribute('aria-disabled')).toBe('true');
     fixture.destroy();
   }));
+
+  it('a ready result with every area strong (the 96% case): the card with "Great work!" and every area Strong', fakeAsync(() => {
+    load('ready', BLOCK);
+    http.expectOne(`${API}/speaking-coach/submissions/s1`).flush({ success: true, data: { state: 'no_practice_needed', session: null,
+      overview: { reason: 'no_weak_areas', areas: [{ criterionId: 'speaking-task', title: 'Task and content', strength: 'Excellent', needsPractice: false },
+        { criterionId: 'speaking-fluency', title: 'Fluency', strength: 'Good', needsPractice: false }] } } });
+    flushMicrotasks(); fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Great work! Every area is strong, so no practice is needed right now.');
+    expect(root.querySelectorAll('.coach__area').length).toBe(2);
+    fixture.destroy();
+  }));
+
+  for (const state of ['not_enough_speech', 'not_assessable', 'transcription_failed']) {
+    it(`a recording that could not be marked (${state}): no coach and no coach request`, fakeAsync(() => {
+      load(state);
+      expect(coach()).toBeUndefined();
+      http.expectNone(`${API}/speaking-coach/submissions/s1`);
+      fixture.destroy();
+    }));
+  }
 });

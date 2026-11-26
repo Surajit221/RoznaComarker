@@ -7,7 +7,10 @@
 //   2. Flow, as a guest at 390 px: the practice notice and its tick box, Start, record, send.
 //   3. Screens at 1280, 900, 390 and 320 px: the student coach (idle, after feedback, completed), the guest coach (notice), the teacher card
 //      (with an attempt history open). For each: a screenshot, console errors, failed calls, horizontal overflow, and on student and guest
-//      screens a check that the coach shows no score, level or pass word.
+//      screens a check that the coach shows no score, number or pass word (the area list may show each area's level title, see 4).
+//   4. The always-visible card at 1280, 900 and 390 px: a 96% result (every area strong: "Great work!", Start practice disabled), a result still
+//      being marked ("Practice opens when your result is ready"), for a student and a guest; the teacher card's "No practice needed" and
+//      "Practice opens when this result is ready". Each area's level on the card must equal the level the graded result shows, in order.
 //   node scripts/qa-speaking-coach.cjs [outputDir]     (needs the backend next to this repo, and npm run build:prod)
 const fs = require('fs');
 const path = require('path');
@@ -32,7 +35,8 @@ for (const level of ['debug', 'info', 'warn', 'metric', 'error']) if (typeof qui
 const app = need('src/app');
 const { connectInMemoryMongo, disconnectInMemoryMongo } = need('tests/helpers/testServer');
 const { seedTestPlans } = need('tests/helpers/seedTestPlans');
-const { seedSpeaking, makeAudioSubmission } = need('tests/helpers/speakingFixtures');
+const { seedSpeaking, makeAudioSubmission, person } = need('tests/helpers/speakingFixtures');
+const Membership = need('src/models/membership.model');
 const h = need('tests/helpers/speakingAssessmentFixtures');
 const { TEXTS } = need('tests/fixtures/audio/speakingBenchmark.cjs');
 const FIXTURE = need('tests/fixtures/audio/deepgram-nova3-response.cjs');
@@ -53,6 +57,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const KNOWN_CALL = /GET \/api\/(subscription\/me|credits\/wallet)[^ ]* 500/;
 const KNOWN_CONSOLE = /ERR_FAILED|ERR_BLOCKED|net::|Failed to load resource|fonts\.|googleapis|gstatic|unpkg|boxicons|getMySubscription|wallet/i;
 const NO_MARKS = /\d+\s*%|\bscores?\b|\bgrades?\b|\blevels?\b|\bpass(ed)?\b|\bfail(ed)?\b|Excellent|Developing|Beginning/i;
+const CARD_WIDTHS = ['1280', '900', '390'];
 const CORRECTIONS = [{ category: 'GRAMMAR', symbol: 'AGR', quotedText: 'It have', occurrence: 1, suggestedText: 'It has', message: 'Use has with it.' },
   { category: 'VOCABULARY', symbol: 'WC', quotedText: 'by walk', occurrence: 1, suggestedText: 'on foot', message: 'We say on foot.' },
   { category: 'VOCABULARY', symbol: 'WC', quotedText: 'quiet', occurrence: 1, suggestedText: 'peaceful', message: 'A more exact word fits here.' }];
@@ -73,20 +78,40 @@ const CHECKED = { assessable: true, notAssessableReason: 'none', onTask: true, l
     instructions: 'Speak for one to three minutes about the town where you live: what it is like, what people do there, and what you would change.' } });
   await h.personalCredits(f.teacher.user, 50);
   const levels = { ...Object.fromEntries(h.DEFAULT_IDS.map(id => [id, 'Good'])), 'speaking-grammar': 'Developing', 'speaking-vocabulary': 'Developing' };
-  const assessed = async mode => {
-    const made = await makeAudioSubmission(f, { status: 'ready', seconds: 60, mode });
+  const assessed = async (mode, { who = f, levelsFor = levels, assess = true } = {}) => {
+    const made = await makeAudioSubmission(who, { status: 'ready', seconds: 60, mode });
     await AudioRecording.collection.updateOne({ _id: made.recording._id }, { $set: { derived: { derivedTextVersion: 'audio-derived-text-v1',
       displayText: { text: TEXTS.WEAK, fillers: [] }, assessorText: TEXTS.WEAK, fluency: h.fluencyFor(TEXTS.WEAK) }, transcriptSchemaVersion: 'audio-transcript-v1', wordTimingsAvailable: true } });
+    if (!assess) { report.notes.push(`${mode} left in marking`); return made; }
     await assessment.enqueueAssessment(made.recording._id);
     report.notes.push(`${mode} assessed: ${(await assessment.runSpeakingAssessment(made.recording._id, { env: h.TEST_ENV,
-      fetchImpl: h.fakeOpenRouter(h.output({ levels, corrections: CORRECTIONS })) })).status}`);
+      fetchImpl: h.fakeOpenRouter(h.output({ levels: levelsFor, corrections: CORRECTIONS })) })).status}`);
     return made;
   };
+  const guestLink = async (made, name) => {
+    const link = access.issueToken();
+    await Submission.collection.updateOne({ _id: made.submission._id }, { $set: { 'guest.displayName': name, 'guest.normalizedEmail': `${name.split(' ')[0].toLowerCase()}.guest@example.com`,
+      'guest.accessHash': link.accessHash, 'guest.expiresAt': link.expiresAt, qrToken: f.assignment.qrToken } });
+    return link;
+  };
+  const enrolled = async label => {
+    const who = await person('student', label);
+    await Membership.create({ student: who.user._id, class: f.klass._id, status: 'active' });
+    return { ...f, student: who };
+  };
+  // The client's 96% case: every area Excellent, fluency Good (Good is 75%, above the 70% pass).
+  const ALL_STRONG = { ...Object.fromEntries(h.DEFAULT_IDS.map(id => [id, 'Excellent'])), 'speaking-fluency': 'Good' };
   const studentSub = await assessed('registered');
   const guestSub = await assessed('guest');
-  const issued = access.issueToken();
-  await Submission.collection.updateOne({ _id: guestSub.submission._id }, { $set: { 'guest.displayName': 'Dee Guest', 'guest.normalizedEmail': 'dee.guest@example.com',
-    'guest.accessHash': issued.accessHash, 'guest.expiresAt': issued.expiresAt, qrToken: f.assignment.qrToken } });
+  const issued = await guestLink(guestSub, 'Dee Guest');
+  const strongStudent = await enrolled('strong-student');
+  const strongSub = await assessed('registered', { who: strongStudent, levelsFor: ALL_STRONG });
+  const pendingStudent = await enrolled('pending-student');
+  const pendingSub = await assessed('registered', { who: pendingStudent, assess: false });
+  const strongGuestSub = await assessed('guest', { levelsFor: ALL_STRONG });
+  const strongGuest = await guestLink(strongGuestSub, 'Sam Guest');
+  const pendingGuestSub = await assessed('guest', { assess: false });
+  const pendingGuest = await guestLink(pendingGuestSub, 'Pat Guest');
 
   /** The worker for the latest practice attempt: the fake transcript, the synthetic answer, then the check with the fake reply. */
   async function work(reply = CHECKED) {
@@ -156,12 +181,30 @@ const CHECKED = { assessable: true, notAssessableReason: 'none', onTask: true, l
     }
     return { overflowing: scroll > width + 1, offenders };
   });
+  // The coach text without the area list (which may name each area's level title, as the graded result does).
+  const coachTextWithoutAreas = page => page.evaluate(() => {
+    const section = document.querySelector('app-speaking-coach section');
+    if (!section) return '';
+    const copy = section.cloneNode(true);
+    copy.querySelectorAll('.coach__areas').forEach(el => el.remove());
+    document.body.appendChild(copy); const text = copy.innerText; copy.remove();
+    return text;
+  });
+  /** [card levels, result levels]: the level titles on the coach card and in the graded result view, in order. */
+  const levelPairs = page => page.evaluate(() => {
+    const pick = root => [...(root?.innerText || '').matchAll(/Level: ([A-Za-z ]+?)(?=\n|$| ✓| ●)/gm)].map(m => m[1].trim());
+    return [pick(document.querySelector('app-speaking-coach .coach__areas')), pick(document.querySelector('app-speaking-result-view'))];
+  });
+  const blockedStart = page => page.evaluate(() => {
+    const b = [...document.querySelectorAll('app-speaking-coach button')].find(x => x.textContent.trim() === 'Start practice');
+    return Boolean(b && b.getAttribute('aria-disabled') === 'true' && document.getElementById(b.getAttribute('aria-describedby') || '')?.textContent);
+  });
   async function shoot(name, page, seen, { student = false } = {}) {
     const file = path.join(out, `${name}.png`);
     await page.evaluate(() => document.querySelector('app-speaking-coach, app-speaking-coach-progress')?.scrollIntoView({ block: 'start' }));
     await sleep(300);
     await page.screenshot({ path: file, fullPage: true });
-    const text = await coachText(page);
+    const text = student ? await coachTextWithoutAreas(page) : await coachText(page);
     const entry = { name, screenshot: path.basename(file), console: [...seen.console], calls: [...seen.calls], ...(await overflow(page)),
       ...(student ? { marksShown: NO_MARKS.test(text) ? text.match(NO_MARKS)[0] : null } : {}) };
     report.screens.push(entry);
@@ -228,6 +271,35 @@ const CHECKED = { assessable: true, notAssessableReason: 'none', onTask: true, l
       if (!shown) report.failures.push(`${name}-${viewport.name}: not shown`);
       if (action && !await action(page)) report.failures.push(`${name}-${viewport.name}: action`);
       await shoot(`${name}-${viewport.name}`, page, seen, { student });
+      await context.close();
+    }
+  }
+
+  // ---- 4. The always-visible card (1280, 900, 390 px) ----
+  const strongUrl = `/student/my-classes/detail/my-speaking/${f.assignment._id}?classId=${C}`;
+  const cards = [
+    ['student-strong', strongStudent.student.token, strongUrl, 'Great work! Every area is strong, so no practice is needed right now.', true, true],
+    ['student-pending', pendingStudent.student.token, strongUrl, 'Practice opens when your result is ready.', true, false],
+    ['guest-strong', null, `/guest/speaking/${strongGuestSub.submission._id}#${strongGuest.token}`, 'Great work! Every area is strong', true, true],
+    ['guest-pending', null, `/guest/speaking/${pendingGuestSub.submission._id}#${pendingGuest.token}`, 'Practice opens when your result is ready.', true, false],
+    ['teacher-strong', f.teacher.token, `/teacher/my-classes/detail/speaking-submission/${strongSub.submission._id}?classId=${C}`,
+      'No practice needed: every area of this result is strong.', false, false],
+    ['teacher-pending', f.teacher.token, `/teacher/my-classes/detail/speaking-submission/${pendingSub.submission._id}?classId=${C}`,
+      'Practice opens when this result is ready.', false, false]];
+  for (const viewport of VIEWPORTS.filter(v => CARD_WIDTHS.includes(v.name))) {
+    for (const [name, token, url, expected, student, compareLevels] of cards) {
+      const label = `${name}-${viewport.name}`;
+      const { page, context, seen } = await open(viewport, token, url);
+      if (!await waitFor(() => hasText(page, expected))) report.failures.push(`${label}: "${expected}" not shown`);
+      if (student && !await blockedStart(page)) report.failures.push(`${label}: Start practice not disabled with a reason`);
+      if (compareLevels) {
+        const [card, result] = await levelPairs(page);
+        report.notes.push(`${label}: ${card.length} areas on the card, levels equal to the result: ${card.length > 0 && JSON.stringify(card) === JSON.stringify(result)}`);
+        if (!card.length || JSON.stringify(card) !== JSON.stringify(result)) report.failures.push(`${label}: card levels differ from the result`);
+        const strongCount = await page.evaluate(() => [...document.querySelectorAll('app-speaking-coach .coach__badge')].filter(b => b.textContent.includes('Strong')).length);
+        if (strongCount !== card.length) report.failures.push(`${label}: not every area marked Strong`);
+      }
+      await shoot(label, page, seen, { student });
       await context.close();
     }
   }

@@ -9,7 +9,27 @@
     @if (error) { <p class="message message--error" role="alert">{{ error }}</p> }
     @if (!loading && !error && progress; as data) {
       @if (data.sourceStatus === 'outdated') { <p class="source-warning">This practice was started from an earlier version of the result.</p> }
-      @if (data.state === 'not-started') { <p class="message">The student has not started speaking practice yet.</p> }
+      @if (data.state === 'not-started') { <p class="message">The student has not started practice yet.</p> }
+      @if (data.state === 'no-practice-needed') { <p class="message message--good"><span aria-hidden="true">✓ </span>No practice needed: every area of this result is strong.</p> }
+      @if (data.state === 'result-not-ready') { <p class="message">Practice opens when this result is ready.</p> }
+      @if (data.state === 'no-rubric-scores') { <p class="message message--warning">Practice is not available for this result: it has no rubric scores.</p> }
+      <!-- The current result's areas: the level title and Needs practice / Strong, always written out (colour is never the only signal). -->
+      @if (data.areas?.length) {
+        <ul class="areas" aria-label="Areas of this result">
+          @for (area of data.areas!; track area.criterionId) {
+            <li class="area" [class.area--weak]="area.needsPractice && !!area.levelTitle">
+              <span class="area__title">{{ area.title }}</span>&ngsp;
+              @if (area.levelTitle) {
+                <span class="area__level">{{ area.levelTitle }}</span>&ngsp;
+                <span class="area__badge" [class.area__badge--weak]="area.needsPractice"><span aria-hidden="true">{{ area.needsPractice ? '●' : '✓' }}</span>
+                  {{ area.needsPractice ? 'Needs practice' : 'Strong' }}</span>
+              } @else {
+                <span class="area__level">Not assessed</span>
+              }
+            </li>
+          }
+        </ul>
+      }
       @if (data.state === 'generating') { <p class="message">The student’s speaking practice is being prepared.</p> }
       @if (data.state === 'failed') { <p class="message message--warning">Speaking practice could not be prepared.</p> }
       @if (data.state === 'in-progress' || data.state === 'completed' || data.state === 'capped') {
