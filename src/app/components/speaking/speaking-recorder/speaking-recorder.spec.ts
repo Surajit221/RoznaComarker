@@ -1,3 +1,4 @@
+import { NgZone } from '@angular/core';
 import { TestBed, fakeAsync, tick, type ComponentFixture } from '@angular/core/testing';
 import { SpeakingRecorder, MEDIA_RECORDING, type MediaRecording, type PracticeRecording } from './speaking-recorder';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
@@ -74,6 +75,25 @@ describe('SpeakingRecorder', () => {
     expect(track.stop).toHaveBeenCalled();
     expect((fixture.nativeElement as HTMLElement).querySelector('audio')).toBeTruthy();
     expect(button(fixture, /Record again/)).toBeTruthy();
+    fixture.destroy();
+  }));
+
+  it('the browser ends a recording outside Angular (MediaRecorder onstop, later): the page still updates by itself', fakeAsync(() => {
+    const fake = fakeMedia();
+    const { fixture } = setup(fake);
+    fixture.autoDetectChanges(true);
+    button(fixture, /Start recording/)!.click(); tick();
+    tick(6000);
+    // As in Chrome: the stop event arrives later, from outside Angular's zone.
+    const recorder = fake.recorder()!;
+    const zone = TestBed.inject(NgZone);
+    recorder.stop = function stop(this: FakeRecorder) {
+      this.state = 'inactive';
+      zone.runOutsideAngular(() => setTimeout(() => { this.ondataavailable?.({ data: new Blob([new Uint8Array(64)], { type: this.mimeType }) }); this.onstop?.(); }, 50));
+    };
+    button(fixture, /Stop recording/)!.click(); tick(100);
+    expect(button(fixture, /Record again/)).toBeTruthy();
+    expect((fixture.nativeElement as HTMLElement).querySelector('audio')).toBeTruthy();
     fixture.destroy();
   }));
 

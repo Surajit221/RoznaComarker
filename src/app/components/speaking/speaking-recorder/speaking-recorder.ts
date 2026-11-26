@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, InjectionToken, Input, type OnDestroy, Output, inject } from '@angular/core';
+import { Component, EventEmitter, InjectionToken, Input, NgZone, type OnDestroy, Output, inject } from '@angular/core';
 import { SpeakingUploadPicker } from '../../student/speaking-upload-picker/speaking-upload-picker';
 import { UnsavedWorkRegistry } from '../../../core/app-update/unsaved-work';
 import type { SpeakingLimits } from '../../../api/speaking-api.service';
@@ -46,6 +46,7 @@ type RecorderState = 'idle' | 'requesting' | 'recording' | 'recorded';
 export class SpeakingRecorder implements OnDestroy {
   private readonly media = inject(MEDIA_RECORDING);
   private readonly unsaved = inject(UnsavedWorkRegistry);
+  private readonly zone = inject(NgZone);
 
   @Input() maxSeconds = 90;
   @Input() minSeconds = 5;
@@ -107,7 +108,8 @@ export class SpeakingRecorder implements OnDestroy {
     this.baseType = String(chosen || this.recorder.mimeType || '').split(';')[0].trim().toLowerCase();
     this.chunks = [];
     this.recorder.ondataavailable = event => { if (event.data && event.data.size > 0) this.chunks.push(event.data); };
-    this.recorder.onstop = () => this.finish();
+    // Browsers fire MediaRecorder events outside Angular's zone (zone.js does not patch them): back inside, so the page updates.
+    this.recorder.onstop = () => this.zone.run(() => this.finish());
     this.recorder.start();
     this.startedAt = Date.now();
     this.elapsedSeconds = 0;
