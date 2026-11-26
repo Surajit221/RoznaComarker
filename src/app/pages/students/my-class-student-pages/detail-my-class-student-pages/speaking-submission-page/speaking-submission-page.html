@@ -53,6 +53,10 @@
         <app-speaking-result-view [result]="result!.result!" [marksVisible]="result!.marksVisible" [fluency]="result!.fluency" audience="student"></app-speaking-result-view>
       }
     </div>
+    <!-- Speaking Coach: from the time the recording is being marked (the card says when practice opens); hidden while the coach is off (404). -->
+    @if (coachShown(result?.state) && coachClient) {
+      <app-speaking-coach [client]="coachClient!" [resultState]="result?.state ?? null"></app-speaking-coach>
+    }
   }
 </div>
 

@@ -196,7 +196,10 @@ describe('GuestSpeakingPage: upload (guest link / QR)', () => {
 });
 
 describe('GuestSpeakingPage: results (/guest/speaking/<id>)', () => {
-  afterEach(() => { TestBed.inject(HttpTestingController).verify(); sessionStorage.clear(); });
+  // A ready result also asks for the Speaking Coach; here it answers as switched off (404), so nothing more is shown (its own test is below).
+  const coachOff = (http: HttpTestingController) => http.match(r => r.url.endsWith(`/speaking/submissions/${SUB}/coach`))
+    .forEach(r => r.flush({ success: false, code: 'NOT_FOUND' }, { status: 404, statusText: 'Not Found' }));
+  afterEach(() => { const http = TestBed.inject(HttpTestingController); coachOff(http); http.verify(); sessionStorage.clear(); });
   const READY = { state: 'ready', reason: null, message: 'RAW SERVER TEXT', marksVisible: true, assessedText: 'My town is next to a wide river.',
     fluency: { wordsPerMinute: 120, fillersPer100Words: 2, pausesOverOneSecond: 1, longestPauseSeconds: 1.4, repetitions: 0 }, fillers: [],
     result: { overallScore: 78, maxScore: 100, grade: 'B', criteria: [{ criterionId: 'c1', title: 'Task', level: 'Good', weightPercent: 100, points: 78, comment: 'Clear answer.' }],
@@ -239,6 +242,53 @@ describe('GuestSpeakingPage: results (/guest/speaking/<id>)', () => {
     page.ngOnDestroy();
   });
 
+  it('ready: the Speaking Coach through the guest link (its notice shown); read only with a portal session', async () => {
+    const { root, http, page, fixture } = await results(data(READY));
+    flushMedia(http);
+    const coach = http.expectOne(`${API}/speaking/submissions/${SUB}/coach`);
+    expect(coach.request.headers.get('X-Guest-Token')).toBe(TOKEN);
+    coach.flush({ success: true, data: { state: 'idle', session: null, notice: { version: 'speaking-coach-guest-2026-11', text: 'PRACTICE NOTICE TEXT', accepted: false } } });
+    await render(fixture);
+    expect(root.textContent).toContain('Practise your speaking');
+    expect(root.textContent).toContain('PRACTICE NOTICE TEXT');
+    expect(root.querySelector('input[type="checkbox"]')).not.toBeNull();
+    page.ngOnDestroy();
+
+    TestBed.resetTestingModule();
+    const portal = setup({ params: { submissionId: SUB }, fragment: null });
+    sessionStorage.setItem('comarker:recovery-session', JSON.stringify({ session: 'S'.repeat(43), until: Date.now() + 600000 }));
+    portal.fixture.detectChanges(); await settle();
+    portal.http.expectOne(`${API}/speaking/submissions/${SUB}`).flush({ success: true, data: data(READY) });
+    await render(portal.fixture);
+    flushMedia(portal.http);
+    portal.http.expectOne(`${API}/speaking/submissions/${SUB}/coach`).flush({ success: true, data: { state: 'idle', session: null,
+      notice: { version: 'speaking-coach-guest-2026-11', text: 'PRACTICE NOTICE TEXT', accepted: false } } });
+    await render(portal.fixture);
+    expect(portal.root.textContent).toContain('Open the private link from your email to practise');
+    expect([...portal.root.querySelectorAll('button')].some(b => /Start practice/.test(b.textContent || ''))).toBeFalse();
+    portal.page.ngOnDestroy();
+  });
+
+  it('still being marked: the guest coach card says practice opens when the result is ready; never for a recording that could not be marked', async () => {
+    const assessing = { ...READY, state: 'assessing', assessedText: null, fluency: null, result: null };
+    const { root, http, page, fixture } = await results(data(assessing));
+    flushMedia(http);
+    const coach = http.expectOne(`${API}/speaking/submissions/${SUB}/coach`);
+    expect(coach.request.headers.get('X-Guest-Token')).toBe(TOKEN);
+    coach.flush({ success: true, data: { state: 'unavailable', session: null, overview: { reason: 'result_not_ready', areas: [] },
+      notice: { version: 'speaking-coach-guest-2026-11', text: 'PRACTICE NOTICE TEXT', accepted: false } } });
+    await render(fixture);
+    expect(root.textContent).toContain('Practice opens when your result is ready.');
+    page.ngOnDestroy();
+
+    TestBed.resetTestingModule();
+    const failed = await results(data({ ...assessing, state: 'not_enough_speech' }));
+    flushMedia(failed.http);
+    expect(failed.http.match(r => r.url.endsWith(`/speaking/submissions/${SUB}/coach`)).length).toBe(0);
+    expect(failed.root.querySelector('app-speaking-coach')).toBeNull();
+    failed.page.ngOnDestroy();
+  });
+
   it('marks hidden by the teacher: no score shown', async () => {
     const hidden = { ...READY, marksVisible: false, result: { ...READY.result, overallScore: undefined, grade: undefined } };
     const { root, http, page } = await results(data(hidden));
@@ -261,6 +311,10 @@ describe('GuestSpeakingPage: results (/guest/speaking/<id>)', () => {
       expect(root.textContent).toContain(expected);
       expect(root.textContent).not.toContain('RAW SERVER TEXT');
       expect(root.querySelector('app-speaking-result-view')).toBeNull();
+      // While the recording is being marked the coach card asks the server (it says when practice opens); never after a recording that failed.
+      const coach = http.match(r => r.url.endsWith(`/speaking/submissions/${SUB}/coach`));
+      expect(coach.length).toBe(['transcribing', 'assessing', 'awaiting_teacher'].includes(String(result['state'])) ? 1 : 0);
+      coachOff(http);
       page.ngOnDestroy();
       http.verify();
     }

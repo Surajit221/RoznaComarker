@@ -4,6 +4,7 @@ import { firstValueFrom, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { RecoveryPortalService } from '../../../services/recovery-portal.service';
 import { SpeakingApiService, type SpeakingResult } from '../../../api/speaking-api.service';
+import { coachClientFor, type CoachClient } from '../../../api/speaking-coach-api.service';
 import { WritingCorrectionsApiService } from '../../../api/writing-corrections-api.service';
 import { DEFAULT_CORRECTION_LEGEND } from '../../../constants/correction-legend.default';
 
@@ -82,6 +83,18 @@ export class GuestSpeakingAccess {
   recordingBlob(): Promise<Blob> {
     return firstValueFrom(this.http.get(`${this.base}/speaking/submissions/${encodeURIComponent(this.submissionId)}/media`,
       { headers: this.headers, responseType: 'blob' }));
+  }
+
+  /** Speaking Coach: only the guest's own link can practise (a recovery-portal session is read-only: it can see the practice, not record). */
+  canPractise(): boolean { return Boolean(this.token); }
+
+  /** Speaking Coach calls for this guest submission (the guest coach routes), with the link (or the read-only portal session) on every call. */
+  coachClient(): CoachClient {
+    const submissionBase = `${this.base}/speaking/submissions/${encodeURIComponent(this.submissionId)}/coach`;
+    return coachClientFor(this.http, { submissionBase, sessionBase: submissionBase, headers: () => {
+      const headers = this.headers;
+      return Object.fromEntries((headers?.keys() ?? []).map(key => [key, headers.get(key) ?? '']));
+    } });
   }
 }
 

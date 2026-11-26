@@ -12,15 +12,17 @@ import { SpeakingTranscript } from '../../../../../components/speaking/speaking-
 import { SpeakingResultView } from '../../../../../components/speaking/speaking-result-view/speaking-result-view';
 import { SpeakingPoller, type SpeakingStatusView, speakingProgress, teacherSpeakingStatus } from '../../../../../utils/speaking-status';
 import { speakingErrorMessage } from '../../../../../utils/speaking-messages';
+import { SpeakingCoachProgress } from '../../../../../components/teacher/speaking-coach-progress/speaking-coach-progress';
 
 /**
  * The owning teacher's view of one speaking submission (stage 7e): whose recording it is, its status with the reason and the retry that applies
  * (transcription, or marking after credits are added), the recording (play and download), what was said with the corrections, and the result.
  * Polled every 10 seconds while the recording is being turned into text or marked. Another teacher's submission answers 404: one fixed line.
+ * Below the result: the student's Speaking Coach practice progress (read only; hidden while the coach is off).
  */
 @Component({
   selector: 'app-teacher-speaking-submission-page',
-  imports: [CommonModule, AppBarBackButton, AnalysisProgress, SpeakingAudioPlayer, SpeakingTranscript, SpeakingResultView],
+  imports: [CommonModule, AppBarBackButton, AnalysisProgress, SpeakingAudioPlayer, SpeakingTranscript, SpeakingResultView, SpeakingCoachProgress],
   templateUrl: './teacher-speaking-submission-page.html',
   styleUrl: './teacher-speaking-submission-page.css'
 })

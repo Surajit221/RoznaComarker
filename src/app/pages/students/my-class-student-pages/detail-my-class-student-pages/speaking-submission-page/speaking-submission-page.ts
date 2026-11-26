@@ -12,15 +12,17 @@ import { SpeakingTranscript } from '../../../../../components/speaking/speaking-
 import { SpeakingResultView } from '../../../../../components/speaking/speaking-result-view/speaking-result-view';
 import { SpeakingPoller, type SpeakingStatusView, studentSpeakingStatus } from '../../../../../utils/speaking-status';
 import { speakingErrorMessage } from '../../../../../utils/speaking-messages';
+import { SpeakingCoach, coachShownFor } from '../../../../../components/speaking/speaking-coach/speaking-coach';
+import { SpeakingCoachApiService, type CoachClient } from '../../../../../api/speaking-coach-api.service';
 
 /**
  * A student's speaking assignment (stage 7d): their recording's status from upload to result, polled every 10 seconds while it is being turned
  * into text or marked, and stopped at a final state. Fixed text only. Upload (and a new recording where the state invites one) through the
- * speaking upload dialog.
+ * speaking upload dialog. Once the result is ready: the Speaking Coach (practice), when the server has one for this submission.
  */
 @Component({
   selector: 'app-student-speaking-submission-page',
-  imports: [CommonModule, AppBarBackButton, AnalysisProgress, SpeakingUploadDialog, SpeakingAudioPlayer, SpeakingTranscript, SpeakingResultView],
+  imports: [CommonModule, AppBarBackButton, AnalysisProgress, SpeakingUploadDialog, SpeakingAudioPlayer, SpeakingTranscript, SpeakingResultView, SpeakingCoach],
   templateUrl: './speaking-submission-page.html',
   styleUrl: './speaking-submission-page.css'
 })
@@ -30,6 +32,18 @@ export class StudentSpeakingSubmissionPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly assignmentApi = inject(AssignmentApiService);
   private readonly speakingApi = inject(SpeakingApiService);
+  private readonly coachApi = inject(SpeakingCoachApiService);
+  private coachFor: { id: string; client: CoachClient } | null = null;
+
+  /** Whether the coach card is shown for this result state. */
+  readonly coachShown = coachShownFor;
+  /** The Speaking Coach client for this submission (one per submission). */
+  get coachClient(): CoachClient | null {
+    const id = this.submission?.id;
+    if (!id) return null;
+    if (this.coachFor?.id !== id) this.coachFor = { id, client: this.coachApi.forStudent(id) };
+    return this.coachFor.client;
+  }
 
   assignmentId = '';
   classId: string | null = null;

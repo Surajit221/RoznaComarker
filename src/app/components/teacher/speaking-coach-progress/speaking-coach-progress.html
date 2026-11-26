@@ -1,0 +1,105 @@
+@if (loading || error || progress) {
+<section class="panel" aria-labelledby="coach-progress-title">
+  <header class="panel__header">
+    <div><h2 id="coach-progress-title">Speaking Practice Progress</h2><p>Practice only — does not affect the assignment grade</p></div>
+    <span class="read-only-badge">Read only</span>
+  </header>
+  <div aria-live="polite">
+    @if (loading) { <div class="skeleton" aria-hidden="true"><span></span><span></span></div><span class="sr-only" role="status">Loading speaking practice progress</span> }
+    @if (error) { <p class="message message--error" role="alert">{{ error }}</p> }
+    @if (!loading && !error && progress; as data) {
+      @if (data.sourceStatus === 'outdated') { <p class="source-warning">This practice was started from an earlier version of the result.</p> }
+      @if (data.state === 'not-started') { <p class="message">The student has not started practice yet.</p> }
+      @if (data.state === 'no-practice-needed') { <p class="message message--good"><span aria-hidden="true">✓ </span>No practice needed: every area of this result is strong.</p> }
+      @if (data.state === 'result-not-ready') { <p class="message">Practice opens when this result is ready.</p> }
+      @if (data.state === 'no-rubric-scores') { <p class="message message--warning">Practice is not available for this result: it has no rubric scores.</p> }
+      <!-- The current result's areas: the level title and Needs practice / Strong, always written out (colour is never the only signal). -->
+      @if (data.areas?.length) {
+        <ul class="areas" aria-label="Areas of this result">
+          @for (area of data.areas!; track area.criterionId) {
+            <li class="area" [class.area--weak]="area.needsPractice && !!area.levelTitle">
+              <span class="area__title">{{ area.title }}</span>&ngsp;
+              @if (area.levelTitle) {
+                <span class="area__level">{{ area.levelTitle }}</span>&ngsp;
+                <span class="area__badge" [class.area__badge--weak]="area.needsPractice"><span aria-hidden="true">{{ area.needsPractice ? '●' : '✓' }}</span>
+                  {{ area.needsPractice ? 'Needs practice' : 'Strong' }}</span>
+              } @else {
+                <span class="area__level">Not assessed</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+      @if (data.state === 'generating') { <p class="message">The student’s speaking practice is being prepared.</p> }
+      @if (data.state === 'failed') { <p class="message message--warning">Speaking practice could not be prepared.</p> }
+      @if (data.state === 'in-progress' || data.state === 'completed' || data.state === 'capped') {
+        @if (data.state === 'completed') { <p class="message message--good"><span aria-hidden="true">✓ </span>The student finished every practice task.</p> }
+        @if (data.state === 'capped') { <p class="message message--warning">The student used all practice recordings.</p> }
+        <div class="summary">
+          <div class="progress">
+            <div><span>Tasks passed: {{ data.summary.passedTasks }} of {{ data.summary.totalTasks }}</span><strong>{{ percent }}%</strong></div>
+            <div class="progress__track" role="progressbar" aria-label="Tasks passed" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="percent">
+              <span [style.width.%]="percent"></span></div>
+          </div>
+          <dl>
+            <div><dt>Recordings used</dt><dd>Recordings used: {{ data.summary.attemptsUsed }} of {{ data.summary.attemptCap }}</dd></div>
+            <div><dt>Last practised</dt><dd>{{ data.summary.lastPracticedAt ? (data.summary.lastPracticedAt | date:'medium') : 'Not yet' }}</dd></div>
+          </dl>
+        </div>
+        <div class="tasks">
+          @for (task of data.tasks; track task.taskId) {
+            <article class="task-card">
+              <div class="task-card__title">
+                <h3>Task {{ task.order }}: {{ task.area }}</h3>
+                <span class="task-card__status" [class.passed]="task.passed"><span aria-hidden="true">{{ task.passed ? '✓ ' : '' }}</span>{{ statusText(task) }}</span>
+              </div>
+              <p class="task-card__type">{{ typeLabel[task.type] }} · {{ task.prompt }}</p>
+              <dl class="metrics">
+                <div><dt>Level in the graded result</dt><dd>{{ task.originalLevel || '—' }}</dd></div>
+                <div><dt>Latest practice level</dt><dd>{{ task.latestLevel || '—' }}</dd></div>
+                <div><dt>Attempts</dt><dd>{{ task.attemptCount }}</dd></div>
+                <div><dt>Last attempt</dt><dd>{{ task.lastAttemptAt ? (task.lastAttemptAt | date:'medium') : 'Not yet' }}</dd></div>
+              </dl>
+              <p class="task-card__rule"><strong>Pass rule:</strong> {{ task.passRuleText }}</p>
+              <button type="button" class="history-toggle" (click)="toggle(task)" [attr.aria-expanded]="history(task.taskId).open">
+                {{ history(task.taskId).open ? 'Hide attempts' : 'View attempts' }}</button>
+              @if (history(task.taskId).open) {
+                <div class="history" aria-live="polite">
+                  @if (history(task.taskId).loading && !history(task.taskId).attempts.length) { <p>Loading attempts…</p> }
+                  @if (history(task.taskId).error) { <p class="history__error" role="alert">{{ history(task.taskId).error }}</p> }
+                  @if (!history(task.taskId).loading && !history(task.taskId).error && !history(task.taskId).attempts.length) { <p>No attempts yet.</p> }
+                  @for (attempt of history(task.taskId).attempts; track attempt.id) {
+                    <article class="attempt">
+                      <header><strong>Attempt {{ attempt.attemptNumber }}</strong><time>{{ attempt.attemptedAt | date:'medium' }}</time></header>
+                      @if (attempt.state === 'ready') {
+                        <p>Level: <strong>{{ attempt.levelTitle }}</strong> · {{ attempt.passed ? 'Passed' : 'Not passed' }}{{ attempt.onTask === false ? ' · Off task' : '' }}</p>
+                      } @else if (attempt.state === 'not_assessable') {
+                        <p>{{ reasonText(attempt.notAssessableReason) }}</p>
+                      } @else if (attempt.state === 'failed') {
+                        <p>{{ attempt.failure === 'transcription' ? 'The recording could not be turned into text.' : 'The answer could not be checked.' }}</p>
+                      } @else {
+                        <p>Being checked</p>
+                      }
+                      @if (attempt.answerText) { <div><h4>Student answer</h4><p class="response">{{ attempt.answerText }}</p></div> }
+                      @if (attempt.feedback; as feedback) {
+                        @for (line of feedback.improved; track $index) { <p><strong>Got better:</strong> {{ line }}</p> }
+                        @for (line of feedback.stillWeak; track $index) { <p><strong>Keep working on:</strong> {{ line }}</p> }
+                        @if (feedback.nextTip) { <p><strong>Next tip:</strong> {{ feedback.nextTip }}</p> }
+                      }
+                      @if (attempt.vocab; as vocab) { <p>Target words used: {{ vocab.used.length ? vocab.used.join(', ') : 'none' }}</p> }
+                    </article>
+                  }
+                  @if (history(task.taskId).hasMore) {
+                    <button type="button" class="load-more" [disabled]="history(task.taskId).loading" (click)="loadMore(task.taskId)">
+                      {{ history(task.taskId).loading ? 'Loading…' : 'Load more' }}</button>
+                  }
+                </div>
+              }
+            </article>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>
+}

@@ -1,0 +1,75 @@
+:host { display: block; width: 100%; min-width: 0; }
+.coach {
+  box-sizing: border-box; width: 100%; padding: 24px; border: 1px solid var(--color-border, #e5e7eb); border-radius: var(--radius-xl, 20px);
+  background: var(--color-white, #fff); color: var(--color-text, #17233d); font-family: var(--font-main, 'Poppins', sans-serif);
+}
+.coach h2, .coach h3, .coach h4, .coach p, .coach ul, .coach ol { margin: 0; }
+.coach__header { margin-bottom: 16px; }
+.coach__header h2 { color: var(--color-navy-dark, #152e5e); font-size: 1.35rem; font-weight: 700; line-height: 1.35; }
+.coach__sub { margin-top: 4px; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; }
+.coach__body { display: flex; flex-direction: column; gap: 16px; }
+.coach__intro, .coach__note { font-size: 0.95rem; line-height: 1.55; }
+.coach__note--good { color: #065f46; font-weight: 600; }
+.coach__notice { padding: 12px 14px; border-radius: 12px; background: #f3f4f6; font-size: 0.88rem; line-height: 1.5; display: flex; flex-direction: column; gap: 8px; }
+.coach__agree { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+.coach__agree input { width: 18px; height: 18px; }
+.coach__primary, .coach__secondary {
+  align-self: flex-start; min-height: 44px; padding: 10px 20px; border-radius: 12px; font-weight: 600; font-size: 0.95rem; cursor: pointer;
+}
+.coach__primary { border: none; background: var(--color-primary, #008081); color: #fff; }
+.coach__secondary { border: 1px solid var(--color-border, #d1d5db); background: #fff; color: var(--color-navy-dark, #152e5e); }
+.coach__primary:disabled, .coach__secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Start practice with nothing to start: still focusable (aria-disabled) so its reason is read out; grey with readable contrast. */
+.coach__primary--blocked { background: #e5e7eb; color: #4b5563; cursor: not-allowed; }
+.coach__areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; padding: 0; margin: 0; list-style: none; }
+.coach__area {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 12px; border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px; background: #f9fafb; font-size: 0.9rem;
+}
+.coach__area--weak { border-color: #fcd34d; background: #fffbeb; }
+.coach__area-title { flex: 1 1 100%; color: var(--color-navy-dark, #152e5e); font-weight: 600; }
+.coach__area-level { color: var(--color-text-muted, #4b5563); }
+.coach__badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; border: 1px solid #a7f3d0; background: #ecfdf5;
+  color: #065f46; font-size: 0.8rem; font-weight: 600;
+}
+.coach__badge--weak { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
+.coach__primary:focus-visible, .coach__secondary:focus-visible { outline: 3px solid var(--color-focus, #2563eb); outline-offset: 2px; }
+.coach__steps { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+.coach__step {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--color-border, #e5e7eb); border-radius: 999px;
+  background: #f9fafb; color: var(--color-text-muted, #4b5563); font-size: 0.85rem;
+}
+.coach__step--current { border-color: var(--color-primary, #008081); background: #ecfeff; color: var(--color-navy-dark, #152e5e); font-weight: 600; }
+.coach__step--done { border-color: #a7f3d0; background: #ecfdf5; color: #065f46; }
+.coach__step-status { font-weight: 600; }
+.coach__step-status::before { content: '·'; margin-right: 6px; }
+.coach__result, .coach__task, .coach__end { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; background: #f3f3f3; }
+.coach__task { background: #fff; border: 1px solid var(--color-border, #e5e7eb); }
+.coach__result h3, .coach__task h3, .coach__end h3 { color: var(--color-navy-dark, #152e5e); font-size: 1.05rem; font-weight: 700; }
+.coach__result h4 { font-size: 0.9rem; font-weight: 700; }
+.coach__result ul { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.coach__task-meta { color: var(--color-text-muted, #6b7280); font-size: 0.85rem; font-weight: 600; }
+.coach__prompt { font-size: 1rem; line-height: 1.55; }
+.coach__tip, .coach__words, .coach__next, .coach__left { font-size: 0.9rem; line-height: 1.5; }
+.coach__next { font-weight: 600; color: var(--color-navy-dark, #152e5e); }
+.coach__left { color: var(--color-text-muted, #6b7280); }
+.coach__label { font-size: 0.85rem; font-weight: 600; }
+.coach__chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+.coach__chip { padding: 4px 12px; border-radius: 999px; background: #ecfeff; border: 1px solid #a5f3fc; font-weight: 600; font-size: 0.85rem; }
+.coach__checking { display: inline-flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+.coach__spinner {
+  width: 16px; height: 16px; box-sizing: border-box; border: 2px solid rgba(0, 128, 129, 0.25); border-top-color: var(--color-primary, #008081);
+  border-radius: 50%; animation: coach-spin 0.7s linear infinite; flex: none;
+}
+@keyframes coach-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .coach__spinner { animation: none; } }
+.coach__progress { height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
+.coach__progress span { display: block; height: 100%; background: var(--color-primary, #008081); }
+.coach__error { color: #b42318; font-weight: 600; font-size: 0.9rem; }
+@media (max-width: 640px) {
+  .coach { padding: 16px; }
+  .coach__primary, .coach__secondary { width: 100%; align-self: stretch; }
+  .coach__steps { flex-direction: column; }
+  .coach__areas { grid-template-columns: 1fr; }
+}
