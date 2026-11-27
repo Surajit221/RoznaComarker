@@ -8,7 +8,7 @@ import { httpTestingProviders } from '../../../../testing/standalone-test-provid
 
 const API = 'http://localhost:5000/api/similarity/submissions/sub1';
 const TEXT = 'alpha beta gamma delta epsilon zeta eta theta iota kappa';
-const PANEL = { state: 'none', eligible: true, reason: null, wordCount: 10, checksLeftToday: 19, checksLeftForSubmission: 3, externalAvailable: true, noticeShown: true };
+const PANEL = { state: 'none', eligible: true, reason: null, wordCount: 10, checksLeftToday: 19, checksLeftForSubmission: 3, externalAvailable: true, noticeShown: true, confirmationNeeded: false };
 const src = (over: Partial<SimilaritySource>): SimilaritySource => ({ sourceId: 's1', number: 1, kind: 'web', label: 'Internet source', percent: 20, words: 2,
   excluded: false, compared: true, ...over });
 function report(over: Partial<SimilarityReport> = {}): SimilarityReport {
@@ -73,6 +73,52 @@ describe('SimilarityReportPanel', () => {
     expect(live()).toBe('Similarity check finished: 30% of the essay matches other text.');
     tick(10000);   // no more polling once complete
   }));
+
+  describe('the permission confirmation (an essay without the notice, with an internet provider configured)', () => {
+    const NEEDS = { ...PANEL, externalAvailable: false, noticeShown: false, confirmationNeeded: true };
+    const box = () => q<HTMLInputElement>('input[name="similarity-permission"]');
+
+    it('is shown only when needed', fakeAsync(() => {
+      load({ ...PANEL, confirmationNeeded: false });
+      expect(box()).toBeNull();
+      fixture.componentInstance.submissionId = 'other';
+      fixture.detectChanges();
+      http.expectOne('http://localhost:5000/api/similarity/submissions/other').flush({ success: true, data: NEEDS });
+      flushMicrotasks(); fixture.detectChanges();
+      expect(box()).not.toBeNull();
+      const label = box()!.closest('label')!.textContent!.replace(/\s+/g, ' ').trim();
+      expect(label).toBe('I confirm I have permission to send this essay to an external similarity-checking service');
+      expect(text()).toContain('Without your confirmation, this essay is compared with other essays in Rubrilo only.');
+    }));
+
+    it('not ticked: Check sends no confirmation (Rubrilo only)', fakeAsync(() => {
+      load(NEEDS);
+      button('Check similarity')!.click();
+      const post = http.expectOne(`${API}/checks`);
+      expect(post.request.body).toEqual({});
+      post.flush({ success: true, data: { ...NEEDS, state: 'queued' } });
+      flushMicrotasks(); fixture.destroy(); tick(4000);
+    }));
+
+    it('ticked, then Check: sends confirmPermission true; the tick is cleared afterwards', fakeAsync(() => {
+      load(NEEDS);
+      box()!.click(); fixture.detectChanges();
+      expect(text()).not.toContain('Without your confirmation');
+      button('Check similarity')!.click();
+      const post = http.expectOne(`${API}/checks`);
+      expect(post.request.body).toEqual({ confirmPermission: true });
+      post.flush({ success: true, data: report({ ...NEEDS, state: 'completed' } as Partial<SimilarityReport>) });
+      flushMicrotasks(); fixture.detectChanges();
+      expect(fixture.componentInstance.permissionConfirmed).toBeFalse();
+      expect(box()!.checked).toBeFalse();
+    }));
+
+    it('is not shown while a check runs', fakeAsync(() => {
+      load({ ...NEEDS, state: 'queued', revision: 1 });
+      expect(box()).toBeNull();
+      fixture.destroy(); tick(4000);
+    }));
+  });
 
   it('an essay before the notice, and an essay that cannot be checked, say why', fakeAsync(() => {
     load({ ...PANEL, externalAvailable: false, noticeShown: false });

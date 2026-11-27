@@ -14,7 +14,7 @@
       @if (v.eligible) {
         <p class="message">{{ v.externalAvailable ? 'The essay is compared with other essays in Rubrilo and sent to an external similarity-checking service that searches the internet.'
           : 'The essay is compared with other essays in Rubrilo.' }}</p>
-        @if (!v.noticeShown) { <p class="message message--muted">This essay was submitted before the similarity notice, so it is compared within Rubrilo only.</p> }
+        @if (!v.noticeShown && !v.confirmationNeeded) { <p class="message message--muted">This essay was submitted before the similarity notice, so it is compared within Rubrilo only.</p> }
       } @else { <p class="message message--warning">{{ notEligibleText }}</p> }
     }
     @if (active) {
@@ -124,6 +124,15 @@
       }
     }
 
+    <!-- No notice on this essay but an internet provider is configured: the internet check only with the teacher's confirmation. -->
+    @if (v.confirmationNeeded && canCheck) {
+      <div class="permission">
+        <label><input type="checkbox" name="similarity-permission" [checked]="permissionConfirmed" [disabled]="busy"
+          (change)="permissionConfirmed = $any($event.target).checked" />
+          I confirm I have permission to send this essay to an external similarity-checking service</label>
+        @if (!permissionConfirmed) { <p class="message message--muted">Without your confirmation, this essay is compared with other essays in Rubrilo only.</p> }
+      </div>
+    }
     <footer class="actions">
       @if (canCheck) { <button type="button" class="btn btn--primary" [disabled]="busy" (click)="startCheck()">{{ report ? 'Check again' : 'Check similarity' }}</button> }
       @if (canRetry) { <button type="button" class="btn btn--secondary" [disabled]="busy" (click)="retry()">Try the internet check again</button> }

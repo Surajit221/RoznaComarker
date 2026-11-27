@@ -44,6 +44,8 @@ export interface SimilarityPanelBase {
   checksLeftForSubmission: number;
   externalAvailable: boolean;
   noticeShown: boolean;
+  /** An internet provider is configured but the essay has no notice: the internet check runs only if the teacher confirms permission. */
+  confirmationNeeded: boolean;
 }
 export interface SimilarityReport extends SimilarityPanelBase {
   revision: number;

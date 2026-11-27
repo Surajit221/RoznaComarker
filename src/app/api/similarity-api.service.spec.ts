@@ -5,7 +5,7 @@ import { SimilarityApiService, isReport, newSimilarityRequestId, similarityError
 import { httpTestingProviders } from '../../testing/standalone-test-providers';
 
 const API = 'http://localhost:5000/api/similarity';
-const PANEL = { state: 'none', eligible: true, reason: null, wordCount: 80, checksLeftToday: 20, checksLeftForSubmission: 3, externalAvailable: true,
+const PANEL = { state: 'none', eligible: true, reason: null, wordCount: 80, checksLeftToday: 20, checksLeftForSubmission: 3, externalAvailable: true, confirmationNeeded: false,
   noticeShown: true } as const;
 const REPORT = { ...PANEL, state: 'completed', revision: 4 } as unknown as SimilarityReport;
 

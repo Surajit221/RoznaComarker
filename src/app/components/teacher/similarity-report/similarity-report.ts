@@ -48,6 +48,8 @@ export class SimilarityReportPanel implements OnDestroy {
   selectedSourceId: string | null = null;
   checked = new Set<string>();
   showHighlights = true;
+  /** The teacher ticked the permission confirmation (only offered when the server says it is needed); cleared after each check. */
+  permissionConfirmed = false;
 
   readonly color = colorFor;
   readonly percentText = percentText;
@@ -145,7 +147,9 @@ export class SimilarityReportPanel implements OnDestroy {
   startCheck(): Promise<void> {
     if (!this.canCheck) return Promise.resolve();
     const requestId = newSimilarityRequestId();
-    return this.run(() => this.api.startCheck(this.id, requestId), () => 'Similarity check started.');
+    const confirm = this.view?.confirmationNeeded && this.permissionConfirmed ? true : undefined;
+    this.permissionConfirmed = false;
+    return this.run(() => this.api.startCheck(this.id, requestId, confirm), () => 'Similarity check started.');
   }
 
   retry(): Promise<void> {

@@ -62,3 +62,6 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #087f83; b
 .skeleton span { display: block; height: 14px; margin: 8px 0; background: #eef1f3; border-radius: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 599px) { .panel { padding: 18px 16px; } .actions__left { margin-left: 0; width: 100%; } }
+.permission { margin-top: 16px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fbfcfd; }
+.permission label { display: flex; gap: 10px; align-items: flex-start; font-size: 0.875rem; cursor: pointer; min-height: 44px; }
+.permission input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
