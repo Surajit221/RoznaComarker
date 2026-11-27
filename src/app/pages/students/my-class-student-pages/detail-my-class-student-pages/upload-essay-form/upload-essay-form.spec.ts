@@ -1,3 +1,4 @@
+import { SimilarityNoticeService } from '../../../../../services/similarity-notice.service';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 
 import { of, Subject } from 'rxjs';
@@ -18,7 +19,7 @@ describe('UploadEssayForm', () => {
   beforeEach(async () => {
     check = jasmine.createSpy().and.returnValue(of(ready));
     await TestBed.configureTestingModule({
-      imports: [UploadEssayForm], providers: [{ provide: ImagePreflightService, useValue: { check } }]
+      imports: [UploadEssayForm], providers: [{ provide: ImagePreflightService, useValue: { check } }, { provide: SimilarityNoticeService, useValue: { load: async () => null, markShown: () => undefined, appendTo: () => undefined, shownVersion: null } }]
     })
     .compileComponents();
 

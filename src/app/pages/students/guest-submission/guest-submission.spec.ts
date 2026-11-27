@@ -233,7 +233,8 @@ describe('guest assignment page presentation', () => {
     http.expectOne(`${environment.apiUrl}/guest/assignments/share-code`).flush({ data: page.assignment });
     await fixture.whenStable(); fixture.detectChanges();
   });
-  afterEach(() => { http.verify(); fixture.destroy(); });
+  // The similarity notice line (off here: 404) asks once per page.
+  afterEach(() => { http.match(r => r.url.includes('/api/similarity/')).forEach(r => r.flush({}, { status: 404, statusText: 'Not Found' })); http.verify(); fixture.destroy(); });
   it('after another draft, "Open your results" reopens the results of this submission (the link alone would only add a #fragment to the same page)', async () => {
     // State after a revision on the results page: the address bar is /guest/results/:id (the #token was removed on load).
     const original = location.pathname + location.search + location.hash;

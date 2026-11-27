@@ -171,3 +171,6 @@
     [skipLabel]="reviewing ? 'Use full image' : ''" [showCancel]="!reviewing"
     (applied)="applyCrop(entry, $event)" (skipped)="useFullImage(entry)" (cancelled)="cancelCrop()" />
 }
+
+<!-- The similarity notice (only while Similarity Reporting is on); the shown version is sent with the upload. -->
+<app-similarity-notice />
