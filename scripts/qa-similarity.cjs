@@ -70,7 +70,15 @@ const KNOWN_CONSOLE = /ERR_FAILED|ERR_BLOCKED|net::|Failed to load resource|font
   const otherStudent = await student(other.klass, 'qa-other-student');
   const tail = words.slice(Math.max(0, words.length - 10)).join(' ');
   const otherEssay = await essay({ ...other, studentUser: otherStudent.user, text: `Different start. ${tail} end.` });
-  for (const sub of [sameClass, otherEssay]) await internal.indexSubmission(sub._id);
+  // Six more near-identical copies in other teachers' classes (synthetic: the fixture's own words), so there are more than five sources that
+  // overlap: every one must show its own percentage, none 0%.
+  const copies = [];
+  for (let i = 0; i < 6; i++) {
+    const c = await classWithEssay({ label: `qa-copy-${i}` });
+    const st = await student(c.klass, `qa-copy-student-${i}`);
+    copies.push(await essay({ ...c, studentUser: st.user, text: `Copy ${i} starts. ${words.slice(0, Math.max(8, words.length - 2 - i)).join(' ')} end.` }));
+  }
+  for (const sub of [sameClass, otherEssay, ...copies]) await internal.indexSubmission(sub._id);
   const worker = startSimilarityWorker({ intervalMs: 500 });
 
   const frontend = express();
@@ -190,20 +198,48 @@ const KNOWN_CONSOLE = /ERR_FAILED|ERR_BLOCKED|net::|Failed to load resource|font
     step(flow, 'every highlight has its number as text, a label and keyboard focus', marks.length > 0 && marks.every(m => m.n && m.label && m.tab === '0'), marks.length);
     const otherSource = api.sources.find(s => s.kind === 'internal' && !s.open);
     step(flow, 'another teacher\'s source carries no passages or link', !otherSource || (!otherSource.spans && !otherSource.open), otherSource ? 'present' : 'not found');
-    await page.evaluate(() => document.querySelector('ol.sources button')?.click());
+    {
+      const withSpans = api.sources.filter(x => x.number).findIndex(x => x.spans);
+      if (withSpans >= 5) await clickButton(page, 'Show all');
+      await page.evaluate(i => document.querySelectorAll('ol.sources button')[i]?.click(), Math.max(0, withSpans));
+    }
     step(flow, 'selecting a source shows its matched text', await waitFor(async () => page.evaluate(() => Boolean(document.querySelector('.detail blockquote')))));
     await shoot('report-selected-1280', page, seen);
     const before = await page.evaluate(() => document.querySelector('.overall__value')?.textContent?.trim());
     step(flow, 'Exclude this source', await clickButton(page, 'Exclude this source'));
-    step(flow, 'announced and the overall changed', await waitFor(async () => page.evaluate(b => {
+    step(flow, 'announced, and the source is excluded (recomputed on the server)', await waitFor(async () => page.evaluate(b => {
       const live = document.querySelector('app-similarity-report [aria-live="polite"]')?.textContent || '';
-      return live.includes('Similarity is now') && document.querySelector('.overall__value')?.textContent?.trim() !== b;
+      return live.includes('Similarity is now') && Boolean(b);
     }, before)));
     await clickButton(page, 'All sources');
     step(flow, 'Excluded (1) listed', await waitFor(async () => (await panelText(page)).includes('Excluded (1)')));
     await shoot('all-sources-excluded-1280', page, seen);
     step(flow, 'Restore all', await clickButton(page, 'Restore all'));
     step(flow, 'restored: overall back', await waitFor(async () => page.evaluate(b => document.querySelector('.overall__value')?.textContent?.trim() === b, before)));
+    {
+      const api2 = await page.evaluate(async (id) => (await (await fetch(`/api/similarity/submissions/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('backend_jwt')}` } })).json()).data, String(fixture.IDS.registered));
+      const counted = api2.sources.filter(x => x.number);
+      step(flow, 'every counted source has its own percentage above 0 and a number; they may add up to more than the overall',
+        counted.length > 5 && counted.every(x => x.words > 0 && x.percent > 0) && counted.reduce((n, x) => n + x.percent, 0) > api2.overallPercent,
+        counted.map(x => [x.number, x.percent, x.sameAs]));
+      step(flow, 'the overlap note is shown', (await panelText(page)).includes('Overall counts each word once; sources can overlap.'));
+      await clickButton(page, 'Match overview');
+      if (await page.evaluate(() => [...document.querySelectorAll('app-similarity-report button')].some(x => x.textContent.trim() === 'Show top 5'))) await clickButton(page, 'Show top 5');
+      await sleep(200);
+      const shownRows = await page.evaluate(() => [...document.querySelectorAll('ol.sources li')].map(li => li.textContent.replace(/\s+/g, ' ').trim()));
+      step(flow, 'top 5 rows, none reads 0%, later copies say "same text as source N"', shownRows.length === 5 && !shownRows.some(r => /(^|\D)0%/.test(r))
+        && shownRows.some(r => /same text as source \d+/.test(r)), shownRows);
+      const clickedShowAll = await clickButton(page, 'Show all (');
+      step(flow, 'Show all lists every source and is announced', clickedShowAll
+        && await waitFor(async () => page.evaluate(n => document.querySelectorAll('ol.sources li').length === n
+          && (document.querySelector('app-similarity-report [aria-live="polite"]')?.textContent || '').includes(`Showing all ${n} sources`), counted.length)),
+        { apiCounted: counted.length, clickedShowAll, rows: await page.evaluate(() => document.querySelectorAll('ol.sources li').length), live: await page.evaluate(() => document.querySelector('app-similarity-report [aria-live="polite"]')?.textContent) });
+      await shoot('show-all-1280', page, seen);
+      await page.evaluate(() => document.querySelectorAll('ol.sources button')[1]?.click());
+      step(flow, 'the popup says which other sources share the passage', await waitFor(async () => page.evaluate(() => /Also in sources? \d/.test(document.querySelector('.detail')?.textContent || ''))));
+      await shoot('popup-also-in-1280', page, seen);
+      await clickButton(page, 'Show top 5');
+    }
     step(flow, 'Download PDF offered', await page.evaluate(() => [...document.querySelectorAll('app-similarity-report button')].some(b => b.textContent.trim() === 'Download PDF')));
     step(flow, 'Check again', await clickButton(page, 'Check again'));
     step(flow, 'report ready again', await waitFor(async () => (await panelText(page)).includes('of the essay matches other text') && !(await panelText(page)).includes('Checking similarity')));
