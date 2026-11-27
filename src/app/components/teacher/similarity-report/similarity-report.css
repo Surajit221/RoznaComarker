@@ -68,3 +68,4 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #087f83; b
 .permission { margin-top: 16px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fbfcfd; }
 .permission label { display: flex; gap: 10px; align-items: flex-start; font-size: 0.875rem; cursor: pointer; min-height: 44px; }
 .permission input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+#similarity-title:focus { outline: none; }
