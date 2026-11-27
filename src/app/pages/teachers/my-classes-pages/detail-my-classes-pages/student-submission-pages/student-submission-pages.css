@@ -381,8 +381,8 @@
 
 /* Preserve the mounted source viewer, while the existing open signal owns which view occupies space. */
 [data-standalone-viewer][hidden], [data-standalone-page-picker][hidden] { display: none; }
-[data-review-corrections] { display: inline-grid; place-items: center; }
-[data-review-corrections] > span { grid-area: 1 / 1; }
+[data-review-corrections], [data-similarity-toggle] { display: inline-grid; place-items: center; }
+[data-review-corrections] > span, [data-similarity-toggle] > span { grid-area: 1 / 1; }
 .submission-review-label-spacer { visibility: hidden; }
 
 @media (max-width: 767px) {

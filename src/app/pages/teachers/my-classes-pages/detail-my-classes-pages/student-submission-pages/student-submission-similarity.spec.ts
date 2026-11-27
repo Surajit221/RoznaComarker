@@ -1,3 +1,4 @@
+import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { StudentSubmissionPages } from './student-submission-pages';
@@ -21,7 +22,8 @@ describe('StudentSubmissionPages: the Check similarity button and view', () => {
   const toggle = () => dom().querySelector<HTMLButtonElement>('[data-similarity-toggle]');
   const review = () => dom().querySelector<HTMLButtonElement>('[data-review-corrections]');
   const label = (b: HTMLElement | null) => b?.querySelector('span:last-child')?.textContent?.trim();
-  const settle = () => { flushMicrotasks(); fixture.detectChanges(); tick(); flushMicrotasks(); fixture.detectChanges(); };
+  // The application's render pass runs afterNextRender hooks (focus moves), as the real app does after each event.
+  const settle = () => { flushMicrotasks(); fixture.detectChanges(); tick(); flushMicrotasks(); TestBed.inject(ApplicationRef).tick(); fixture.detectChanges(); };
 
   beforeEach(async () => {
     view = PANEL;
@@ -66,6 +68,11 @@ describe('StudentSubmissionPages: the Check similarity button and view', () => {
     expect(label(button)).toBe('Check similarity');
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-controls')).toBe('similarity-view');
+    // the hidden width-holder label sits on top of the visible one (as on Review corrections), so the button is not double width
+    expect(getComputedStyle(button).display).toMatch(/grid$/);   // inline-grid, shown as grid inside the flex row
+    const [spacer, visible] = Array.from(button.querySelectorAll('span'));
+    expect(spacer.getBoundingClientRect().left).toBeCloseTo(visible.getBoundingClientRect().left, -1);
+    expect(spacer.getBoundingClientRect().top).toBeCloseTo(visible.getBoundingClientRect().top, -1);
   }));
 
   it('a finished report shows its percentage on the button', fakeAsync(() => {

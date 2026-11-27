@@ -13,7 +13,7 @@ import { StudentPreview } from '../../../../../components/teacher/student-previe
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { SharedPageImages } from '../../../../../components/submission-page-review/shared-page-images';
-import { Component, ElementRef, EventEmitter, inject, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Injector, afterNextRender, inject, Output, ViewChild } from '@angular/core';
 
 
 
@@ -237,6 +237,8 @@ export class StudentSubmissionPages {
   @ViewChild(SimilarityReportPanel) similarityPanel?: SimilarityReportPanel;
   @ViewChild('similarityToggle') similarityToggle?: ElementRef<HTMLButtonElement>;
   private readonly similarityApi = inject(SimilarityApiService);
+  private readonly injector = inject(Injector);
+  private readonly pageHost = inject(ElementRef);
   private similaritySeq = 0;
   /** The similarity button shows only when the server answers for this essay (feature on, the owning teacher, an essay). */
   similarityAvailable = false;
@@ -271,12 +273,16 @@ export class StudentSubmissionPages {
   async toggleSimilarity(): Promise<void> {
     if (this.similarityOpen) {
       this.similarityOpen = false;
-      setTimeout(() => this.similarityToggle?.nativeElement.focus());
+      afterNextRender(() => this.similarityToggle?.nativeElement.focus(), { injector: this.injector });
       return;
     }
     if (this.annotationControls?.open()) await this.annotationControls.toggle();
     this.similarityOpen = true;
-    setTimeout(() => this.similarityPanel?.focusHeading());
+    // after the view has rendered (whatever schedules rendering), not on a timer that can run first
+    afterNextRender(() => {
+      if (this.similarityPanel) this.similarityPanel.focusHeading();
+      else (this.pageHost.nativeElement as HTMLElement).querySelector<HTMLElement>('#similarity-title')?.focus();
+    }, { injector: this.injector });
   }
 
   /** Review corrections, as before; opening it closes the similarity view (one view at a time). */
