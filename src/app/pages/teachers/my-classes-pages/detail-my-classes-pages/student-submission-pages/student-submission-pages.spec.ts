@@ -45,7 +45,7 @@ describe('StudentSubmissionPages', () => {
     TestBed.inject(HttpTestingController).expectOne(req => req.url.endsWith(imageUrl)).flush(new Blob(['page']));
   });
   // The Improved Writing Model panel loads for the current submission; here the feature is off (404), as for most teachers.
-  afterEach(() => { TestBed.inject(HttpTestingController).match(req => req.url.includes('/writing-model/teacher')).forEach(req => req.flush({}, { status: 404, statusText: 'Not Found' })); verifyHttpRequestsAfterEach(); });
+  afterEach(() => { TestBed.inject(HttpTestingController).match(req => req.url.includes('/writing-model/teacher') || req.url.includes('/api/similarity/')).forEach(req => req.flush({}, { status: 404, statusText: 'Not Found' })); verifyHttpRequestsAfterEach(); });
   let component: StudentSubmissionPages;
   let fixture: ComponentFixture<StudentSubmissionPages>;
 

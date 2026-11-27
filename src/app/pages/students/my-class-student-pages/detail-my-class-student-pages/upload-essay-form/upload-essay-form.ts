@@ -1,3 +1,4 @@
+import { SimilarityNotice } from '../../../../../components/similarity-notice/similarity-notice';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectorRef,
@@ -27,7 +28,7 @@ interface UploadEntry {
 
 @Component({
   selector: 'app-upload-essay-form',
-  imports: [CommonModule, ImageQualityChecklist, ImageCrop],
+  imports: [CommonModule, ImageQualityChecklist, ImageCrop, SimilarityNotice],
   templateUrl: './upload-essay-form.html',
   styleUrl: './upload-essay-form.css',
 })

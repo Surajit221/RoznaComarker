@@ -1,3 +1,4 @@
+import { SimilarityNoticeService } from '../../../../../services/similarity-notice.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject } from 'rxjs';
 import { UploadEssayForm } from './upload-essay-form';
@@ -17,7 +18,7 @@ describe('Shared upload crop source lifecycle', () => {
   const useFull = () => form.useFullImage(form.editingEntry!);
   beforeEach(async () => {
     check = jasmine.createSpy().and.returnValue(of(passed));
-    await TestBed.configureTestingModule({imports:[UploadEssayForm],providers:[{provide:ImagePreflightService,useValue:{check}}]}).compileComponents();
+    await TestBed.configureTestingModule({imports:[UploadEssayForm],providers:[{provide:ImagePreflightService,useValue:{check}},{ provide: SimilarityNoticeService, useValue: { load: async () => null, markShown: () => undefined, appendTo: () => undefined, shownVersion: null } }]}).compileComponents();
     fixture = TestBed.createComponent(UploadEssayForm); form = fixture.componentInstance; fixture.detectChanges();
   });
   afterEach(() => fixture.destroy());

@@ -1,3 +1,4 @@
+import { SimilarityNoticeService } from '../../../services/similarity-notice.service';
 import { PublicBrand } from '../../../shared/public-brand/public-brand';
 import { GuestSubmissionFeature } from '../../../services/guest-submission-feature.service';
 import { CommonModule } from '@angular/common';
@@ -80,6 +81,7 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
     return !this.guestUnavailable;
   }
   private http = inject(HttpClient);
+  private similarityNotice = inject(SimilarityNoticeService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private auth = inject(AuthService);
@@ -204,6 +206,7 @@ export class GuestSubmissionPage implements OnInit, OnDestroy {
       const body = new FormData();
       body.append('name', this.name.trim()); body.append('email', this.email.trim());
       this.files.forEach(file => body.append('files', file));
+      this.similarityNotice.appendTo(body);
       const url = this.revising ? this.access.url('revise') : `${this.base}/assignments/${encodeURIComponent(this.qrToken)}/submit`;
       const response = await firstValueFrom(this.http.post<Response<GuestConfirmation>>(url, body,
         { headers: (this.revising ? this.access.headers : new HttpHeaders()).set('Idempotency-Key', this.requestKey) }));

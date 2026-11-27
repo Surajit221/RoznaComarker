@@ -1,3 +1,4 @@
+import { SimilarityReportPanel } from '../../../../../components/teacher/similarity-report/similarity-report';
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
 import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
@@ -174,7 +175,7 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 
 
 
-  imports: [CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,AnnotationEditFields,TeacherEvaluationEditor,WritingModelEditor,StudentPreview,
+  imports: [SimilarityReportPanel,CorrectionStatistics,SourceFidelityComponent,SubmissionPageReview,GuestRecoveryLinkAction,AnnotationControls,AnnotationMarkMenu,AnnotationEditFields,TeacherEvaluationEditor,WritingModelEditor,StudentPreview,
 
 
 

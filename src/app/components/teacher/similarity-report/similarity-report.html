@@ -1,0 +1,146 @@
+@if (!hidden || loading) {
+<section class="panel" aria-labelledby="similarity-title">
+  <header class="panel__header">
+    <div><h2 id="similarity-title">Similarity</h2><p>Where this essay's words match other text. Only you see this.</p></div>
+    <span class="badge">Teacher only</span>
+  </header>
+  <p class="sr-only" aria-live="polite" role="status">{{ announcement }}</p>
+  @if (error) { <p class="message message--error" role="alert">{{ error }}</p> }
+  @if (loading && !view) { <div class="skeleton" aria-hidden="true"><span></span><span></span></div><span class="sr-only" role="status">Loading the similarity report</span> }
+
+  @if (view; as v) {
+    <!-- Before any check, and the actions: always the checks left and what will be compared. -->
+    @if (!report) {
+      @if (v.eligible) {
+        <p class="message">{{ v.externalAvailable ? 'The essay is compared with other essays in Rubrilo and sent to an external similarity-checking service that searches the internet.'
+          : 'The essay is compared with other essays in Rubrilo.' }}</p>
+        @if (!v.noticeShown && !v.confirmationNeeded) { <p class="message message--muted">This essay was submitted before the similarity notice, so it is compared within Rubrilo only.</p> }
+      } @else { <p class="message message--warning">{{ notEligibleText }}</p> }
+    }
+    @if (active) {
+      <p class="message" role="status"><span class="spinner" aria-hidden="true"></span>
+        {{ v.state === 'submitted' ? 'Rubrilo comparison done. Waiting for the internet check…' : 'Checking similarity…' }}</p>
+    }
+    @if (report?.state === 'failed') { <p class="message message--error">The similarity check could not be completed.</p> }
+
+    <!-- The report only once there is a result: completed, expired, or submitted (the Rubrilo part is done). Never while queued or running. -->
+    @if (report; as r) {
+      @if (hasResult && r.outdated) { <p class="message message--warning">The essay changed after this check. Run a new check for an up-to-date report.</p> }
+      @if (hasResult && externalText) { <p class="message message--muted">{{ externalText }}</p> }
+
+      @if (hasResult) {
+      <div class="layout">
+        <div class="layout__text">
+          <div class="text-tools">
+            <label class="toggle"><input type="checkbox" [checked]="showHighlights" (change)="showHighlights = $any($event.target).checked" /> Show highlights</label>
+          </div>
+          <app-similarity-text [text]="r.text" [highlights]="r.highlights" [sources]="r.sources" [selectedSourceId]="selectedSourceId"
+            [showHighlights]="showHighlights" (selectSource)="select($event)" />
+        </div>
+
+        <aside class="layout__overview" aria-label="Match overview">
+          <div class="overall">
+            <span class="overall__value">{{ overall }}</span>&ngsp;
+            <span class="overall__label">of the essay matches other text<br><small>{{ r.matchedWords }} of {{ r.totalWords }} words, each counted once</small></span>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Sources">
+            <button type="button" role="tab" id="sim-tab-overview" [attr.aria-selected]="tab === 'overview'" aria-controls="sim-panel-overview"
+              [class.tab--active]="tab === 'overview'" (click)="tab = 'overview'">Match overview</button>
+            <button type="button" role="tab" id="sim-tab-all" [attr.aria-selected]="tab === 'all'" aria-controls="sim-panel-all"
+              [class.tab--active]="tab === 'all'" (click)="tab = 'all'">All sources ({{ r.sources.length }})</button>
+          </div>
+
+          @if (tab === 'overview') {
+          <div role="tabpanel" id="sim-panel-overview" aria-labelledby="sim-tab-overview">
+            @if (!counted.length) { <p class="message message--good"><span aria-hidden="true">✓ </span>No matching text was found.</p> }
+            <ol class="sources">
+              @for (s of counted; track s.sourceId) {
+                <li>
+                  <button type="button" class="source" [class.source--selected]="s.sourceId === selectedSourceId" [attr.aria-pressed]="s.sourceId === selectedSourceId"
+                    (click)="select(s.sourceId)">
+                    <span class="source__number" [style.background]="color(s.number)">{{ s.number }}</span>
+                    <span class="source__text"><b>{{ s.label }}</b>@if (s.title) {&ngsp;<span class="source__title">{{ s.title }}</span>}</span>
+                    <span class="source__pct">{{ percentText(s) }}</span>
+                  </button>
+                </li>
+              }
+            </ol>
+          </div>
+          }
+
+          @if (tab === 'all') {
+          <div role="tabpanel" id="sim-panel-all" aria-labelledby="sim-tab-all">
+            <ul class="all">
+              @for (s of r.sources; track s.sourceId) {
+                @if (!s.excluded) {
+                  <li class="all__row">
+                    <label>
+                      <input type="checkbox" [checked]="checked.has(s.sourceId)" (change)="toggleChecked(s.sourceId, $any($event.target).checked)" [disabled]="busy" />
+                      <span class="source__number" [style.background]="color(s.number)">{{ s.number ?? '–' }}</span>
+                      <span class="source__text"><b>{{ s.label }}</b>@if (s.title) {&ngsp;<span class="source__title">{{ s.title }}</span>}
+                        @if (!s.compared) {<span class="source__title">Found but not compared{{ s.approxWords ? ' (about ' + s.approxWords + ' words)' : '' }}</span>}</span>
+                      <span class="source__pct">{{ percentText(s) }}</span>
+                    </label>
+                  </li>
+                }
+              }
+            </ul>
+            <button type="button" class="btn btn--secondary" [disabled]="busy || !checked.size" (click)="excludeChecked()">Exclude selected ({{ checked.size }})</button>
+            @if (excluded.length) {
+              <h3 class="excluded__title">Excluded ({{ excluded.length }})</h3>
+              <ul class="all">
+                @for (s of excluded; track s.sourceId) {
+                  <li class="all__row all__row--excluded">
+                    <span class="source__text"><b>{{ s.label }}</b>@if (s.title) {&ngsp;<span class="source__title">{{ s.title }}</span>}</span>
+                    <button type="button" class="btn btn--link" [disabled]="busy" (click)="setExcluded(s, false)" [attr.aria-label]="'Restore ' + s.label">Restore</button>
+                  </li>
+                }
+              </ul>
+              <button type="button" class="btn btn--link" [disabled]="busy" (click)="restoreAll()">Restore all</button>
+            }
+          </div>
+          }
+
+          @if (selected; as s) {
+            <div class="detail" role="region" aria-label="Selected source">
+              <h3><span class="source__number" [style.background]="color(s.number)">{{ s.number ?? '–' }}</span> {{ s.label }} <span class="source__pct">{{ percentText(s) }}</span></h3>
+              @if (s.title) { <p class="detail__title">{{ s.title }}</p> }
+              @if (s.url) { <p><a [href]="s.url" target="_blank" rel="noopener noreferrer">{{ s.url }}</a></p> }
+              @if (s.viewUrl) { <p><a [href]="s.viewUrl" target="_blank" rel="noopener noreferrer">View the comparison</a></p> }
+              @if (passages(s).length) {
+                <h4>Matched text in this essay</h4>
+                @for (p of passages(s); track $index) { <blockquote>{{ p }}</blockquote> }
+              } @else if (s.kind === 'internal' && !s.open) { <p class="message message--muted">Matched in a submission outside your classes: only its percentage is shown.</p> }
+              <div class="detail__actions">
+                @if (s.open) { <button type="button" class="btn btn--secondary" (click)="open(s)">Open submission</button> }
+                @if (!s.excluded) { <button type="button" class="btn btn--secondary" [disabled]="busy" (click)="setExcluded(s, true)">Exclude this source</button> }
+                @else { <button type="button" class="btn btn--secondary" [disabled]="busy" (click)="setExcluded(s, false)">Restore this source</button> }
+              </div>
+            </div>
+          }
+        </aside>
+      </div>
+      }
+    }
+
+    <!-- No notice on this essay but an internet provider is configured: the internet check only with the teacher's confirmation. -->
+    @if (v.confirmationNeeded && canCheck) {
+      <div class="permission">
+        <label><input type="checkbox" name="similarity-permission" [checked]="permissionConfirmed" [disabled]="busy"
+          (change)="permissionConfirmed = $any($event.target).checked" />
+          I confirm I have permission to send this essay to an external similarity-checking service</label>
+        @if (!permissionConfirmed) { <p class="message message--muted">Without your confirmation, this essay is compared with other essays in Rubrilo only.</p> }
+      </div>
+    }
+    <footer class="actions">
+      @if (canCheck) { <button type="button" class="btn btn--primary" [disabled]="busy" (click)="startCheck()">{{ report ? 'Check again' : 'Check similarity' }}</button> }
+      @if (canRetry) { <button type="button" class="btn btn--secondary" [disabled]="busy" (click)="retry()">Try the internet check again</button> }
+      @if (report && (report.state === 'completed' || report.state === 'expired')) {
+        <button type="button" class="btn btn--secondary" [disabled]="busy" (click)="downloadPdf()">Download PDF</button>
+      }
+      <span class="actions__left">{{ v.checksLeftToday }} {{ v.checksLeftToday === 1 ? 'check' : 'checks' }} left today · {{ v.checksLeftForSubmission }} left for this essay</span>
+    </footer>
+  }
+</section>
+}

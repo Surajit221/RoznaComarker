@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { SimilarityNoticeService } from '../services/similarity-notice.service';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, type HttpEvent } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 
@@ -31,6 +32,7 @@ type BackendResponse<T> = {
 @Injectable({ providedIn: 'root' })
 export class UploadApiService {
   private lastUpload?: { files: File[]; assignmentId: string; key: string };
+  private readonly similarityNotice = inject(SimilarityNoticeService);
   constructor(private http: HttpClient) {}
 
   private getRootBaseUrl(): string {
@@ -58,6 +60,7 @@ export class UploadApiService {
         formData.append('files', f);
       }
     }
+    this.similarityNotice.appendTo(formData);
 
     return this.http.post<BackendResponse<BackendSubmission>>(
       `${apiBaseUrl}/submissions/${encodeURIComponent(assignmentId)}`,
