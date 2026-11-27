@@ -49,6 +49,21 @@ describe('SimilarityReportPanel', () => {
     fixture.detectChanges();
   }
 
+  it('its hidden live region is positioned inside the panel, never against the page (it would stretch the document: a second scrollbar)', fakeAsync(() => {
+    document.body.appendChild(fixture.nativeElement);
+    load(report());
+    const live = q('[aria-live="polite"]')!;
+    expect(getComputedStyle(live).position).toBe('absolute');
+    expect(live.offsetParent).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).contains(live.offsetParent)).toBeTrue();
+    (fixture.nativeElement as HTMLElement).remove();
+  }));
+
+  it('passages are shown as flowing text (a line break inside a paragraph is a space)', fakeAsync(() => {
+    load(report({ text: 'alpha beta\ngamma delta epsilon zeta eta theta iota kappa', highlights: [], sources: [src({ spans: [{ start: 0, end: 16 }] })] }));
+    expect(fixture.componentInstance.passages(fixture.componentInstance.report!.sources[0])).toEqual(['alpha beta gamma']);
+  }));
+
   it('shows nothing at all when the server answers 404 (feature off, or not the owner)', fakeAsync(() => {
     load(null, 404);
     expect(q('section')).toBeNull();
@@ -295,6 +310,11 @@ describe('SimilarityText', () => {
     expect(el.querySelector('b')).toBeNull();
     expect(el.querySelector('mark')).toBeNull();
     expect(el.textContent).toBe('<b>x</b> yz');
+  });
+  it('line breaks inside a paragraph flow as spaces; paragraph breaks stay; highlights keep their words', () => {
+    const el = render('one two\nthree four\n\nfive', [{ start: 4, end: 13, sourceId: 's1' }], [src({})]);
+    expect(el.textContent).toBe('one two three1 four\n\nfive');
+    expect(el.querySelector('mark')!.textContent).toBe('two three1');
   });
   it('positions after a page break still land on the right words', () => {
     const el = render('ab\fcd ef', [{ start: 3, end: 5, sourceId: 's1' }], [src({})]);

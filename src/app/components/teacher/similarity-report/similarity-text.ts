@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import type { SimilarityHighlight, SimilaritySource } from '../../../api/similarity-api.service';
-import { colorFor } from '../../../utils/similarity-display';
+import { colorFor, flowText } from '../../../utils/similarity-display';
 
 interface Segment { text: string; sourceId: string | null; number: number | null; label: string; }
 
@@ -15,7 +15,7 @@ interface Segment { text: string; sourceId: string | null; number: number | null
     (click)="selectSource.emit(seg.sourceId)" (keydown.enter)="selectSource.emit(seg.sourceId)" (keydown.space)="$event.preventDefault(); selectSource.emit(seg.sourceId)">{{ seg.text }}<sup class="similarity-mark__number" aria-hidden="true">{{ seg.number }}</sup></mark>} @else {<span>{{ seg.text }}</span>}}</div>`,
   styles: [`
     :host { display: block; min-width: 0; }
-    .similarity-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; font-size: 0.95rem; color: var(--color-text, #17233d); }
+    .similarity-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 0.95rem; color: var(--color-text, #17233d); }
     .similarity-mark { color: inherit; border-radius: 3px; padding: 0 1px; border-bottom: 2px solid rgba(23, 35, 61, 0.35); cursor: pointer; }
     .similarity-mark:focus-visible { outline: 3px solid #087f83; outline-offset: 1px; }
     .similarity-mark--selected { outline: 2px solid #17233d; outline-offset: 1px; }
@@ -34,7 +34,8 @@ export class SimilarityText implements OnChanges {
   readonly color = colorFor;
 
   ngOnChanges(): void {
-    const text = String(this.text || '').replace(/\f/g, '');
+    // flowText keeps the length, so the highlight offsets (and the page-break offset below) are unchanged
+    const text = flowText(String(this.text || '')).replace(/\f/g, '');
     const offset = (i: number) => i - (String(this.text || '').slice(0, i).match(/\f/g)?.length || 0);
     const bySource = new Map(this.sources.filter(s => s.number).map(s => [s.sourceId, s]));
     const out: Segment[] = [];

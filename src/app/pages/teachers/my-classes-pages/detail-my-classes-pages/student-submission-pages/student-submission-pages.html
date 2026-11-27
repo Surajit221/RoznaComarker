@@ -51,7 +51,19 @@
     <ng-template #reviewCorrectionsTrigger>
       @if (currentSubmission?._id) {
         <button id="annotation-review-toggle" type="button" class="btn-info" data-review-corrections
-          [attr.aria-expanded]="annotationControls?.open() ?? false" aria-controls="annotation-editor-body" (click)="annotationControls?.toggle()"><span class="submission-review-label-spacer" aria-hidden="true">Review corrections</span><span>{{ annotationControls?.open() ? 'Close' : 'Review corrections' }}</span></button>
+          [attr.aria-expanded]="annotationControls?.open() ?? false" aria-controls="annotation-editor-body" (click)="toggleReviewCorrections()"><span class="submission-review-label-spacer" aria-hidden="true">Review corrections</span><span>{{ annotationControls?.open() ? 'Close' : 'Review corrections' }}</span></button>
+      }
+    </ng-template>
+    <!-- Similarity (teacher only; hidden while the feature is off or for a non-owner): opens in place of the uploaded image, like Review corrections. -->
+    <ng-template #similarityTrigger>
+      @if (similarityAvailable && currentSubmission?._id) {
+        <button #similarityToggle type="button" class="btn-primary" data-similarity-toggle [attr.aria-expanded]="similarityOpen" aria-controls="similarity-view"
+          (click)="toggleSimilarity()"><span class="submission-review-label-spacer" aria-hidden="true">{{ similaritySpacerLabel }}</span><span>{{ similarityButtonLabel }}</span></button>
+      }
+    </ng-template>
+    <ng-template #similarityView>
+      @if (similarityOpen && currentSubmission?._id) {
+        <div id="similarity-view" class="w-full"><app-similarity-report [submissionId]="currentSubmission!._id" (viewChange)="onSimilarityView($event)" /></div>
       }
     </ng-template>
     @if(isUploadedFile) {
@@ -62,12 +74,14 @@
             <p class="text-2xl font-bold">Student's Uploaded File</p>
             <div class="submission-media-actions">
               <ng-container *ngTemplateOutlet="reviewCorrectionsTrigger" />
+              <ng-container *ngTemplateOutlet="similarityTrigger" />
             <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
               View Student Transcribed Text
             </button>
             </div>
           </div>
-          <div class="w-full rounded-2xl overflow-visible" data-standalone-viewer [hidden]="annotationControls?.open() ?? false">
+          <ng-container *ngTemplateOutlet="similarityView" />
+          <div class="w-full rounded-2xl overflow-visible" data-standalone-viewer [hidden]="(annotationControls?.open() ?? false) || similarityOpen">
             @if (isProbablyPdfUrl(currentSubmission?.fileUrl)) {
             @if (pdfReviewPages.length) { <app-submission-page-review [pages]="pdfReviewPages" [imageStore]="pageImages" /> }
             <div class="media-pdf-card" [attr.aria-busy]="pdfMediaState === 'fetching'">
@@ -87,7 +101,7 @@
             }
           </div>
           @if (hasMultipleImages && !isProbablyPdfUrl(currentSubmission?.fileUrl)) {
-          <div class="w-full mt-3" data-standalone-page-picker [hidden]="annotationControls?.open() ?? false">
+          <div class="w-full mt-3" data-standalone-page-picker [hidden]="(annotationControls?.open() ?? false) || similarityOpen">
             <div class="submission-thumbs" role="tablist" aria-label="Submission images">
               @for (url of submissionPreviewUrls; track $index) {
               <button type="button" class="submission-thumb" [class.active]="$index === activeFileIndex"
@@ -109,12 +123,14 @@
             <p class="text-2xl font-bold">Student's Transcribed Text</p>
             <div class="submission-media-actions">
               <ng-container *ngTemplateOutlet="reviewCorrectionsTrigger" />
+              <ng-container *ngTemplateOutlet="similarityTrigger" />
             <button type="button" class="btn-warning" (click)="isUploadedFile = !isUploadedFile">
               View Student Uploaded File
             </button>
             </div>
           </div>
-          <div class="bg-[#F3F3F3] p-4 rounded-2xl">
+          <ng-container *ngTemplateOutlet="similarityView" />
+          <div class="bg-[#F3F3F3] p-4 rounded-2xl" data-transcribed-content [hidden]="similarityOpen">
             <div class="w-full px-0">
               <div class="grid lg:grid-cols-4 gap-4">
 
@@ -522,8 +538,6 @@
       [refreshKey]="(currentSubmission?.draftNumber || 1) + ':' + draftComparisonRefreshKey"></app-draft-comparison>
   }
   <app-adaptive-practice-progress class="teacher-submission-practice block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
-  <!-- Similarity (teacher only): hidden while the feature is off. -->
-  <app-similarity-report class="block w-full mb-8" [submissionId]="currentSubmission?._id || null" />
 
   <!-- Shared Modal Dialogs (outside desktop/mobile conditionals) -->
   <app-rubric-designer-modal [open]="showDialog" [rubricDesigner]="rubricDesignerForModal"

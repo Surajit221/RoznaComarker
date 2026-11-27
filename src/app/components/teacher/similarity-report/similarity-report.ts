@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, Output, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { SimilarityApiService, isReport, newSimilarityRequestId, similarityErrorOf, type SimilarityReport as Report, type SimilaritySource,
   type SimilarityView } from '../../../api/similarity-api.service';
-import { ERROR_TEXT, NOT_ELIGIBLE_TEXT, colorFor, externalNote, overallText, percentText } from '../../../utils/similarity-display';
+import { ERROR_TEXT, NOT_ELIGIBLE_TEXT, colorFor, externalNote, flowText, overallText, percentText } from '../../../utils/similarity-display';
 import { SimilarityText } from './similarity-text';
 
 const ACTIVE = ['queued', 'running', 'submitted'];
@@ -77,8 +77,12 @@ export class SimilarityReportPanel implements OnDestroy {
   /** The matched passages of a source, cut from the essay text (at most five). */
   passages(source: SimilaritySource): string[] {
     const text = this.report?.text ?? '';
-    return (source.spans ?? []).slice(0, 5).map(s => text.slice(s.start, s.end).replace(/\f/g, ' ').trim()).filter(Boolean);
+    return (source.spans ?? []).slice(0, 5).map(s => flowText(text.slice(s.start, s.end)).replace(/\f/g, ' ').trim()).filter(Boolean);
   }
+
+  /** Every loaded or changed view (the page shows the finished report's percentage on its button). */
+  @Output() readonly viewChange = new EventEmitter<SimilarityView | null>();
+  private readonly host = inject(ElementRef);
 
   ngOnDestroy(): void { this.version++; this.stopPolling(); }
 
@@ -88,8 +92,12 @@ export class SimilarityReportPanel implements OnDestroy {
     this.view = null; this.hidden = true; this.error = ''; this.announcement = ''; this.selectedSourceId = null; this.checked = new Set(); this.tab = 'overview';
   }
 
+  /** Moves focus to the panel heading (the page calls it when the view opens). */
+  focusHeading(): void { (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>('#similarity-title')?.focus(); }
+
   private apply(view: SimilarityView | null): void {
     this.view = view;
+    this.viewChange.emit(view);
     this.hidden = view === null;
     if (this.selectedSourceId && !this.report?.sources.some(s => s.sourceId === this.selectedSourceId)) this.selectedSourceId = null;
     this.checked = new Set([...this.checked].filter(id => this.report?.sources.some(s => s.sourceId === id && !s.excluded)));

@@ -2,16 +2,21 @@
 // Real-browser QA of the teacher's similarity panel (Match Overview), against the real backend code in-process with an in-memory database
 // (like the other qa-*.cjs). SIMILARITY_PROVIDER=stub: no provider, AI, email or other network call is ever made (any non-local fetch
 // throws). Synthetic people and essays only (the annotation fixture, plus essays built from its own words).
-//   1. Flow at 1280 px: the panel before a check, Check similarity, the report (overall %, numbered sources, numbered highlights), select a
-//      source (matched text, links), exclude it (the overall changes and is announced), All sources: Excluded (1), Restore all.
-//   2. Screens at 1280, 900, 390 and 320 px with a completed report: screenshot, console errors, failed calls, horizontal overflow.
+//   1. Flow at 1280 px: the "Check similarity" button next to Review corrections opens the view in place of the uploaded image (Close,
+//      aria-expanded, focus on the heading), the panel before a check, Check similarity, the report (overall %, numbered sources, numbered
+//      highlights), select a source, exclude it (announced), All sources: Excluded (1), Restore all, Check again, Close (focus back, the
+//      button shows the percentage), and switching to Review corrections closes the view. No similarity card at the bottom of the page.
+//   2. Screens at 1280, 900, 390 and 320 px with the view open and a completed report: screenshot, console errors, failed calls, horizontal
+//      overflow, and ONE vertical scroll container with the document no taller than the window.
+//   4. The page scroll at 1920x960 and 1280x720, and at the window sizes browser zoom 90/110/125% gives at 1920x960, with the view loading,
+//      loaded and after Check again: exactly one vertical scroll container (the layout's main area); document height = window height.
 //   3. The essay's own student and the guest never see a similarity panel on their pages (none in the DOM).
 //   node scripts/qa-similarity.cjs [outputDir]     (needs the backend next to this repo, and npm run build:prod)
 const fs = require('fs');
 const path = require('path');
 const BACKEND = path.resolve(__dirname, '../../backend');
 const FRONT_PORT = 4412;
-Object.assign(process.env, { JWT_SECRET: 'similarity-qa', NODE_ENV: 'test', SIMILARITY_ENABLED: 'true', SIMILARITY_PROVIDER: 'stub', OPENROUTER_API_KEY: '',
+Object.assign(process.env, { JWT_SECRET: 'similarity-qa', NODE_ENV: 'test', SIMILARITY_ENABLED: 'true', SIMILARITY_PROVIDER: 'stub', SIMILARITY_CHECKS_PER_SUBMISSION: '20', OPENROUTER_API_KEY: '',
   FRONTEND_URL: `http://localhost:${FRONT_PORT}`, GUEST_SUBMISSION_ENABLED: 'true', UPLOAD_BASE_PATH: `uploads/similarity-qa-${process.pid}`,
   SENSITIVE_RATE_LIMIT_MAX: '100000', AUTH_READ_RATE_LIMIT_MAX: '100000', AUTH_WRITE_RATE_LIMIT_MAX: '100000', BASELINE_RATE_LIMIT_MAX: '1000000',
   SSE_TOKEN_RATE_LIMIT_MAX: '100000', COARSE_IP_RATE_LIMIT_MAX: '1000000' });
@@ -118,18 +123,41 @@ const KNOWN_CONSOLE = /ERR_FAILED|ERR_BLOCKED|net::|Failed to load resource|font
     }
     return { overflowing: scroll > width + 1, panelOffenders: offenders };
   });
+  /** Every element that scrolls vertically, and the document height against the window (one scroll container, no page scroll). */
+  const scrollState = page => page.evaluate(() => {
+    const scrollers = [];
+    for (const el of [document.documentElement, ...document.querySelectorAll('body *')]) {
+      const cs = getComputedStyle(el);
+      const scrolls = el === document.documentElement ? el.scrollHeight > innerHeight + 1 : ['auto', 'scroll'].includes(cs.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      if (scrolls) scrollers.push(el === document.documentElement ? 'document' : `${el.tagName.toLowerCase()}.${String(el.className || '').split(/\s+/).slice(0, 2).join('.')}`);
+    }
+    return { scrollers, documentHeight: document.documentElement.scrollHeight, windowHeight: innerHeight };
+  });
+  // Exactly one vertical scroller: the layout's main area (wide screens; the document then must not scroll too) or the document itself
+  // (narrower screens, where the layout lets the page scroll).
+  const oneScroll = state => state.scrollers.length === 1 && (state.scrollers[0] === 'document' || state.documentHeight <= state.windowHeight + 1);
+  const toggleState = page => page.evaluate(() => {
+    const b = document.querySelector('[data-similarity-toggle]');
+    return b ? { label: b.querySelector('span:last-child')?.textContent?.trim(), expanded: b.getAttribute('aria-expanded'), focused: document.activeElement === b } : null;
+  });
+  async function openView(page) {
+    await waitFor(async () => Boolean(await toggleState(page)));
+    const state = await toggleState(page);
+    if (state?.expanded !== 'true') await page.evaluate(() => document.querySelector('[data-similarity-toggle]')?.click());
+    return waitFor(async () => page.evaluate(() => Boolean(document.querySelector('#similarity-view app-similarity-report section'))));
+  }
   async function shoot(name, page, seen) {
     const file = path.join(out, `${name}.png`);
     await page.evaluate(() => document.querySelector('app-similarity-report')?.scrollIntoView({ block: 'start' }));
     await sleep(300);
     await page.screenshot({ path: file, fullPage: false });
-    const entry = { name, screenshot: path.basename(file), console: [...seen.console], calls: [...seen.calls], ...(await overflow(page)) };
+    const entry = { name, screenshot: path.basename(file), console: [...seen.console], calls: [...seen.calls], ...(await overflow(page)), scroll: await scrollState(page) };
     report.screens.push(entry);
     // A similarity call or console error, or overflow inside the panel, is a failure. Other page items (the fixture's essay image, the
     // teacher-evaluation 404 before one is saved, the writing-model 404 while that feature is off) are listed as page notes.
     const own = [...entry.calls, ...entry.console].filter(x => /similarity/i.test(x));
     entry.pageNotes = [...entry.calls, ...entry.console].filter(x => !/similarity/i.test(x));
-    if (own.length || entry.panelOffenders.length) report.failures.push(name);
+    if (own.length || entry.panelOffenders.length || !oneScroll(entry.scroll)) report.failures.push(name);
   }
   const step = (flow, label, ok, detail) => { flow.steps.push({ step: label, ok: Boolean(ok), ...(detail === undefined ? {} : { detail }) }); if (!ok) report.failures.push(`${flow.name}: ${label}`); return ok; };
 
@@ -137,6 +165,18 @@ const KNOWN_CONSOLE = /ERR_FAILED|ERR_BLOCKED|net::|Failed to load resource|font
   {
     const flow = { name: 'teacher flow 1280', steps: [] }; report.flows.push(flow);
     const { page, context, seen } = await open(VIEWPORTS[0], teacherToken, teacherUrl);
+    step(flow, 'button next to Review corrections, labelled Check similarity, closed', await waitFor(async () => page.evaluate(() => {
+      const b = document.querySelector('[data-similarity-toggle]');
+      return Boolean(b && b.previousElementSibling?.matches('[data-review-corrections]') && b.getAttribute('aria-expanded') === 'false'
+        && b.querySelector('span:last-child')?.textContent?.trim() === 'Check similarity');
+    })));
+    step(flow, 'no similarity card on the page while closed', await page.evaluate(() => !document.querySelector('app-similarity-report')));
+    await shoot('closed-1280', page, seen);
+    step(flow, 'view opens in place of the uploaded image', await openView(page) && await page.evaluate(() => document.querySelector('[data-standalone-viewer]')?.hidden === true));
+    await sleep(200);
+    const opened = await toggleState(page);
+    step(flow, 'button says Close, aria-expanded true, focus on the view heading', opened?.label === 'Close' && opened?.expanded === 'true'
+      && await page.evaluate(() => document.activeElement?.id === 'similarity-title'), opened);
     step(flow, 'panel shown with Check similarity', await waitFor(async () => (await panelText(page)).includes('Check similarity')));
     await shoot('before-check-1280', page, seen);
     step(flow, 'Check similarity clicked', await clickButton(page, 'Check similarity'));
@@ -165,16 +205,52 @@ const KNOWN_CONSOLE = /ERR_FAILED|ERR_BLOCKED|net::|Failed to load resource|font
     step(flow, 'Restore all', await clickButton(page, 'Restore all'));
     step(flow, 'restored: overall back', await waitFor(async () => page.evaluate(b => document.querySelector('.overall__value')?.textContent?.trim() === b, before)));
     step(flow, 'Download PDF offered', await page.evaluate(() => [...document.querySelectorAll('app-similarity-report button')].some(b => b.textContent.trim() === 'Download PDF')));
+    step(flow, 'Check again', await clickButton(page, 'Check again'));
+    step(flow, 'report ready again', await waitFor(async () => (await panelText(page)).includes('of the essay matches other text') && !(await panelText(page)).includes('Checking similarity')));
+    step(flow, 'one scroll container after Check again', oneScroll(await scrollState(page)), await scrollState(page));
+    await page.evaluate(() => document.querySelector('[data-similarity-toggle]')?.click());
+    await sleep(300);
+    const closed = await toggleState(page);
+    step(flow, 'Close: view gone, image back, focus on the button, the button shows the percentage', closed?.focused && /^Similarity (<1|\d+)%$/.test(closed?.label || '')
+      && await page.evaluate(() => !document.querySelector('#similarity-view') && document.querySelector('[data-standalone-viewer]')?.hidden === false), closed);
+    await openView(page);
+    await page.evaluate(() => document.querySelector('[data-review-corrections]')?.click());
+    step(flow, 'Review corrections closes the similarity view (one view at a time)', await waitFor(async () => page.evaluate(() => !document.querySelector('#similarity-view')
+      && document.querySelector('[data-review-corrections]')?.getAttribute('aria-expanded') === 'true')));
     await context.close();
   }
 
   // ---- 2. Screens at four widths (completed report) ----
   for (const viewport of VIEWPORTS) {
     const { page, context, seen } = await open(viewport, teacherToken, teacherUrl);
+    await openView(page);
     const ready = await waitFor(async () => (await panelText(page)).includes('of the essay matches other text'));
     if (!ready) report.failures.push(`screen ${viewport.name}: report not shown`);
     await shoot(`report-${viewport.name}`, page, seen);
     await context.close();
+  }
+
+  // ---- 4. One page scroll at 1920x960, 1280x720 and the zoom-equivalent window sizes (loading, loaded, after Check again) ----
+  {
+    const flow = { name: 'one scrollbar', steps: [] }; report.flows.push(flow);
+    const sizes = [{ name: '1920x960', width: 1920, height: 960 }, { name: '1280x720', width: 1280, height: 720 },
+      { name: '1920x960 zoom 90%', width: 2133, height: 1067 }, { name: '1920x960 zoom 110%', width: 1745, height: 873 }, { name: '1920x960 zoom 125%', width: 1536, height: 768 }];
+    for (const size of sizes) {
+      const { page, context } = await open(size, teacherToken, teacherUrl);
+      await openView(page);
+      step(flow, `${size.name}: view loading`, oneScroll(await scrollState(page)), await scrollState(page));
+      await waitFor(async () => (await panelText(page)).includes('of the essay matches other text'));
+      await sleep(500);
+      step(flow, `${size.name}: report loaded`, oneScroll(await scrollState(page)), await scrollState(page));
+      await clickButton(page, 'Check again');
+      await waitFor(async () => (await panelText(page)).includes('Checking similarity'), 5000);
+      step(flow, `${size.name}: while checking again`, oneScroll(await scrollState(page)), await scrollState(page));
+      await waitFor(async () => (await panelText(page)).includes('of the essay matches other text') && !(await panelText(page)).includes('Checking similarity'));
+      await sleep(500);
+      step(flow, `${size.name}: after Check again`, oneScroll(await scrollState(page)), await scrollState(page));
+      if (size.name === '1920x960') await page.screenshot({ path: path.join(out, 'one-scroll-1920x960.png') });
+      await context.close();
+    }
   }
 
   // ---- 3. The student never sees a similarity panel ----

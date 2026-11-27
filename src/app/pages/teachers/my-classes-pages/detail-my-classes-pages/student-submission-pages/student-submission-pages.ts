@@ -1,4 +1,6 @@
 import { SimilarityReportPanel } from '../../../../../components/teacher/similarity-report/similarity-report';
+import { SimilarityApiService, isReport, type SimilarityView } from '../../../../../api/similarity-api.service';
+import { overallText } from '../../../../../utils/similarity-display';
 import { SourceFidelityComponent, type SourceFidelity } from '../../../../../components/source-fidelity/source-fidelity';
 import { GuestRecoveryLinkAction } from '../../../../../components/teacher/guest-recovery-link/guest-recovery-link-action';
 import { AnnotationControls } from '../../../../../components/teacher/annotation-controls/annotation-controls';
@@ -11,7 +13,7 @@ import { StudentPreview } from '../../../../../components/teacher/student-previe
 import { UnsavedWorkRegistry } from '../../../../../core/app-update/unsaved-work';
 import { SubmissionPageReview } from '../../../../../components/submission-page-review/submission-page-review';
 import { SharedPageImages } from '../../../../../components/submission-page-review/shared-page-images';
-import { Component, EventEmitter, inject, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Injector, afterNextRender, inject, Output, ViewChild } from '@angular/core';
 
 
 
@@ -232,6 +234,62 @@ type SectionLoadState = 'idle' | 'loading' | 'processing' | 'partial' | 'loaded'
 export class StudentSubmissionPages {
   /** The teacher's correction editor (Phase A): the page's own image and transcript open its action menu for a chosen mark. */
   @ViewChild(AnnotationControls) annotationControls?: AnnotationControls;
+  @ViewChild(SimilarityReportPanel) similarityPanel?: SimilarityReportPanel;
+  @ViewChild('similarityToggle') similarityToggle?: ElementRef<HTMLButtonElement>;
+  private readonly similarityApi = inject(SimilarityApiService);
+  private readonly injector = inject(Injector);
+  private readonly pageHost = inject(ElementRef);
+  private similaritySeq = 0;
+  /** The similarity button shows only when the server answers for this essay (feature on, the owning teacher, an essay). */
+  similarityAvailable = false;
+  /** The similarity view is open (in place of the uploaded image or the transcribed text); never together with the correction editor. */
+  similarityOpen = false;
+  /** "12%" when a finished report exists (shown on the button), else null. */
+  similarityPercent: string | null = null;
+
+  get similarityButtonLabel(): string {
+    if (this.similarityOpen) return 'Close';
+    return this.similarityPercent ? `Similarity ${this.similarityPercent}` : 'Check similarity';
+  }
+  /** The longest label the button can show (a hidden twin keeps its width steady, as Review corrections does). */
+  get similaritySpacerLabel(): string { return this.similarityPercent ? `Similarity ${this.similarityPercent}` : 'Check similarity'; }
+
+  /** Reads whether this essay has a similarity panel (and a finished report's percentage). Closes the view of the previous essay. */
+  async loadSimilarity(submissionId: string | null): Promise<void> {
+    const seq = ++this.similaritySeq;
+    this.similarityOpen = false; this.similarityAvailable = false; this.similarityPercent = null;
+    if (!submissionId) return;
+    try {
+      const view = await this.similarityApi.get(submissionId);
+      if (seq === this.similaritySeq) this.onSimilarityView(view);
+    } catch { /* no button when it cannot be read */ }
+  }
+
+  onSimilarityView(view: SimilarityView | null): void {
+    this.similarityAvailable = Boolean(view);
+    this.similarityPercent = isReport(view) && (view.state === 'completed' || view.state === 'expired') ? overallText(view.overallPercent, view.matchedWords) : null;
+  }
+
+  async toggleSimilarity(): Promise<void> {
+    if (this.similarityOpen) {
+      this.similarityOpen = false;
+      afterNextRender(() => this.similarityToggle?.nativeElement.focus(), { injector: this.injector });
+      return;
+    }
+    if (this.annotationControls?.open()) await this.annotationControls.toggle();
+    this.similarityOpen = true;
+    // after the view has rendered (whatever schedules rendering), not on a timer that can run first
+    afterNextRender(() => {
+      if (this.similarityPanel) this.similarityPanel.focusHeading();
+      else (this.pageHost.nativeElement as HTMLElement).querySelector<HTMLElement>('#similarity-title')?.focus();
+    }, { injector: this.injector });
+  }
+
+  /** Review corrections, as before; opening it closes the similarity view (one view at a time). */
+  async toggleReviewCorrections(): Promise<void> {
+    if (this.similarityOpen && !this.annotationControls?.open()) this.similarityOpen = false;
+    await this.annotationControls?.toggle();
+  }
   @ViewChild(TeacherEvaluationEditor) evaluationEditor?: TeacherEvaluationEditor;
   onHumanSourceReviewed(source:SourceFidelity):void {
     if(!this.currentSubmission)return;
@@ -6194,6 +6252,7 @@ export class StudentSubmissionPages {
 
     this.currentSubmission = submission;
     this.submissionId = submission?._id || null;
+    void this.loadSimilarity(this.submissionId);
     this.currentFeedback = null;
     this.canonicalResultState = null;
     this.feedbackForm.patchValue({ message: '' });

@@ -1,7 +1,10 @@
 /* Similarity (teacher): the Match Overview. Two columns from 900 px, one column below (overview first). Colours always come with numbers. */
-:host { display: block; width: 100%; min-width: 0; }
+/* position: relative on both: the visually hidden live region (position: absolute) must be placed inside the panel. With no positioned
+   ancestor it is placed against the whole page at its static position, deep inside the layout's scrolling <main>, and stretches the
+   document: a second (page) scrollbar, the layout scrolled away (empty grey area) and an inner scroll that seems to end early. */
+:host { display: block; position: relative; width: 100%; min-width: 0; }
 .panel {
-  box-sizing: border-box; width: 100%; padding: 28px; color: var(--color-text, #17233d); background: var(--color-white, #fff);
+  position: relative; box-sizing: border-box; width: 100%; padding: 28px; color: var(--color-text, #17233d); background: var(--color-white, #fff);
   border: 1px solid var(--color-border, #e5e7eb); border-radius: var(--radius-xl, 20px); font-family: var(--font-main, 'Poppins', sans-serif);
 }
 .panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
@@ -65,3 +68,4 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #087f83; b
 .permission { margin-top: 16px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fbfcfd; }
 .permission label { display: flex; gap: 10px; align-items: flex-start; font-size: 0.875rem; cursor: pointer; min-height: 44px; }
 .permission input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+#similarity-title:focus { outline: none; }
