@@ -41,3 +41,23 @@ export function externalNote(state: string, reason: string | null): string {
     default: return '';
   }
 }
+
+/**
+ * Display only: the essay as flowing paragraphs. A single line break (the handwriting's line ends) becomes a space; a paragraph break (a
+ * blank line, also with spaces or a carriage return on it) and the page separator stay. Same length and every other character unchanged,
+ * so highlight offsets stay exact. Never applied to the stored text or to anything sent to the server.
+ */
+export function flowText(text: string): string {
+  const t = typeof text === 'string' ? text : '';
+  const out = t.split('');
+  const blank = (c: string) => c === ' ' || c === '\t' || c === '\r';
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] !== '\n') continue;
+    let j = i - 1; while (j >= 0 && blank(t[j])) j--;
+    let k = i + 1; while (k < t.length && blank(t[k])) k++;
+    if ((j >= 0 && t[j] === '\n') || (k < t.length && t[k] === '\n')) continue;
+    out[i] = ' ';
+    if (i > 0 && t[i - 1] === '\r') out[i - 1] = ' ';
+  }
+  return out.join('');
+}

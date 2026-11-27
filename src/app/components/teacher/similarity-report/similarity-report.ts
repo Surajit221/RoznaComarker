@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy
 import { Router } from '@angular/router';
 import { SimilarityApiService, isReport, newSimilarityRequestId, similarityErrorOf, type SimilarityReport as Report, type SimilaritySource,
   type SimilarityView } from '../../../api/similarity-api.service';
-import { ERROR_TEXT, NOT_ELIGIBLE_TEXT, colorFor, externalNote, overallText, percentText } from '../../../utils/similarity-display';
+import { ERROR_TEXT, NOT_ELIGIBLE_TEXT, colorFor, externalNote, flowText, overallText, percentText } from '../../../utils/similarity-display';
 import { SimilarityText } from './similarity-text';
 
 const ACTIVE = ['queued', 'running', 'submitted'];
@@ -77,7 +77,7 @@ export class SimilarityReportPanel implements OnDestroy {
   /** The matched passages of a source, cut from the essay text (at most five). */
   passages(source: SimilaritySource): string[] {
     const text = this.report?.text ?? '';
-    return (source.spans ?? []).slice(0, 5).map(s => text.slice(s.start, s.end).replace(/\f/g, ' ').trim()).filter(Boolean);
+    return (source.spans ?? []).slice(0, 5).map(s => flowText(text.slice(s.start, s.end)).replace(/\f/g, ' ').trim()).filter(Boolean);
   }
 
   ngOnDestroy(): void { this.version++; this.stopPolling(); }
