@@ -43,6 +43,7 @@
             <span class="overall__value">{{ overall }}</span>&ngsp;
             <span class="overall__label">of the essay matches other text<br><small>{{ r.matchedWords }} of {{ r.totalWords }} words, each counted once</small></span>
           </div>
+          <p class="overall__note">Overall counts each word once; sources can overlap.</p>
 
           <div class="tabs" role="tablist" aria-label="Sources">
             <button type="button" role="tab" id="sim-tab-overview" [attr.aria-selected]="tab === 'overview'" aria-controls="sim-panel-overview"
@@ -54,18 +55,22 @@
           @if (tab === 'overview') {
           <div role="tabpanel" id="sim-panel-overview" aria-labelledby="sim-tab-overview">
             @if (!counted.length) { <p class="message message--good"><span aria-hidden="true">✓ </span>No matching text was found.</p> }
-            <ol class="sources">
-              @for (s of counted; track s.sourceId) {
+            <ol class="sources" id="sim-source-list">
+              @for (s of visibleCounted; track s.sourceId) {
                 <li>
                   <button type="button" class="source" [class.source--selected]="s.sourceId === selectedSourceId" [attr.aria-pressed]="s.sourceId === selectedSourceId"
                     (click)="select(s.sourceId)">
                     <span class="source__number" [style.background]="color(s.number)">{{ s.number }}</span>
-                    <span class="source__text"><b>{{ s.label }}</b>@if (s.title) {&ngsp;<span class="source__title">{{ s.title }}</span>}</span>
+                    <span class="source__text"><b>{{ s.label }}</b>@if (s.title) {&ngsp;<span class="source__title">{{ s.title }}</span>}@if (s.sameAs) {&ngsp;<span class="source__title">same text as source {{ s.sameAs }}</span>}</span>
                     <span class="source__pct">{{ percentText(s) }}</span>
                   </button>
                 </li>
               }
             </ol>
+            @if (counted.length > topCount) {
+              <button type="button" class="btn btn--link" [attr.aria-expanded]="showAllSources" aria-controls="sim-source-list" (click)="toggleShowAll()">
+                {{ showAllSources ? 'Show top ' + topCount : 'Show all (' + counted.length + ')' }}</button>
+            }
           </div>
           }
 
@@ -106,6 +111,8 @@
             <div class="detail" role="region" aria-label="Selected source">
               <h3><span class="source__number" [style.background]="color(s.number)">{{ s.number ?? '–' }}</span> {{ s.label }} <span class="source__pct">{{ percentText(s) }}</span></h3>
               @if (s.title) { <p class="detail__title">{{ s.title }}</p> }
+              @if (s.sameAs) { <p class="detail__title">same text as source {{ s.sameAs }}</p> }
+              @if (s.alsoIn?.length) { <p class="detail__title">{{ alsoInText(s) }}</p> }
               @if (s.url) { <p><a [href]="s.url" target="_blank" rel="noopener noreferrer">{{ s.url }}</a></p> }
               @if (s.viewUrl) { <p><a [href]="s.viewUrl" target="_blank" rel="noopener noreferrer">View the comparison</a></p> }
               @if (passages(s).length) {

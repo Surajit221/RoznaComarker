@@ -15,15 +15,20 @@ export interface SimilaritySpan { start: number; end: number; }
 export interface SimilarityOpenLink { studentId: string; classId: string; assignmentId: string; submissionId: string; }
 export interface SimilaritySource {
   sourceId: string;
-  /** 1, 2, 3 ... for sources that count; null when excluded, not compared, or every word belongs to a higher source. */
+  /** 1, 2, 3 ... (by own match, largest first) for sources that count; null when excluded or not compared. */
   number: number | null;
   kind: SimilaritySourceKind;
   label: string;
-  /** null while excluded or not compared. */
+  /** The source's OWN match: its matched words / the essay's words (sources may overlap); null while excluded or not compared. */
   percent: number | null;
+  /** Its own matched words. */
   words: number;
   excluded: boolean;
   compared: boolean;
+  /** The number of the source whose highlight shows this source's words, when it has no word of its own; else null. */
+  sameAs?: number | null;
+  /** The numbers of the other sources sharing at least one of its words. */
+  alsoIn?: number[];
   approxWords?: number;
   title?: string;
   url?: string;
