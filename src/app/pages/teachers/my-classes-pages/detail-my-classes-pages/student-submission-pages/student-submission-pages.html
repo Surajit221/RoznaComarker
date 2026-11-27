@@ -522,6 +522,8 @@
       [refreshKey]="(currentSubmission?.draftNumber || 1) + ':' + draftComparisonRefreshKey"></app-draft-comparison>
   }
   <app-adaptive-practice-progress class="teacher-submission-practice block w-full mb-8" [submissionId]="currentSubmission?._id || null"></app-adaptive-practice-progress>
+  <!-- Similarity (teacher only): hidden while the feature is off. -->
+  <app-similarity-report class="block w-full mb-8" [submissionId]="currentSubmission?._id || null" />
 
   <!-- Shared Modal Dialogs (outside desktop/mobile conditionals) -->
   <app-rubric-designer-modal [open]="showDialog" [rubricDesigner]="rubricDesignerForModal"
