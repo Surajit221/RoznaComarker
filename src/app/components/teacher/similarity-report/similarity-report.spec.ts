@@ -278,6 +278,72 @@ describe('SimilarityReportPanel', () => {
     toggle.click(); fixture.detectChanges();
     expect(qa('mark').length).toBe(0);
   }));
+
+  describe('own percentages with many overlapping sources (20 near-identical copies)', () => {
+    const many = () => report({ overallPercent: 92, matchedWords: 9, totalWords: 10, highlights: [{ start: 0, end: 10, sourceId: 's1' }],
+      sources: Array.from({ length: 20 }, (_, i) => src({ sourceId: `s${i + 1}`, number: i + 1, kind: 'internal', label: 'Another submission in Rubrilo',
+        percent: i === 0 ? 92 : 90, words: 9, sameAs: i === 0 ? null : 1, alsoIn: i === 0 ? Array.from({ length: 19 }, (_, k) => k + 2) : [1],
+        spans: [{ start: 0, end: 10 }] })) });
+    const rows = () => qa('ol.sources li');
+
+    it('shows each source\'s own percentage (never 0% for a source with words), "same text as source 1", and the overlap note', fakeAsync(() => {
+      load(many());
+      expect(text()).toContain('Overall counts each word once; sources can overlap.');
+      expect(rows()[0].textContent).toContain('92%');
+      expect(rows()[1].textContent).toContain('90%');
+      expect(rows()[1].textContent).toContain('same text as source 1');
+      expect(rows()[0].textContent).not.toContain('same text as');
+      expect(rows().some(r => /(^|\D)0%/.test(r.textContent || ''))).toBeFalse();
+    }));
+
+    it('top 5 by own percentage, then "Show all (20)" / "Show top 5", announced for screen readers', fakeAsync(() => {
+      load(many());
+      expect(rows().length).toBe(5);
+      expect(rows().map(r => r.querySelector('.source__number')!.textContent!.trim())).toEqual(['1', '2', '3', '4', '5']);
+      const more = button('Show all (20)')!;
+      expect(more.getAttribute('aria-expanded')).toBe('false');
+      more.click(); fixture.detectChanges();
+      expect(rows().length).toBe(20);
+      expect(live()).toBe('Showing all 20 sources.');
+      expect(button('Show top 5')!.getAttribute('aria-expanded')).toBe('true');
+      button('Show top 5')!.click(); fixture.detectChanges();
+      expect(rows().length).toBe(5);
+      expect(live()).toBe('Showing the top 5 of 20 sources.');
+    }));
+
+    it('five sources or fewer: no Show all control', fakeAsync(() => {
+      load(report());
+      expect(button('Show all')).toBeUndefined();
+    }));
+
+    it('the popup says which other sources share the passage; a source shown after Show all can be excluded', fakeAsync(() => {
+      load(many());
+      qa('ol.sources button')[0].click(); fixture.detectChanges();
+      expect(q('.detail')!.textContent).toContain('Also in sources 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20');
+      button('Show all (20)')!.click(); fixture.detectChanges();
+      qa('ol.sources button')[19].click(); fixture.detectChanges();
+      expect(q('.detail')!.textContent).toContain('Also in source 1');
+      expect(q('.detail')!.textContent).toContain('same text as source 1');
+      button('Exclude this source')!.click();
+      const patch = http.expectOne(`${API}/sources/s20`);
+      expect(patch.request.body).toEqual({ excluded: true, revision: 4, requestId: jasmine.stringMatching(/^sim_/) });
+      patch.flush({ success: true, data: many() });
+      flushMicrotasks(); fixture.detectChanges();
+    }));
+
+    it('All sources: Exclude selected works for every source, including those past the top 5', fakeAsync(() => {
+      load(many());
+      button('All sources')!.click(); fixture.detectChanges();
+      const boxes = qa('.all__row input[type=checkbox]') as HTMLInputElement[];
+      expect(boxes.length).toBe(20);
+      boxes[19].click(); fixture.detectChanges();
+      button('Exclude selected (1)')!.click();
+      const patch = http.expectOne(`${API}/sources/s20`);
+      patch.flush({ success: true, data: many() });
+      flushMicrotasks(); fixture.detectChanges();
+      expect(live()).toContain('1 source excluded.');
+    }));
+  });
 });
 
 describe('SimilarityText', () => {

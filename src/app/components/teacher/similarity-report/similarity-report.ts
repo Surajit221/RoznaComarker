@@ -47,6 +47,9 @@ export class SimilarityReportPanel implements OnDestroy {
   tab: 'overview' | 'all' = 'overview';
   selectedSourceId: string | null = null;
   checked = new Set<string>();
+  /** The overview lists the top sources (by own percentage); "Show all" lists every counted source. */
+  readonly topCount = 5;
+  showAllSources = false;
   showHighlights = true;
   /** The teacher ticked the permission confirmation (only offered when the server says it is needed); cleared after each check. */
   permissionConfirmed = false;
@@ -59,6 +62,17 @@ export class SimilarityReportPanel implements OnDestroy {
   get hasResult(): boolean { return Boolean(this.report && ['completed', 'expired', 'submitted'].includes(this.report.state)); }
   get active(): boolean { return Boolean(this.view && ACTIVE.includes(this.view.state)); }
   get counted(): SimilaritySource[] { return this.report?.sources.filter(s => s.number) ?? []; }
+  get visibleCounted(): SimilaritySource[] { return this.showAllSources ? this.counted : this.counted.slice(0, this.topCount); }
+  /** "Also in source 2" / "Also in sources 2, 3, 5": the other sources sharing this source's words. */
+  alsoInText(source: SimilaritySource): string {
+    const list = source.alsoIn ?? [];
+    return list.length ? `Also in ${list.length === 1 ? 'source' : 'sources'} ${list.join(', ')}` : '';
+  }
+  toggleShowAll(): void {
+    this.showAllSources = !this.showAllSources;
+    const total = this.counted.length;
+    this.announce(this.showAllSources ? `Showing all ${total} sources.` : `Showing the top ${this.topCount} of ${total} sources.`);
+  }
   get uncounted(): SimilaritySource[] { return this.report?.sources.filter(s => !s.number && !s.excluded && s.compared) ?? []; }
   get notCompared(): SimilaritySource[] { return this.report?.sources.filter(s => !s.excluded && !s.compared) ?? []; }
   get excluded(): SimilaritySource[] { return this.report?.sources.filter(s => s.excluded) ?? []; }
@@ -89,7 +103,7 @@ export class SimilarityReportPanel implements OnDestroy {
   private reset(): void {
     this.version++;
     this.stopPolling();
-    this.view = null; this.hidden = true; this.error = ''; this.announcement = ''; this.selectedSourceId = null; this.checked = new Set(); this.tab = 'overview';
+    this.view = null; this.hidden = true; this.error = ''; this.announcement = ''; this.selectedSourceId = null; this.checked = new Set(); this.tab = 'overview'; this.showAllSources = false;
   }
 
   /** Moves focus to the panel heading (the page calls it when the view opens). */
